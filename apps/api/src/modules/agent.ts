@@ -87,8 +87,10 @@ export const agentModule: ApiModule = {
       if (!message) throw new LykiaHttpError("INVALID_REQUEST", 400, "Send a message.");
       const environment = environmentOf(ctx, body.environment);
       const session = await sessionOf(ctx, req);
-      const realOwner = ((body.owner as string | undefined) ?? session?.address ?? null) as Address | null;
+      const named = ((body.owner as string | undefined) ?? session?.address ?? null) as Address | null;
       // Without a wallet Lyko still plans, as a clearly labelled dry run for a sample address.
+      // Clients that send the sample address themselves get the same treatment.
+      const realOwner = named && named.toLowerCase() === SAMPLE_OWNER.toLowerCase() ? null : named;
       const sample = realOwner === null;
       const owner = (realOwner ?? SAMPLE_OWNER) as Address;
       const baseFence = fenceFrom(body.fence) ?? (realOwner ? fenceForProfile(await getProfile(ctx, realOwner)) : DEFAULT_FENCE);
