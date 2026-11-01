@@ -33,6 +33,8 @@ import { openSse } from "../http/sse.js";
 import { evmAddress, parseBody, parseParams, parseQuery } from "../http/validate.js";
 import { agentServices } from "../agents/index.js";
 import { readSentence } from "../language/reader.js";
+import { fenceForProfile } from "@lykia/core";
+import { getProfile } from "../personal/profile.js";
 import { createAutomation, listAutomations, runAutomations, setAutomationEnabled } from "../agents/automations.js";
 import { runDeterministicTurn } from "../agents/deterministic.js";
 import { insightsFor } from "../agents/insights.js";
@@ -59,6 +61,9 @@ export async function authorizeOwner(ctx: AppContext, req: Request, owner: strin
   throw new LykiaHttpError(session ? "FORBIDDEN" : "UNAUTHORIZED", session ? 403 : 401, session ? "This session belongs to another address." : "Sign in as the owner (Lykia-Session) or use a secret API key with the agents scope.");
 }
 
+/** The address sample plans are made for when no wallet is connected; plans for it are always dry runs. */
+export const SAMPLE_OWNER = "0x000000000000000000000000000000000000dEaD";
+
 const BLOW_WHISTLE_ABI = [{ type: "function", name: "blowWhistle", stateMutability: "nonpayable", inputs: [], outputs: [] }] as const;
 
 export const agentModule: ApiModule = {
@@ -82,10 +87,14 @@ export const agentModule: ApiModule = {
       if (!message) throw new LykiaHttpError("INVALID_REQUEST", 400, "Send a message.");
       const environment = environmentOf(ctx, body.environment);
       const session = await sessionOf(ctx, req);
-      const owner = ((body.owner as string | undefined) ?? session?.address ?? null) as Address | null;
-      const fence = fenceFrom(body.fence) ?? DEFAULT_FENCE;
-      const pack = owner ? (await s().pack.ownedBy(owner, environment)).filter((a) => a.status === "active") : [];
-      const thread = await openThread(ctx, owner, environment, body.threadId, message);
+      const realOwner = ((body.owner as string | undefined) ?? session?.address ?? null) as Address | null;
+      // Without a wallet Lyko still plans, as a clearly labelled dry run for a sample address.
+      const sample = realOwner === null;
+      const owner = (realOwner ?? SAMPLE_OWNER) as Address;
+      const baseFence = fenceFrom(body.fence) ?? (realOwner ? fenceForProfile(await getProfile(ctx, realOwner)) : DEFAULT_FENCE);
+      const fence = sample ? { ...baseFence, mode: "dry-run" as const } : baseFence;
+      const pack = realOwner ? (await s().pack.ownedBy(realOwner, environment)).filter((a) => a.status === "active") : [];
+      const thread = await openThread(ctx, realOwner, environment, body.threadId, message);
       const history = thread.messages.length > 0 ? thread.messages.map((m) => ({ role: m.role, text: m.text })) : (body.messages ?? []).slice(0, -1).map((m) => ({ role: m.role, text: m.content }));
       const client = (await flags(ctx))["agents.llm"] ? s().llm() : null;
 
@@ -98,7 +107,8 @@ export const agentModule: ApiModule = {
         events.push({ event, data });
         stream?.send(event, data);
       };
-      emit("thread", { threadId: thread.id, mode: client ? "llm" : "reader" });
+      emit("thread", { threadId: thread.id, mode: client ? "llm" : "reader", ...(sample ? { sample: true } : {}) });
+      if (sample) emit("notice", { kind: "sample", text: /[çğışöü]/iu.test(message) ? `Cüzdan bağlı değil: bu bir örnek adres (${SAMPLE_OWNER}) için deneme planı. Gerçek plan için cüzdanını bağla.` : `No wallet connected: this is a dry-run plan for a sample address (${SAMPLE_OWNER}). Connect a wallet to plan for real.` });
       let text = "";
       let proposals: readonly unknown[] = [];
       let stopReason: string;
@@ -121,6 +131,7 @@ export const agentModule: ApiModule = {
         ctx.log.warn("agent turn failed", { code: failure.code, error: error instanceof Error ? error.message.slice(0, 200) : String(error) });
         emit("error", failure);
       }
+      if (sample && text) text = `${/[çğışöü]/iu.test(message) ? "Örnek plan (cüzdan bağlı değil, deneme):" : "Sample plan (no wallet connected, dry run):"} ${text}`;
       await appendMessages(ctx, thread, [
         { role: "user", text: message },
         { role: "assistant", text: text || "(no answer)", proposals: proposals as never },

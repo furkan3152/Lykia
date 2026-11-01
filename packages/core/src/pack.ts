@@ -150,7 +150,7 @@ export const ROLE_TEMPLATES: Readonly<Record<Exclude<PackRole, "custom">, RoleTe
     capabilities: ["read", "propose"],
     fence: base("Yield keeper", {
       mode: "live",
-      kinds: { allow: ["approve", "deposit", "withdraw"] },
+      kinds: { allow: ["approve", "deposit", "withdraw", "supply"] },
       tokens: { allow: ["USDC", "EURC"], unlisted: "deny" },
       recipients: { mode: "own" },
       caps: { perStepUsd: "10000", perIntentUsd: "20000", dailyUsd: "50000" },

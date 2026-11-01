@@ -324,7 +324,7 @@ export const FENCE_TEMPLATES: Readonly<Record<FenceTemplateKey, Fence>> = frozen
     schema: FENCE_SCHEMA,
     label: "Treasury",
     mode: "live",
-    kinds: { allow: ["approve", "transfer", "fx", "deposit", "withdraw", "bridge", "gateway-deposit", "attest"] },
+    kinds: { allow: ["approve", "transfer", "fx", "deposit", "withdraw", "supply", "bridge", "gateway-deposit", "attest"] },
     tokens: { allow: ["USDC", "EURC"], unlisted: "deny" },
     recipients: { mode: "allowlist", allow: [] },
     caps: { perStepUsd: "25000", perIntentUsd: "50000", dailyUsd: "100000" },

@@ -18,7 +18,14 @@ import { LykiaHttpError } from "../http/errors.js";
 import type { ApiModule } from "../http/router.js";
 import { openSse } from "../http/sse.js";
 import { evmAddress, parseBody, parseParams, txHash } from "../http/validate.js";
-import { readSentence } from "../language/reader.js";
+import { fenceForProfile } from "@lykia/core";
+import { memoryService } from "../personal/memory.js";
+import { screenAddress } from "../circle/compliance.js";
+import { deviationBps, pythPrices } from "../oracles/pyth.js";
+
+const ORACLE_GAP_BPS = 50;
+import { getProfile } from "../personal/profile.js";
+import { readWithMemory } from "../personal/reader.js";
 import { services } from "../services.js";
 import { actionsFrom, environmentOf, environmentSchema, fenceFrom } from "./common.js";
 
@@ -50,31 +57,67 @@ export const intentsModule: ApiModule = {
       const body = parseBody(req, createSchema);
       let actions;
       let source: string;
+      let lang: "en" | "tr" = "en";
+      let memoryNote: unknown;
+      let confirmContacts: readonly { name: string; address: string }[] = [];
+      const owner = body.owner as Address;
+      const profile = await getProfile(ctx, owner);
       if (body.text !== undefined) {
-        const parsed = readSentence(body.text);
+        const parsed = await readWithMemory(ctx, owner, body.text);
         if (parsed.clarify.length > 0) throw new LykiaHttpError("NOT_UNDERSTOOD", 422, parsed.clarify.join(" "), { clarify: parsed.clarify, clarifyChoices: parsed.clarifyChoices ?? [], lang: parsed.lang });
         if ((parsed.standing ?? []).length > 0) throw new LykiaHttpError("NOT_UNDERSTOOD", 422, parsed.lang === "tr" ? "Bu bir bekleyen emir: kurmak için POST /v1/standing." : "That is a standing order: arm it with POST /v1/standing.", { standing: parsed.standing, lang: parsed.lang });
         if (parsed.actions.length === 0) throw new LykiaHttpError("NOT_UNDERSTOOD", 422, parsed.reply, { lang: parsed.lang });
         actions = parsed.actions;
         source = body.text;
+        lang = parsed.lang;
+        memoryNote = parsed.memory;
+        confirmContacts = parsed.confirmContacts;
       } else {
         actions = actionsFrom(body.actions);
         source = JSON.stringify(actions).slice(0, 500);
       }
-      const fence = fenceFrom(body.fence);
+      // The request's Fence wins; without one the owner's profile shapes the default. A profile never loosens a Fence.
+      let fence = fenceFrom(body.fence) ?? fenceForProfile(profile);
+      if (confirmContacts.length > 0) fence = { ...fence, confirm: { ...fence.confirm, when: [...new Set([...(fence.confirm?.when ?? []), "external-recipient" as const])] } };
+      const environment = body.environment ? environmentOf(ctx, body.environment) : profile.updatedAt ? profile.defaultNetwork : environmentOf(ctx, undefined);
+      const notes: string[] = [];
+      // Circle Compliance Engine (when configured): a DENIED recipient joins the Fence's deny list, so the Fence refuses it with a reason.
+      const apiKey = ctx.config.circle.apiKey;
+      if (apiKey) {
+        const recipients = [...new Set(actions.flatMap((a) => (a.verb === "send" && a.to.toLowerCase() !== owner.toLowerCase() ? [a.to] : [])))];
+        for (const address of recipients) {
+          const screened = await screenAddress(ctx.fetch, apiKey, environment, address, ctx.clock.now()).catch(() => null);
+          if (screened?.result === "DENIED") {
+            fence = { ...fence, recipients: { ...fence.recipients, deny: [...(fence.recipients?.deny ?? []), address as Address] } };
+            notes.push(lang === "tr" ? `${address} Circle Compliance taramasında reddedildi${screened.ruleName ? ` (${screened.ruleName})` : ""}.` : `${address} was denied by Circle Compliance screening${screened.ruleName ? ` (${screened.ruleName})` : ""}.`);
+          }
+        }
+      }
+      // A second oracle opinion on conversions: Chainlink vs Pyth.
+      if (actions.some((a) => a.verb === "fx" || a.verb === "swap" || a.verb === "rebalance")) {
+        const [cl, py] = await Promise.all([services(ctx).prices.prices(["EURC", "cirBTC"]), pythPrices(ctx.chains, ["EURC", "cirBTC"], ctx.clock.now())]);
+        for (const s of ["EURC", "cirBTC"]) {
+          const gap = deviationBps(cl[s]?.usd ?? null, py[s]?.price ?? null);
+          if (gap !== null && gap > ORACLE_GAP_BPS) notes.push(lang === "tr" ? `${s} fiyatında Chainlink ile Pyth arasında ${gap} bps fark var; dönüşüm fiyatını kontrol et.` : `Chainlink and Pyth disagree on ${s} by ${gap} bps; check the conversion price.`);
+        }
+      }
       const result = await services(ctx).intents.create({
-        environment: environmentOf(ctx, body.environment),
-        owner: body.owner as Address,
+        environment,
+        owner,
         actions,
         source,
-        ...(fence ? { fence } : {}),
+        fence,
         ...(body.signer ? { signer: body.signer } : {}),
         ...(body.agent ? { agent: { address: body.agent.address as Address, ...(body.agent.agentId ? { agentId: body.agent.agentId } : {}) } } : {}),
         ...(body.account ? { account: body.account } : {}),
         ...(body.dryRun ? { dryRun: true } : {}),
         ...(body.proposedByAgent ? { proposedByAgent: true } : {}),
+        preferences: { favorites: profile.venues.favorites, blocked: profile.venues.blocked, maxRisk: profile.risk },
       });
-      res.status(result.stored ? 201 : 200).json(result);
+      if (result.stored) await memoryService(ctx).record(owner, result.intent, { source, lang, actions }).catch(() => null);
+      const contactNotes = confirmContacts.map((c) => (lang === "tr" ? `${c.name} (${c.address}) hafızadan geldi ve henüz onaylanmış bir gönderimi yok: ilk ödemeyi sen onayla.` : `${c.name} (${c.address}) comes from memory and has no confirmed send yet: confirm the first payment yourself.`));
+      const extra = { ...(memoryNote ? { memory: memoryNote } : {}), ...(confirmContacts.length > 0 ? { confirmContacts } : {}), ...(notes.length + contactNotes.length > 0 ? { notes: [...notes, ...contactNotes] } : {}) };
+      res.status(result.stored ? 201 : 200).json({ ...result, ...extra });
     });
 
     router.get("/intents/:id", async (req, res) => {

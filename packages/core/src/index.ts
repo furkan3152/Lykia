@@ -21,3 +21,5 @@ export * from "./routes.js";
 export * from "./allocation.js";
 export * from "./standing.js";
 export * as lykiaContracts from "./contracts/index.js";
+export * from "./profile.js";
+export * from "./memory.js";

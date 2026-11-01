@@ -36,7 +36,10 @@ All variables are optional; see [`.env.example`](./.env.example).
 | `LYKIA_AGENT_MAX_STEPS`, `LYKIA_AGENT_MAX_TOKENS` | `6`, `4096` | model rounds per agent per turn, output tokens per call |
 | `LYKIA_SESSION_SECRET` | (none) | 32+ characters; signs sessions and derives the keys that hash API keys and seal webhook secrets. Development uses a per-process secret when it is unset; production refuses sign-in without it |
 | `LYKIA_SIWE_DOMAINS`, `LYKIA_ADMIN_ADDRESSES` | (none) | extra sign-in domains (host[:port]); addresses with the admin role |
-| `STABLEFX_API_KEY` | (none) | Circle StableFX credentials (see "What is live") |
+| `CIRCLE_API_KEY` | (none) | Circle platform key: Compliance Engine screening, developer-controlled wallets, StableFX (when the key has access) |
+| `CIRCLE_ENTITY_SECRET`, `CIRCLE_WALLET_SET_ID` | (none) | entity secret (32 bytes hex, registered with Circle) for developer-controlled wallets; an existing wallet set to reuse |
+| `STABLEFX_API_KEY` | (none) | a separate StableFX key, if StableFX access sits on its own key |
+| `TELEGRAM_BOT_TOKEN` | (none) | lets profiles name a Telegram chat for notifications |
 | `LYKIA_X402_PAY_TO`, `LYKIA_X402_PRICE_USDC`, `LYKIA_X402_FACILITATOR_URL` | (none), `0.01`, (none) | x402 paid routes; off unless `PAY_TO` is set; settlement only with a facilitator |
 | `LYKIA_RATE_LIMIT_DEFAULT`, `_HEAVY`, `_AUTH` | `600`, `60`, `20` | requests per minute per IP |
 
@@ -189,6 +192,36 @@ Webhook details:
 - Failed deliveries are retried after 30 s, 2 min, 10 min, 1 h and 6 h.
 - Endpoints must resolve to public addresses.
 - Endpoint secrets are encrypted at rest with a key derived from `LYKIA_SESSION_SECRET`.
+
+### Profile, memory and contacts
+
+All of these act for the signed-in owner (`Lykia-Session`); nothing here moves value. See [docs/memory.md](../../docs/memory.md).
+
+| route | answer |
+|---|---|
+| `GET /v1/profile`, `PUT /v1/profile`, `DELETE /v1/profile` | the owner's profile (`lykia.profile/v1`) plus the web app's flat fields and plain-words effects; `PUT` takes a partial core profile or the web's flat document |
+| `GET /v1/memory` | learned preferences (as deletable rows and structured), recurring patterns offered as standing orders, contacts, recent intents and the data-only summary Lyko's model sees |
+| `GET /v1/memory/intents`, `GET /v1/memory/export` | remembered plans with what actually moved; everything as JSON |
+| `DELETE /v1/memory/:id`, `POST /v1/memory/forget` | forget one intent, contact or preference; forget intents, contacts or everything |
+| `GET/POST /v1/contacts`, `PUT/DELETE /v1/contacts/:id` | the address book; changing a contact's address resets its trust |
+
+Memory resolves "again / tekrar yap", "same as last week / geçen haftaki gibi", "undo the last swap / son swap'ı geri al" (a fresh plan of the inverse), "more than last time" (asks how much), "pay Ahmet 200 EURC / Ahmet'e 200 EURC gönder" and "my usual vault / her zamanki kasam" in `/v1/language/parse`, `/v1/intents` and the agent. A learned contact without a confirmed send makes the plan ask for confirmation. Profiles shape the default Fence (risk, slippage, confirmation style, blocked venues), the routing ceiling and favourites (they win near-ties), Lyko's persona, display currency and the default network.
+
+### Circle
+
+See [docs/circle.md](../../docs/circle.md). `GET /v1/circle/status` lists every product as live, configured, needs a key or not on Arc.
+
+| route | answer |
+|---|---|
+| `GET /v1/circle/services` | x402 services from Circle's Agent Marketplace that take USDC on Arc (public, keyless) |
+| `GET /v1/circle/cctp/fees`, `POST /v1/circle/cctp/forward` | live CCTP fees; approve + `depositForBurnWithHook` with Circle's Forwarding Service |
+| `POST /v1/circle/gateway/transfer` (+ `/attest`), `POST /v1/circle/gateway/transfer/draft`, `GET /v1/circle/gateway/balance` | Gateway transfers out of the unified balance: burn intent to sign, attestation, unsigned `gatewayMint` on the destination; the unified balance per chain |
+| `POST /v1/circle/x402/prepare`, `POST /v1/circle/x402/pay` | pay an x402 service from Arc: the price and payee are judged by the Fence, the owner or agent signs EIP-3009, Lykia relays the paid request |
+| `POST /v1/circle/screen`, `GET /v1/circle/compliance/:address` | Compliance Engine screening (`CIRCLE_API_KEY`); plans also screen external recipients and a DENIED one joins the Fence's deny list |
+| `POST /v1/circle/stablefx/quote`, `/trade`, `GET /v1/circle/stablefx/trades/:id` | StableFX RFQ taker flow (Circle StableFX access) |
+| `POST /v1/circle/agent-wallets` (alias `/v1/circle/wallets/agent`), `GET /v1/circle/wallets/:id/balances` | an SCA agent wallet on Arc for a Pack agent (`CIRCLE_API_KEY` + `CIRCLE_ENTITY_SECRET`) |
+| `GET /v1/oracles` | Chainlink against Pyth (read on chain on Arc), and display rates |
+| `GET /v1/jobs/:id`, `POST /v1/jobs/draft`, `/:id/fund`, `/:id/complete`, `/:id/reject`, `/:id/refund` | ERC-8183 agent jobs on Arc testnet: unsigned escrow calls |
 
 ### x402
 

@@ -44,6 +44,22 @@ export type RoutedAdapter =
   | "morpho-borrow"
   | "practice-borrow";
 
+/** Owner venue preferences (from the profile). */
+export interface VenuePrefs {
+  readonly favorites?: readonly string[];
+  readonly blocked?: readonly string[];
+  readonly maxRisk?: RiskTier;
+}
+
+/** Favourites win when within this many bps of the best output, or this many APY points of the best yield. */
+export const FAVORITE_SWAP_BPS = 5;
+export const FAVORITE_APY_POINTS = 0.5;
+
+function allowed<T extends { option: { venue: string } }>(list: readonly T[], prefs?: VenuePrefs): T[] {
+  const blocked = prefs?.blocked ?? [];
+  return list.filter((c) => !blocked.includes(c.option.venue));
+}
+
 export interface Candidate {
   readonly option: VenueOption;
   readonly adapter: RoutedAdapter;
@@ -149,7 +165,8 @@ export class VenueRouter {
     return out;
   }
 
-  chooseEarn(candidates: readonly Candidate[], maxRisk: RiskTier = "medium", venue?: string): { candidate: Candidate; route: RouteChoice } | null {
+  chooseEarn(all: readonly Candidate[], maxRisk: RiskTier = "medium", venue?: string, prefs?: VenuePrefs): { candidate: Candidate; route: RouteChoice } | null {
+    const candidates = allowed(all, prefs);
     let pool = candidates;
     if (venue) {
       const [id, name] = venue.split(":");
@@ -158,8 +175,14 @@ export class VenueRouter {
     }
     const route = chooseYield(pool.map((c) => c.option), maxRisk);
     if (!route) return null;
-    const candidate = pool.find((c) => c.option === route.chosen) as Candidate;
-    return { candidate, route: { ...route, alternatives: candidates.filter((c) => c !== candidate).map((c) => c.option) } };
+    let candidate = pool.find((c) => c.option === route.chosen) as Candidate;
+    let reason = route.reason;
+    const fav = !venue && prefs?.favorites?.length ? pool.find((c) => c !== candidate && prefs.favorites!.includes(c.option.venue) && c.option.executable !== false && c.option.apy !== null && c.option.apy !== undefined && route.chosen.apy !== null && route.chosen.apy !== undefined && Number(route.chosen.apy) - Number(c.option.apy) <= FAVORITE_APY_POINTS) : undefined;
+    if (fav && !prefs!.favorites!.includes(candidate.option.venue)) {
+      reason = `${fav.option.label} is one of your favourites and within ${FAVORITE_APY_POINTS} APY points of ${candidate.option.label}; your favourite wins the tie.`;
+      candidate = fav;
+    }
+    return { candidate, route: { ...route, chosen: candidate.option, reason, alternatives: all.filter((c) => c !== candidate).map((c) => c.option) } };
   }
 
   /* --------------------------------------------------------------- swap */
@@ -257,11 +280,19 @@ export class VenueRouter {
    * in different pools, half/half is re-quoted and taken if it beats the
    * single route by SPLIT_MIN_GAIN_BPS after gas.
    */
-  async bestSwap(environment: ArcEnvironment, fromSymbol: string, toSymbol: string, amountIn: bigint): Promise<{ legs: { candidate: SwapCandidate; amountIn: bigint }[]; route: RouteChoice } | null> {
-    const { candidates, readOnly } = await this.swap(environment, fromSymbol, toSymbol, amountIn);
+  async bestSwap(environment: ArcEnvironment, fromSymbol: string, toSymbol: string, amountIn: bigint, prefs?: VenuePrefs): Promise<{ legs: { candidate: SwapCandidate; amountIn: bigint }[]; route: RouteChoice } | null> {
+    const quoted = await this.swap(environment, fromSymbol, toSymbol, amountIn);
+    const candidates = allowed(quoted.candidates, prefs);
+    const readOnly = quoted.readOnly.filter((o) => !(prefs?.blocked ?? []).includes(o.venue));
     const route = chooseSwap([...candidates.map((c) => c.option), ...readOnly]);
     if (!route) return null;
     const best = candidates.find((c) => c.option === route.chosen) as SwapCandidate;
+    if (best && prefs?.favorites?.length && !prefs.favorites.includes(best.option.venue)) {
+      const fav = candidates.filter((c) => prefs.favorites!.includes(c.option.venue)).sort((a, b) => (b.netOut > a.netOut ? 1 : -1))[0];
+      if (fav && best.netOut > 0n && (best.netOut - fav.netOut) * 10_000n <= best.netOut * BigInt(FAVORITE_SWAP_BPS)) {
+        return { legs: [{ candidate: fav, amountIn }], route: { ...route, chosen: fav.option, reason: `${fav.option.label} is one of your favourites and within ${FAVORITE_SWAP_BPS} bps of ${best.option.label}; your favourite wins the tie.` } };
+      }
+    }
     const second = candidates.filter((c) => c !== best && c.adapter !== "swap-path" && !(c.adapter === best.adapter && c.params.fee === best.params.fee)).sort((a, b) => (b.netOut > a.netOut ? 1 : -1))[0];
     if (second && amountIn >= 2n) {
       const half = amountIn / 2n;
@@ -380,7 +411,8 @@ export class VenueRouter {
     return out;
   }
 
-  chooseBorrow(candidates: readonly BorrowCandidate[], minHealth: string, venue?: string): { candidate: BorrowCandidate; route: RouteChoice } | null {
+  chooseBorrow(all: readonly BorrowCandidate[], minHealth: string, venue?: string, prefs?: VenuePrefs): { candidate: BorrowCandidate; route: RouteChoice } | null {
+    const candidates = allowed(all, prefs);
     const pool = venue ? candidates.filter((c) => c.option.venue === venue.split(":")[0]) : candidates;
     const route = chooseBorrow((pool.length > 0 ? pool : candidates).map((c) => c.option), minHealth);
     if (!route) return null;

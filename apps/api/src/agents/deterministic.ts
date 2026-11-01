@@ -10,7 +10,7 @@
 import { LYKO_LINES, type Address, type ArcEnvironment, type Fence, type PackAgent, type PlanAction } from "@lykia/core";
 import type { AgentProposal } from "@lykia/core/api/agents";
 import type { AppContext } from "../context.js";
-import { readSentence } from "../language/reader.js";
+import { readWithMemory } from "../personal/reader.js";
 import { planActions } from "./engine.js";
 import { mergeProposals, specialistFor, type Emit, type SpecialistRole, type TurnResult } from "./orchestrator.js";
 
@@ -45,7 +45,7 @@ export interface DeterministicInput {
 
 export async function runDeterministicTurn(input: DeterministicInput): Promise<TurnResult & { readonly lang: "en" | "tr" }> {
   const { emit } = input;
-  const parsed = readSentence(input.message);
+  const parsed = await readWithMemory(input.ctx, input.owner, input.message);
   const done = (text: string, proposals: AgentProposal[], stopReason: TurnResult["stopReason"] = "end_turn") => {
     for (const p of proposals) emit("proposal", p);
     emit("text", { text });

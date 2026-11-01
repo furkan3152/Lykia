@@ -7,7 +7,8 @@
 import type { Address, ArcEnvironment, Fence, PlanAction } from "@lykia/core";
 import type { CreateIntentResponse } from "@lykia/core/api/intents";
 import type { AppContext } from "../context.js";
-import { readSentence } from "../language/reader.js";
+import { readWithMemory } from "../personal/reader.js";
+import { getProfile } from "../personal/profile.js";
 import { services } from "../services.js";
 
 export interface PlanRequest {
@@ -25,7 +26,7 @@ export type PlanOutcome =
   | { readonly kind: "refused"; readonly message: string };
 
 export async function planSentence(ctx: AppContext, sentence: string, request: PlanRequest): Promise<PlanOutcome> {
-  const parsed = readSentence(sentence);
+  const parsed = await readWithMemory(ctx, request.owner, sentence);
   if (parsed.clarify.length > 0 || parsed.actions.length === 0) return { kind: "clarify", questions: parsed.clarify.length > 0 ? parsed.clarify : [parsed.reply], reply: parsed.reply };
   return planActions(ctx, parsed.actions, sentence, request);
 }
@@ -62,6 +63,7 @@ export async function planActions(ctx: AppContext, rawActions: readonly PlanActi
       ...(request.agent ? { agent: request.agent } : {}),
       ...(request.fence.mode === "dry-run" ? { dryRun: true } : {}),
       ...(request.proposedByAgent ? { proposedByAgent: true } : {}),
+      preferences: await getProfile(ctx, request.owner).then((p) => ({ favorites: p.venues.favorites, blocked: p.venues.blocked, maxRisk: p.risk })).catch(() => ({})),
     });
     return { kind: "planned", result, actions };
   } catch (error) {

@@ -24,6 +24,13 @@ export interface ParseResponse {
    * intent when they fire and never sign.
    */
   readonly standing?: readonly StandingOrderDraft[];
+  /** How memory shaped the reading: a repeated or undone plan, contacts resolved, a usual venue. */
+  readonly memory?: {
+    readonly kind: "repeat" | "undo" | "contacts" | "usual-venue" | "more-than-last";
+    readonly explanation: string;
+    readonly from?: string;
+    readonly contacts?: readonly { readonly name: string; readonly address: string; readonly trusted: boolean }[];
+  };
   /** One line in Lyko's voice. */
   readonly reply: string;
   readonly lang: "en" | "tr";

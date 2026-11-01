@@ -13,7 +13,10 @@ import type { CreateIntentResponse, PrepareStepResponse, SubmitStepResponse, Ven
 import type { ParseResponse } from "@lykia/core/api/language";
 import type { ApiKeyView, CreatedApiKey, SessionView, SiweNonceResponse, WebhookEndpointView, WebhookEvent } from "@lykia/core/api/platform";
 import type { ScentReport } from "@lykia/core/api/scent";
-import type { IntentGraph, Outrun, PackRole } from "@lykia/core";
+import type { Contact, IntentGraph, LykiaProfile, Outrun, PackRole } from "@lykia/core";
+import type { CircleStatusResponse, GatewayTransferDraft, GatewayTransferResult, X402DiscoveryResponse } from "@lykia/core/api/circle";
+import type { ContactsResponse, MemoryExport, MemoryIntentsResponse, MemoryView } from "@lykia/core/api/memory";
+import type { ProfileResponse } from "@lykia/core/api/profile";
 import { errorFrom, LykiaError } from "./errors.js";
 import { readSse, type SseMessage } from "./sse.js";
 
@@ -86,7 +89,7 @@ export class Lykia {
     return environment ?? this.environment;
   }
 
-  async request<T>(method: "GET" | "POST" | "PUT", path: string, body?: unknown, options: RequestOptions = {}): Promise<T> {
+  async request<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown, options: RequestOptions = {}): Promise<T> {
     const idempotencyKey = method === "GET" ? undefined : (options.idempotencyKey ?? randomKey());
     let attempt = 0;
     for (;;) {
@@ -188,6 +191,46 @@ export class Lykia {
     budget: (id: string) => this.request<PackAgentView["budget"]>("GET", `/v1/pack/${encodeURIComponent(id)}/budget`),
     sessionTx: (id: string, input: { account: Address; key?: Address; validDays?: number; maxCalls?: number }) => this.request<SessionTxResponse & { transaction: UnsignedTransaction }>("POST", `/v1/pack/${encodeURIComponent(id)}/session-tx`, input),
     bindSession: (id: string, input: { account: Address; sessionId: `0x${string}`; txHash?: `0x${string}` }) => this.request<PackAgentView>("POST", `/v1/pack/${encodeURIComponent(id)}/session`, input),
+  };
+
+  /* ------------------------------------------- profile, memory, contacts (need a session) */
+
+  readonly profile = {
+    get: () => this.request<ProfileResponse>("GET", "/v1/profile"),
+    /** Partial update; validated and versioned by the API. A profile only ever tightens a Fence. */
+    update: (patch: Partial<Omit<LykiaProfile, "schema" | "version" | "updatedAt">> & Record<string, unknown>) => this.request<ProfileResponse>("PUT", "/v1/profile", patch),
+    reset: () => this.request<ProfileResponse>("DELETE", "/v1/profile"),
+  };
+
+  readonly memory = {
+    view: () => this.request<MemoryView>("GET", "/v1/memory"),
+    intents: (limit?: number) => this.request<MemoryIntentsResponse>("GET", `/v1/memory/intents${q({ limit: limit === undefined ? undefined : String(limit) })}`),
+    export: () => this.request<MemoryExport>("GET", "/v1/memory/export"),
+    forget: (what: "intents" | "contacts" | "all" = "all") => this.request<{ forgotten: { intents: number; contacts: number } }>("POST", "/v1/memory/forget", { what }),
+    forgetItem: (id: string) => this.request<{ forgotten: string }>("DELETE", `/v1/memory/${encodeURIComponent(id)}`),
+  };
+
+  readonly contacts = {
+    list: () => this.request<ContactsResponse>("GET", "/v1/contacts"),
+    add: (input: { name: string; address: Address; aliases?: string[]; note?: string }) => this.request<{ contact: Contact }>("POST", "/v1/contacts", input),
+    update: (id: string, input: { name: string; address: Address; aliases?: string[]; note?: string }) => this.request<{ contact: Contact }>("PUT", `/v1/contacts/${encodeURIComponent(id)}`, input),
+    remove: (id: string) => this.request<{ deleted: string }>("DELETE", `/v1/contacts/${encodeURIComponent(id)}`),
+  };
+
+  /* ------------------------------------------------------------ Circle */
+
+  readonly circle = {
+    status: () => this.request<CircleStatusResponse>("GET", "/v1/circle/status"),
+    services: (input: { query?: string; category?: string; maxUsdPrice?: number; environment?: ArcEnvironment } = {}) =>
+      this.request<X402DiscoveryResponse>("GET", `/v1/circle/services${q({ query: input.query, category: input.category, maxUsdPrice: input.maxUsdPrice === undefined ? undefined : String(input.maxUsdPrice), environment: this.env(input.environment) })}`),
+    cctpFees: (destination: string, forward = false, environment?: ArcEnvironment) => this.request<unknown>("GET", `/v1/circle/cctp/fees${q({ destination, forward: forward ? "true" : undefined, environment: this.env(environment) })}`),
+    cctpForward: (input: { owner: Address; destination: string; amount: string; recipient?: Address; fast?: boolean; environment?: ArcEnvironment }) => this.request<{ transactions: UnsignedTransaction[]; maxFee: string; burn: string }>("POST", "/v1/circle/cctp/forward", { ...input, environment: this.env(input.environment) }),
+    gatewayDraft: (input: { owner: Address; destination: string; amount: string; recipient?: Address; environment?: ArcEnvironment }) => this.request<GatewayTransferDraft>("POST", "/v1/circle/gateway/transfer/draft", { ...input, environment: this.env(input.environment) }),
+    gatewayTransfer: (input: { destination: string; burnIntents: readonly unknown[]; signatures: readonly `0x${string}`[]; environment?: ArcEnvironment }) => this.request<GatewayTransferResult>("POST", "/v1/circle/gateway/transfer", { ...input, environment: this.env(input.environment) }),
+    /** Reads a service's 402, checks the price and payee against the Fence and returns EIP-3009 typed data to sign. */
+    x402Prepare: (input: { resource: string; owner: Address; method?: "GET" | "POST"; signer?: "wallet" | "agent"; fence?: Fence; environment?: ArcEnvironment }) => this.request<{ paymentId: string | null; priceUsdc: string; verdict: FenceVerdict; typedData: unknown }>("POST", "/v1/circle/x402/prepare", { ...input, environment: this.env(input.environment) }),
+    x402Pay: (paymentId: string, signature: `0x${string}`, body?: string) => this.request<{ paid: boolean; status: number; settlement: unknown; body: string }>("POST", "/v1/circle/x402/pay", { paymentId, signature, ...(body ? { body } : {}) }),
+    screen: (address: Address, environment?: ArcEnvironment) => this.request<unknown>("POST", "/v1/circle/screen", { address, environment: this.env(environment) }),
   };
 
   /* ------------------------------------------------------ auth + devs */

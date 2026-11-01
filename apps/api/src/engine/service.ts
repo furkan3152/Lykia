@@ -26,6 +26,7 @@ import {
   type UnsignedTransaction,
 } from "@lykia/core";
 import type { CreateIntentResponse, PrepareStepResponse, SubmitStepResponse } from "@lykia/core/api/intents";
+import type { VenuePrefs } from "./router.js";
 import type { EventBus } from "../bus.js";
 import type { ArcChains } from "../chains/arc.js";
 import type { Clock } from "../clock.js";
@@ -64,6 +65,8 @@ export interface CreateInput {
   readonly account?: "eoa" | "smart";
   readonly dryRun?: boolean;
   readonly proposedByAgent?: boolean;
+  /** Owner venue preferences: favourites win near-ties, blocked venues are never chosen. */
+  readonly preferences?: VenuePrefs;
 }
 
 export const INTENT_TTL_MS = 30 * 24 * 3600_000;
@@ -153,6 +156,7 @@ export class IntentService {
       now,
       spent: await this.spent(input.environment, input.owner),
       ...(input.proposedByAgent ? { proposedByAgent: true } : {}),
+      ...(input.preferences ? { preferences: input.preferences } : {}),
     });
     const stored: StoredIntent = { ...result, account: input.account ?? "eoa", confirmed: false };
     if (!input.dryRun) await this.intents().put(result.graph.id, stored as unknown as JsonValue, { ttlMs: INTENT_TTL_MS });

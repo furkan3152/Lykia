@@ -44,7 +44,7 @@ import { systemClock } from "../clock.js";
 import { ERC4626_ABI, morphoVaults } from "../flock/flock.js";
 import { ADAPTER_VENUE, cctpFeeBps, noRoute, stepKindOf, type AdapterId, type StepPlan } from "./adapters.js";
 import { PRACTICE_LENDING_ABI } from "./abis.js";
-import { VenueRouter, type Candidate } from "./router.js";
+import { VenueRouter, type Candidate, type VenuePrefs } from "./router.js";
 import { aavePositions, aaveSpokes, projectAaveHealth, readAaveAccount, wadToRatio } from "./venues/aave.js";
 import { morphoPositions } from "./venues/morphoBlue.js";
 import { practiceVenues } from "./venues/practice.js";
@@ -78,6 +78,7 @@ export interface PlanInput {
   readonly proposedByAgent?: boolean;
   /** Dry runs plan past a short balance (with a warning) so a route can be previewed before funding. */
   readonly dryRun?: boolean;
+  readonly preferences?: VenuePrefs;
 }
 
 export interface PlanResult {
@@ -111,6 +112,7 @@ interface Ledger {
   readonly reserved: Map<string, bigint>;
   readonly prices: Record<string, { usd: string | null }>;
   readonly warnings: string[];
+  readonly prefs?: VenuePrefs;
 }
 
 /** Turns amounts into base units against the ledger and records spends and receipts. */
@@ -185,7 +187,7 @@ export class Planner {
     const start = new Map<string, bigint>();
     PLAN_TOKENS.forEach((s, i) => start.set(s, reads[i]?.status === "success" ? (reads[i].result as bigint) : 0n));
     const prices = await this.deps.prices.prices([...PLAN_TOKENS]);
-    const ledger: Ledger = { env, account, owner: input.owner, fence, dryRun: input.dryRun === true, start, balances: new Map(start), reserved: new Map(), prices, warnings: [] };
+    const ledger: Ledger = { env, account, owner: input.owner, fence, dryRun: input.dryRun === true, start, balances: new Map(start), reserved: new Map(), prices, warnings: [], ...(input.preferences ? { prefs: input.preferences } : {}) };
     const book = new Book(ledger);
 
     // Reserves apply to the whole plan, wherever they appear in the sentence.
@@ -373,7 +375,7 @@ export class Planner {
     const token = getToken(symbol)!;
     if (token.symbol !== "USDC" && token.symbol !== "EURC") throw noRoute("Earn takes USDC or EURC on Arc.");
     const candidates = await this.router.earn(env, token.symbol);
-    const choice = this.router.chooseEarn(candidates, maxRisk ?? "medium", venue);
+    const choice = this.router.chooseEarn(candidates, maxRisk ?? book.l.prefs?.maxRisk ?? "medium", venue, book.l.prefs);
     if (!choice) throw noRoute(env === "testnet" ? "No earn venue on Arc testnet yet: the Lykia practice vault is not deployed (Morpho and Aave are mainnet only)." : `No ${token.symbol} earn venue answered.`);
     const units = book.resolve(amountSpec, token.symbol, token.decimals);
     book.spend(token.symbol, units, "deposit");
@@ -475,7 +477,7 @@ export class Planner {
     const minHealthWad = ratioBps(minHealth) * 10n ** 14n;
     const candidates = await this.router.borrow(env, { loan: loan.symbol, amount: amountUnits, collateral: coll.symbol, collateralUnits, walletCollateral: book.l.dryRun && wallet === 0n ? 10n ** 30n : wallet, minHealthWad, account });
     if (candidates.length === 0) throw noRoute(env === "testnet" ? "No borrow venue on Arc testnet yet: Lykia Practice Lending is not deployed (Aave V4 and Morpho Blue are mainnet only)." : `No ${loan.symbol} market against ${coll.symbol} answered.`);
-    const choice = this.router.chooseBorrow(candidates, minHealth, action.venue);
+    const choice = this.router.chooseBorrow(candidates, minHealth, action.venue, book.l.prefs);
     if (!choice) {
       const best = candidates.map((c) => `${c.option.label}: health ${c.healthFactor ?? "unknown"}`).join("; ");
       throw new LykiaHttpError("NO_ROUTE", 422, `No venue keeps the health factor at ${minHealth} or above for this borrow (${best}). Post more ${coll.symbol} or borrow less.`, { alternatives: candidates.map((c) => c.option) });
@@ -553,7 +555,7 @@ export class Planner {
     const isFx = (from.symbol === "USDC" && to.symbol === "EURC") || (from.symbol === "EURC" && to.symbol === "USDC");
     const units = book.resolve(action.amount, from.symbol, from.decimals);
     if (units <= 0n && !book.l.dryRun) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `Nothing to ${action.verb}: the spendable ${from.symbol} balance is 0.`);
-    const best = await this.router.bestSwap(env, from.symbol, to.symbol, units > 0n ? units : 10n ** BigInt(from.decimals));
+    const best = await this.router.bestSwap(env, from.symbol, to.symbol, units > 0n ? units : 10n ** BigInt(from.decimals), book.l.prefs);
     if (!best) throw noRoute(env === "testnet" ? `No ${isFx ? "FX" : "swap"} venue on Arc testnet yet: the Lykia practice swap is not deployed (Uniswap is mainnet only).` : `No venue on Arc quotes ${from.symbol} -> ${to.symbol}.`);
     book.spend(from.symbol, units, action.verb);
     // An explicit slippage is kept as asked (the Fence then judges it); the default never exceeds the Fence's ceiling.

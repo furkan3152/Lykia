@@ -62,6 +62,13 @@ export interface Config {
   };
   /** Circle StableFX RFQ credentials (fx steps are not executable without them). */
   readonly stablefxApiKey: string | null;
+  /** Circle platform credentials (Wallets, Compliance, StableFX). All optional; keyed features say so when missing. */
+  readonly circle: {
+    readonly apiKey: string | null;
+    readonly entitySecret: string | null;
+    readonly walletSetId: string | null;
+  };
+  readonly telegramBotToken: string | null;
   /** x402: paid routes are disabled unless payTo is set. */
   readonly x402: {
     readonly payTo: `0x${string}` | null;
@@ -186,6 +193,10 @@ const EnvSchema = z.object({
   ARC_MAINNET_RPC_URL: optionalString,
   ARC_TESTNET_RPC_URL: optionalString,
   STABLEFX_API_KEY: optionalString,
+  CIRCLE_API_KEY: optionalString,
+  CIRCLE_ENTITY_SECRET: optionalString,
+  CIRCLE_WALLET_SET_ID: optionalString,
+  TELEGRAM_BOT_TOKEN: optionalString,
   LYKIA_X402_PAY_TO: optionalString,
   LYKIA_X402_PRICE_USDC: optionalString,
   LYKIA_X402_FACILITATOR_URL: optionalString,
@@ -289,7 +300,9 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
       maxTokens: env.LYKIA_AGENT_MAX_TOKENS,
     }),
     platform: Object.freeze({ siweDomains: Object.freeze(siweDomains), adminAddresses: Object.freeze(adminAddresses) }),
-    stablefxApiKey: env.STABLEFX_API_KEY ?? null,
+    stablefxApiKey: env.STABLEFX_API_KEY ?? env.CIRCLE_API_KEY ?? null,
+    circle: Object.freeze({ apiKey: env.CIRCLE_API_KEY ?? null, entitySecret: env.CIRCLE_ENTITY_SECRET ?? null, walletSetId: env.CIRCLE_WALLET_SET_ID ?? null }),
+    telegramBotToken: env.TELEGRAM_BOT_TOKEN ?? null,
     x402: Object.freeze({
       payTo: (env.LYKIA_X402_PAY_TO as `0x${string}` | undefined) ?? null,
       priceUnits: usdcUnits(env.LYKIA_X402_PRICE_USDC ?? "0.01"),

@@ -473,8 +473,39 @@ function readActions(text: string, lang: "en" | "tr"): { actions: PlanAction[]; 
   return { actions, clarify, choices };
 }
 
+/**
+ * Lykia's own words for earning: "the greenest pasture", "greener pastures",
+ * "the best pasture", "en yeşil mera" all mean the best yield the routing
+ * finds. Rewritten to phrases the reader already knows.
+ */
+export function normalizePasture(text: string): string {
+  return text
+    .replace(/\blead (?:the|my) flock to (?:the )?(?:greenest|greener|best) pastures?\b/giu, "put all my USDC into the best vault")
+    .replace(/\b(?:on|onto|to|into|in)\s+(?:the\s+)?(?:greenest|greener|best|richest)\s+pastures?\b/giu, " into the best vault")
+    .replace(/\b(?:the\s+)?(?:greenest|greener|best)\s+pastures?\b/giu, " the best vault")
+    .replace(/\ben\s+(?:yeşil|iyi|verimli)\s+mera(?:ya|da|yı)?\b/giu, " en iyi getiriye")
+    // "hedge 20% into EURC" is a conversion.
+    .replace(/\bhedge\s+(\d{1,3}(?:\.\d+)?\s*%|[\d.]+\s*(?:USDC)?)\s+(?:of it\s+)?(?:into|to|in)\s+(EURC|euros?)\b/giu, "convert $1 to EURC")
+    // "keep 5000 USDC for payroll" keeps it liquid.
+    .replace(/\bkeep\s+([\d.]+\s*(?:USDC|EURC))\s+(for|aside)\b/giu, "keep $1 liquid $2")
+    .replace(/\s{2,}/gu, " ")
+    .trim();
+}
+
+/** English thousands separators ("5,000") read as 5000 when the sentence has no Turkish letters; Turkish commas stay refused (1,5 is one and a half there). */
+function englishThousands(text: string): string {
+  if (/[çğışöüÇĞİŞÖÜ]/u.test(text)) return text;
+  return text.replace(/\b(\d{1,3})((?:,\d{3})+)(?![\d,])/gu, (_m, head: string, rest: string) => `${head}${rest.replace(/,/gu, "")}`);
+}
+
 export function readSentence(text: string, options: ReadOptions = {}): ParseResponse {
-  const trimmed = text.trim().slice(0, 500);
+  const trimmed = normalizePasture(englishThousands(text.trim().slice(0, 500)));
+  // A decimal comma ("1,5") is never guessed: in Turkish it is one and a half, elsewhere it can be a thousands separator.
+  if (/\d,\d/u.test(trimmed)) {
+    const tr = detectLang(trimmed) === "tr";
+    const q = tr ? "Ondalık için nokta kullan (1.5), binlik ayırıcı koyma (1500)." : "Use a dot for decimals (1.5) and no thousands separators (1500).";
+    return { actions: [], command: null, easterEgg: null, clarify: [q], reply: q, lang: tr ? "tr" : "en" };
+  }
   const lang = detectLang(trimmed);
   const command = commandOf(trimmed);
   if (command) return { actions: [], command, easterEgg: null, clarify: [], reply: COMMANDS[command].meaning, lang };
