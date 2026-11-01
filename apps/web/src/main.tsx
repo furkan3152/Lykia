@@ -9,9 +9,11 @@ import ReactDOM from "react-dom/client";
 import { queryClient } from "./app/queryClient";
 import { AppRouter } from "./app/router";
 import { installUiDocumentSync } from "./app/state/documentSync";
+import { installTextures } from "./mosaic/textures";
 
 // Theme, motion and visibility attributes on <html> before the first render (index.html painted the first frame).
 installUiDocumentSync();
+installTextures();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Lykia needs a #root element");

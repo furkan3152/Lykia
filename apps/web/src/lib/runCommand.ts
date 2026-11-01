@@ -7,7 +7,7 @@ import { LYKO_LINES, type CommandAction } from "@lykia/core";
 
 import { queryClient } from "../app/queryClient";
 import { navigate } from "../app/routes/history";
-import { toast } from "../ui/toast";
+import { toast } from "../mosaic/toast";
 import { pick, useLangStore } from "./i18n";
 import { useLykiaStore } from "./lykiaStore";
 

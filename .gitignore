@@ -11,7 +11,7 @@ node_modules/
 
 # Build output
 dist/
-build/
+/build/
 coverage/
 *.tsbuildinfo
 vite.config.ts.timestamp-*

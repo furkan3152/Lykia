@@ -6,6 +6,7 @@
  */
 import { ApiError, errorFromResponse } from "./apiErrors";
 import { API_BASE } from "./env";
+import { sessionToken } from "./session";
 
 export { ApiError, describeError } from "./apiErrors";
 
@@ -53,6 +54,7 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
       headers: {
         Accept: "application/json",
         ...(options.body === undefined ? {} : { "Content-Type": "application/json" }),
+        ...(sessionToken() ? { "Lykia-Session": sessionToken() as string } : {}),
         ...options.headers,
       },
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
@@ -89,4 +91,12 @@ export function apiGet<T>(path: string, options: Omit<ApiRequestOptions, "method
 
 export function apiPost<T>(path: string, body: unknown, options: Omit<ApiRequestOptions, "method" | "body"> = {}): Promise<T> {
   return apiFetch<T>(path, { ...options, method: "POST", body });
+}
+
+export function apiPut<T>(path: string, body: unknown, options: Omit<ApiRequestOptions, "method" | "body"> = {}): Promise<T> {
+  return apiFetch<T>(path, { ...options, method: "PUT", body });
+}
+
+export function apiDelete<T>(path: string, options: Omit<ApiRequestOptions, "method" | "body"> = {}): Promise<T> {
+  return apiFetch<T>(path, { ...options, method: "DELETE" });
 }

@@ -1,128 +1,85 @@
-import { WOLVES, type ScentLevel } from "@lykia/core";
+/** Scent: Lyko noses a token; wolves gather when it smells wrong. Never "safe". */
+import { WOLVES, type WolfKind } from "@lykia/core";
+import type { ScentReport } from "@lykia/core/api/scent";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { navigate } from "../../app/routes/history";
-import { routeHref } from "../../app/routes/routeTable";
 import { useRouteParam } from "../../app/routes/useRoute";
+import { SceneFrame } from "../../features/scenes/SceneFrame";
 import { apiGet, describeError } from "../../lib/api";
+import { availabilityOf } from "../../lib/optional";
 import { useEnvironment } from "../../lib/environment";
 import { useLang } from "../../lib/i18n";
-import type { ScentReport } from "../../lib/types";
-import { Page, Section } from "../../pixel/layout";
-import { Lyko } from "../../pixel/Lyko";
-import { LykoEmpty } from "../../pixel/LykoEmpty";
-import { LykoLoader } from "../../pixel/LykoLoader";
-import { ValleyScene } from "../../pixel/ValleyScene";
-import { Button } from "../../ui/Button";
-import { cx } from "../../ui/cx";
+import { useLamp } from "../../lib/pulseStore";
+import { Button, Card, EmptyState, Input, PageHead, Skeleton, Tag } from "../../mosaic";
+import { sniff, SNIFF_H, SNIFF_W } from "../../mosaic/scenes";
 
-const ADDRESS = /^0x[0-9a-fA-F]{40}$/u;
-
-const LEVEL_VIEW: Readonly<Record<ScentLevel, { readonly en: string; readonly tr: string; readonly tone: string; readonly mood: "proud" | "watching" | "alert" | "growling" }>> = {
-  verified: { en: "Verified (registry)", tr: "Doğrulanmış (kayıt)", tone: "bg-up text-white", mood: "proud" },
-  "no-red-flags": { en: "No red flags found", tr: "Kırmızı bayrak bulunmadı", tone: "bg-accent text-white", mood: "watching" },
-  caution: { en: "Caution", tr: "Dikkat", tone: "bg-signal text-[#1B1714]", mood: "alert" },
-  danger: { en: "Danger", tr: "Tehlike", tone: "bg-down text-white", mood: "growling" },
-  unknown: { en: "Could not tell", tr: "Anlaşılamadı", tone: "bg-paper-2 text-ink", mood: "alert" },
-};
+const LEVEL_TONE = { verified: "ok", "no-red-flags": "ok", caution: "ochre", danger: "bad", unknown: "ghost" } as const;
+const EXAMPLES = [["USDC", "0x3600000000000000000000000000000000000000"], ["EURC (mainnet)", "0xbEf5f6d51CB62b58e6A8f77868681825C6fe21c1"]] as const;
 
 export default function ScentPage() {
   const lang = useLang();
   const environment = useEnvironment();
-  const token = useRouteParam("token");
-  const valid = typeof token === "string" && ADDRESS.test(token);
-  const [input, setInput] = useState(token ?? "");
-  const query = useQuery({
-    queryKey: ["scent", token, environment],
-    enabled: valid,
-    queryFn: ({ signal }) => apiGet<ScentReport>(`/v1/scent/${token}`, { query: { environment }, signal, timeoutMs: 20_000 }),
-  });
-  const report = query.data;
-
+  const token = useRouteParam("token") ?? null;
+  const lit = useLamp();
+  const [draft, setDraft] = useState(token ?? "");
+  const report = useQuery({ queryKey: ["scent", token, environment], enabled: Boolean(token), queryFn: ({ signal }) => apiGet<ScentReport>(`/v1/scent/${token}`, { query: { environment }, signal, timeoutMs: 25_000 }) });
+  const compliance = useQuery({ queryKey: ["compliance", token, environment], enabled: Boolean(token), retry: false, queryFn: ({ signal }) => apiGet<{ result: string; reasons?: string[]; provider?: string }>(`/v1/circle/compliance/${token}`, { query: { environment }, signal }) });
+  const r = report.data;
+  const level = r?.level ?? (report.isLoading ? "unknown" : "idle");
   return (
-    <Page>
-      <Section
-        level={1}
-        tag={lang === "tr" ? "Koku · dokunmadan önce" : "Scent · before anyone touches it"}
-        title={lang === "tr" ? "Lyko koklasın." : "Let Lyko sniff it."}
-        lede={lang === "tr" ? "Kayıt, bytecode, proxy, yetkiler, sahip ve simüle alım-satım. En iyi sonuç bile “güvenli” değil, “kırmızı bayrak bulunmadı”dır." : "Registry, bytecode, proxies, privileges, owner and a simulated buy and sell. Even the best result is not “safe”; it is “no red flags found”."}
-      >
-        <form
-          className="mx-auto mb-8 flex max-w-[680px] items-stretch bg-card px-frame px-drop"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (ADDRESS.test(input.trim())) navigate(routeHref("scent", { token: input.trim() }));
-          }}
-        >
-          <span className="flex items-center bg-ink px-3 font-tag text-[11px] uppercase text-paper">{lang === "tr" ? "Token" : "Token"}</span>
-          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="0x…" aria-label="Token address" className="min-w-0 flex-1 bg-transparent px-3 py-3 font-mono text-[14px] text-ink outline-none placeholder:text-ink-3" />
-          <Button type="submit" className="m-1.5" disabled={!ADDRESS.test(input.trim())}>
-            {lang === "tr" ? "Kokla" : "Sniff"}
-          </Button>
+    <div>
+      <PageHead kicker={lang === "tr" ? "KOKU · DOKUNMADAN ÖNCE" : "SCENT · BEFORE ANYONE TOUCHES IT"} title={lang === "tr" ? <>Lyko <em>koklasın.</em></> : <>Let Lyko <em>sniff it.</em></>} sub={lang === "tr" ? "Kayıt, bytecode, proxy'ler, yetkiler, sahip ve simüle bir transfer. En iyi sonuç bile \"güvenli\" değildir; \"kırmızı bayrak yok\"tur." : "Registry, bytecode, proxies, privileges, owner and a simulated transfer. Even the best result is not \"safe\"; it is \"no red flags found\"."} mood={level === "danger" ? "growling" : level === "caution" ? "alert" : "watching"}>
+        <form className="flex gap-2 justify-center" style={{ marginTop: 18, maxWidth: 620, marginInline: "auto" }} onSubmit={(e) => { e.preventDefault(); if (/^0x[0-9a-fA-F]{40}$/u.test(draft.trim())) navigate(`/app/scent/${draft.trim()}`); }}>
+          <Input placeholder="0x… token address" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Token address" />
+          <Button type="submit">{lang === "tr" ? "KOKLA" : "SNIFF"}</Button>
         </form>
-        {!valid ? (
-          <LykoEmpty title={lang === "tr" ? "Bir token adresi ver" : "Give Lyko a token address"} description={lang === "tr" ? "Arc'taki herhangi bir ERC-20. Lyko her denetimi tek tek gösterir." : "Any ERC-20 on Arc. Lyko shows every check, one by one."} />
-        ) : query.isLoading ? (
-          <div className="flex justify-center py-10">
-            <LykoLoader label={lang === "tr" ? "Lyko kokluyor" : "Lyko is sniffing"} size="lg" />
-          </div>
-        ) : query.isError ? (
-          <div role="alert" className="mx-auto flex max-w-[560px] flex-col items-center gap-3 bg-card p-6 text-center px-frame">
-            <Lyko mood="alert" size={72} label={null} />
-            <p className="text-[14px] text-ink-2">{describeError(query.error)}</p>
-          </div>
-        ) : report ? (
-          <div className="mx-auto flex max-w-[860px] flex-col gap-6">
-            <div className="flex flex-col items-center gap-3 text-center">
-              <Lyko mood={LEVEL_VIEW[report.level].mood} size={110} />
-              <span className={cx("px-3 py-1 font-tag text-[13px] uppercase", LEVEL_VIEW[report.level].tone)}>{lang === "tr" ? LEVEL_VIEW[report.level].tr : LEVEL_VIEW[report.level].en}</span>
-              <p className="font-display text-3xl font-bold text-ink">
-                {report.symbol ?? "?"} <span className="text-ink-3">· {report.name ?? (lang === "tr" ? "isimsiz" : "unnamed")}</span>
-              </p>
-              <p className="break-all font-mono text-[12px] text-ink-3">{report.token}</p>
-              {"warning" in report.trust ? <p className="max-w-[560px] text-[13px] text-warn-ink">{report.trust.warning}</p> : null}
-            </div>
-            {report.wolves.length > 0 ? (
-              <>
-                <div className="bg-card p-2 px-frame-thin">
-                  <ValleyScene aspect={0.22} pixelSize={3} label={`${report.wolves.length} wolves at the fence`} wolves={report.wolves.length} lyko="sit" rainbow={false} />
-                </div>
-                <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  {report.wolves.map((w) => (
-                    <li key={w} className="flex flex-col gap-1 bg-card p-4 px-frame px-drop">
-                      <span className="font-tag text-[11px] uppercase text-down">{w}</span>
-                      <span className="font-display text-xl font-bold text-ink">{WOLVES[w].name}</span>
-                      <span className="text-[13px] text-ink-2">{WOLVES[w].line}</span>
-                    </li>
+      </PageHead>
+      <section className="m-wrap" style={{ marginTop: 28 }}>
+        <SceneFrame
+          build={(t) => sniff({ level: level as never, wolves: r?.wolves.length ?? 0, lit }, t)}
+          width={SNIFF_W}
+          height={SNIFF_H}
+          dataKey={`${level}-${r?.wolves.length}-${lit}`}
+          assembleKey={token ?? "idle"}
+          label="Lyko sniffing a token; wolves gather when it smells wrong"
+          labels={r ? [{ x: 58, y: 8, text: r.level.toUpperCase(), tone: LEVEL_TONE[r.level] }, ...r.wolves.slice(0, 3).map((w, i) => ({ x: 80 + i * 7, y: 62 + (i % 2) * 8, text: WOLVES[w as WolfKind].name.toUpperCase(), tone: "wolf" as const }))] : []}
+        />
+      </section>
+      <section className="m-wrap" style={{ marginTop: 28 }}>
+        {!token ? (
+          <Card title={lang === "tr" ? "Bir token ver" : "Give him a token"}>
+            <EmptyState mood="happy" title={lang === "tr" ? "Burnu hazır" : "Nose ready"}>{lang === "tr" ? "Bir adres yapıştır ya da şunları dene:" : "Paste an address, or try one of these:"}</EmptyState>
+            <div className="m-chips">{EXAMPLES.map(([n, a]) => <button key={a} type="button" className="m-chip" onClick={() => navigate(`/app/scent/${a}`)}>{n}</button>)}</div>
+          </Card>
+        ) : report.isLoading ? <Skeleton h={240} /> : report.isError ? (
+          <Card title={lang === "tr" ? "Koklanamadı" : "Could not sniff"}><p className="m-note m-note--bad">{describeError(report.error)}</p></Card>
+        ) : r ? (
+          <div className="m-grid-2 m-grid-2--l">
+            <Card title={`${r.symbol ?? "?"} · ${r.name ?? "unknown"}`} kicker={`${r.token.slice(0, 10)}… · ARC ${r.environment.toUpperCase()} · ${r.decimals ?? "?"} DECIMALS`}>
+              <table className="m-table">
+                <thead><tr><th>Check</th><th>Result</th><th>Detail</th></tr></thead>
+                <tbody>
+                  {r.checks.map((c) => (
+                    <tr key={c.id}><td><b>{c.id}</b></td><td><Tag tone={c.ok === true ? "ok" : c.ok === false ? "bad" : "ghost"}>{c.ok === true ? "passed" : c.ok === false ? "red flag" : "not run"}</Tag></td><td className="m-small">{c.detail}</td></tr>
                   ))}
-                </ul>
-              </>
-            ) : null}
-            <table className="w-full bg-card text-left text-[13px] px-frame">
-              <thead>
-                <tr className="font-tag text-[11px] uppercase text-ink-2">
-                  <th className="p-3">{lang === "tr" ? "Denetim" : "Check"}</th>
-                  <th className="p-3">{lang === "tr" ? "Sonuç" : "Result"}</th>
-                  <th className="p-3">{lang === "tr" ? "Ayrıntı" : "Detail"}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.checks.map((c) => (
-                  <tr key={c.id} className="border-t-2 border-dashed border-rule align-top">
-                    <td className="p-3 font-mono text-ink">{c.id}</td>
-                    <td className={cx("p-3 font-tag text-[11px] uppercase", c.ok === true ? "text-up" : c.ok === false ? "text-down" : "text-ink-3")}>{c.ok === true ? (lang === "tr" ? "geçti" : "passed") : c.ok === false ? (lang === "tr" ? "bayrak" : "red flag") : lang === "tr" ? "çalışmadı" : "not run"}</td>
-                    <td className="p-3 text-ink-2">{c.detail}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="text-center font-tag text-[11px] uppercase text-ink-3">
-              {new Date(report.at).toLocaleString()} · {report.environment} {report.deep ? "· deep (x402)" : ""}
-            </p>
+                </tbody>
+              </table>
+            </Card>
+            <Card title={lang === "tr" ? "Kurtlar" : "Wolves"} kicker={`${r.wolves.length} FOUND`} tone={r.wolves.length ? "terra" : "sea"}>
+              {r.wolves.length === 0 ? <EmptyState mood="proud" title={lang === "tr" ? "Kurt yok" : "No wolves"}>{lang === "tr" ? "Bu, güvenli demek değil; kanıtlanabilen her şeye bakıldı demek." : "That is not \"safe\"; it means everything provable was checked."}</EmptyState> : r.wolves.map((w) => (
+                <div key={w} className="m-row"><Tag tone="wolf">{w}</Tag><div><b>{WOLVES[w as WolfKind].name}</b><p className="m-small m-muted">{WOLVES[w as WolfKind].line}</p></div></div>
+              ))}
+              {"warning" in r.trust ? <p className="m-note" style={{ marginTop: 8 }}>{r.trust.warning}</p> : null}
+              <div className="m-row" style={{ marginTop: 8 }}>
+                <Tag tone={compliance.data ? (compliance.data.result === "approved" ? "ok" : compliance.data.result === "denied" ? "bad" : "ochre") : "ghost"}>{lang === "tr" ? "UYUM" : "COMPLIANCE"}</Tag>
+                <p className="m-small">{compliance.data ? `${compliance.data.result}${compliance.data.reasons?.length ? ` · ${compliance.data.reasons.join(", ")}` : ""} (${compliance.data.provider ?? "Circle"})` : compliance.isLoading ? "…" : availabilityOf(compliance.error) === "needs-key" ? (lang === "tr" ? "Circle uyum taraması sunucuda anahtar ister." : "Circle compliance screening needs a key on the server.") : lang === "tr" ? "Circle uyum taraması yakında." : "Circle compliance screening is coming soon."}</p>
+              </div>
+            </Card>
           </div>
         ) : null}
-      </Section>
-    </Page>
+      </section>
+    </div>
   );
 }

@@ -17,188 +17,72 @@ import { buildPath, compilePattern, matchPattern, normalizePathname, type Compil
 
 export type RouteId =
   | "landing"
-  | "developers"
-  | "lykaion"
-  | "deck"
+  | "ask"
   | "flock"
+  | "pastures"
+  | "pack"
   | "fence"
-  | "kunye"
   | "scent"
+  | "kunye"
   | "outrun"
-  | "toFlock"
-  | "toFence"
-  | "toKunye"
-  | "toScent"
-  | "toOutrun"
+  | "build"
+  | "you"
+  | "memory"
+  | "circle"
+  | "owner"
+  | "kit"
+  | "lykaion"
+  | "developers"
   | "appNotFound"
   | "notFound";
 
+/** `site` pages never load the wallet stack; `app` pages render inside the wallet providers. */
 export type RouteKind = "site" | "app";
 
 type PageModule = { default: ComponentType };
 
 export interface RouteDefinition {
   readonly id: RouteId;
-  /** Pattern (see matchPath.ts); also the canonical path for routes without parameters. */
   readonly pattern: string;
   readonly kind: RouteKind;
-  /** Page title without the brand suffix. */
   readonly title: string;
   readonly description: string;
   readonly robots?: string;
-  /** Only served by the dev server. */
   readonly devOnly?: boolean;
   readonly load: () => Promise<PageModule>;
 }
 
-const BRAND_TITLE = "Lykia — Lyko keeps your agents inside the Fence";
+const BRAND_TITLE = "Lykia — Arc gives agents money. Lyko keeps them in line.";
 const BRAND_DESCRIPTION =
-  "Lykia is the agent and stablecoin desk built on Arc Network: say an outcome, get a plan across Arc venues, checked by your Fence, signed in your own wallet and final in under a second. Lyko, the shepherd dog, keeps the wolves out.";
+  "Lykia is the agent and stablecoin desk built on Arc Network: ask once, get a plan across Arc venues checked by your Fence, signed in your own wallet and final in under a second. Lyko, the shepherd dog, keeps the wolves out.";
 const PRIVATE_ROBOTS = "noindex,nofollow";
 
+const page = (id: RouteId, pattern: string, kind: RouteKind, title: string, description: string, load: () => Promise<PageModule>, extra: Partial<RouteDefinition> = {}): RouteDefinition => ({ id, pattern, kind, title, description, load, ...extra });
+
 export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze({
-  landing: {
-    id: "landing",
-    pattern: "/",
-    kind: "site",
-    title: BRAND_TITLE,
-    description: BRAND_DESCRIPTION,
-    load: () => import("../../pages/landing/LandingPage"),
-  },
-  developers: {
-    id: "developers",
-    pattern: "/developers",
-    kind: "site",
-    title: "Developers",
-    description: "The Lykia API, MCP server and x402 pay-per-call surface: plan, fence, sniff and track on Arc.",
-    load: () => import("../../pages/developers/DevelopersPage"),
-  },
-  lykaion: {
-    id: "lykaion",
-    pattern: "/lykaion",
-    kind: "site",
-    title: "Lykaion",
-    description: "Mount Lykaion, Arcadia, at night.",
-    robots: PRIVATE_ROBOTS,
-    load: () => import("../../pages/lykaion/LykaionPage"),
-  },
-  deck: {
-    id: "deck",
-    pattern: "/app",
-    kind: "app",
-    title: "Deck",
-    description: "One sentence becomes an Outrun across Arc venues, checked by your Fence and signed in your wallet.",
-    load: () => import("../../pages/deck/DeckPage"),
-  },
-  flock: {
-    id: "flock",
-    pattern: "/app/flock/:address?",
-    kind: "app",
-    title: "Flock",
-    description: "Everything you hold on Arc in one balance sheet: wallet, Gateway unified balance and venues.",
-    robots: PRIVATE_ROBOTS,
-    load: () => import("../../pages/flock/FlockPage"),
-  },
-  fence: {
-    id: "fence",
-    pattern: "/app/fence",
-    kind: "app",
-    title: "Fence",
-    description: "The rules around your agents: caps, recipients, venues, tokens, slippage, health factor, FX band, Scent and the Whistle.",
-    load: () => import("../../pages/fence/FencePage"),
-  },
-  kunye: {
-    id: "kunye",
-    pattern: "/app/kunye/:agentId?",
-    kind: "app",
-    title: "Künye",
-    description: "Agent licences on Arc: an ERC-8004 identity that pins the Fence it obeys.",
-    load: () => import("../../pages/kunye/KunyePage"),
-  },
-  scent: {
-    id: "scent",
-    pattern: "/app/scent/:token?",
-    kind: "app",
-    title: "Scent",
-    description: "What can be proven about a token on Arc before anyone touches it. Never \"safe\".",
-    load: () => import("../../pages/scent/ScentPage"),
-  },
-  outrun: {
-    id: "outrun",
-    pattern: "/app/outrun/:id",
-    kind: "app",
-    title: "Outrun",
-    description: "Where the money is, step by step, from start to the Fold.",
-    robots: PRIVATE_ROBOTS,
-    load: () => import("../../pages/outrun/OutrunPage"),
-  },
-  toFlock: {
-    id: "toFlock",
-    pattern: "/flock/*",
-    kind: "site",
-    title: "Lykia",
-    description: BRAND_DESCRIPTION,
-    robots: PRIVATE_ROBOTS,
-    load: () => import("../../pages/shortcut/ShortcutPage"),
-  },
-  toFence: {
-    id: "toFence",
-    pattern: "/fence/*",
-    kind: "site",
-    title: "Lykia",
-    description: BRAND_DESCRIPTION,
-    robots: PRIVATE_ROBOTS,
-    load: () => import("../../pages/shortcut/ShortcutPage"),
-  },
-  toKunye: {
-    id: "toKunye",
-    pattern: "/kunye/*",
-    kind: "site",
-    title: "Lykia",
-    description: BRAND_DESCRIPTION,
-    robots: PRIVATE_ROBOTS,
-    load: () => import("../../pages/shortcut/ShortcutPage"),
-  },
-  toScent: {
-    id: "toScent",
-    pattern: "/scent/*",
-    kind: "site",
-    title: "Lykia",
-    description: BRAND_DESCRIPTION,
-    robots: PRIVATE_ROBOTS,
-    load: () => import("../../pages/shortcut/ShortcutPage"),
-  },
-  toOutrun: {
-    id: "toOutrun",
-    pattern: "/outrun/*",
-    kind: "site",
-    title: "Lykia",
-    description: BRAND_DESCRIPTION,
-    robots: PRIVATE_ROBOTS,
-    load: () => import("../../pages/shortcut/ShortcutPage"),
-  },
-  appNotFound: {
-    id: "appNotFound",
-    pattern: "/app/*",
-    kind: "app",
-    title: "Page not found",
-    description: BRAND_DESCRIPTION,
-    robots: "noindex,follow",
-    load: () => import("../../pages/notFound/NotFoundPage"),
-  },
-  notFound: {
-    id: "notFound",
-    pattern: "/*",
-    kind: "site",
-    title: "Page not found",
-    description: BRAND_DESCRIPTION,
-    robots: "noindex,follow",
-    load: () => import("../../pages/notFound/NotFoundPage"),
-  },
+  landing: page("landing", "/", "site", BRAND_TITLE, BRAND_DESCRIPTION, () => import("../../pages/landing/LandingPage")),
+  ask: page("ask", "/app/ask/:threadId?", "app", "Ask Lyko", "Ask once in English or Turkish: Lyko and the Pack plan it across Arc, the Fence checks it, you sign once.", () => import("../../pages/ask/AskPage")),
+  flock: page("flock", "/app/flock/:address?", "app", "Flock", "Everything you hold on Arc mainnet and testnet in one pasture: wallet, Gateway and venues.", () => import("../../pages/flock/FlockPage"), { robots: PRIVATE_ROBOTS }),
+  pastures: page("pastures", "/app/pastures", "app", "Greener pastures", "Live yields on Arc venues, grass height by rate, with risk tier and source.", () => import("../../pages/pastures/PasturesPage")),
+  pack: page("pack", "/app/pack/:id?", "app", "Pack", "Your agents and their pups: spawn sub-agents whose Fence stays inside yours, carve budgets, bind sessions on chain.", () => import("../../pages/pack/PackPage")),
+  fence: page("fence", "/app/fence", "app", "Fence", "The rules around your agents: caps, recipients, venues, tokens, slippage, health factor, FX band, Scent and the Whistle.", () => import("../../pages/fence/FencePage")),
+  scent: page("scent", "/app/scent/:token?", "app", "Scent", "What can be proven about a token on Arc before anyone touches it. Never \"safe\".", () => import("../../pages/scent/ScentPage")),
+  kunye: page("kunye", "/app/kunye/:agentId?", "app", "Künye", "Agent licences on Arc: an ERC-8004 identity that pins the Fence it obeys.", () => import("../../pages/kunye/KunyePage")),
+  outrun: page("outrun", "/app/outrun/:id", "app", "Outrun", "Where the money is, step by step, from start to the Fold.", () => import("../../pages/outrun/OutrunPage"), { robots: PRIVATE_ROBOTS }),
+  you: page("you", "/app/you", "app", "You", "Your Lykia: language, currency, risk, venues, Lyko's persona and look, quiet hours and notifications.", () => import("../../pages/you/YouPage"), { robots: PRIVATE_ROBOTS }),
+  memory: page("memory", "/app/memory", "app", "Lyko remembers", "Intent history, learned preferences, named contacts and recurring patterns, all editable and forgettable.", () => import("../../pages/memory/MemoryPage"), { robots: PRIVATE_ROBOTS }),
+  circle: page("circle", "/app/circle", "app", "Circle", "Circle's products on Arc: Gateway unified balance, CCTP, StableFX, agent wallets, compliance, nanopayments and USYC.", () => import("../../pages/circle/CirclePage")),
+  build: page("build", "/build", "app", "Build", "Keys, usage, webhooks, your fee, the playground, MCP and the SDK.", () => import("../../pages/build/BuildPage")),
+  owner: page("owner", "/owner", "app", "Owner console", "Deploy Lykia's contracts step by step with your wallet, record them and manage flags.", () => import("../../pages/owner/OwnerPage"), { robots: PRIVATE_ROBOTS }),
+  kit: page("kit", "/kit", "site", "Mosaic kit", "Every Mosaic component and scene.", () => import("../../pages/kit/KitPage"), { robots: PRIVATE_ROBOTS }),
+  lykaion: page("lykaion", "/lykaion", "site", "Lykaion", "Mount Lykaion, Arcadia, at night.", () => import("../../pages/lykaion/LykaionPage"), { robots: PRIVATE_ROBOTS }),
+  developers: page("developers", "/developers", "site", "Build", BRAND_DESCRIPTION, () => import("../../pages/redirect/RedirectPage"), { robots: PRIVATE_ROBOTS }),
+  appNotFound: page("appNotFound", "/app/*", "site", "Page not found", BRAND_DESCRIPTION, () => import("../../pages/notFound/NotFoundPage"), { robots: "noindex,follow" }),
+  notFound: page("notFound", "/*", "site", "Page not found", BRAND_DESCRIPTION, () => import("../../pages/notFound/NotFoundPage"), { robots: "noindex,follow" }),
 });
 
-/** Matching order: specific routes first, the catch-alls last. */
-const ORDER: readonly RouteId[] = ["landing", "developers", "lykaion", "deck", "flock", "fence", "kunye", "scent", "outrun", "toFlock", "toFence", "toKunye", "toScent", "toOutrun", "appNotFound", "notFound"];
+/** Matching order: specific routes first, the catch-alls last. `/app` itself is Ask Lyko. */
+const ORDER: readonly RouteId[] = ["landing", "ask", "flock", "pastures", "pack", "fence", "scent", "kunye", "outrun", "you", "memory", "circle", "build", "owner", "kit", "lykaion", "developers", "appNotFound", "notFound"];
 
 let compiled: ReadonlyArray<readonly [RouteDefinition, CompiledPattern]> | null = null;
 
@@ -218,7 +102,8 @@ export interface MatchOptions {
 }
 
 export function matchRoute(pathname: string, options: MatchOptions = {}): RouteMatch {
-  const path = normalizePathname(pathname);
+  const normal = normalizePathname(pathname);
+  const path = normal === "/app" ? "/app/ask" : normal;
   for (const [route, pattern] of table()) {
     if (route.devOnly && !options.dev) continue;
     const params = matchPattern(pattern, path);

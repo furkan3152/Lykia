@@ -39,7 +39,7 @@ export class LazyBoundary extends React.Component<LazyBoundaryProps, LazyBoundar
   }
 
   override componentDidCatch(error: unknown): void {
-    if (import.meta.env.DEV) console.warn("[lykia] lazy surface failed", error);
+    console.error("[lykia] surface failed", error);
   }
 
   override render(): React.ReactNode {

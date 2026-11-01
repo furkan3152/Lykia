@@ -5,7 +5,7 @@
  */
 import { COMMANDS, EASTER_EGGS, commandOf, easterEggOf, type CommandAction, type CommandWord, type EasterEggWord } from "@lykia/core";
 
-export type Destination = "deck" | "flock" | "fence" | "scent" | "kunye" | "developers" | "landing";
+export type Destination = "ask" | "flock" | "pastures" | "pack" | "fence" | "scent" | "kunye" | "build" | "landing";
 
 export type Resolution =
   | { readonly kind: "empty" }
@@ -17,12 +17,14 @@ export type Resolution =
   | { readonly kind: "sentence"; readonly text: string };
 
 const PAGE_WORDS: ReadonlyArray<readonly [Destination, readonly string[]]> = [
-  ["deck", ["deck", "masa", "app", "home"]],
+  ["ask", ["deck", "masa", "app", "ask", "chat", "sohbet", "ask lyko"]],
   ["flock", ["flock", "sürü", "suru", "portfolio", "portföy", "portfoy", "balances", "bakiye"]],
+  ["pastures", ["pastures", "earn", "yield", "yields", "getiri", "mera", "meralar"]],
+  ["pack", ["pack", "agents", "agentlar", "pups", "yavrular", "sub-agents", "alt agent"]],
   ["fence", ["fence", "çit", "cit", "rules", "kurallar", "rule book", "whistle", "düdük", "duduk"]],
   ["scent", ["scent", "koku", "sniff", "shield", "token check"]],
   ["kunye", ["künye", "kunye", "licence", "license", "agent id", "erc-8004", "erc8004"]],
-  ["developers", ["developers", "geliştiriciler", "gelistiriciler", "api", "mcp", "x402", "docs"]],
+  ["build", ["build", "developers", "geliştiriciler", "gelistiriciler", "api", "mcp", "x402", "docs", "keys"]],
   ["landing", ["valley", "vadi", "about", "hakkında"]],
 ];
 

@@ -23,17 +23,26 @@ describe("route table", () => {
   it("matches every Lykia page", () => {
     const cases: ReadonlyArray<readonly [string, string]> = [
       ["/", "landing"],
-      ["/developers", "developers"],
-      ["/lykaion", "lykaion"],
-      ["/app", "deck"],
+      ["/app", "ask"],
+      ["/app/ask", "ask"],
+      ["/app/ask/th_1", "ask"],
       ["/app/flock", "flock"],
       ["/app/flock/0x1111111111111111111111111111111111111111", "flock"],
+      ["/app/pastures", "pastures"],
+      ["/app/pack", "pack"],
+      ["/app/pack/ag_1", "pack"],
       ["/app/fence", "fence"],
       ["/app/kunye/7", "kunye"],
       ["/app/scent/0xabc", "scent"],
       ["/app/outrun/out_1", "outrun"],
-      ["/flock", "toFlock"],
-      ["/scent/0xabc", "toScent"],
+      ["/build", "build"],
+      ["/app/you", "you"],
+      ["/app/memory", "memory"],
+      ["/app/circle", "circle"],
+      ["/owner", "owner"],
+      ["/kit", "kit"],
+      ["/lykaion", "lykaion"],
+      ["/developers", "developers"],
       ["/app/nowhere", "appNotFound"],
       ["/nowhere", "notFound"],
     ];
@@ -42,9 +51,10 @@ describe("route table", () => {
 
   it("keeps the brand out of Arc's name and titles pages", () => {
     assert.match(ROUTES.landing.title, /^Lykia/u);
+    assert.equal(matchRoute("/app/ask/th_9").params.threadId, "th_9");
     assert.equal(documentTitle(ROUTES.fence), "Fence · Lykia");
     assert.equal(routeHref("scent", { token: "0x1" }), "/app/scent/0x1");
     assert.equal(robotsFor(ROUTES.lykaion), "noindex,nofollow");
-    for (const route of Object.values(ROUTES)) assert.doesNotMatch(route.title, /\bArc\b/u, route.id);
+    for (const route of Object.values(ROUTES)) if (route.id !== "landing") assert.doesNotMatch(route.title, /\bArc\b/u, route.id);
   });
 });

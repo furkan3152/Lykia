@@ -1,9 +1,6 @@
 # @lykia/web
 
-The Lykia web app: the valley, the deck and every page around it. Vite 6, React 18,
-Tailwind 3, wagmi 2 + RainbowKit 2, react-query and zustand. Arc testnet (5042002) is
-the default; Arc mainnet (5042) is one switch away and never shares an intent with
-testnet.
+The Lykia web app: Vite 6, React 18, Tailwind 3 (layout utilities only), wagmi 2 + RainbowKit 2 and react-query. It is built on **Mosaic**, Lykia's own design system: pixels are tesserae. Every surface is laid from the same stones: a limestone floor, meander bands between sections, one stone frame for every card and scene, and data-driven mosaic scenes.
 
 ```sh
 npm run dev -w @lykia/web        # http://localhost:5176
@@ -12,85 +9,58 @@ npm run typecheck -w @lykia/web
 npm test -w @lykia/web           # node --test, pure modules only
 ```
 
-Build-time environment:
+Build-time environment: `VITE_API_URL` (default `http://localhost:3002`) and `VITE_WALLETCONNECT_PROJECT_ID` (WalletConnect is hidden without it).
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `VITE_API_URL` | `http://localhost:3002` | Origin of the Lykia API (origin only, no path). |
-| `VITE_WALLETCONNECT_PROJECT_ID` | none | 32-hex Reown project id. Without it WalletConnect is hidden and injected wallets are offered. |
+## Mosaic
+
+| Path | What it holds |
+|---|---|
+| `src/mosaic/tessera.ts` | The renderer: a logical grid of colours laid as stones, each with its own grout and a deterministic tone jitter, plus the "assemble" reveal where stones drop in by a diagonal wave. Pure, so it can be tested. |
+| `src/mosaic/sprites.ts` | Lyko (face, sitting, trotting, sniffing, lying), pups, sheep and wolves as text art. Face moods are watching, happy, alert, growling, proud, resting, sleeping and herding. The live palette follows the owner's look (collar, coat, tag). |
+| `src/mosaic/scenes/` | Scene builders, all data-driven: `bay` (home), `strip` (the chat header), `pasture` (Flock), `pastures` (yields), `kennel` (Pack), `fenceScene`, `sniff` (Scent), `harbor` (Outrun), `archive` (Memory), `market` (Circle) and `arcadia`. Each one takes data and a time and returns a buffer, so the same input always draws the same picture. |
+| `src/mosaic/MosaicCanvas.tsx` | Paints a scene. It is DPR-aware and animates only while the scene is on screen, the tab is visible and motion is allowed. |
+| `src/mosaic/textures.ts` | Generates the floor, meander, wave and frame textures at boot, using the same renderer, as CSS variables. |
+| `src/mosaic/ui.tsx` | Components: Frame, Card, MeanderBand, PageHead, Medallion (CAVE CANEM), Button, Tag, Seal, Stat, Skeleton, Field, Input, Select, Toggle, Tabs, Sprite, LykoFace, LykoTile, PupIcon, EmptyState and Modal. Toasts are small mosaic tiles. |
+| `src/styles/mosaic.css` | Tokens, components, chat layout, the shared-element morph and the motion rules. |
+
+Data becomes landscape:
+
+- Grass height in a pen is the venue's yield.
+- Wool colour is the token.
+- Islands are CCTP chains.
+- Wolves outside the fence are Scent threats.
+- The Patara lighthouse blinks on every Arc block the pulse stream reports.
+- Pups are sub-agents.
+- Market stalls are Circle products.
+- Carved tablets are memories.
 
 ## Pages
 
-| Route | What it is |
+| Route | Page |
 |---|---|
-| `/` | The valley: the hero scene, the sixty-second story, the four pillars, a builder's teaser. |
-| `/app` | The deck. One sentence (English or Turkish) becomes an Outrun: the arc drawing, the Fence verdict with every rule, and each step's Prepare and sign. Follows the intent's event stream. |
-| `/app/flock/:address?` | The Flock: wallet, Gateway unified balance and venue positions, totals that never treat unpriced as zero, health factors and a pasture where holdings are sheep sized by value. `?as=0x…` is view-only. |
-| `/app/fence` | The Fence editor: templates (Lamb, Shepherd, Treasury, Caravan), every rule as a form field, live validation and hash, loosening warnings, the Whistle, and a try-evaluate playground. Saved in local storage. |
-| `/app/scent/:token?` | A token's Scent report: level, the wolves found and every check. Never "safe". |
-| `/app/kunye/:agentId?` | Künye: read an ERC-8004 identity on Arc, or draft a new one that pins the current Fence hash and register it from the connected wallet. |
-| `/app/outrun/:id` | One Outrun, live. |
-| `/developers` | API routes, curl examples, the MCP configuration, the x402 flow and the Arc features Lykia uses. |
-| `/flock`, `/fence`, `/scent`, `/kunye`, `/outrun` | Short links that forward to the deck routes. |
-| `/lykaion` | Unlisted. |
+| `/` | The bay, with the Ask Lyko composer and the story. Asking a question morphs the composer into the conversation. |
+| `/app`, `/app/ask/:threadId` | Ask Lyko: a thread rail and an SSE conversation (reading, tool, task, proposal, clarify and text events). The route artifact holds the outrun scene, the Fence seal, "why this route" and signing each step in the wallet. Memory chips and `@contact` completion. |
+| `/app/flock/:address?` | The pasture across mainnet and testnet, holdings, the Gateway card, Circle and insights with one-tap proposals. |
+| `/app/pastures` | Live yields as pens, with risk tier and source. |
+| `/app/pack/:id?` | The kennel, the agent tree, spawn-a-pup with per-field Fence violations, bones for budgets, cascading revoke, the on-chain session and a Circle agent wallet. |
+| `/app/fence` | The fence editor: posts are caps and gates are allowed venues. It shows loosening warnings, and the Whistle turns the scene to night. |
+| `/app/scent/:token?`, `/app/kunye/:id?`, `/app/outrun/:id` | Scent (with Circle compliance), Künye, and a full outrun. |
+| `/app/you` | Personalization, including Lyko's look with a live preview that repaints the whole app. |
+| `/app/memory` | Lyko remembers: timeline, learned preferences, contacts, patterns, export and forget. |
+| `/app/circle` | The harbor market of Circle products and the Gateway transfer flow. |
+| `/build`, `/owner` | The developer portal (SIWE, keys, webhooks, fee, playground, MCP, SDK, Circle) and the owner console (deploy plan signed step by step). |
+| `/kit`, `/lykaion`, 404 | Every component and scene, the hidden Arcadia night, and Lyko sniffing for a trail. |
 
-The Fence validation, hash, loosening check and playground run on `@lykia/core` in the
-browser, the same code the API runs, so the editor works with the API offline.
+## Motion
 
-## Lyko and the valley
-
-Everything is drawn on `PixelCanvas` at whole device pixels (`src/pixel`).
-
-- `sprite.ts`: colour grids, outlines, mirroring and `fromArt`, which reads pixel art
-  written as text and refuses unknown characters.
-- `lyko.ts`: Lyko's 32 x 34 front portrait, built from shapes on the left half,
-  mirrored and outlined: a cream coat, black mask and drop ears, amber eyes, a spiked
-  collar and a steel tag (the Künye). Side-view frames (run, sit, lie), sheep and wolves.
-- `moods.ts`: one drawing per core `LykoMood` (watching, herding, alert, growling,
-  proud, resting, sleeping). Lines come from core `LYKO_LINES`.
-- `valley.ts`: the Lycian coast on one canvas: sky with a rainbow by day and stars by
-  night, the Taurus ridge, a rock tomb, the sea, pines, the flock, the Fence with
-  wolves outside it, Lyko, and the Outrun arc from the start post to the Fold.
-- `KunyeTag.tsx`: the steel tag with real text stamped over it.
-
-Motion follows the kit's rules: one shared ticker, paused off screen and in hidden tabs,
-nothing changes faster than 3 Hz, and reduced motion (the system or the Motion switch)
-draws the end state. `public/favicon.svg` is generated from the portrait by
-`npx tsx scripts/favicon.ts`.
-
-## The whistle box
-
-`⌘K`, `Ctrl-K` or `/` opens the whistle box (`src/app/shell/WhistleBox.tsx`); the deck's
-sentence box accepts the same input. `src/lib/commands.ts` decides what a line is:
-
-- Shepherd commands from core lore: "come bye" re-counts the flock, "away to me"
-  re-sniffs tokens, "walk up" prepares the next step (the wallet still signs), "lie down"
-  blows the Whistle, "that'll do" releases it, "look back" opens the last Outrun.
-- Hidden words from core `EASTER_EGGS`.
-- Page names in English and Turkish, a token address (opens Scent), `agent 12`
-  (opens a Künye), or a sentence (planned on the deck).
-
-No command moves value.
-
-## Layout
-
-```
-src/
-  app/        router, route table, shells, keyboard, wallet (Arc chains with USDC as the
-              18-decimal native currency), ui preferences
-  features/   outrun/ (Outrun card, verdict panel, step runner, intent stream)
-  lib/        api client and error envelope, SSE, Arc RPC fallback for the pulse, i18n,
-              commands, the local Fence store, contract types
-  pixel/      the sprite engine, Lyko, the valley, layout primitives
-  ui/         the component kit
-  pages/      one folder per route
-```
+- **Shared-element morph.** Submitting a question on the landing page commits the route inside a View Transition. The composer grows into the chat dock, the bay folds into the scene strip with a tile-out, and the first message lands as the first bubble.
+- **Scenes.** Scenes assemble stone by stone. Lyko blinks, trots and sniffs. Sheep graze, grass grows when rates load, and wolves slink.
+- **Other motion.** Meander bands flow. Seals stamp in. Toasts tile in. The lamp in the strip flashes on each block.
+- **Limits.** Everything uses transforms or a small canvas tick, stops off screen, and is disabled under reduced motion or with the Motion switch off.
 
 ## Honesty rules
 
-- Data that is unavailable says so: the header pulse labels when it reads Arc's public
-  RPC directly because the API is unreachable, plans made without a wallet are dry runs,
-  unpriced holdings read "unpriced".
-- The app never signs. Steps are prepared by the API, signed in the user's wallet and
-  submitted as transaction hashes only.
-- Lykia's name and marks never use "Arc"; the product is built on Arc Network.
+- Unpriced amounts read "unpriced", never zero. Rates are read, never promised.
+- Without a wallet, Ask Lyko plans dry runs for a sample address and says so.
+- Endpoints that are still being built show "coming soon". Missing credentials show "needs a key".
+- The server never signs. Every value-moving step is signed in the owner's wallet.
