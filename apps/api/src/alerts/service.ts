@@ -170,8 +170,7 @@ export class AlertsService {
           head ??= await client.getBlockNumber();
           const token = findToken(environment, rule.token as string);
           if (!token) continue;
-          const from = rule.cursorBlock ? BigInt(rule.cursorBlock) + 1n : head - 500n;
-          const start = from < head - 9_000n ? head - 9_000n : from;
+          const start = scanStart(rule.cursorBlock, head);
           const owner = rule.owner;
           const logs = await client.getLogs({ address: tokenAddress(token, environment) as Address, event: TRANSFER, args: rule.kind === "transfer-in" ? { to: owner } : { from: owner }, fromBlock: start, toBlock: head });
           await this.rules().put(`${owner.toLowerCase()}:${rule.id}`, { ...rule, cursorBlock: head.toString() } as unknown as JsonValue);
@@ -268,4 +267,16 @@ export function alertsService(ctx: AppContext): AlertsService {
     instances.set(ctx, s);
   }
   return s;
+}
+
+/**
+ * First block of a transfer scan: just after the saved cursor, else the last
+ * 500 blocks, never further back than 9,000 (the public RPC's log window).
+ * Kept as a function so static file tracers do not try to fold the bigint
+ * arithmetic at build time.
+ */
+function scanStart(cursorBlock: string | undefined, head: bigint): bigint {
+  const floor = head - 9_000n;
+  const from = cursorBlock ? BigInt(cursorBlock) + 1n : head - 500n;
+  return from < floor ? floor : from;
 }
