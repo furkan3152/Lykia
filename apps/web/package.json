@@ -12,6 +12,7 @@
     "test": "node --import tsx --test \"src/**/__tests__/*.test.ts\""
   },
   "dependencies": {
+    "@circle-fin/modular-wallets-core": "1.0.16",
     "@fontsource-variable/fraunces": "5.2.9",
     "@fontsource-variable/inter": "5.2.8",
     "@fontsource-variable/jetbrains-mono": "5.2.8",

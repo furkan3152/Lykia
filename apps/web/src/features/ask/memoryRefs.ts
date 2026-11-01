@@ -10,7 +10,6 @@ export interface ContactRef {
 
 export const MEMORY_PHRASES = {
   en: ["again", "same as last week", "undo last swap"],
-  tr: ["tekrar", "geçen haftaki gibi", "son swap'ı geri al"],
 } as const;
 
 /** The `@partial` being typed at the caret, or null. */

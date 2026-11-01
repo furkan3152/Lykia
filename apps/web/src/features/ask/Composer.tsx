@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
-import { useLang } from "../../lib/i18n";
 import { apiGet } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { Button, LykoFace, cx } from "../../mosaic";
@@ -23,7 +22,6 @@ export interface ComposerProps {
 
 /** Ask Lyko's composer: grows with the text, Enter sends, Shift+Enter breaks a line. */
 export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, className, morph = true, initial = "", memoryChips = false }: ComposerProps) {
-  const lang = useLang();
   const [text, setText] = useState(initial);
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const owner = useSession((st) => st.session?.address ?? null);
@@ -61,13 +59,13 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
     <div className={cx("m-frame m-composer", morph && "vt-composer", className)}>
       <LykoFace mood={busy ? "herding" : text ? "alert" : "watching"} scale={1.8} />
       <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
-        <span className="m-composer__meta">{lang === "tr" ? "LYKO'YA SOR · TÜRKÇE YA DA İNGİLİZCE" : "ASK LYKO · ENGLISH OR TÜRKÇE"}</span>
+        <span className="m-composer__meta">{"ASK LYKO · TYPE IN ENGLISH OR TURKISH"}</span>
         <textarea
           ref={ref}
           rows={1}
           value={text}
           aria-label="Ask Lyko"
-          placeholder={placeholder ?? (lang === "tr" ? "Maaş için 5.000 USDC tut, kalanını en yeşil meraya koy…" : "Keep 5,000 USDC for payroll, put the rest on the greenest pasture…")}
+          placeholder={placeholder ?? ("Keep 5,000 USDC for payroll, put the rest on the greenest pasture…")}
           onChange={(e) => {
             setText(e.target.value);
             setCaret(e.target.selectionStart ?? e.target.value.length);
@@ -104,24 +102,24 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
         ) : null}
         {memoryChips ? (
           <div className="m-memchips">
-            {MEMORY_PHRASES[lang].map((phrase) => (
+            {MEMORY_PHRASES.en.map((phrase) => (
               <button key={phrase} type="button" className="m-chip" style={{ fontSize: 12, padding: "3px 8px" }} onClick={() => { setText((t) => (t ? `${t} ${phrase}` : phrase)); ref.current?.focus(); }}>
                 ⟲ {phrase}
               </button>
             ))}
             <button type="button" className="m-chip" style={{ fontSize: 12, padding: "3px 8px" }} onClick={() => { const next = text ? `${text} @` : "@"; setText(next); setCaret(next.length); ref.current?.focus(); }}>
-              @ {lang === "tr" ? "kişi" : "contact"}
+              @ {"contact"}
             </button>
           </div>
         ) : null}
       </div>
       {busy && onStop ? (
         <Button tone="navy" onClick={onStop}>
-          {lang === "tr" ? "DUR" : "STOP"}
+          {"STOP"}
         </Button>
       ) : (
         <Button onClick={send} disabled={!text.trim()}>
-          {lang === "tr" ? "GÜT" : "HERD IT"}
+          {"HERD IT"}
         </Button>
       )}
     </div>

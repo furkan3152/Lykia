@@ -7,7 +7,6 @@ import { COMMANDS, EASTER_EGGS, type CommandWord } from "@lykia/core";
 import { useEffect, useRef, useState } from "react";
 
 import { konamiStep, resolveInput } from "../lib/commands";
-import { useLang } from "../lib/i18n";
 import { Frame, LykoFace, toast } from "../mosaic";
 import { handleLine, usePalette } from "./palette";
 
@@ -16,7 +15,6 @@ export function CommandPalette() {
   const close = usePalette((s) => s.close);
   const open = usePalette((s) => s.open);
   const wagTail = usePalette((s) => s.wagTail);
-  const lang = useLang();
   const [text, setText] = useState("");
   const ref = useRef<HTMLTextAreaElement | null>(null);
 
@@ -40,13 +38,13 @@ export function CommandPalette() {
         konami = step.progress;
         if (step.done) {
           wagTail();
-          toast.success(lang === "tr" ? "Lyko kuyruk sallıyor" : "Lyko wags his tail", { from: "LYKO" });
+          toast.success("Lyko wags his tail", { from: "LYKO" });
         }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, wagTail, lang]);
+  }, [open, wagTail]);
 
   useEffect(() => {
     if (isOpen) requestAnimationFrame(() => ref.current?.focus());
@@ -58,7 +56,7 @@ export function CommandPalette() {
     if (!line) return;
     close();
     setText("");
-    handleLine(line, lang);
+    handleLine(line);
   };
   const r = resolveInput(text);
   return (
@@ -67,12 +65,12 @@ export function CommandPalette() {
         <div className="m-composer">
           <LykoFace mood={r.kind === "command" ? "alert" : "watching"} scale={1.6} />
           <div style={{ flex: 1 }}>
-            <span className="m-composer__meta">{lang === "tr" ? "LYKO'YA SOR · KOMUTLAR DA OLUR" : "ASK LYKO · COMMANDS WORK TOO"}</span>
+            <span className="m-composer__meta">{"ASK LYKO · COMMANDS WORK TOO"}</span>
             <textarea
               ref={ref}
               rows={1}
               value={text}
-              placeholder={lang === "tr" ? "100 USDC'yi en yeşil meraya koy…" : "Put 100 USDC on the greenest pasture…"}
+              placeholder={"Put 100 USDC on the greenest pasture…"}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Escape") close();
@@ -84,12 +82,12 @@ export function CommandPalette() {
             />
           </div>
           <button type="button" className="m-btn" onClick={submit}>
-            {r.kind === "sentence" ? (lang === "tr" ? "SOR" : "ASK") : "GO"}
+            {r.kind === "sentence" ? ("ASK") : "GO"}
           </button>
         </div>
         <div style={{ padding: "8px 14px 14px", borderTop: "2px dashed var(--grout)" }}>
           <p className="m-kick" style={{ marginBottom: 6 }}>
-            {r.kind === "command" ? r.meaning : r.kind === "egg" ? "…" : lang === "tr" ? "ÇOBAN KOMUTLARI" : "SHEPHERD COMMANDS"}
+            {r.kind === "command" ? r.meaning : r.kind === "egg" ? "…" : "SHEPHERD COMMANDS"}
           </p>
           <div className="m-chips" style={{ justifyContent: "flex-start", marginTop: 0 }}>
             {(Object.keys(COMMANDS) as CommandWord[]).map((w) => (

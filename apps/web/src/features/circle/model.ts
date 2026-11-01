@@ -40,10 +40,10 @@ export function normalizeCircle(raw: unknown): CircleProduct[] {
   return merged;
 }
 
-export const STATUS_LABEL: Record<CircleStatus, { en: string; tr: string; tone: "ok" | "sea" | "ochre" | "ghost" | "bad" }> = {
-  live: { en: "live", tr: "canlı", tone: "ok" },
-  keyless: { en: "live · no key", tr: "canlı · anahtarsız", tone: "sea" },
-  "needs-key": { en: "needs a key", tr: "anahtar gerekli", tone: "ochre" },
-  unavailable: { en: "unavailable", tr: "yok", tone: "bad" },
-  unknown: { en: "checking…", tr: "kontrol…", tone: "ghost" },
+export const STATUS_LABEL: Record<CircleStatus, { en: string; tone: "ok" | "sea" | "ochre" | "ghost" | "bad" }> = {
+  live: { en: "live", tone: "ok" },
+  keyless: { en: "live · no key", tone: "sea" },
+  "needs-key": { en: "needs a key", tone: "ochre" },
+  unavailable: { en: "unavailable", tone: "bad" },
+  unknown: { en: "checking…", tone: "ghost" },
 };

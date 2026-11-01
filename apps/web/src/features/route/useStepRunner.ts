@@ -5,24 +5,25 @@
  */
 import type { PrepareStepResponse, SubmitStepResponse } from "@lykia/core/api/intents";
 import { useState } from "react";
-import { useAccount, useSendTransaction, useSwitchChain } from "wagmi";
 
 import { apiPost, describeError } from "../../lib/api";
 import { toast } from "../../mosaic";
+import { useWallet } from "../wallet/store";
+import { useLykiaWallet } from "../wallet/useLykiaWallet";
 
 export type RunPhase = "idle" | "preparing" | "signing" | "submitting" | "done" | "error";
 
 export function useStepRunner(intentId: string | null, onSettled?: (r: SubmitStepResponse) => void) {
-  const { address, chainId } = useAccount();
-  const { switchChainAsync } = useSwitchChain();
-  const { sendTransactionAsync } = useSendTransaction();
+  const wallet = useLykiaWallet();
+  const address = wallet.address;
+  const openModal = useWallet((s) => s.openModal);
   const [phase, setPhase] = useState<Record<string, RunPhase>>({});
   const [error, setError] = useState<string | null>(null);
 
   const run = async (stepId: string, confirmed: boolean) => {
     if (!intentId) return;
     if (!address) {
-      toast.warning("Connect a wallet first", { description: "Lyko plans without one; signing needs your wallet.", from: "LYKO" });
+      openModal();
       return;
     }
     setError(null);
@@ -30,13 +31,10 @@ export function useStepRunner(intentId: string | null, onSettled?: (r: SubmitSte
       setPhase((p) => ({ ...p, [stepId]: "preparing" }));
       const prepared = await apiPost<PrepareStepResponse>(`/v1/intents/${encodeURIComponent(intentId)}/steps/${encodeURIComponent(stepId)}/prepare`, { confirmed });
       setPhase((p) => ({ ...p, [stepId]: "signing" }));
-      const hashes: `0x${string}`[] = [];
-      for (const tx of prepared.transactions) {
-        if (chainId !== tx.chainId) await switchChainAsync({ chainId: tx.chainId });
-        hashes.push(await sendTransactionAsync({ to: tx.to, data: tx.data, value: BigInt(tx.value), chainId: tx.chainId }));
-      }
+      // A browser wallet sends each call; a passkey account sends them as one user operation.
+      const sent = await wallet.sendForSubmit(prepared.transactions);
       setPhase((p) => ({ ...p, [stepId]: "submitting" }));
-      const result = await apiPost<SubmitStepResponse>(`/v1/intents/${encodeURIComponent(intentId)}/steps/${encodeURIComponent(stepId)}/submit`, { hashes });
+      const result = await apiPost<SubmitStepResponse>(`/v1/intents/${encodeURIComponent(intentId)}/steps/${encodeURIComponent(stepId)}/submit`, sent);
       setPhase((p) => ({ ...p, [stepId]: "done" }));
       toast.success("Step final on Arc", { description: result.step.summary, from: "LYKO" });
       onSettled?.(result);
@@ -47,5 +45,5 @@ export function useStepRunner(intentId: string | null, onSettled?: (r: SubmitSte
       toast.error("Step did not go through", { description: message, from: "LYKO" });
     }
   };
-  return { run, phase, error, connected: Boolean(address) };
+  return { run, phase, error, connected: Boolean(address), walletKind: wallet.kind };
 }

@@ -1,29 +1,70 @@
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+/** The header's wallet control: connect (passkey or browser wallet), switch to Arc, or the connected account. */
+import { useEffect, useRef, useState } from "react";
 
-/** RainbowKit's connect flow in a mosaic button. */
+import { useUiStore } from "../app/state/uiStore";
+import { ConnectModal } from "../features/wallet/ConnectModal";
+import { canRestorePasskey, useWallet } from "../features/wallet/store";
+import { useLykiaWallet } from "../features/wallet/useLykiaWallet";
+import { toast } from "../mosaic";
+
+const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+
 export default function WalletButton() {
+  const wallet = useLykiaWallet();
+  const openModal = useWallet((s) => s.openModal);
+  const passkey = useWallet((s) => s.passkey);
+  const connectPasskey = useWallet((s) => s.connectPasskey);
+  const mode = useUiStore((s) => s.mode);
+  const [menu, setMenu] = useState(false);
+  const tried = useRef<string | null>(null);
+
+  // Restore a stored passkey account without a prompt, and follow the network toggle.
+  useEffect(() => {
+    if (wallet.kind === "browser" || !canRestorePasskey()) return;
+    if (passkey && passkey.environment === mode) return;
+    if (tried.current === mode) return;
+    tried.current = mode;
+    void connectPasskey(mode, "restore");
+  }, [mode, passkey, wallet.kind, connectPasskey]);
+
+  let control;
+  if (!wallet.connected || !wallet.address) {
+    control = (
+      <button type="button" className="m-btn m-btn--sm" onClick={openModal}>
+        CONNECT
+      </button>
+    );
+  } else if (wallet.wrongChain) {
+    control = (
+      <button type="button" className="m-btn m-btn--sm m-btn--ochre" onClick={() => void wallet.switchToArc().catch((e: unknown) => toast.error("Could not switch", { description: e instanceof Error ? e.message.split("\n")[0] : String(e), from: "LYKO" }))}>
+        SWITCH TO ARC
+      </button>
+    );
+  } else {
+    control = (
+      <div style={{ position: "relative" }}>
+        <button type="button" className="m-btn m-btn--sm" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)} title={wallet.label ?? undefined}>
+          {wallet.kind === "passkey" ? "◉ " : ""}
+          {short(wallet.address)}
+        </button>
+        {menu ? (
+          <div role="menu" className="m-frame m-frame--thin m-walletmenu">
+            <p className="m-small m-muted">{wallet.label}</p>
+            <button type="button" role="menuitem" className="m-thread" onClick={() => { void navigator.clipboard?.writeText(wallet.address!); setMenu(false); toast.info("Address copied", { from: "LYKO" }); }}>
+              COPY ADDRESS
+            </button>
+            <button type="button" role="menuitem" className="m-thread" onClick={() => { wallet.disconnect(); setMenu(false); }}>
+              DISCONNECT
+            </button>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
   return (
-    <ConnectButton.Custom>
-      {({ account, chain, mounted, openAccountModal, openChainModal, openConnectModal }) => {
-        if (!mounted) return <span className="m-btn m-btn--sm" aria-hidden="true">…</span>;
-        if (!account || !chain)
-          return (
-            <button type="button" className="m-btn m-btn--sm" onClick={openConnectModal}>
-              CONNECT
-            </button>
-          );
-        if (chain.unsupported)
-          return (
-            <button type="button" className="m-btn m-btn--sm m-btn--ochre" onClick={openChainModal}>
-              SWITCH TO ARC
-            </button>
-          );
-        return (
-          <button type="button" className="m-btn m-btn--sm" onClick={openAccountModal}>
-            {account.displayName}
-          </button>
-        );
-      }}
-    </ConnectButton.Custom>
+    <>
+      {control}
+      <ConnectModal />
+    </>
   );
 }

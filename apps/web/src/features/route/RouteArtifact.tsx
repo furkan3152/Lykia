@@ -124,6 +124,7 @@ export function RouteArtifact({ proposal, intentId, onClose }: { proposal?: Agen
                     <Button size="sm" onClick={() => void runner.run(s.id, confirmed)} disabled={runner.phase[s.id] === "preparing" || runner.phase[s.id] === "signing" || runner.phase[s.id] === "submitting" || (view.decision === "confirm" && !confirmed)}>
                       {runner.phase[s.id] === "signing" ? "SIGN IN WALLET…" : runner.phase[s.id] === "submitting" ? "CHECKING ARC…" : runner.phase[s.id] === "preparing" ? "PREPARING…" : runner.connected ? "SIGN ONCE" : "CONNECT TO SIGN"}
                     </Button>
+                    {runner.walletKind === "passkey" ? <p className="m-small m-muted" style={{ marginTop: 6 }}>Your passkey wallet sends this step as one user operation through Circle's bundler; Lykia verifies it on Arc by its user operation hash.</p> : null}
                   </div>
                 ) : null}
               </div>

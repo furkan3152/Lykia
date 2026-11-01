@@ -6,7 +6,6 @@ import { useState } from "react";
 import { CircleMarket } from "../../features/circle/Circle";
 import { useSiwe } from "../../features/session/useSiwe";
 import { apiGet, apiPost, apiPut, apiUrl, describeError } from "../../lib/api";
-import { useLang } from "../../lib/i18n";
 import { Button, Card, EmptyState, Field, Input, PageHead, Select, Skeleton, Tabs, Tag, toast } from "../../mosaic";
 
 type Tab = "keys" | "webhooks" | "fee" | "playground" | "mcp" | "sdk" | "circle";
@@ -25,7 +24,6 @@ for (const step of plan.intent.steps) {
 }`;
 
 export default function BuildPage() {
-  const lang = useLang();
   const siwe = useSiwe();
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>("keys");
@@ -57,10 +55,10 @@ export default function BuildPage() {
   };
   return (
     <div>
-      <PageHead kicker={lang === "tr" ? "GELİŞTİR · API · MCP · SDK" : "BUILD · API · MCP · SDK"} title={lang === "tr" ? <>Lyko'yu <em>ürününe</em> koy.</> : <>Put Lyko in <em>your product.</em></>} sub={lang === "tr" ? "Bir anahtar al, aynı plan, Çit ve Koku katmanını kendi uygulamana ya da agent'ına bağla. Sunucu asla imzalamaz." : "Get a key and plug the same planning, Fence and Scent layer into your app or agent. The server never signs."} mood="happy">
+      <PageHead kicker={"BUILD · API · MCP · SDK"} title={<>Put Lyko in <em>your product.</em></>} sub={"Get a key and plug the same planning, Fence and Scent layer into your app or agent. The server never signs."} mood="happy">
         <div className="flex justify-center gap-2" style={{ marginTop: 18 }}>
-          {siwe.signedIn ? <Tag tone="ok">SIGNED IN · {siwe.session?.roles.join(", ").toUpperCase()}</Tag> : <Button onClick={() => void siwe.signIn()} disabled={siwe.busy}>{lang === "tr" ? "ARC İLE GİRİŞ (SIWE)" : "SIGN IN ON ARC (SIWE)"}</Button>}
-          {siwe.signedIn && !siwe.session?.roles.includes("developer") ? <Button tone="sea" onClick={() => register.mutate()}>{lang === "tr" ? "GELİŞTİRİCİ OL" : "BECOME A DEVELOPER"}</Button> : null}
+          {siwe.signedIn ? <Tag tone="ok">SIGNED IN · {siwe.session?.roles.join(", ").toUpperCase()}</Tag> : <Button onClick={() => void siwe.signIn()} disabled={siwe.busy}>{"SIGN IN ON ARC (SIWE)"}</Button>}
+          {siwe.signedIn && !siwe.session?.roles.includes("developer") ? <Button tone="sea" onClick={() => register.mutate()}>{"BECOME A DEVELOPER"}</Button> : null}
         </div>
       </PageHead>
       <section className="m-wrap" style={{ marginTop: 28 }}>
@@ -75,21 +73,21 @@ export default function BuildPage() {
         <div style={{ marginTop: 20 }}>
           {tab === "keys" ? (
             <div className="m-grid-2">
-              <Card title={lang === "tr" ? "Anahtarlar" : "Keys"} kicker={lang === "tr" ? "SADECE HMAC SAKLANIR" : "ONLY AN HMAC IS STORED"}>
-                {!enabled ? <EmptyState title={lang === "tr" ? "Önce giriş" : "Sign in first"}>{lang === "tr" ? "Anahtarlar cüzdanına bağlıdır." : "Keys belong to your wallet."}</EmptyState> : keys.isLoading ? <Skeleton h={120} /> : (
+              <Card title={"Keys"} kicker={"ONLY AN HMAC IS STORED"}>
+                {!enabled ? <EmptyState title={"Sign in first"}>{"Keys belong to your wallet."}</EmptyState> : keys.isLoading ? <Skeleton h={120} /> : (
                   <table className="m-table"><thead><tr><th>Label</th><th>Kind</th><th>Prefix</th><th>Scopes</th></tr></thead><tbody>
                     {(keys.data?.keys ?? []).map((k) => <tr key={k.id}><td>{k.label}</td><td><Tag tone={k.kind === "secret" ? "bad" : "sea"}>{k.kind}</Tag></td><td className="num">{k.prefix}</td><td className="m-small">{k.scopes.join(", ")}</td></tr>)}
                   </tbody></table>
                 )}
-                {created ? <div className="m-note" style={{ marginTop: 10 }}><b>{lang === "tr" ? "Bir kez gösterilir:" : "Shown once:"}</b> <code className="num">{created.secret}</code></div> : null}
+                {created ? <div className="m-note" style={{ marginTop: 10 }}><b>{"Shown once:"}</b> <code className="num">{created.secret}</code></div> : null}
               </Card>
-              <Card title={lang === "tr" ? "Yeni anahtar" : "New key"} kicker="SECRET · PUBLISHABLE" footer={<Button disabled={!enabled || createKey.isPending} onClick={() => createKey.mutate()}>{lang === "tr" ? "OLUŞTUR" : "CREATE"}</Button>}>
+              <Card title={"New key"} kicker="SECRET · PUBLISHABLE" footer={<Button disabled={!enabled || createKey.isPending} onClick={() => createKey.mutate()}>{"CREATE"}</Button>}>
                 <div style={{ display: "grid", gap: 10 }}>
                   <Field label="Label"><Input value={label} onChange={(e) => setLabel(e.target.value)} /></Field>
                   <Field label="Kind" hint={kind === "publishable" ? "Bound to this origin; safe in a browser." : "Server-side only."}>
                     <Select value={kind} onChange={(e) => setKind(e.target.value as "secret" | "publishable")}><option value="secret">secret</option><option value="publishable">publishable</option></Select>
                   </Field>
-                  {usage.data ? <p className="m-small m-muted">{lang === "tr" ? "Bugün" : "Today"}: <b className="num">{usage.data.today}</b> requests</p> : null}
+                  {usage.data ? <p className="m-small m-muted">{"Today"}: <b className="num">{usage.data.today}</b> requests</p> : null}
                 </div>
               </Card>
             </div>
@@ -99,7 +97,7 @@ export default function BuildPage() {
               <div style={{ marginTop: 10 }}>{(hooks.data?.endpoints ?? []).map((w) => <div key={w.id} className="m-row"><span className="num m-small">{w.url}</span></div>)}</div>
             </Card>
           ) : tab === "fee" ? (
-            <Card title={lang === "tr" ? "Entegratör ücreti" : "Integrator fee"} kicker="MAX 50 BPS" footer={<Button disabled={!enabled} onClick={async () => { try { await apiPut("/v1/developers/settings", { integratorFeeBps: Number(fee), feeRecipient: feeTo || null }); toast.success("Saved", { from: "LYKO" }); } catch (e) { toast.error(describeError(e), { from: "LYKO" }); } }}>SAVE</Button>}>
+            <Card title={"Integrator fee"} kicker="MAX 50 BPS" footer={<Button disabled={!enabled} onClick={async () => { try { await apiPut("/v1/developers/settings", { integratorFeeBps: Number(fee), feeRecipient: feeTo || null }); toast.success("Saved", { from: "LYKO" }); } catch (e) { toast.error(describeError(e), { from: "LYKO" }); } }}>SAVE</Button>}>
               <div className="m-grid-2" style={{ gap: 10 }}><Field label="bps"><Input value={fee} onChange={(e) => setFee(e.target.value)} /></Field><Field label="Recipient"><Input value={feeTo} placeholder="0x…" onChange={(e) => setFeeTo(e.target.value)} /></Field></div>
             </Card>
           ) : tab === "playground" ? (

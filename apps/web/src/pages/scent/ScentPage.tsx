@@ -10,7 +10,6 @@ import { SceneFrame } from "../../features/scenes/SceneFrame";
 import { apiGet, describeError } from "../../lib/api";
 import { availabilityOf } from "../../lib/optional";
 import { useEnvironment } from "../../lib/environment";
-import { useLang } from "../../lib/i18n";
 import { useLamp } from "../../lib/pulseStore";
 import { Button, Card, EmptyState, Input, PageHead, Skeleton, Tag } from "../../mosaic";
 import { sniff, SNIFF_H, SNIFF_W } from "../../mosaic/scenes";
@@ -19,7 +18,6 @@ const LEVEL_TONE = { verified: "ok", "no-red-flags": "ok", caution: "ochre", dan
 const EXAMPLES = [["USDC", "0x3600000000000000000000000000000000000000"], ["EURC (mainnet)", "0xbEf5f6d51CB62b58e6A8f77868681825C6fe21c1"]] as const;
 
 export default function ScentPage() {
-  const lang = useLang();
   const environment = useEnvironment();
   const token = useRouteParam("token") ?? null;
   const lit = useLamp();
@@ -30,10 +28,10 @@ export default function ScentPage() {
   const level = r?.level ?? (report.isLoading ? "unknown" : "idle");
   return (
     <div>
-      <PageHead kicker={lang === "tr" ? "KOKU · DOKUNMADAN ÖNCE" : "SCENT · BEFORE ANYONE TOUCHES IT"} title={lang === "tr" ? <>Lyko <em>koklasın.</em></> : <>Let Lyko <em>sniff it.</em></>} sub={lang === "tr" ? "Kayıt, bytecode, proxy'ler, yetkiler, sahip ve simüle bir transfer. En iyi sonuç bile \"güvenli\" değildir; \"kırmızı bayrak yok\"tur." : "Registry, bytecode, proxies, privileges, owner and a simulated transfer. Even the best result is not \"safe\"; it is \"no red flags found\"."} mood={level === "danger" ? "growling" : level === "caution" ? "alert" : "watching"}>
+      <PageHead kicker={"SCENT · BEFORE ANYONE TOUCHES IT"} title={<>Let Lyko <em>sniff it.</em></>} sub={"Registry, bytecode, proxies, privileges, owner and a simulated transfer. Even the best result is not \"safe\"; it is \"no red flags found\"."} mood={level === "danger" ? "growling" : level === "caution" ? "alert" : "watching"}>
         <form className="flex gap-2 justify-center" style={{ marginTop: 18, maxWidth: 620, marginInline: "auto" }} onSubmit={(e) => { e.preventDefault(); if (/^0x[0-9a-fA-F]{40}$/u.test(draft.trim())) navigate(`/app/scent/${draft.trim()}`); }}>
           <Input placeholder="0x… token address" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Token address" />
-          <Button type="submit">{lang === "tr" ? "KOKLA" : "SNIFF"}</Button>
+          <Button type="submit">{"SNIFF"}</Button>
         </form>
       </PageHead>
       <section className="m-wrap" style={{ marginTop: 28 }}>
@@ -49,12 +47,12 @@ export default function ScentPage() {
       </section>
       <section className="m-wrap" style={{ marginTop: 28 }}>
         {!token ? (
-          <Card title={lang === "tr" ? "Bir token ver" : "Give him a token"}>
-            <EmptyState mood="happy" title={lang === "tr" ? "Burnu hazır" : "Nose ready"}>{lang === "tr" ? "Bir adres yapıştır ya da şunları dene:" : "Paste an address, or try one of these:"}</EmptyState>
+          <Card title={"Give him a token"}>
+            <EmptyState mood="happy" title={"Nose ready"}>{"Paste an address, or try one of these:"}</EmptyState>
             <div className="m-chips">{EXAMPLES.map(([n, a]) => <button key={a} type="button" className="m-chip" onClick={() => navigate(`/app/scent/${a}`)}>{n}</button>)}</div>
           </Card>
         ) : report.isLoading ? <Skeleton h={240} /> : report.isError ? (
-          <Card title={lang === "tr" ? "Koklanamadı" : "Could not sniff"}><p className="m-note m-note--bad">{describeError(report.error)}</p></Card>
+          <Card title={"Could not sniff"}><p className="m-note m-note--bad">{describeError(report.error)}</p></Card>
         ) : r ? (
           <div className="m-grid-2 m-grid-2--l">
             <Card title={`${r.symbol ?? "?"} · ${r.name ?? "unknown"}`} kicker={`${r.token.slice(0, 10)}… · ARC ${r.environment.toUpperCase()} · ${r.decimals ?? "?"} DECIMALS`}>
@@ -67,14 +65,14 @@ export default function ScentPage() {
                 </tbody>
               </table>
             </Card>
-            <Card title={lang === "tr" ? "Kurtlar" : "Wolves"} kicker={`${r.wolves.length} FOUND`} tone={r.wolves.length ? "terra" : "sea"}>
-              {r.wolves.length === 0 ? <EmptyState mood="proud" title={lang === "tr" ? "Kurt yok" : "No wolves"}>{lang === "tr" ? "Bu, güvenli demek değil; kanıtlanabilen her şeye bakıldı demek." : "That is not \"safe\"; it means everything provable was checked."}</EmptyState> : r.wolves.map((w) => (
+            <Card title={"Wolves"} kicker={`${r.wolves.length} FOUND`} tone={r.wolves.length ? "terra" : "sea"}>
+              {r.wolves.length === 0 ? <EmptyState mood="proud" title={"No wolves"}>{"That is not \"safe\"; it means everything provable was checked."}</EmptyState> : r.wolves.map((w) => (
                 <div key={w} className="m-row"><Tag tone="wolf">{w}</Tag><div><b>{WOLVES[w as WolfKind].name}</b><p className="m-small m-muted">{WOLVES[w as WolfKind].line}</p></div></div>
               ))}
               {"warning" in r.trust ? <p className="m-note" style={{ marginTop: 8 }}>{r.trust.warning}</p> : null}
               <div className="m-row" style={{ marginTop: 8 }}>
-                <Tag tone={compliance.data ? (compliance.data.result === "approved" ? "ok" : compliance.data.result === "denied" ? "bad" : "ochre") : "ghost"}>{lang === "tr" ? "UYUM" : "COMPLIANCE"}</Tag>
-                <p className="m-small">{compliance.data ? `${compliance.data.result}${compliance.data.reasons?.length ? ` · ${compliance.data.reasons.join(", ")}` : ""} (${compliance.data.provider ?? "Circle"})` : compliance.isLoading ? "…" : availabilityOf(compliance.error) === "needs-key" ? (lang === "tr" ? "Circle uyum taraması sunucuda anahtar ister." : "Circle compliance screening needs a key on the server.") : lang === "tr" ? "Circle uyum taraması yakında." : "Circle compliance screening is coming soon."}</p>
+                <Tag tone={compliance.data ? (compliance.data.result === "approved" ? "ok" : compliance.data.result === "denied" ? "bad" : "ochre") : "ghost"}>{"COMPLIANCE"}</Tag>
+                <p className="m-small">{compliance.data ? `${compliance.data.result}${compliance.data.reasons?.length ? ` · ${compliance.data.reasons.join(", ")}` : ""} (${compliance.data.provider ?? "Circle"})` : compliance.isLoading ? "…" : availabilityOf(compliance.error) === "needs-key" ? ("Circle compliance screening needs a key on the server.") : "Circle compliance screening is coming soon."}</p>
               </div>
             </Card>
           </div>

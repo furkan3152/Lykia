@@ -1,6 +1,6 @@
 # @lykia/web
 
-The Lykia web app: Vite 6, React 18, Tailwind 3 (layout utilities only), wagmi 2 + RainbowKit 2 and react-query. It is built on **Mosaic**, Lykia's own design system: pixels are tesserae. Every surface is laid from the same stones: a limestone floor, meander bands between sections, one stone frame for every card and scene, and data-driven mosaic scenes.
+The Lykia web app: Vite 6, React 18, Tailwind 3 (layout utilities only), wagmi 2 (browser wallets), Circle Modular Wallets (passkey smart accounts) and react-query. It is built on **Mosaic**, Lykia's own design system: pixels are tesserae. Every surface is laid from the same stones: a limestone floor, meander bands between sections, one stone frame for every card and scene, and data-driven mosaic scenes.
 
 ```sh
 npm run dev -w @lykia/web        # http://localhost:5176
@@ -9,7 +9,22 @@ npm run typecheck -w @lykia/web
 npm test -w @lykia/web           # node --test, pure modules only
 ```
 
-Build-time environment: `VITE_API_URL` (default `http://localhost:3002`) and `VITE_WALLETCONNECT_PROJECT_ID` (WalletConnect is hidden without it).
+Build-time environment (all public values, never secrets):
+
+| Variable | Purpose |
+|---|---|
+| `VITE_API_URL` | Origin of the Lykia API (default `http://localhost:3002`). |
+| `VITE_CIRCLE_CLIENT_KEY` | Circle Modular Wallets client key (from console.circle.com, Modular Wallets). Passkey wallets are hidden without it. |
+| `VITE_CIRCLE_CLIENT_URL` | Circle Modular Wallets client URL (https). The app appends `/arc` or `/arcTestnet` per network. |
+
+## Connecting
+
+The connect modal offers two ways in, with no WalletConnect or QR codes:
+
+- **Passkey wallet**: a Circle smart account on Arc owned by a device passkey (Face ID, Touch ID, Windows Hello). The SDK loads only when someone opens it. Plan steps go out as one user operation through Circle's bundler and are submitted to the API by user operation hash; sign-in uses the smart account's ERC-1271 signature.
+- **Browser wallet**: wallets announced through EIP-6963 (MetaMask, Rabby, OKX, Coinbase Wallet and others) with their own icons, falling back to `window.ethereum`. Switching to Arc adds the chain (USDC as the native currency) when the wallet does not know it.
+
+The interface is English only; people may still type to Lyko in Turkish.
 
 ## Mosaic
 

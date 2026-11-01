@@ -26,7 +26,7 @@ export const usePalette = create<PaletteState>()((set, get) => ({
 const DEST: Record<Destination, string> = { ask: "/app", flock: "/app/flock", pastures: "/app/pastures", pack: "/app/pack", fence: "/app/fence", scent: "/app/scent", kunye: "/app/kunye", build: "/build", landing: "/" };
 
 /** Handles one submitted line from any composer. Returns true when it was not a question (already handled). */
-export function handleLine(text: string, lang: "en" | "tr"): boolean {
+export function handleLine(text: string): boolean {
   const r = resolveInput(text);
   switch (r.kind) {
     case "empty":
@@ -52,7 +52,6 @@ export function handleLine(text: string, lang: "en" | "tr"): boolean {
       if (!window.location.pathname.startsWith("/app/ask") && window.location.pathname !== "/app") navigate("/app");
       return false;
   }
-  void lang;
   return true;
 }
 

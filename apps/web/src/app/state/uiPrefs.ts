@@ -68,10 +68,15 @@ export function modeAvailability(mode: NetworkMode): ModeAvailability {
   return { available: true, reason: null };
 }
 
-/** The mode to use: a stored mainnet choice falls back to testnet while mainnet is unavailable. */
+/**
+ * The mode to use. First-time visitors start on mainnet: without a wallet
+ * every plan is a dry run, and mainnet is where the venues live. A saved
+ * testnet choice is kept; a saved mainnet choice falls back to testnet only
+ * if mainnet ever becomes unavailable.
+ */
 export function effectiveMode(stored: unknown): NetworkMode {
-  if (stored === "mainnet" && modeAvailability("mainnet").available) return "mainnet";
-  return "testnet";
+  if (stored === "testnet") return "testnet";
+  return modeAvailability("mainnet").available ? "mainnet" : "testnet";
 }
 
 export interface PersistedUiPrefs {
@@ -84,7 +89,7 @@ export interface PersistedUiPrefs {
 export const DEFAULT_UI_PREFS: PersistedUiPrefs = Object.freeze({
   theme: "system",
   motion: "on",
-  mode: "testnet",
+  mode: "mainnet",
   railCollapsed: false,
 });
 

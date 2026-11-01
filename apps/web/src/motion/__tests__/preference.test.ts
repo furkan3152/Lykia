@@ -49,7 +49,8 @@ describe("ui preferences", () => {
     assert.equal(modeAvailability("mainnet").available, true);
     assert.equal(effectiveMode("mainnet"), "mainnet");
     assert.equal(effectiveMode("testnet"), "testnet");
-    assert.equal(effectiveMode("nonsense"), "testnet");
+    assert.equal(effectiveMode("nonsense"), "mainnet", "first-time visitors start on mainnet (dry runs without a wallet)");
+    assert.equal(effectiveMode(undefined), "mainnet");
   });
 
   it("sanitises persisted state field by field", () => {

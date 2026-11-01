@@ -7,6 +7,8 @@ import type { AgentProposal, ChatEvent } from "@lykia/core/api/agents";
 export interface TrailItem {
   readonly label: string;
   readonly ok: boolean;
+  /** Why a step failed, in plain words (shown under the reply). */
+  readonly detail?: string;
 }
 
 export interface ChatMessage {
@@ -56,7 +58,7 @@ export function reduce(c: Conversation, e: ChatEvent): Conversation {
     case "task":
       return patchLast(c, (m) => ({ ...m, trail: [...m.trail, { label: `${e.data.agent}: ${e.data.task}`, ok: true }] }));
     case "tool":
-      return patchLast(c, (m) => ({ ...m, trail: [...m.trail, { label: `${e.data.agent} · ${e.data.name}`, ok: e.data.ok }] }));
+      return patchLast(c, (m) => ({ ...m, trail: [...m.trail, { label: `${e.data.agent} · ${e.data.name}`, ok: e.data.ok, ...(e.data.ok || !e.data.summary ? {} : { detail: e.data.summary }) }] }));
     case "thinking-summary":
       return patchLast(c, (m) => ({ ...m, trail: [...m.trail, { label: `${e.data.agent}: ${e.data.text}`, ok: true }] }));
     case "proposal":
@@ -72,6 +74,16 @@ export function reduce(c: Conversation, e: ChatEvent): Conversation {
     default:
       return c;
   }
+}
+
+/** Plain-language reasons from failed steps, de-duplicated, for the reply bubble. */
+export function failureReasons(m: Pick<ChatMessage, "trail" | "text">): string[] {
+  const seen = new Set<string>();
+  for (const t of m.trail) {
+    const d = t.detail?.trim();
+    if (d && !t.ok && !m.text.includes(d)) seen.add(d);
+  }
+  return [...seen];
 }
 
 /** The latest proposal in the conversation (the artifact panel shows it). */
