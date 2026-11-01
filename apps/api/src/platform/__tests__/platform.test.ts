@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
-import { keccak256, type Hex } from "viem";
+import type { Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { createApp } from "../../app.js";
 import { closeContext, createContext, type AppContext } from "../../context.js";
@@ -120,23 +120,32 @@ describe("platform", () => {
     assert.equal(signWebhook("s", "b", 1), signWebhook("s", "b", 1));
   });
 
-  it("records deployments only after checking the receipt and the bytecode", async () => {
+  it("records direct CREATE deployments from an admin wallet after checking the receipt and the bytecode", async () => {
     const code = "0x6080604052600080fd" as Hex;
     const address = "0x7777777777777777777777777777777777777777";
     const hash = `0x${"ab".repeat(32)}` as Hex;
+    const viaFactory = `0x${"cd".repeat(32)}` as Hex;
+    const byStranger = `0x${"ef".repeat(32)}` as Hex;
     const chains = {
       client: () => ({
-        getTransactionReceipt: async ({ hash: h }: { hash: string }) => (h === hash ? { status: "success", contractAddress: address, blockNumber: 99n, logs: [] } : null),
+        getTransactionReceipt: async ({ hash: h }: { hash: string }) => ([hash, viaFactory, byStranger].includes(h as Hex) ? { status: "success", contractAddress: h === viaFactory ? null : address, blockNumber: 99n, logs: [] } : null),
+        getTransaction: async ({ hash: h }: { hash: string }) => ({ from: h === byStranger ? wallet.address : admin.address, to: h === viaFactory ? "0x4e59b44847b379578588920ca78fbf26c0b4956c" : null }),
         getCode: async () => code,
       }),
     } as unknown as ArcChains;
-    const local = createContext(testConfig(), { chains, pulse: idlePulse });
-    const ok = await recordDeployment(local, { environment: "testnet", contract: "LykiaAccountFactory", address, txHash: hash, recordedBy: admin.address }, async () => keccak256(code));
+    const local = createContext(testConfig({ LYKIA_ADMIN_ADDRESSES: admin.address }), { chains, pulse: idlePulse });
+    const ok = await recordDeployment(local, { environment: "testnet", contract: "PracticeVault", name: "PracticeVaultUSDC", address, txHash: hash, recordedBy: admin.address }, () => true);
     assert.equal(ok.verified, true);
-    await assert.rejects(recordDeployment(local, { environment: "testnet", contract: "LykiaAccountFactory", address, txHash: hash, recordedBy: admin.address }, async () => keccak256("0x00")), (e: Error & { code?: string }) => e.code === "DEPLOYMENT_MISMATCH");
-    await assert.rejects(recordDeployment(local, { environment: "testnet", contract: "X", address: "0x8888888888888888888888888888888888888888", txHash: hash, recordedBy: admin.address }, async () => null), (e: Error & { code?: string }) => e.code === "DEPLOYMENT_UNVERIFIED");
-    const unknown = await recordDeployment(local, { environment: "testnet", contract: "Other", address, txHash: hash, recordedBy: admin.address }, async () => null);
+    assert.equal(ok.id, "testnet:PracticeVaultUSDC");
+    assert.equal(ok.creator.toLowerCase(), admin.address.toLowerCase());
+    await assert.rejects(recordDeployment(local, { environment: "testnet", contract: "LykiaAccountFactory", address, txHash: hash, recordedBy: admin.address }, () => false), (e: Error & { code?: string }) => e.code === "DEPLOYMENT_MISMATCH");
+    await assert.rejects(recordDeployment(local, { environment: "testnet", contract: "LykiaRouter", address, txHash: viaFactory, recordedBy: admin.address }, () => true), (e: Error & { code?: string }) => e.code === "DEPLOYMENT_UNVERIFIED" && /not a contract creation/u.test(e.message));
+    await assert.rejects(recordDeployment(local, { environment: "testnet", contract: "LykiaRouter", address, txHash: byStranger, recordedBy: admin.address }, () => true), (e: Error & { code?: string }) => e.code === "DEPLOYMENT_UNVERIFIED" && /not an admin/u.test(e.message));
+    await assert.rejects(recordDeployment(local, { environment: "testnet", contract: "X", address: "0x8888888888888888888888888888888888888888", txHash: hash, recordedBy: admin.address }, () => null), (e: Error & { code?: string }) => e.code === "DEPLOYMENT_UNVERIFIED");
+    const unknown = await recordDeployment(local, { environment: "testnet", contract: "Other", address, txHash: hash, recordedBy: admin.address }, () => null);
     assert.equal(unknown.verified, false);
+    // The default check compares with the core artifact: random code is refused for a known contract.
+    await assert.rejects(recordDeployment(local, { environment: "testnet", contract: "LykiaRouter", address, txHash: hash, recordedBy: admin.address }), (e: Error & { code?: string }) => e.code === "DEPLOYMENT_MISMATCH");
     await closeContext(local);
 
     const adminToken = await signIn(admin);

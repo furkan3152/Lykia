@@ -34,6 +34,14 @@ function artifact(c) {
   return JSON.parse(fs.readFileSync(p, "utf8"));
 }
 
+/** Byte ranges of the runtime code the constructor fills with immutables, from the build info. */
+function immutableRanges(c) {
+  const dbg = JSON.parse(fs.readFileSync(path.join(PKG, "artifacts", "contracts", c.file, `${c.name}.dbg.json`), "utf8"));
+  const info = JSON.parse(fs.readFileSync(path.resolve(path.join(PKG, "artifacts", "contracts", c.file), dbg.buildInfo), "utf8"));
+  const out = info.output.contracts[`contracts/${c.file}`][c.name].evm.deployedBytecode.immutableReferences || {};
+  return Object.values(out).flat().map((r) => ({ start: r.start, length: r.length })).sort((a, b) => a.start - b.start);
+}
+
 function sourceHash() {
   const h = crypto.createHash("sha256");
   const walk = (dir) => {
@@ -71,6 +79,7 @@ for (const c of CONTRACTS) {
     `  abi: ${JSON.stringify(a.abi, null, 2).replace(/\n/g, "\n  ")},\n` +
     `  bytecode: ${JSON.stringify(a.bytecode)},\n` +
     `  deployedBytecode: ${JSON.stringify(a.deployedBytecode)},\n` +
+    `  immutableReferences: ${JSON.stringify(immutableRanges(c))},\n` +
     `} as const;\n`;
   fs.writeFileSync(path.join(OUT, `${c.name}.ts`), body);
   barrel.push(`export { ${constName} } from "./${c.name}.js";`);

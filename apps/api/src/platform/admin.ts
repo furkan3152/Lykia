@@ -1,68 +1,73 @@
 /**
  * Admin console backend: the deployment registry and feature flags.
  *
- * A deployment is recorded only after the server checks it on Arc itself:
- * the transaction receipt exists and succeeded, the address it names was
- * created by that transaction (receipt.contractAddress, or a factory
- * deployment whose logs mention the address), and the runtime bytecode at
- * the address hashes to the expected artifact. The expected hash comes from
- * the compiled artifacts shipped in @lykia/core when they are present; a
- * mismatch is refused, an unknown contract is recorded as unverified.
+ * Lykia's core contracts are created by plain CREATE transactions sent from an
+ * admin's own wallet, so explorers show that wallet as the creator. A
+ * deployment is recorded only after the server checks it on Arc itself: the
+ * receipt exists and succeeded, the transaction is a contract creation (no
+ * `to`) sent by an admin address, the receipt's contractAddress is the address
+ * being recorded, and the runtime code there matches the artifact shipped in
+ * @lykia/core (immutables ignored). A mismatch is refused; a contract without
+ * an artifact is recorded as unverified.
  */
 import { FEATURE_FLAGS, type DeploymentRecord, type FeatureFlag } from "@lykia/core/api/platform";
-import type { ArcEnvironment } from "@lykia/core";
+import { lykiaContracts, type ArcEnvironment } from "@lykia/core";
 import { keccak256, type Address, type Hex } from "viem";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { typedCollection } from "./typed.js";
 
-/** Expected runtime code hashes by contract name, from core artifacts if the contracts package exported them. */
-export type ExpectedCodeHashes = (contract: string, environment: ArcEnvironment) => Promise<Hex | null>;
+/** Whether `code` is `contract`'s runtime code: true, false, or null when there is no artifact to compare with. */
+export type CodeCheck = (contract: string, code: Hex) => boolean | null;
 
-export const coreExpectedCodeHashes: ExpectedCodeHashes = async (contract) => {
-  try {
-    const mod = (await import("@lykia/core/contracts/index")) as Record<string, unknown>;
-    const hashes = mod.RUNTIME_CODE_HASHES as Record<string, string> | undefined;
-    if (hashes?.[contract]) return hashes[contract] as Hex;
-    const artifacts = (mod.CONTRACT_ARTIFACTS ?? mod.ARTIFACTS) as Record<string, { deployedBytecode?: string }> | undefined;
-    const code = artifacts?.[contract]?.deployedBytecode;
-    return code && code !== "0x" ? keccak256(code as Hex) : null;
-  } catch {
-    return null;
-  }
-};
+export const coreCodeCheck: CodeCheck = (contract, code) => lykiaContracts.codeMatchesArtifact(contract, code);
+
+function expectedHash(contract: string): Hex | null {
+  const artifact = lykiaContracts.DEPLOYABLE_ARTIFACTS[contract];
+  return artifact ? lykiaContracts.runtimeCodeHash(artifact.deployedBytecode as Hex, artifact.immutableReferences) : null;
+}
 
 export interface RecordDeploymentInput {
   readonly environment: ArcEnvironment;
+  /** Artifact name (LykiaRouter, PracticeVault, …). */
   readonly contract: string;
+  /** Plan step name when one artifact is deployed twice (PracticeVaultUSDC); defaults to the contract. */
+  readonly name?: string;
   readonly address: Address;
   readonly txHash: Hex;
   readonly recordedBy: string;
 }
 
-export async function recordDeployment(ctx: AppContext, input: RecordDeploymentInput, expected: ExpectedCodeHashes = coreExpectedCodeHashes): Promise<DeploymentRecord> {
+export async function recordDeployment(ctx: AppContext, input: RecordDeploymentInput, check: CodeCheck = coreCodeCheck): Promise<DeploymentRecord> {
   const client = ctx.chains.client(input.environment);
   const receipt = await client.getTransactionReceipt({ hash: input.txHash }).catch(() => null);
   if (!receipt) throw new LykiaHttpError("DEPLOYMENT_UNVERIFIED", 422, "No receipt for that transaction on Arc.");
   if (receipt.status !== "success") throw new LykiaHttpError("DEPLOYMENT_UNVERIFIED", 422, "The deployment transaction reverted.");
+  const tx = await client.getTransaction({ hash: input.txHash }).catch(() => null);
+  if (!tx) throw new LykiaHttpError("DEPLOYMENT_UNVERIFIED", 422, "That transaction could not be read from Arc.");
+  if (tx.to) throw new LykiaHttpError("DEPLOYMENT_UNVERIFIED", 422, "That transaction is not a contract creation: deploy straight from your wallet so it shows as the creator.");
+  const from = tx.from.toLowerCase();
+  if (!ctx.config.platform.adminAddresses.includes(from)) throw new LykiaHttpError("DEPLOYMENT_UNVERIFIED", 422, `The deployment was sent by ${tx.from}, which is not an admin address.`);
   const target = input.address.toLowerCase();
-  const created = receipt.contractAddress?.toLowerCase() === target || receipt.logs.some((log) => log.address.toLowerCase() === target || log.topics.some((t) => t && t.toLowerCase().endsWith(target.slice(2))));
-  if (!created) throw new LykiaHttpError("DEPLOYMENT_UNVERIFIED", 422, "That transaction did not create this address.");
+  if (receipt.contractAddress?.toLowerCase() !== target) throw new LykiaHttpError("DEPLOYMENT_UNVERIFIED", 422, "That transaction did not create this address.");
   const code = await client.getCode({ address: input.address });
   if (!code || code === "0x") throw new LykiaHttpError("DEPLOYMENT_UNVERIFIED", 422, "There is no code at that address.");
-  const codeHash = keccak256(code);
-  const expectedHash = await expected(input.contract, input.environment);
-  if (expectedHash && expectedHash.toLowerCase() !== codeHash.toLowerCase()) throw new LykiaHttpError("DEPLOYMENT_MISMATCH", 422, `The code at ${input.address} does not match the ${input.contract} artifact.`, { codeHash, expectedCodeHash: expectedHash });
+  const matches = check(input.contract, code);
+  const expected = expectedHash(input.contract);
+  if (matches === false) throw new LykiaHttpError("DEPLOYMENT_MISMATCH", 422, `The code at ${input.address} does not match the ${input.contract} artifact.`, { codeHash: keccak256(code), expectedCodeHash: expected });
+  const name = input.name ?? input.contract;
   const record: DeploymentRecord = {
-    id: `${input.environment}:${input.contract}`,
+    id: `${input.environment}:${name}`,
     environment: input.environment,
     contract: input.contract,
+    name,
     address: input.address,
     txHash: input.txHash,
     blockNumber: receipt.blockNumber.toString(),
-    codeHash,
-    expectedCodeHash: expectedHash,
-    verified: expectedHash !== null,
+    creator: tx.from,
+    codeHash: keccak256(code),
+    expectedCodeHash: expected,
+    verified: matches === true,
     recordedBy: input.recordedBy.toLowerCase(),
     recordedAt: new Date(ctx.clock.now()).toISOString(),
   };
@@ -74,9 +79,9 @@ export async function listDeployments(ctx: AppContext, environment?: ArcEnvironm
   return (await typedCollection<DeploymentRecord>(ctx, "deployments").list({ limit: 1000 })).map((d) => d.value).filter((d) => !environment || d.environment === environment);
 }
 
-/** Address of a recorded deployment (used by the Pack to build session transactions). */
-export async function deployedAddress(ctx: AppContext, environment: ArcEnvironment, contract: string): Promise<Address | null> {
-  return ((await typedCollection<DeploymentRecord>(ctx, "deployments").get(`${environment}:${contract}`))?.value.address as Address | undefined) ?? null;
+/** Address of a recorded deployment by plan step name (used by the Pack to build session transactions). */
+export async function deployedAddress(ctx: AppContext, environment: ArcEnvironment, name: string): Promise<Address | null> {
+  return ((await typedCollection<DeploymentRecord>(ctx, "deployments").get(`${environment}:${name}`))?.value.address as Address | undefined) ?? null;
 }
 
 const DEFAULT_FLAGS: Readonly<Record<FeatureFlag, boolean>> = { "agents.llm": true, "agents.keeper": false, "pack.onchain": true, x402: true, "developer.signup": true };

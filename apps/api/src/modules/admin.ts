@@ -33,8 +33,8 @@ export const adminModule: ApiModule = {
     });
     router.post("/admin/deployments", ctx.limits.heavy, async (req, res) => {
       const session = await mustSession(ctx, req, "admin");
-      const body = parseBody(req, z.object({ environment: environmentSchema, contract: z.string().regex(/^[A-Za-z][A-Za-z0-9]{1,63}$/u), address: hex(40), txHash: hex(64) }));
-      res.status(201).json(await recordDeployment(ctx, { environment: body.environment, contract: body.contract, address: body.address as `0x${string}`, txHash: body.txHash as `0x${string}`, recordedBy: session.address }));
+      const body = parseBody(req, z.object({ environment: environmentSchema, contract: z.string().regex(/^[A-Za-z][A-Za-z0-9]{1,63}$/u), name: z.string().regex(/^[A-Za-z][A-Za-z0-9]{1,63}$/u).optional(), address: hex(40), txHash: hex(64) }));
+      res.status(201).json(await recordDeployment(ctx, { environment: body.environment, contract: body.contract, ...(body.name ? { name: body.name } : {}), address: body.address as `0x${string}`, txHash: body.txHash as `0x${string}`, recordedBy: session.address }));
     });
     router.get("/admin/flags", async (req, res) => {
       await mustSession(ctx, req, "admin");

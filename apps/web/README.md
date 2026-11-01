@@ -63,7 +63,7 @@ Data becomes landscape:
 | `/app/you` | Personalization, including Lyko's look with a live preview that repaints the whole app. |
 | `/app/memory` | Lyko remembers: timeline, learned preferences, contacts, patterns, export and forget. |
 | `/app/circle` | The harbor market of Circle products and the Gateway transfer flow. |
-| `/build`, `/owner` | The developer portal (SIWE, keys, webhooks, fee, playground, MCP, SDK, Circle) and the owner console (deploy plan signed step by step). |
+| `/build`, `/owner` | The developer portal (SIWE, keys, webhooks, fee, playground, MCP, SDK, Circle) and the owner console (each contract created straight from your wallet, so explorers show it as the creator; checked and recorded). |
 | `/kit`, `/lykaion`, 404 | Every component and scene, the hidden Arcadia night, and Lyko sniffing for a trail. |
 
 ## Motion

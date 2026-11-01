@@ -88,11 +88,18 @@ export interface UsageView {
 export interface DeploymentRecord {
   readonly id: string;
   readonly environment: "mainnet" | "testnet";
+  /** Artifact name. */
   readonly contract: string;
+  /** Plan step name (PracticeVaultUSDC); equals the contract when it is deployed once. */
+  readonly name: string;
   readonly address: string;
   readonly txHash: string;
   readonly blockNumber: string;
+  /** The wallet that sent the creation transaction (shown as the creator on explorers). */
+  readonly creator: string;
+  /** Keccak of the runtime code read from the chain. */
   readonly codeHash: string;
+  /** Keccak of the artifact's runtime code with immutables zeroed, or null without an artifact. */
   readonly expectedCodeHash: string | null;
   readonly verified: boolean;
   readonly recordedBy: string;

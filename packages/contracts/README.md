@@ -47,13 +47,13 @@ The owner or the guardian can blow the Whistle (`blowWhistle`). Only the owner c
 
 ## Deploying
 
-`npm run export` writes the ABIs and bytecode into `packages/core/src/contracts/`. `lykiaContracts.deployPlan(environment, owner)` in `@lykia/core` returns the ordered deployment: each step is a transaction to the deterministic CREATE2 deployer (`0x4e59…956c`, present on both Arc environments) with its predicted address, followed by admin calls (testnet: allowlist the practice venues on the router) and post-deploy checks. The owner console has the owner's wallet sign each step. The repository holds no keys, and nothing broadcasts on its own. Record deployed addresses in `packages/core/src/contracts/deployments.ts`.
+`npm run export` writes the ABIs, creation and runtime bytecode and the immutable ranges into `packages/core/src/contracts/`. `lykiaContracts.deployPlan(environment, owner, { nonce })` in `@lykia/core` returns the ordered deployment. Every step is a plain contract-creation transaction (no `to`, data = bytecode and constructor arguments) sent from the owner's own wallet, so block explorers show that wallet as the creator of each core contract. With the wallet's current nonce the plan predicts each address (`keccak256(rlp(sender, nonce))`); without it the owner console reads the addresses from the receipts, and `resolveStep` / `resolveCall` fill in references to earlier steps. After the steps come the admin calls (testnet: allowlist the practice venues on the router) and post-deploy checks. `codeMatchesArtifact` compares deployed runtime code with the artifact while ignoring immutables; the API refuses to record a deployment that is not a creation sent by an admin address or whose code does not match. User accounts are the one exception, by design: `LykiaAccountFactory` creates each `LykiaAccount` as a clone, so the factory is their creator. The repository holds no keys, and nothing broadcasts on its own. Record deployed addresses in `packages/core/src/contracts/deployments.ts`.
 
 ## Scripts
 
 ```sh
 npm run build -w @lykia/contracts      # hardhat compile
-npm test -w @lykia/contracts           # unit tests, plus the deploy plan run against Arc's CREATE2 deployer code
+npm test -w @lykia/contracts           # unit tests, plus the deploy plan executed as direct CREATE transactions from the owner's wallet
 npm run test:fork -w @lykia/contracts  # optional: forks Arc testnet
 npm run export -w @lykia/contracts     # artifacts -> @lykia/core
 ```
