@@ -145,7 +145,7 @@ class Book {
       return;
     }
     if (units <= 0n) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `Nothing to ${label}: the spendable ${symbol} balance is 0${kept > 0n ? ` (${fromBaseUnits(kept, decimals)} kept liquid)` : ""}.`);
-    if (units > available) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `${label} needs ${fromBaseUnits(units, decimals)} ${symbol}; ${this.l.account} has ${fromBaseUnits(available, decimals)} spendable${kept > 0n ? ` (${fromBaseUnits(kept, decimals)} kept liquid)` : ""}.`);
+    if (units > available) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `${label} needs ${fromBaseUnits(units, decimals)} ${symbol}; ${this.l.account.slice(0, 6)}…${this.l.account.slice(-4)} has ${fromBaseUnits(available, decimals)} spendable${kept > 0n ? ` (${fromBaseUnits(kept, decimals)} kept liquid)` : ""}.`);
     this.l.balances.set(symbol, (this.l.balances.get(symbol) ?? 0n) - units);
   }
 

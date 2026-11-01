@@ -33,6 +33,8 @@ export async function planSentence(ctx: AppContext, sentence: string, request: P
 
 /** Engine default slippage for swaps without an explicit one. */
 const ENGINE_DEFAULT_SLIPPAGE_BPS = 50;
+/** The placeholder owner chat plans for when no wallet is connected; its plans are always dry runs. */
+const SAMPLE_OWNER = "0x000000000000000000000000000000000000dead";
 
 /**
  * Shapes actions to the asking agent's Fence before planning, so a careful
@@ -61,7 +63,7 @@ export async function planActions(ctx: AppContext, rawActions: readonly PlanActi
       fence: request.fence,
       ...(request.signer ? { signer: request.signer } : {}),
       ...(request.agent ? { agent: request.agent } : {}),
-      ...(request.fence.mode === "dry-run" ? { dryRun: true } : {}),
+      ...(request.fence.mode === "dry-run" || request.owner.toLowerCase() === SAMPLE_OWNER ? { dryRun: true } : {}),
       ...(request.proposedByAgent ? { proposedByAgent: true } : {}),
       preferences: await getProfile(ctx, request.owner).then((p) => ({ favorites: p.venues.favorites, blocked: p.venues.blocked, maxRisk: p.risk })).catch(() => ({})),
     });
