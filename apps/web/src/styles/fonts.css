@@ -1,0 +1,28 @@
+/*
+ * Web fonts (all OFL-1.1, self-hosted through @fontsource):
+ * - Pixelify Sans 500/700: headings and big numbers (font-display).
+ * - Silkscreen 400: tags, labels, nav (font-tag).
+ * - IBM Plex Mono 400/500/600: body and data, tabular (font-sans / font-mono).
+ * index.html preloads the Latin files of the same packages.
+ */
+@import "@fontsource/pixelify-sans/500.css";
+@import "@fontsource/pixelify-sans/700.css";
+@import "@fontsource/silkscreen/400.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-mono/600.css";
+
+/*
+ * Pixelify Sans draws "~" as a flat dash, so "~8 min" read as "-8 min" (a
+ * negative time) in headings and big numbers. This one-glyph face supplies
+ * the tilde from IBM Plex Mono; font-display / font-pixel list it first and
+ * its unicode-range keeps every other character in Pixelify Sans.
+ */
+@font-face {
+  font-family: "Lykia Tilde";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-600-normal.woff2") format("woff2");
+  unicode-range: U+007E;
+}

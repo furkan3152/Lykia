@@ -1,0 +1,46 @@
+/**
+ * Runs a sheepdog command from the whistle box or the deck. No command
+ * moves value: they refresh, re-sniff, advance the deck's next step (which
+ * still needs a wallet signature), or blow / release the Whistle.
+ */
+import { LYKO_LINES, type CommandAction } from "@lykia/core";
+
+import { queryClient } from "../app/queryClient";
+import { navigate } from "../app/routes/history";
+import { toast } from "../ui/toast";
+import { pick, useLangStore } from "./i18n";
+import { useLykiaStore } from "./lykiaStore";
+
+export function runCommand(action: CommandAction): void {
+  const lang = useLangStore.getState().lang;
+  const store = useLykiaStore.getState();
+  store.issue(action);
+  switch (action) {
+    case "rescan":
+      void queryClient.invalidateQueries({ queryKey: ["flock"] });
+      toast.info(lang === "tr" ? "Come bye: sürü yeniden sayılıyor" : "Come bye: re-counting the flock", { from: "LYKO", id: "cmd" });
+      break;
+    case "resniff":
+      void queryClient.invalidateQueries({ queryKey: ["scent"] });
+      toast.info(lang === "tr" ? "Away to me: her token yeniden koklanıyor" : "Away to me: re-sniffing every token", { from: "LYKO", id: "cmd" });
+      break;
+    case "advance":
+      toast.info(lang === "tr" ? "Walk up: sıradaki adım hazırlanıyor; imza yine sende" : "Walk up: preparing the next step; you still sign it", { from: "LYKO", id: "cmd" });
+      if (!window.location.pathname.startsWith("/app")) navigate("/app");
+      break;
+    case "whistle":
+      store.setWhistle(true);
+      toast.warning(lang === "tr" ? "Lie down: düdük çalındı" : "Lie down: the whistle is blown", { description: pick(lang, LYKO_LINES.resting), from: "LYKO", id: "cmd" });
+      break;
+    case "release":
+      store.setWhistle(false);
+      toast.success(lang === "tr" ? "That'll do: düdük bırakıldı" : "That'll do: whistle released", { description: lang === "tr" ? "Çit yeniden normal kurallarla çalışıyor." : "The Fence runs on its normal rules again.", from: "LYKO", id: "cmd" });
+      break;
+    case "lookback": {
+      const last = store.lastOutrun;
+      if (last) navigate(`/app/outrun/${encodeURIComponent(last)}`);
+      else toast.info(lang === "tr" ? "Look back: henüz bir outrun yok" : "Look back: no outrun yet", { from: "LYKO", id: "cmd" });
+      break;
+    }
+  }
+}

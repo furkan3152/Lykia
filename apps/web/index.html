@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <title>Lykia — Lyko keeps your agents inside the Fence</title>
+    <meta
+      name="description"
+      content="Lykia is the agent and stablecoin desk built on Arc Network: one sentence becomes a plan across Arc venues, checked by your Fence, signed in your own wallet and final in under a second. Lyko, the shepherd dog, keeps the wolves out."
+    />
+    <meta name="theme-color" content="#F4EEE0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="index,follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Lykia" />
+    <meta property="og:title" content="Lykia — Arc gives agents money. Lyko keeps them in line." />
+    <meta
+      property="og:description"
+      content="Fence, Künye, Scent and Outrun: judgment and licences for agents on Arc Network."
+    />
+    <meta name="twitter:card" content="summary" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!--
+      Pre-paint: choose the sheet before any module runs. An explicit choice
+      ("lykia.theme" = day | night, mirrored by src/app/state/documentSync.ts)
+      wins; otherwise the site is DAY and the deck (/app) follows the
+      system. The ui store takes over once the entry loads.
+    -->
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var sheet = null;
+        var motion = "on";
+        try {
+          var stored = localStorage.getItem("lykia.theme");
+          if (stored === "day" || stored === "night") sheet = stored;
+          var raw = localStorage.getItem("lykia-ui");
+          var state = raw ? JSON.parse(raw).state : null;
+          if (!sheet && state && state.theme === "dark") sheet = "night";
+          if (!sheet && state && state.theme === "light") sheet = "day";
+          if (state && state.motion === "off") motion = "off";
+        } catch (error) {
+          sheet = null;
+        }
+        if (!sheet) {
+          var deck = /^\/app(\/|$)/.test(location.pathname);
+          var dark = false;
+          try {
+            dark = matchMedia("(prefers-color-scheme: dark)").matches;
+          } catch (error) {
+            dark = false;
+          }
+          sheet = deck && dark ? "night" : "day";
+        }
+        root.setAttribute("data-theme", sheet);
+        root.style.colorScheme = sheet === "night" ? "dark" : "light";
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute("content", sheet === "night" ? "#0C1417" : "#F4EEE0");
+        if (motion === "off") root.setAttribute("data-motion", "off");
+      })();
+    </script>
+    <style>
+      html { background-color: #f4eee0; }
+      html[data-theme="night"] { background-color: #0c1417; }
+    </style>
+    <!--
+      Latin web fonts, fetched while the entry loads so headings paint in their
+      final face. The build fingerprints these hrefs to the same files the
+      @fontsource stylesheets reference (src/styles/fonts.css); the dev server
+      cannot serve them at these paths, so nothing is preloaded under it.
+    -->
+    <template id="el-font-preloads">
+      <link rel="preload" as="font" type="font/woff2" crossorigin href="../../node_modules/@fontsource/pixelify-sans/files/pixelify-sans-latin-700-normal.woff2" />
+      <link rel="preload" as="font" type="font/woff2" crossorigin href="../../node_modules/@fontsource/silkscreen/files/silkscreen-latin-400-normal.woff2" />
+      <link rel="preload" as="font" type="font/woff2" crossorigin href="../../node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2" />
+    </template>
+    <script>
+      (function () {
+        if (document.querySelector('script[src$="/@vite/client"]')) return;
+        var template = document.getElementById("el-font-preloads");
+        var links = template && template.content ? template.content.querySelectorAll("link") : [];
+        for (var i = 0; i < links.length; i += 1) document.head.appendChild(links[i].cloneNode(true));
+      })();
+    </script>
+  </head>
+  <body>
+    <noscript>Lykia needs JavaScript to draw the valley, read Arc live and let you sign each step in your own wallet.</noscript>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

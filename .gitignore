@@ -32,3 +32,4 @@ logs/
 *.swp
 .DS_Store
 Thumbs.db
+apps/web/screenshots-tmp/
