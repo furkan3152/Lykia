@@ -126,7 +126,7 @@ export const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
   spec({
     name: "search_routes",
     description:
-      "Find the best route for a goal sentence (English or Turkish), e.g. 'earn the best yield on 1000 USDC with medium risk' or 'borrow 1000 USDC on my cirBTC and put it to work with health ≥ 1.8'. Compares direct routes, other venues, convert-then-earn and multi-hop conversions, scores them by net value after fees, gas, slippage and risk, checks the winner's calldata with one eth_call, and explains why. Plans nothing for signing; use plan_intent with the winning sentence or ask the owner.",
+      "Find the best route for a goal sentence (write it in English), e.g. 'earn the best yield on 1000 USDC with medium risk' or 'borrow 1000 USDC on my cirBTC and put it to work with health ≥ 1.8'. Compares direct routes, other venues, convert-then-earn and multi-hop conversions, scores them by net value after fees, gas, slippage and risk, checks the winner's calldata with one eth_call, and explains why. Plans nothing for signing; use plan_intent with the winning sentence or ask the owner.",
     capability: "read",
     schema: z.object({ sentence: z.string().min(3).max(400), appetite: z.enum(["low", "medium", "high"]).optional(), horizonDays: z.number().int().min(1).max(3650).optional() }).strict(),
     json: obj({ sentence: { type: "string", maxLength: 400 }, appetite: { type: "string", enum: ["low", "medium", "high"] }, horizonDays: { type: "integer", minimum: 1, maximum: 3650 } }, ["sentence"]),
@@ -167,7 +167,7 @@ export const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
   spec({
     name: "plan_intent",
     description:
-      "Propose a plan from one plain sentence (English or Turkish), e.g. 'deposit 100 USDC into Morpho', 'convert 200 USDC to EURC', 'send 20 USDC to 0x… for invoice 12', 'bridge 50 USDC to base'. Several moves can be chained with 'then'. The plan is checked against your own Fence; the owner signs later. Returns the steps and the verdict.",
+      "Propose a plan from one plain English sentence, e.g. 'deposit 100 USDC into Morpho', 'convert 200 USDC to EURC', 'send 20 USDC to 0x… for invoice 12', 'bridge 50 USDC to base'. Several moves can be chained with 'then'. The plan is checked against your own Fence; the owner signs later. Returns the steps and the verdict.",
     capability: "propose",
     schema: z.object({ sentence: z.string().min(3).max(400), why: z.string().max(300).optional() }).strict(),
     json: obj({ sentence: { type: "string", maxLength: 400 }, why: { type: "string", maxLength: 300, description: "One line: why this plan serves the goal." } }, ["sentence"]),

@@ -16,8 +16,8 @@ signed-in owner (SIWE), and nothing is shared between owners.
   signed, and only when the profile allows learning. Changing a contact's
   address resets its trust.
 - **Preferences.** These are derived from settled plans: the usual venue
-  per step kind, typical amounts, the slippage habit, bridge destinations
-  and language. Each one is a row the owner can delete.
+  per step kind, typical amounts, the slippage habit and bridge
+  destinations. Each one is a row the owner can delete.
 - **Patterns.** Three or more settled sends to the same address on the
   same weekday are offered as a standing order. The offer never arms
   itself.
@@ -26,12 +26,12 @@ signed-in owner (SIWE), and nothing is shared between owners.
 
 | Sentence | What happens |
 |---|---|
-| "again", "tekrar yap", "bir daha" | The last plan again, with the amounts that actually moved |
-| "same as last week", "geçen haftaki gibi" | The plan from about a week ago |
-| "undo the last swap", "son swap'ı geri al" | A fresh plan of the inverse at today's prices. Sends and bridges cannot be undone, and Lykia says so. |
+| "again", "do it again", "repeat that" | The last plan again, with the amounts that actually moved |
+| "same as last week", "same as last time" | The plan from about a week ago |
+| "undo the last swap", "reverse the deposit" | A fresh plan of the inverse at today's prices. Sends and bridges cannot be undone, and Lykia says so. |
 | "more than last time" | Asks how much more (+10%, +25%, +50%), then scales the plan |
-| "pay Ahmet 200 EURC", "Ahmet'e 200 EURC gönder" | Fills in the contact's address. Turkish case endings work. |
-| "my usual vault", "her zamanki kasam" | Uses the venue the owner usually picks |
+| "pay Ahmet 200 EURC", "send Ahmet's wallet 5 USDC" | Fills in the contact's address. A possessive ("Ahmet's") works too. |
+| "my usual vault", "as usual" | Uses the venue the owner usually picks |
 
 The Fence still judges every plan. A learned contact without a confirmed
 send makes the plan ask the owner to confirm it. Lyko's model receives a

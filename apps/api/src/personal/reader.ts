@@ -25,21 +25,20 @@ export async function readWithMemory(ctx: AppContext, owner: Address | null | un
   if (!profile.memory.enabled) return plain();
   const memory = memoryService(ctx);
   const snap = await memory.snapshot(owner);
-  const tr = /[çğışöü]/iu.test(text);
   const ref = resolveReference(text, snap, ctx.clock.now());
   if (ref.kind === "repeat" || ref.kind === "undo") {
     const untrusted = untrustedContacts(ref.actions, snap.contacts);
-    return { actions: ref.actions, command: null, easterEgg: null, clarify: [], reply: ref.explanation, lang: tr ? "tr" : ref.from.lang, memory: { kind: ref.kind, explanation: ref.explanation, from: ref.from.intentId }, confirmContacts: untrusted.map((c) => ({ name: c.name, address: c.address })) };
+    return { actions: ref.actions, command: null, easterEgg: null, clarify: [], reply: ref.explanation, memory: { kind: ref.kind, explanation: ref.explanation, from: ref.from.intentId }, confirmContacts: untrusted.map((c) => ({ name: c.name, address: c.address })) };
   }
-  if (ref.kind === "cannot-undo") return { actions: [], command: null, easterEgg: null, clarify: [ref.explanation], reply: ref.explanation, lang: tr ? "tr" : "en", confirmContacts: [] };
+  if (ref.kind === "cannot-undo") return { actions: [], command: null, easterEgg: null, clarify: [ref.explanation], reply: ref.explanation, confirmContacts: [] };
   if (ref.kind === "more-than-last") {
     const pct = MORE.exec(text);
     if (pct) {
       const actions = scaleActions(ref.base.actions, Number(pct[1]));
-      const explanation = tr ? `Geçen seferden %${pct[1]} fazla: ${ref.base.source}` : `${pct[1]}% more than last time: ${ref.base.source}`;
-      return { actions, command: null, easterEgg: null, clarify: [], reply: explanation, lang: tr ? "tr" : "en", memory: { kind: "more-than-last", explanation, from: ref.base.intentId }, confirmContacts: untrustedContacts(actions, snap.contacts).map((c) => ({ name: c.name, address: c.address })) };
+      const explanation = `${pct[1]}% more than last time: ${ref.base.source}`;
+      return { actions, command: null, easterEgg: null, clarify: [], reply: explanation, memory: { kind: "more-than-last", explanation, from: ref.base.intentId }, confirmContacts: untrustedContacts(actions, snap.contacts).map((c) => ({ name: c.name, address: c.address })) };
     }
-    return { actions: [], command: null, easterEgg: null, clarify: [ref.clarify], clarifyChoices: [{ question: ref.clarify, choices: [...ref.choices] }], reply: ref.clarify, lang: tr ? "tr" : "en", confirmContacts: [] };
+    return { actions: [], command: null, easterEgg: null, clarify: [ref.clarify], clarifyChoices: [{ question: ref.clarify, choices: [...ref.choices] }], reply: ref.clarify, confirmContacts: [] };
   }
   const usualHit = usualVenue(text, await memory.preferences(owner, snap.intents));
   const sub = substituteContacts(usualHit ? stripUsualPhrase(text) : text, snap.contacts);
@@ -49,13 +48,13 @@ export async function readWithMemory(ctx: AppContext, owner: Address | null | un
   const usual = usualHit;
   if (usual) {
     actions = actions.map((a) => (("venue" in a || a.verb === "earn" || a.verb === "withdraw" || a.verb === "supply") && !("venue" in a && a.venue) && (a.verb === usual.verb || (usual.verb === "earn" && (a.verb === "earn" || a.verb === "supply"))) ? ({ ...a, venue: usual.venue } as PlanAction) : a));
-    memoryNote = { kind: "usual-venue", explanation: tr ? `Her zamanki yerin: ${usual.venue}` : `Your usual venue: ${usual.venue}` };
+    memoryNote = { kind: "usual-venue", explanation: `Your usual venue: ${usual.venue}` };
   }
   const untrusted = untrustedContacts(actions, snap.contacts);
   if (sub.used.length > 0) {
     memoryNote = {
       kind: "contacts",
-      explanation: sub.used.map((c) => `${c.name} = ${c.address}${c.origin === "learned" && c.confirmedSends === 0 ? (tr ? " (henüz onaylanmadı)" : " (not confirmed yet)") : ""}`).join("; "),
+      explanation: sub.used.map((c) => `${c.name} = ${c.address}${c.origin === "learned" && c.confirmedSends === 0 ? " (not confirmed yet)" : ""}`).join("; "),
       contacts: sub.used.map((c) => ({ name: c.name, address: c.address, trusted: c.origin === "manual" || c.confirmedSends > 0 })),
     };
   }

@@ -31,7 +31,7 @@ test("every role can run its own starter intent", () => {
 });
 
 test("the web's flat profile round-trips into the core profile", () => {
-  const web = { ...toWebProfile(DEFAULT_PROFILE), currency: "TRY", slippageBps: 900, favoriteVenues: ["aave-v4", "synthra"], blockedVenues: ["synthra"], tone: "formal", look: { collar: "#5F8A3A", coat: "sable", tag: "KARABAŞ" }, quietHours: { on: true, from: "23:00", to: "07:00" }, confirm: "every-step", retentionDays: 0, theme: "night" };
+  const web = { ...toWebProfile(DEFAULT_PROFILE), currency: "TRY", slippageBps: 900, favoriteVenues: ["aave-v4", "synthra"], blockedVenues: ["synthra"], tone: "formal", look: { collar: "#5F8A3A", coat: "sable", tag: "SHADOW" }, quietHours: { on: true, from: "23:00", to: "07:00" }, confirm: "every-step", retentionDays: 0, theme: "night" };
   const merged = mergeProfile(DEFAULT_PROFILE, fromWebProfile(web, DEFAULT_PROFILE));
   const r = validateProfile(merged);
   assert.equal(r.ok, true, JSON.stringify(r.issues));
@@ -43,5 +43,5 @@ test("the web's flat profile round-trips into the core profile", () => {
   assert.equal(p.confirmation.mode, "always");
   assert.equal(p.memory.enabled, false);
   assert.equal(p.theme, "night");
-  assert.equal(toWebProfile(p).look.tag, "KARABAŞ");
+  assert.equal(toWebProfile(p).look.tag, "SHADOW");
 });

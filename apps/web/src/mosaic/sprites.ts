@@ -48,7 +48,7 @@ export function applyLook(look: LykoLook): void {
   Object.assign(PAL, lookPalette(look));
 }
 
-// Lyko trotting, facing right: big head, black mask, curled tail ring, spiked collar, gold Kunye tag.
+// Lyko trotting, facing right: big head, black mask, curled tail ring, spiked collar, gold name tag.
 export const LYKO_TROT: readonly string[] = [
 "................................",
 "...kkkk................kkkk.....",

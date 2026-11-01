@@ -88,7 +88,7 @@ USD prices: USDC is the unit of account (it is Arc's gas token). EURC and cirBTC
 
 | route | answer |
 |---|---|
-| `POST /v1/language/parse` | `{ text }` -> plan actions, standing orders (conditions and schedules), sheepdog command, hidden word, clarifying questions with suggested answers, reply. English and Turkish, several clauses per sentence. |
+| `POST /v1/language/parse` | `{ text }` -> plan actions, standing orders (conditions and schedules), sheepdog command, hidden word, clarifying questions with suggested answers, reply. English, several clauses per sentence. |
 | `POST /v1/intents` | `{ text | actions, owner, environment?, fence?, signer?, agent?, account?, dryRun? }` -> intent graph, Outrun, verdict |
 | `GET /v1/intents/:id`, `GET /v1/intents/:id/outrun` | the graph and where the money is |
 | `POST /v1/intents/:id/steps/:sid/prepare` | `{ confirm? }` -> unsigned transactions, binding digest, memo |
@@ -141,7 +141,7 @@ Arc's public RPC does not offer `eth_simulateV1` or `debug_traceCall`, so Scent 
 
 ### Tag (ERC-8004)
 
-Agent Tag routes live under `/v1/tags`. The older `/v1/kunye/...` paths still answer as aliases so existing clients keep working.
+Agent Tag routes live under `/v1/tags`.
 
 | route | answer |
 |---|---|
@@ -216,7 +216,7 @@ All of these act for the signed-in owner (`Lykia-Session`); nothing here moves v
 | `DELETE /v1/memory/:id`, `POST /v1/memory/forget` | forget one intent, contact or preference; forget intents, contacts or everything |
 | `GET/POST /v1/contacts`, `PUT/DELETE /v1/contacts/:id` | the address book; changing a contact's address resets its trust |
 
-Memory resolves "again / tekrar yap", "same as last week / geçen haftaki gibi", "undo the last swap / son swap'ı geri al" (a fresh plan of the inverse), "more than last time" (asks how much), "pay Ahmet 200 EURC / Ahmet'e 200 EURC gönder" and "my usual vault / her zamanki kasam" in `/v1/language/parse`, `/v1/intents` and the agent. A learned contact without a confirmed send makes the plan ask for confirmation. Profiles shape the default Fence (risk, slippage, confirmation style, blocked venues), the routing ceiling and favourites (they win near-ties), Lyko's persona, display currency and the default network.
+Memory resolves "again", "same as last week", "undo the last swap" (a fresh plan of the inverse), "more than last time" (asks how much), "pay Ahmet 200 EURC" and "my usual vault" in `/v1/language/parse`, `/v1/intents` and the agent. A learned contact without a confirmed send makes the plan ask for confirmation. Profiles shape the default Fence (risk, slippage, confirmation style, blocked venues), the routing ceiling and favourites (they win near-ties), Lyko's persona, display currency and the default network.
 
 ### Circle
 
@@ -315,13 +315,13 @@ src/
   arc/        pulse (block poller), prices (Chainlink)
   flock/      balance sheet, Morpho vault positions, Gateway balance
   scent/      token inspection
-  language/   English and Turkish reader
+  language/   English sentence reader
   engine/     ABIs, call shaping (Memo, Multicall3From), adapters, planner, intent service
-  kunye/      ERC-8004 cards, register and validation calls, agent views
+  tag/        ERC-8004 cards, register and validation calls, agent views
   x402/       payment requirements and verification middleware
   agents/     the Pack service, Lyko's orchestrator and specialists, tools, thread memory, perception, insights, automations, LykiaAccount session calls
   platform/   SIWE sessions, API keys and the developer gate, webhooks, developer settings and usage, admin registry and flags
-  modules/    route modules (developers, auth, system, arc, flock, fence, language, intents, scent, kunye, agent, admin, mcp)
+  modules/    route modules (developers, auth, system, arc, flock, fence, language, intents, scent, tags, agent, admin, mcp)
   scripts/    smoke.ts (live, read-only)
 ```
 

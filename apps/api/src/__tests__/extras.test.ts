@@ -15,14 +15,14 @@ const idlePulse: PulseFeed = { latest: () => null, current: async () => null, su
 describe("reader: Lykia's own words and safe numbers", () => {
   it("reads pastures as the best yield", () => {
     assert.deepEqual(readSentence("put 100 USDC on the greenest pasture").actions, [{ verb: "earn", token: "USDC", amount: { exact: "100" } }]);
-    assert.deepEqual(readSentence("100 USDC'yi en yeşil meraya koy").actions, [{ verb: "earn", token: "USDC", amount: { exact: "100" } }]);
+    assert.deepEqual(readSentence("lead the flock to greener pastures with 100 USDC").actions.map((a) => a.verb), ["earn"]);
     const complex = readSentence("Keep 5,000 USDC for payroll, put the rest on the greenest pasture and hedge 20% into EURC").actions.map((a) => a.verb);
     assert.deepEqual(complex, ["reserve", "earn", "fx"]);
   });
   it("never guesses a decimal comma", () => {
-    const r = readSentence("1,5 USDC gönder 0x1111111111111111111111111111111111111111");
+    const r = readSentence("send 1,5 USDC to 0x1111111111111111111111111111111111111111");
     assert.equal(r.actions.length, 0);
-    assert.match(r.clarify[0] ?? "", /nokta/u);
+    assert.match(r.clarify[0] ?? "", /dot for decimals/u);
   });
 });
 

@@ -97,7 +97,7 @@ describe("platform", () => {
     const endpoint = (await (await call("/v1/developers/webhooks", { body: { url: "https://hooks.acme.dev/lykia", events: ["pack.agent.spawned"] }, headers: { "lykia-session": token } })).json()) as { id: string; secret: string };
     assert.match(endpoint.secret, /^whsec_/u);
     deliveries.length = 0;
-    await agentServices(ctx).pack.create({ owner: wallet.address, environment: "testnet", name: "Nöbetçi", role: "sentinel" });
+    await agentServices(ctx).pack.create({ owner: wallet.address, environment: "testnet", name: "Sentinel", role: "sentinel" });
     for (let i = 0; i < 20 && deliveries.length === 0; i++) await new Promise((r) => setTimeout(r, 10));
     const hit = deliveries[0]!;
     assert.equal(hit.url, "https://hooks.acme.dev/lykia");

@@ -7,7 +7,7 @@
  * receipt exists and succeeded, the transaction is a contract creation (no
  * `to`) sent by an admin address, the receipt's contractAddress is the address
  * being recorded, and the runtime code there matches the artifact shipped in
- * @lykia/core (immutables ignored). A mismatch is refused; a contract without
+ * @lykia/core (immutables and the CBOR metadata tail ignored). A mismatch is refused; a contract without
  * an artifact is recorded as unverified.
  */
 import { FEATURE_FLAGS, type DeploymentRecord, type FeatureFlag } from "@lykia/core/api/platform";

@@ -1,4 +1,4 @@
-/** POST /language/parse: English and Turkish sentences to plan actions. */
+/** POST /language/parse: English sentences to plan actions. */
 import { z } from "zod";
 import type { ApiModule } from "../http/router.js";
 import { parseBody } from "../http/validate.js";

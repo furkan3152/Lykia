@@ -15,7 +15,7 @@ describe("matchPattern", () => {
 
   it("normalises and builds paths", () => {
     assert.equal(normalizePathname("/app/flock/"), "/app/flock");
-    assert.equal(buildPath("/app/kunye/:agentId?", { agentId: "12" }), "/app/kunye/12");
+    assert.equal(buildPath("/app/tag/:agentId?", { agentId: "12" }), "/app/tag/12");
   });
 });
 
@@ -33,7 +33,6 @@ describe("route table", () => {
       ["/app/pack/ag_1", "pack"],
       ["/app/fence", "fence"],
       ["/app/tag/7", "tag"],
-      ["/app/kunye/7", "kunyeRedirect"],
       ["/app/scent/0xabc", "scent"],
       ["/app/outrun/out_1", "outrun"],
       ["/build", "build"],

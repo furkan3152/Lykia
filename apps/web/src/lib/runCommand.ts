@@ -28,7 +28,7 @@ export function runCommand(action: CommandAction): void {
       break;
     case "whistle":
       store.setWhistle(true);
-      toast.warning("Lie down: the whistle is blown", { description: (LYKO_LINES.resting).en, from: "LYKO", id: "cmd" });
+      toast.warning("Lie down: the whistle is blown", { description: LYKO_LINES.resting, from: "LYKO", id: "cmd" });
       break;
     case "release":
       store.setWhistle(false);

@@ -10,7 +10,7 @@ import { useEnvironment } from "../../lib/environment";
 import { useLykiaStore } from "../../lib/lykiaStore";
 import { Button, Card, EmptyState, Field, Input, Medallion, PageHead, Skeleton, Tag, toast } from "../../mosaic";
 
-interface KunyeView { readonly agentId: string; readonly owner: string; readonly agentWallet: string | null; readonly agentURI?: string | null; readonly card?: unknown; readonly cardNote?: string; readonly fenceInCard?: string | null; readonly fenceMatches?: boolean | null; readonly validations: { count: number; averageResponse: number | null }; readonly erc8354?: { count: number; averageResponse: number | null; tag: string; guard: string | null }; readonly reputation: { clients: number; count: number | null; value: string | null } }
+interface TagView { readonly agentId: string; readonly owner: string; readonly agentWallet: string | null; readonly agentURI?: string | null; readonly card?: unknown; readonly cardNote?: string; readonly fenceInCard?: string | null; readonly fenceMatches?: boolean | null; readonly validations: { count: number; averageResponse: number | null }; readonly erc8354?: { count: number; averageResponse: number | null; tag: string; guard: string | null }; readonly reputation: { clients: number; count: number | null; value: string | null } }
 interface Draft { readonly card: unknown; readonly cardDigest: string; readonly fenceHash: string; readonly agentURI: string; readonly transaction: { chainId: number; to: `0x${string}`; data: `0x${string}`; value: string; label: string } }
 
 export default function TagPage() {
@@ -23,7 +23,7 @@ export default function TagPage() {
   const [name, setName] = useState("Treasurer");
   const [description, setDescription] = useState("Pays suppliers and keeps idle USDC working inside its Fence.");
   const [draft, setDraft] = useState<Draft | null>(null);
-  const view = useQuery({ queryKey: ["tag", agentId, environment], enabled: Boolean(agentId), queryFn: ({ signal }) => apiGet<KunyeView>(`/v1/tags/${agentId}`, { query: { environment }, signal, timeoutMs: 20_000 }) });
+  const view = useQuery({ queryKey: ["tag", agentId, environment], enabled: Boolean(agentId), queryFn: ({ signal }) => apiGet<TagView>(`/v1/tags/${agentId}`, { query: { environment }, signal, timeoutMs: 20_000 }) });
   const makeDraft = async () => {
     if (!address) return toast.warning("Connect a wallet first", { from: "LYKO" });
     try {

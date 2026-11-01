@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { detectLang, readAmount, readSentence, stripSuffix } from "../language/reader.js";
+import { readAmount, readSentence } from "../language/reader.js";
 
 const ADDR = "0x1111111111111111111111111111111111111111";
 
@@ -8,17 +8,14 @@ describe("language reader", () => {
   it("reads English payments with memos", () => {
     const r = readSentence(`send 20 USDC to ${ADDR} for invoice 4411`);
     assert.deepEqual(r.actions, [{ verb: "send", token: "USDC", amount: { exact: "20" }, to: ADDR, memo: "invoice 4411" }]);
-    assert.equal(r.lang, "en");
   });
 
-  it("reads Turkish: shares, venues, suffixes and memos", () => {
-    assert.deepEqual(readSentence("yarısını Morpho'ya yatır").actions, [{ verb: "earn", token: "USDC", amount: { percent: 50 }, venue: "morpho-vaults" }]);
-    assert.deepEqual(readSentence("100 USDC'yi EURC'ye çevir").actions, [{ verb: "fx", from: "USDC", to: "EURC", amount: { exact: "100" } }]);
-    assert.deepEqual(readSentence("50 usdc'yi base'e köprüle").actions, [{ verb: "bridge", token: "USDC", amount: { exact: "50" }, destination: "base" }]);
-    assert.deepEqual(readSentence(`20 USDC'yi ${ADDR} adresine fatura 12 için gönder`).actions[0], { verb: "send", token: "USDC", amount: { exact: "20" }, to: ADDR, memo: "fatura 12" });
-    assert.deepEqual(readSentence("hepsini çek").actions, [{ verb: "withdraw", token: "USDC", amount: { all: true } }]);
-    assert.equal(detectLang("hepsini çek"), "tr");
-    assert.equal(stripSuffix("USDC'yi"), "USDC");
+  it("reads shares, venues, possessives and memos", () => {
+    assert.deepEqual(readSentence("deposit half into Morpho").actions, [{ verb: "earn", token: "USDC", amount: { percent: 50 }, venue: "morpho-vaults" }]);
+    assert.deepEqual(readSentence("convert 100 USDC to EURC").actions, [{ verb: "fx", from: "USDC", to: "EURC", amount: { exact: "100" } }]);
+    assert.deepEqual(readSentence("bridge 50 usdc to base").actions, [{ verb: "bridge", token: "USDC", amount: { exact: "50" }, destination: "base" }]);
+    assert.deepEqual(readSentence(`pay ${ADDR} 20 USDC for order 12`).actions[0], { verb: "send", token: "USDC", amount: { exact: "20" }, to: ADDR, memo: "order 12" });
+    assert.deepEqual(readSentence("withdraw everything").actions, [{ verb: "withdraw", token: "USDC", amount: { all: true } }]);
   });
 
   it("chains clauses and inherits the rest", () => {

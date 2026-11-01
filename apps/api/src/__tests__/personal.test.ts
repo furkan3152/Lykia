@@ -52,18 +52,18 @@ describe("profile, memory and contacts", () => {
     assert.ok((ok.body.effects as string[]).some((e) => e.includes("synthra")));
   });
 
-  it("resolves contacts with Turkish endings and flags unconfirmed ones", async () => {
+  it("resolves contacts by name and flags unconfirmed ones", async () => {
     const added = await call("POST", "/v1/contacts", { name: "Ahmet", address: AHMET });
     assert.equal(added.status, 201);
     const dup = await call("POST", "/v1/contacts", { name: "ahmet", address: "0x2222222222222222222222222222222222222222" });
     assert.equal(dup.status, 400);
-    const parsed = await call("POST", "/v1/language/parse", { text: "Ahmet'e 5 USDC gönder" });
+    const parsed = await call("POST", "/v1/language/parse", { text: "send Ahmet 5 USDC" });
     const actions = parsed.body.actions as { verb: string; to: string }[];
     assert.equal(actions[0]?.verb, "send");
     assert.equal(actions[0]?.to.toLowerCase(), AHMET);
     assert.equal((parsed.body.memory as { kind: string }).kind, "contacts");
     assert.equal((parsed.body.confirmContacts as unknown[]).length, 0, "a manual contact is the owner's own entry");
-    const anonymous = await call("POST", "/v1/language/parse", { text: "Ahmet'e 5 USDC gönder" }, false);
+    const anonymous = await call("POST", "/v1/language/parse", { text: "send Ahmet 5 USDC" }, false);
     assert.equal((anonymous.body.actions as unknown[]).length, 0, "memory is personal: no session, no contacts");
   });
 
@@ -85,7 +85,7 @@ describe("profile, memory and contacts", () => {
     const again = await call("POST", "/v1/language/parse", { text: "again" });
     assert.equal((again.body.memory as { kind: string }).kind, "repeat");
     assert.deepEqual((again.body.actions as { amount: unknown }[])[0]?.amount, { exact: "100" });
-    const undo = await call("POST", "/v1/language/parse", { text: "son yatırmayı geri al" });
+    const undo = await call("POST", "/v1/language/parse", { text: "undo the last deposit" });
     assert.equal((undo.body.memory as { kind: string }).kind, "undo");
     assert.equal((undo.body.actions as { verb: string }[])[0]?.verb, "withdraw");
     const usual = await call("POST", "/v1/language/parse", { text: "put 20 USDC in my usual vault" });

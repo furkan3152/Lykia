@@ -1,5 +1,5 @@
 /**
- * Intent memory ("niyet hafızası"): what an owner did, what they prefer,
+ * Intent memory: what an owner did, what they prefer,
  * who they pay, and what they repeat. Pure functions over plain records;
  * the API stores them per owner and the owner can see, edit, export and
  * forget every item.
@@ -26,7 +26,6 @@ export interface IntentRecord {
   readonly at: string;
   readonly environment: ArcEnvironment;
   readonly source: string;
-  readonly lang: "en" | "tr";
   readonly actions: readonly PlanAction[];
   /** Per action: what actually went in and came out (decimal strings), once known. */
   readonly resolved: readonly ResolvedStep[];
@@ -66,14 +65,12 @@ export interface Preferences {
   readonly typicalAmounts: Readonly<Record<string, string>>;
   readonly slippageBps: number | null;
   readonly destinations: readonly string[];
-  readonly language: "en" | "tr" | null;
   readonly intents: number;
 }
 
 export interface PatternSuggestion {
   readonly kind: "weekly" | "monthly";
   readonly text: string;
-  readonly textTr: string;
   readonly occurrences: number;
   readonly action: PlanAction;
   /** 0 = Sunday … 6 = Saturday, or day of month for monthly. */
@@ -104,11 +101,7 @@ export function computePreferences(intents: readonly IntentRecord[]): Preference
   const amounts = new Map<string, number[]>();
   const slips: number[] = [];
   const dest = new Map<string, number>();
-  let tr = 0;
-  let en = 0;
   for (const r of done) {
-    if (r.lang === "tr") tr += 1;
-    else en += 1;
     for (const s of r.resolved) {
       if (!s.venue) continue;
       const m = venueCounts.get(s.verb) ?? new Map<string, number>();
@@ -134,7 +127,6 @@ export function computePreferences(intents: readonly IntentRecord[]): Preference
     typicalAmounts,
     slippageBps: sl === null ? null : Math.round(sl),
     destinations: [...dest.entries()].sort((a, b) => b[1] - a[1]).map(([d]) => d).slice(0, 3),
-    language: tr + en === 0 ? null : tr > en ? "tr" : "en",
     intents: intents.length,
   };
 }
@@ -156,7 +148,6 @@ export function detectPatterns(intents: readonly IntentRecord[]): PatternSuggest
     }
   }
   const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const GUN = ["pazar", "pazartesi", "salı", "çarşamba", "perşembe", "cuma", "cumartesi"];
   const out: PatternSuggestion[] = [];
   for (const g of groups.values()) {
     if (g.days.length < 3) continue;
@@ -167,7 +158,7 @@ export function detectPatterns(intents: readonly IntentRecord[]): PatternSuggest
     const a = g.action as Extract<PlanAction, { verb: "send" }>;
     const amount = String(median(g.amounts) ?? 0);
     const action: PlanAction = { ...a, amount: { exact: amount } };
-    out.push({ kind: "weekly", day, occurrences: n, action, text: `every ${DAYS[day]} send ${amount} ${a.token} to ${a.to}`, textTr: `her ${GUN[day]} ${a.to} adresine ${amount} ${a.token} gönder` });
+    out.push({ kind: "weekly", day, occurrences: n, action, text: `every ${DAYS[day]} send ${amount} ${a.token} to ${a.to}` });
   }
   return out;
 }
@@ -175,7 +166,7 @@ export function detectPatterns(intents: readonly IntentRecord[]): PatternSuggest
 /* ---------------------------------------------------------------- contacts */
 
 export function normalizeName(name: string): string {
-  return name.toLocaleLowerCase("tr").normalize("NFKC").replace(/[^\p{L}\p{N} ]/gu, "").replace(/\s+/gu, " ").trim();
+  return name.toLowerCase().normalize("NFKC").replace(/[^\p{L}\p{N} ]/gu, "").replace(/\s+/gu, " ").trim();
 }
 
 export function validateContact(input: { name?: unknown; address?: unknown; aliases?: unknown; note?: unknown }): string[] {
@@ -189,8 +180,8 @@ export function validateContact(input: { name?: unknown; address?: unknown; alia
 
 /**
  * Finds contact names in a sentence and replaces them with addresses.
- * Turkish case endings after a name ("Ahmet'e", "Ayşe'ye", "Mehmet'in")
- * are handled. Longest names match first.
+ * A possessive after a name ("Ahmet's") is handled. Longest names match
+ * first.
  */
 export function substituteContacts(text: string, contacts: readonly Contact[]): { text: string; used: Contact[] } {
   const used: Contact[] = [];
@@ -198,7 +189,7 @@ export function substituteContacts(text: string, contacts: readonly Contact[]): 
   const names = contacts.flatMap((c) => [c.name, ...c.aliases].map((n) => ({ n, c }))).filter((x) => x.n.trim().length >= 2).sort((a, b) => b.n.length - a.n.length);
   for (const { n, c } of names) {
     const escaped = n.trim().replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-    const re = new RegExp(`(^|[\\s,])(${escaped})(?:['’](?:[a-zçğıöşü]{1,4}))?(?=$|[\\s,.!?])`, "giu");
+    const re = new RegExp(`(^|[\\s,])(${escaped})(?:['’]s?)?(?=$|[\\s,.!?])`, "giu");
     if (re.test(out)) {
       out = out.replace(re, (_m, pre: string) => `${pre}${c.address}`);
       if (!used.includes(c)) used.push(c);
@@ -228,17 +219,17 @@ export type MemoryReference =
   | { readonly kind: "more-than-last"; readonly base: IntentRecord; readonly clarify: string; readonly choices: readonly string[] }
   | { readonly kind: "none" };
 
-const REPEAT = /\b(again|repeat(?: that| it| the last(?: one)?)?|do (?:it|that) again|same again)\b|\b(tekrar(?:la|la| yap| et)?|aynısını(?: yap| tekrarla)?|bir daha(?: yap)?)\b/iu;
-const LAST_WEEK = /\bsame as last (week|time)\b|\bgeçen (hafta|sefer)(?:ki)? gibi\b|\bgeçen haftakinin aynısı\b/iu;
-const UNDO = /\b(undo|reverse|revert|roll back)\b|\bgeri al\b|\bgeri çevir\b/iu;
-const MORE = /\bmore than last time\b|\bgeçen seferden (?:daha )?fazla\b/iu;
+const REPEAT = /\b(again|repeat(?: that| it| the last(?: one)?)?|do (?:it|that) again|same again)\b/iu;
+const LAST_WEEK = /\bsame as last (week|time)\b/iu;
+const UNDO = /\b(undo|reverse|revert|roll back)\b/iu;
+const MORE = /\bmore than last time\b/iu;
 const VERB_WORDS: Readonly<Record<string, readonly string[]>> = {
-  swap: ["swap", "takas"], fx: ["fx", "conversion", "convert", "çevir", "dönüşüm", "değişim"], earn: ["deposit", "earn", "vault", "yatır", "kasa", "getiri"],
-  supply: ["supply"], borrow: ["borrow", "loan", "borç", "kredi"], send: ["send", "payment", "transfer", "gönder", "ödeme"], bridge: ["bridge", "köprü"],
+  swap: ["swap"], fx: ["fx", "conversion", "convert"], earn: ["deposit", "earn", "vault"],
+  supply: ["supply"], borrow: ["borrow", "loan"], send: ["send", "payment", "transfer"], bridge: ["bridge"],
 };
 
 function verbHint(text: string): string | null {
-  const lower = text.toLocaleLowerCase("tr");
+  const lower = text.toLowerCase();
   for (const [verb, words] of Object.entries(VERB_WORDS)) if (words.some((w) => lower.includes(w))) return verb;
   return null;
 }
@@ -284,12 +275,11 @@ function stepsFor(verb: string | null, steps: readonly ResolvedStep[]): Resolved
  * else in the sentence is left to the language reader.
  */
 export function resolveReference(text: string, memory: MemorySnapshot, now: number): MemoryReference {
-  const tr = /[çğışöü]|\b(tekrar|geri|geçen|aynısını|yap)\b/iu.test(text);
   const usable = memory.intents.filter((r) => r.outcome === "settled" || r.outcome === "planned");
   if (UNDO.test(text)) {
     const verb = verbHint(text.replace(UNDO, " "));
     const from = lastMatching(memory.intents.filter((r) => r.outcome === "settled"), (r) => stepsFor(verb, r.resolved).length > 0);
-    if (!from) return { kind: "cannot-undo", from: null, explanation: tr ? "Geri alınacak tamamlanmış bir işlem bulamadım." : "I found no settled plan to undo." };
+    if (!from) return { kind: "cannot-undo", from: null, explanation: "I found no settled plan to undo." };
     const inverse: PlanAction[] = [];
     const skipped: string[] = [];
     for (const step of stepsFor(verb, from.resolved)) {
@@ -298,23 +288,23 @@ export function resolveReference(text: string, memory: MemorySnapshot, now: numb
       else skipped.push(step.verb);
     }
     if (inverse.length === 0 && skipped.length === 0) skipped.push(verb ?? "that");
-    if (inverse.length === 0) return { kind: "cannot-undo", from, explanation: tr ? `Bunu geri alamam: ${skipped.join(", ")} geri çevrilemez (gönderilen para alıcıda, köprülenen para diğer zincirde).` : `I can't undo that: ${skipped.join(", ")} cannot be reversed (sent money is with the recipient, bridged money is on the other chain).` };
-    return { kind: "undo", actions: inverse.reverse(), from, explanation: tr ? `Son işlemin tersi, yeni fiyatlarla: ${from.source}` : `The reverse of your last plan, at fresh prices: ${from.source}` };
+    if (inverse.length === 0) return { kind: "cannot-undo", from, explanation: `I can't undo that: ${skipped.join(", ")} cannot be reversed (sent money is with the recipient, bridged money is on the other chain).` };
+    return { kind: "undo", actions: inverse.reverse(), from, explanation: `The reverse of your last plan, at fresh prices: ${from.source}` };
   }
   if (MORE.test(text)) {
     const verb = verbHint(text);
     const base = lastMatching(usable, (r) => verb === null || r.actions.some((a) => a.verb === verb));
-    if (base) return { kind: "more-than-last", base, clarify: tr ? "Geçen seferden ne kadar fazla?" : "How much more than last time?", choices: ["+10%", "+25%", "+50%"] };
+    if (base) return { kind: "more-than-last", base, clarify: "How much more than last time?", choices: ["+10%", "+25%", "+50%"] };
   }
   if (LAST_WEEK.test(text)) {
     const week = 7 * 86_400_000;
     const from = lastMatching(usable, (r) => Math.abs(now - Date.parse(r.at) - week) <= 2 * 86_400_000) ?? lastMatching(usable, () => true);
-    if (from) return { kind: "repeat", actions: concretize(from), from, explanation: tr ? `Geçen haftakiyle aynı: ${from.source}` : `Same as last week: ${from.source}` };
+    if (from) return { kind: "repeat", actions: concretize(from), from, explanation: `Same as last week: ${from.source}` };
   }
   if (REPEAT.test(text) && text.trim().split(/\s+/u).length <= 5) {
     const verb = verbHint(text);
     const from = lastMatching(usable, (r) => verb === null || r.actions.some((a) => a.verb === verb));
-    if (from) return { kind: "repeat", actions: concretize(from), from, explanation: tr ? `Tekrar: ${from.source}` : `Again: ${from.source}` };
+    if (from) return { kind: "repeat", actions: concretize(from), from, explanation: `Again: ${from.source}` };
   }
   return { kind: "none" };
 }
@@ -341,20 +331,19 @@ export function scaleActions(actions: readonly PlanAction[], percent: number): P
   });
 }
 
-/** "my usual vault / her zamanki kasam": the venue to prefer for a verb, from preferences. */
+/** "my usual vault": the venue to prefer for a verb, from preferences. */
 export function usualVenue(text: string, prefs: Preferences): { readonly venue: string; readonly verb: string } | null {
-  if (!/\b(my usual|the usual|as usual|usual (?:vault|pen|venue|place))\b|\bher zamanki\b|\bhep kullandığım\b/iu.test(text)) return null;
+  if (!/\b(my usual|the usual|as usual|usual (?:vault|pen|venue|place))\b/iu.test(text)) return null;
   const verb = verbHint(text) ?? "earn";
   const venue = prefs.venues[verb] ?? prefs.venues.deposit ?? prefs.venues.supply;
   return venue ? { venue, verb } : null;
 }
 
-/** Rewrites "my usual vault / her zamanki kasam" into words the reader knows; the venue is applied after parsing. */
+/** Rewrites "my usual vault" into words the reader knows; the venue is applied after parsing. */
 export function stripUsualPhrase(text: string): string {
   return text
     .replace(/\b(?:in|into|to|at)?\s*(?:my|the)\s+usual\s+(?:vault|pen|venue|place|spot)\b/giu, " into a vault")
     .replace(/\bas usual\b/giu, " ")
-    .replace(/\bher zamanki\s+(?:kasam[ae]?|kasaya|kasa|yere|ağıla|ağılım[ae]?)\b/giu, " kasaya")
     .replace(/\s{2,}/gu, " ")
     .trim();
 }

@@ -15,7 +15,7 @@ export * from "./errors.js";
 export * from "./format.js";
 export * from "./lore.js";
 export * from "./memo.js";
-export * from "./kunye.js";
+export * from "./tag.js";
 export * from "./erc8354.js";
 export * from "./pack.js";
 export * from "./routes.js";

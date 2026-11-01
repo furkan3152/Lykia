@@ -55,7 +55,7 @@ export interface DeployStep {
   /** Creation bytecode from the artifact, without constructor arguments. */
   readonly bytecode: `0x${string}`;
   readonly constructorArgs: readonly PlanArg[];
-  /** Keccak of the runtime code the created contract must carry, immutables zeroed (see runtimeCodeHash). */
+  /** Keccak of the runtime code the created contract must carry, immutables zeroed and the CBOR metadata dropped (see runtimeCodeHash). */
   readonly runtimeCodeHash: `0x${string}`;
   /** Wallet nonce this step uses when the plan was built with a starting nonce, else null. */
   readonly nonce: number | null;
@@ -239,9 +239,27 @@ export function maskImmutables(code: `0x${string}`, ranges: readonly CodeRange[]
   return `0x${body}`;
 }
 
-/** Keccak of runtime code with its immutable ranges zeroed. */
+/**
+ * Drops the CBOR metadata solc appends to runtime code (its byte length is
+ * the last two bytes). The metadata only hashes the sources, comments and
+ * NatSpec included, so a documentation edit changes it without changing
+ * what the code does. Code without a well-formed tail is returned as is.
+ */
+export function stripMetadata(code: `0x${string}`): `0x${string}` {
+  const body = strip(code).toLowerCase();
+  if (body.length < 4) return `0x${body}`;
+  const length = parseInt(body.slice(-4), 16);
+  const start = body.length - 4 - length * 2;
+  if (!Number.isInteger(length) || length === 0 || start < 0) return `0x${body}`;
+  // A CBOR map with one to eight entries (solc writes ipfs/bzzr and solc version).
+  const head = parseInt(body.slice(start, start + 2), 16);
+  if (head < 0xa1 || head > 0xa8) return `0x${body}`;
+  return `0x${body.slice(0, start)}`;
+}
+
+/** Keccak of runtime code with its immutable ranges zeroed and its CBOR metadata dropped. */
 export function runtimeCodeHash(code: `0x${string}`, ranges: readonly CodeRange[]): `0x${string}` {
-  return keccakHex(maskImmutables(code, ranges));
+  return keccakHex(stripMetadata(maskImmutables(code, ranges)));
 }
 
 interface DeployableArtifact {
@@ -260,11 +278,11 @@ export const DEPLOYABLE_ARTIFACTS: Readonly<Record<string, DeployableArtifact>> 
   PracticeLending: practiceLendingArtifact,
 };
 
-/** Whether code read from the chain is the given contract's runtime code (immutables ignored). */
+/** Whether code read from the chain is the given contract's runtime code (immutables and CBOR metadata ignored). */
 export function codeMatchesArtifact(contract: string, onchainCode: `0x${string}`): boolean | null {
   const artifact = DEPLOYABLE_ARTIFACTS[contract];
   if (!artifact) return null;
-  if (strip(onchainCode).length !== strip(artifact.deployedBytecode).length) return false;
+  if (strip(stripMetadata(onchainCode)).length !== strip(stripMetadata(artifact.deployedBytecode as `0x${string}`)).length) return false;
   return runtimeCodeHash(onchainCode, artifact.immutableReferences) === runtimeCodeHash(artifact.deployedBytecode as `0x${string}`, artifact.immutableReferences);
 }
 

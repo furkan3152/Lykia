@@ -33,5 +33,4 @@ export interface ParseResponse {
   };
   /** One line in Lyko's voice. */
   readonly reply: string;
-  readonly lang: "en" | "tr";
 }

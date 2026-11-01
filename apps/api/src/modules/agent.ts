@@ -114,7 +114,7 @@ export const agentModule: ApiModule = {
         stream?.send(event, data);
       };
       emit("thread", { threadId: thread.id, mode: client ? "llm" : "reader", ...(sample ? { sample: true } : {}) });
-      if (sample) emit("notice", { kind: "sample", text: /[çğışöü]/iu.test(message) ? `Cüzdan bağlı değil: bu bir örnek adres (${SAMPLE_OWNER}) için deneme planı. Gerçek plan için cüzdanını bağla.` : `No wallet connected: this is a dry-run plan for a sample address (${SAMPLE_OWNER}). Connect a wallet to plan for real.` });
+      if (sample) emit("notice", { kind: "sample", text: `No wallet connected: this is a dry-run plan for a sample address (${SAMPLE_OWNER}). Connect a wallet to plan for real.` });
       let text = "";
       let proposals: readonly unknown[] = [];
       let stopReason: string;
@@ -138,7 +138,7 @@ export const agentModule: ApiModule = {
         ctx.log.warn("agent turn failed", { code: failure.code, error: error instanceof Error ? error.message.slice(0, 200) : String(error) });
         emit("error", failure);
       }
-      if (sample && text) text = `${/[çğışöü]/iu.test(message) ? "Örnek plan (cüzdan bağlı değil, deneme):" : "Sample plan (no wallet connected, dry run):"} ${text}`;
+      if (sample && text) text = `Sample plan (no wallet connected, dry run): ${text}`;
       await appendMessages(ctx, thread, [
         { role: "user", text: message },
         { role: "assistant", text: text || "(no answer)", proposals: proposals as never },
@@ -147,7 +147,7 @@ export const agentModule: ApiModule = {
       if (stream) stream.close();
       else {
         const parsed = readSentence(message);
-        res.json({ threadId: thread.id, mode: client ? "llm" : "reader", reply: text, proposals, stopReason, events, command: parsed.command, easterEgg: parsed.easterEgg, lang: parsed.lang });
+        res.json({ threadId: thread.id, mode: client ? "llm" : "reader", reply: text, proposals, stopReason, events, command: parsed.command, easterEgg: parsed.easterEgg });
       }
     });
 

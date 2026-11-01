@@ -52,7 +52,7 @@ describe("the Pack", () => {
     const pack = agentServices(ctx).pack;
     const treasurer = await pack.create({ owner: OWNER, environment: "mainnet", name: "Treasury desk", role: "treasurer" });
     assert.equal(treasurer.capabilities.includes("spawn"), true);
-    const payroll = await pack.spawn(treasurer.id, { name: "Bordro", role: "payroll" });
+    const payroll = await pack.spawn(treasurer.id, { name: "Payroll", role: "payroll" });
     assert.equal(payroll.depth, 1);
     assert.equal(payroll.capabilities.includes("spawn"), false);
     const looser: Fence = { ...treasurer.fence, caps: { ...treasurer.fence.caps, perStepUsd: "999999" } };

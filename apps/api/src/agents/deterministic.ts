@@ -34,7 +34,7 @@ export function roleForAction(action: PlanAction): SpecialistRole {
 }
 
 /** Clarify options that start with this prefix ask the web to switch to mainnet and re-ask the rest. */
-export const PREVIEW_ON_MAINNET = { en: "Preview on mainnet: ", tr: "Mainnet'te önizle: " } as const;
+export const PREVIEW_ON_MAINNET = "Preview on mainnet: ";
 
 /** A planning failure caused by venues missing on Arc testnet (practice venues not deployed yet). */
 export function practiceGap(message: string): boolean {
@@ -51,13 +51,13 @@ export interface DeterministicInput {
   readonly emit: Emit;
 }
 
-export async function runDeterministicTurn(input: DeterministicInput): Promise<TurnResult & { readonly lang: "en" | "tr" }> {
+export async function runDeterministicTurn(input: DeterministicInput): Promise<TurnResult> {
   const { emit } = input;
   const parsed = await readWithMemory(input.ctx, input.owner, input.message);
   const done = (text: string, proposals: AgentProposal[], stopReason: TurnResult["stopReason"] = "end_turn") => {
     for (const p of proposals) emit("proposal", p);
     emit("text", { text });
-    return { text, proposals, stopReason, delegations: 0, modelCalls: 0, lang: parsed.lang };
+    return { text, proposals, stopReason, delegations: 0, modelCalls: 0 };
   };
   if (parsed.command || parsed.easterEgg || parsed.actions.length === 0) {
     if (parsed.clarify.length > 0) emit("clarify", { question: parsed.clarify[0], options: [] });
@@ -67,7 +67,7 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
     emit("clarify", { question: parsed.clarify[0], options: [] });
     return done(parsed.reply, [], "clarify");
   }
-  if (!input.owner) return done(parsed.lang === "tr" ? "Planlamak için bir cüzdan adresi lazım." : "Connect a wallet so I can plan that.", []);
+  if (!input.owner) return done("Connect a wallet so I can plan that.", []);
 
   // Group consecutive actions by specialist, keeping order.
   const groups: { role: SpecialistRole; actions: PlanAction[] }[] = [];
@@ -111,23 +111,18 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
   const final = merged ? [merged] : proposals;
   const denied = final.find((p) => p.decision === "deny");
   if (final.length === 0) {
-    const tr = parsed.lang === "tr";
     const reasons = [...new Set(failures)].join(" ");
     const testnetGap = input.environment === "testnet" && failures.some(practiceGap);
     if (testnetGap) {
-      const options = tr
-        ? [`${PREVIEW_ON_MAINNET.tr}${input.message}`, "Owner konsolundan pratik venue'ları deploy et"]
-        : [`${PREVIEW_ON_MAINNET.en}${input.message}`, "Deploy the practice venues from the owner console"];
-      emit("clarify", { question: tr ? "Arc testnet'te bu rota için venue yok. Mainnet'te deneme olarak göstereyim mi?" : "Arc testnet has no venue for this route yet. Preview it on mainnet as a dry run?", options });
-      const text = tr
-        ? `Pratik venue'lar Arc testnet'te henüz deploy edilmedi, bu yüzden bu rotayı burada kuramıyorum (${reasons}). Mainnet'e geçip deneme olarak görebilir ya da owner konsolundan pratik venue'ları deploy edebilirsin.`
-        : `The practice venues aren't deployed on Arc testnet yet, so I can't route this here (${reasons}). Switch to mainnet to preview the route as a dry run, or deploy them from the owner console.`;
+      const options = [`${PREVIEW_ON_MAINNET}${input.message}`, "Deploy the practice venues from the owner console"];
+      emit("clarify", { question: "Arc testnet has no venue for this route yet. Preview it on mainnet as a dry run?", options });
+      const text = `The practice venues aren't deployed on Arc testnet yet, so I can't route this here (${reasons}). Switch to mainnet to preview the route as a dry run, or deploy them from the owner console.`;
       return done(text, [], "clarify");
     }
-    return done(reasons ? `${tr ? "Bu planı kuramadım" : "I could not build that plan"}: ${reasons}` : tr ? "Bu planı kuramadım." : "I could not build that plan.", []);
+    return done(reasons ? `I could not build that plan: ${reasons}` : "I could not build that plan.", []);
   }
   const text = denied
-      ? `${parsed.lang === "tr" ? "Çit izin vermiyor" : "The Fence says no"}: ${denied.reasons.join(" ")}`
-      : `${final.map((p) => p.steps.join(" → ")).join(" | ")}. ${LYKO_LINES.herding[parsed.lang]}`;
+      ? `The Fence says no: ${denied.reasons.join(" ")}`
+      : `${final.map((p) => p.steps.join(" → ")).join(" | ")}. ${LYKO_LINES.herding}`;
   return done(text, final);
 }

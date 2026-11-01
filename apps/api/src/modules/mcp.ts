@@ -65,7 +65,7 @@ export function buildMcpServer(ctx: AppContext): McpServer {
   );
   server.registerTool(
     "lykia_plan",
-    { description: "Plan an intent from a sentence (English or Turkish) for an owner, with the Fence verdict. Returns unsigned steps; the owner signs.", inputSchema: toolSchema(z.object({ sentence: z.string().min(1).max(500), owner: address, environment: env, fence: z.unknown().optional() }), objectJson({ sentence: { type: "string", maxLength: 500 }, owner: ADDRESS_JSON, environment: ENV_JSON, fence: { type: "object", description: "A lykia.fence/v1 document" } }, ["sentence", "owner"])) },
+    { description: "Plan an intent from an English sentence for an owner, with the Fence verdict. Returns unsigned steps; the owner signs.", inputSchema: toolSchema(z.object({ sentence: z.string().min(1).max(500), owner: address, environment: env, fence: z.unknown().optional() }), objectJson({ sentence: { type: "string", maxLength: 500 }, owner: ADDRESS_JSON, environment: ENV_JSON, fence: { type: "object", description: "A lykia.fence/v1 document" } }, ["sentence", "owner"])) },
     async ({ sentence, owner, environment, fence }) => {
       const parsed = readSentence(sentence);
       if (parsed.clarify.length > 0 || parsed.actions.length === 0) return text({ clarify: parsed.clarify, reply: parsed.reply });

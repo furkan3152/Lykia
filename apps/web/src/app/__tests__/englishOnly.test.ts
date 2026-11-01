@@ -1,68 +1,115 @@
 /**
- * The interface is English only. Users may type Turkish to Lyko (the API
- * reads it), but nothing the app renders may be Turkish, including the old
- * product words (Künye, Çit, Düdük...) and Turkish place names. The command
- * aliases in lib/commands.ts exist only to understand what people type, and
- * the /app/kunye redirect keeps old links working.
+ * The interface and the whole repository are English only. Every tracked
+ * text file is checked for Turkish-specific letters and a few transliterated
+ * Turkish words, and so is the shared lore the app renders. The letters and
+ * words are written as Unicode escapes on purpose.
  */
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
+
 import { EASTER_EGGS, GLOSSARY, LYCIAN_WAY, LYKO_LINES, ROLE_TEMPLATES } from "@lykia/core";
 
-const SRC = fileURLToPath(new URL("../../", import.meta.url));
-/** Input-only files: aliases people may type. */
-const INPUT_ONLY = new Set(["lib/commands.ts"]);
-/** Files that must name the old /app/kunye path so old links redirect. */
-const ALIAS_FILES = new Set(["app/routes/routeTable.ts", "pages/redirect/TagRedirectPage.tsx"]);
-/** Old Turkish product words and place names; none may be rendered. */
-const BANNED = /\b(?:k[üu]nye|[çc]it|d[üu]d[üu]k|s[üu]r[üu]|koku|a[ğg][ıi]l|[öo]l[üu]deniz|faralya|kabak|al[ıi]nca|kalkan|ka[şs]|[üu][çc]a[ğg][ıi]z|yanarta[şs]|tahtal[ıi]|kangal|likya|hazinedar)\b/iu;
-const TURKISH_LETTERS = /[şŞğĞıİçÇöÖüÜ]/u;
-const TURKISH_WORDS = /\b(?:tekrar|meralar|yavrular|cüzdan|cuzdan|bağlan|kaydet|iptal|ayarlar|yükleniyor|gönder|gonder|köpek|kurtlar|sürü|düdük|koku|çit|hazine|çoban|kuzu|kervan|lütfen|tamam)\b/iu;
+const ROOT = fileURLToPath(new URL("../../../../../", import.meta.url));
 
-function files(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name);
-    if (statSync(path).isDirectory()) return name === "__tests__" ? [] : files(path);
-    return /\.(?:tsx?|css)$/u.test(name) ? [path] : [];
-  });
-}
+/** Letters used by Turkish and not by English: c-cedilla, g-breve, dotless i, s-cedilla, o/u-umlaut and their capitals (with dotted capital I). */
+const TURKISH_LETTERS = /[\u00e7\u011f\u0131\u015f\u00f6\u00fc\u00c7\u011e\u0130\u015e\u00d6\u00dc]/u;
+/** Transliterated Turkish words (product words, place names and common verbs from older copy). */
+const WORDS = [
+  "\u006b\u0075\u006e\u0079\u0065",
+  "\u006b\u0061\u006e\u0067\u0061\u006c",
+  "\u006c\u0069\u006b\u0079\u0061",
+  "\u0068\u0061\u007a\u0069\u006e\u0065\u0064\u0061\u0072",
+  "\u0064\u0075\u0064\u0075\u006b",
+  "\u0067\u006f\u006e\u0064\u0065\u0072",
+  "\u0079\u0061\u0074\u0069\u0072",
+  "\u0063\u0075\u007a\u0064\u0061\u006e",
+  "\u0074\u0065\u006b\u0072\u0061\u0072",
+  "\u006b\u0061\u0072\u0061\u0062\u0061\u0073",
+  "\u006e\u006f\u0062\u0065\u0074\u0063\u0069",
+  "\u006f\u006c\u0075\u0064\u0065\u006e\u0069\u007a",
+  "\u0066\u0061\u0072\u0061\u006c\u0079\u0061",
+  "\u0075\u0063\u0061\u0067\u0069\u007a",
+  "\u0079\u0061\u006e\u0061\u0072\u0074\u0061\u0073",
+  "\u0074\u0061\u0068\u0074\u0061\u006c\u0069",
+  "\u006b\u0065\u0072\u0076\u0061\u006e",
+  "\u006d\u0065\u0072\u0061\u006c\u0061\u0072",
+  "\u0079\u0061\u0076\u0072\u0075\u006c\u0061\u0072",
+  "\u0062\u006f\u0072\u0064\u0072\u006f",
+  "\u0066\u0061\u0074\u0075\u0072\u0061",
+  "\u0061\u0064\u0072\u0065\u0073\u0069\u006e\u0065",
+  "\u0068\u0065\u0070\u0073\u0069\u006e\u0069",
+  "\u006c\u0075\u0074\u0066\u0065\u006e",
+];
+const TURKISH_WORDS = new RegExp(`\\b(?:${WORDS.join("|")})\\b`, "iu");
 
-/** String literals, template literal text and JSX text of a source file (comments removed). */
-function rendered(source: string): string[] {
-  const code = source.replace(/\/\*[\s\S]*?\*\//gu, "").replace(/(^|[^:"'`])\/\/.*$/gmu, "$1");
-  const out: string[] = [];
-  for (const m of code.matchAll(/"((?:[^"\\\n]|\\.)*)"|'((?:[^'\\\n]|\\.)*)'|`((?:[^`\\]|\\.)*)`/gu)) out.push(m[1] ?? m[2] ?? m[3] ?? "");
-  for (const m of code.matchAll(/>([^<>{}\n]+)</gu)) out.push(m[1]!);
-  return out;
-}
+const SKIP_DIRS = new Set([".git", "node_modules", "dist", "build", "coverage", "artifacts", "cache", "typechain-types", ".vercel", ".turbo", "playwright-report", "test-results"]);
+const LOCKFILE = /(?:^|\/)(?:package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml)$/u;
+const BINARY = /\.(?:png|jpe?g|gif|webp|ico|bmp|avif|woff2?|ttf|otf|eot|pdf|zip|gz|tgz|mp3|mp4|webm|wasm)$/iu;
 
-describe("English-only interface", () => {
-  it("renders no Turkish text", () => {
-    const offenders: string[] = [];
-    for (const file of files(SRC)) {
-      const rel = relative(SRC, file).replace(/\\/gu, "/");
-      if (INPUT_ONLY.has(rel)) continue;
-      for (const text of rendered(readFileSync(file, "utf8"))) {
-        const banned = BANNED.test(text) && !(ALIAS_FILES.has(rel) && /\/app\/kunye/u.test(text) && !BANNED.test(text.replace(/\/app\/kunye/gu, "")));
-        if (TURKISH_LETTERS.test(text) || TURKISH_WORDS.test(text) || banned) offenders.push(`${rel}: ${text.slice(0, 80)}`);
+/** Tracked files (git), or every file outside build and dependency folders when git is not available. */
+function trackedFiles(): string[] {
+  try {
+    return execFileSync("git", ["ls-files", "-z"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).split("\0").filter(Boolean);
+  } catch {
+    const out: string[] = [];
+    const walk = (dir: string): void => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) {
+          if (!SKIP_DIRS.has(name)) walk(path);
+        } else out.push(relative(ROOT, path).replace(/\\/gu, "/"));
       }
+    };
+    walk(ROOT);
+    return out;
+  }
+}
+
+/** Lines that may hold non-English letters for a reason other than language. */
+function exempt(file: string, line: string): boolean {
+  // The owner's name in the copyright line of a licence.
+  if (/(?:^|\/)LICENSE(?:\.\w+)?$/u.test(file) && /^\s*Copyright\b/iu.test(line)) return true;
+  // The Cyrillic and Greek look-alike table used to catch spoofed tickers and addresses.
+  if (file === "packages/core/src/assets.ts" && /^\s*(?:"[^ -~]": "[A-Za-z0-9]",\s*)+$/u.test(line)) return true;
+  return false;
+}
+
+function offenders(): string[] {
+  const found: string[] = [];
+  for (const file of trackedFiles()) {
+    if (LOCKFILE.test(file) || BINARY.test(file) || file.split("/").some((part) => part === "node_modules")) continue;
+    let text: string;
+    try {
+      text = readFileSync(join(ROOT, file), "utf8");
+    } catch {
+      continue;
     }
-    assert.deepEqual(offenders, []);
+    if (text.includes("\0")) continue;
+    text.split("\n").forEach((line, i) => {
+      if ((TURKISH_LETTERS.test(line) || TURKISH_WORDS.test(line)) && !exempt(file, line)) found.push(`${file}:${i + 1}: ${line.trim().slice(0, 100)}`);
+    });
+  }
+  return found;
+}
+
+describe("English only", () => {
+  it("every tracked text file is English only", () => {
+    assert.deepEqual(offenders(), []);
   });
 
-  it("renders no Turkish from the shared lore and role names", () => {
+  it("the shared lore and role names the app renders are English only", () => {
     const strings = [
       ...LYCIAN_WAY.flatMap((w) => [w.name, w.note]),
       ...Object.values(EASTER_EGGS).map((e) => e.line),
       ...Object.keys(EASTER_EGGS),
       ...Object.values(GLOSSARY).flatMap((g) => [g.en, g.what]),
-      ...Object.values(LYKO_LINES).map((l) => l.en),
+      ...Object.values(LYKO_LINES),
       ...Object.values(ROLE_TEMPLATES).map((r) => r.title.en),
     ];
-    const offenders = strings.filter((t) => TURKISH_LETTERS.test(t) || TURKISH_WORDS.test(t) || BANNED.test(t));
-    assert.deepEqual(offenders, []);
+    assert.deepEqual(strings.filter((t) => TURKISH_LETTERS.test(t) || TURKISH_WORDS.test(t)), []);
   });
 });

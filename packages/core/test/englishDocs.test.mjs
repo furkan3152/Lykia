@@ -1,32 +1,105 @@
-// The product language is English: READMEs and docs may describe Turkish input
-// support, but they must not use the old Turkish product words or place names.
+// The repository is English only: every tracked text file (code, tests,
+// docs, configs) is checked for Turkish-specific letters and for a few
+// transliterated Turkish words, so non-English text cannot creep back in.
+// The letters and words are written as Unicode escapes on purpose.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { execFileSync } from "node:child_process";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
-const BANNED = /\b(?:k[üu]nye|çit|düdük|sürü|koku|ağıl|ölüdeniz|faralya|kabak|alınca|kalkan|kaş|üçağız|yanartaş|tahtalı|kangal|likya|hazinedar|kuzu|çoban|kervan)\b/iu;
 
-function docs() {
-  const out = ["README.md", "apps/api/README.md", "apps/web/README.md", "packages/sdk/README.md", "packages/contracts/README.md", "packages/contracts/SECURITY.md"].map((f) => join(ROOT, f)).filter(existsSync);
-  for (const name of readdirSync(join(ROOT, "docs"))) if (name.endsWith(".md")) out.push(join(ROOT, "docs", name));
-  return out;
+/** Letters used by Turkish and not by English: c-cedilla, g-breve, dotless i, s-cedilla, o/u-umlaut and their capitals (with dotted capital I). */
+const TURKISH_LETTERS = /[\u00e7\u011f\u0131\u015f\u00f6\u00fc\u00c7\u011e\u0130\u015e\u00d6\u00dc]/u;
+/** Transliterated Turkish words (product words, place names and common verbs from older copy). */
+const WORDS = [
+  "\u006b\u0075\u006e\u0079\u0065",
+  "\u006b\u0061\u006e\u0067\u0061\u006c",
+  "\u006c\u0069\u006b\u0079\u0061",
+  "\u0068\u0061\u007a\u0069\u006e\u0065\u0064\u0061\u0072",
+  "\u0064\u0075\u0064\u0075\u006b",
+  "\u0067\u006f\u006e\u0064\u0065\u0072",
+  "\u0079\u0061\u0074\u0069\u0072",
+  "\u0063\u0075\u007a\u0064\u0061\u006e",
+  "\u0074\u0065\u006b\u0072\u0061\u0072",
+  "\u006b\u0061\u0072\u0061\u0062\u0061\u0073",
+  "\u006e\u006f\u0062\u0065\u0074\u0063\u0069",
+  "\u006f\u006c\u0075\u0064\u0065\u006e\u0069\u007a",
+  "\u0066\u0061\u0072\u0061\u006c\u0079\u0061",
+  "\u0075\u0063\u0061\u0067\u0069\u007a",
+  "\u0079\u0061\u006e\u0061\u0072\u0074\u0061\u0073",
+  "\u0074\u0061\u0068\u0074\u0061\u006c\u0069",
+  "\u006b\u0065\u0072\u0076\u0061\u006e",
+  "\u006d\u0065\u0072\u0061\u006c\u0061\u0072",
+  "\u0079\u0061\u0076\u0072\u0075\u006c\u0061\u0072",
+  "\u0062\u006f\u0072\u0064\u0072\u006f",
+  "\u0066\u0061\u0074\u0075\u0072\u0061",
+  "\u0061\u0064\u0072\u0065\u0073\u0069\u006e\u0065",
+  "\u0068\u0065\u0070\u0073\u0069\u006e\u0069",
+  "\u006c\u0075\u0074\u0066\u0065\u006e",
+];
+const TURKISH_WORDS = new RegExp(`\\b(?:${WORDS.join("|")})\\b`, "iu");
+
+const SKIP_DIRS = new Set([".git", "node_modules", "dist", "build", "coverage", "artifacts", "cache", "typechain-types", ".vercel", ".turbo", "playwright-report", "test-results"]);
+const LOCKFILE = /(?:^|\/)(?:package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml)$/u;
+const BINARY = /\.(?:png|jpe?g|gif|webp|ico|bmp|avif|woff2?|ttf|otf|eot|pdf|zip|gz|tgz|mp3|mp4|webm|wasm)$/iu;
+
+/** Tracked files (git), or every file outside build and dependency folders when git is not available. */
+function trackedFiles() {
+  try {
+    return execFileSync("git", ["ls-files", "-z"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).split("\0").filter(Boolean);
+  } catch {
+    const out = [];
+    const walk = (dir) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) {
+          if (!SKIP_DIRS.has(name)) walk(path);
+        } else out.push(relative(ROOT, path).replace(/\\/gu, "/"));
+      }
+    };
+    walk(ROOT);
+    return out;
+  }
 }
 
-test("docs and READMEs use English product words only", () => {
-  const offenders = [];
-  for (const file of docs()) {
-    let inCode = false;
-    readFileSync(file, "utf8").split("\n").forEach((line, i) => {
-      // Fenced code shows source layout and identifiers, not product copy.
-      if (line.trim().startsWith("```")) inCode = !inCode;
-      if (inCode) return;
-      // `/v1/kunye` routes stay documented as deprecated aliases.
-      const text = line.replace(/\/v1\/kunye[^\s)`]*/gu, "").replace(/\/app\/kunye[^\s)`]*/gu, "");
-      if (BANNED.test(text)) offenders.push(`${file.slice(ROOT.length)}:${i + 1}: ${line.trim().slice(0, 100)}`);
+/** Lines that may hold non-English letters for a reason other than language. */
+function exempt(file, line) {
+  // The owner's name in the copyright line of a licence.
+  if (/(?:^|\/)LICENSE(?:\.\w+)?$/u.test(file) && /^\s*Copyright\b/iu.test(line)) return true;
+  // The Cyrillic and Greek look-alike table used to catch spoofed tickers and addresses.
+  if (file === "packages/core/src/assets.ts" && /^\s*(?:"[^ -~]": "[A-Za-z0-9]",\s*)+$/u.test(line)) return true;
+  return false;
+}
+
+function offenders() {
+  const found = [];
+  for (const file of trackedFiles()) {
+    if (LOCKFILE.test(file) || BINARY.test(file) || file.split("/").some((part) => part === "node_modules")) continue;
+    let text;
+    try {
+      text = readFileSync(join(ROOT, file), "utf8");
+    } catch {
+      continue;
+    }
+    if (text.includes("\0")) continue;
+    text.split("\n").forEach((line, i) => {
+      if ((TURKISH_LETTERS.test(line) || TURKISH_WORDS.test(line)) && !exempt(file, line)) found.push(`${file}:${i + 1}: ${line.trim().slice(0, 100)}`);
     });
   }
-  assert.deepEqual(offenders, []);
+  return found;
+}
+
+test("every tracked text file is English only", () => {
+  assert.deepEqual(offenders(), []);
+});
+
+test("the check itself catches Turkish letters and words", () => {
+  assert.ok(TURKISH_LETTERS.test("\u00e7"));
+  assert.ok(TURKISH_LETTERS.test("\u0130"));
+  assert.ok(TURKISH_WORDS.test(`send it, ${WORDS[0]}`));
+  assert.ok(!TURKISH_LETTERS.test("Lykia keeps the flock inside the Fence."));
+  assert.ok(!TURKISH_WORDS.test("Lykia keeps the flock inside the Fence."));
 });

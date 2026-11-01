@@ -83,7 +83,6 @@ export interface ParseResponse {
   readonly easterEgg: EasterEggWord | null;
   readonly clarify: readonly string[];
   readonly reply: string;
-  readonly lang: "en" | "tr";
 }
 
 export interface CreateIntentResponse {
@@ -124,7 +123,7 @@ export interface ScentReport {
   readonly deep?: boolean;
 }
 
-export interface KunyeRecord {
+export interface TagRecord {
   readonly agentId: string;
   readonly environment: ArcEnvironment;
   readonly owner: Address | null;
@@ -136,7 +135,7 @@ export interface KunyeRecord {
   readonly [key: string]: unknown;
 }
 
-export interface KunyeDraftResponse {
+export interface TagDraftResponse {
   readonly card: unknown;
   readonly cardDigest: string;
   readonly fenceHash: string;

@@ -16,13 +16,12 @@ export interface CompiledGoals {
   readonly standing: readonly StandingOrderDraft[];
   readonly clarify: readonly string[];
   readonly clarifyChoices: readonly ClarifyChoice[];
-  readonly lang: "en" | "tr";
 }
 
-/** Sentence (EN/TR) -> plan actions now + standing orders for later, or questions. */
+/** Sentence -> plan actions now + standing orders for later, or questions. */
 export function compileGoals(text: string, options: ReadOptions = {}): CompiledGoals {
   const r = readSentence(text, options);
-  return { actions: r.actions, standing: r.standing ?? [], clarify: r.clarify, clarifyChoices: r.clarifyChoices ?? [], lang: r.lang };
+  return { actions: r.actions, standing: r.standing ?? [], clarify: r.clarify, clarifyChoices: r.clarifyChoices ?? [] };
 }
 
 /** Plan actions into an intent graph with routed venues and the Fence verdict (stored unless dryRun). */

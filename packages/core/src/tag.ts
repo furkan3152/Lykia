@@ -16,8 +16,6 @@ import { networkFor, type ArcEnvironment } from "./networks.js";
 
 /** Schema of a Lykia agent Tag card. */
 export const TAG_SCHEMA = "lykia.tag/v1" as const;
-/** @deprecated Cards written before the Tag rename; still readable. */
-export const KUNYE_SCHEMA = "lykia.kunye/v1" as const;
 export const VALIDATION_SCHEMA = "lykia.validation/v1" as const;
 export const ERC8004_REGISTRATION_TYPE = "https://eips.ethereum.org/EIPS/eip-8004#registration-v1" as const;
 /** IdentityRegistry metadata key holding the Fence hash (32 bytes). */
@@ -25,22 +23,22 @@ export const FENCE_METADATA_KEY = "lykia.fence" as const;
 /** Validation tag Lykia uses in the ValidationRegistry. */
 export const VALIDATION_TAG = "lykia-fence" as const;
 
-export interface KunyeEndpoint {
+export interface TagEndpoint {
   readonly name: string;
   readonly endpoint: string;
   readonly version?: string;
 }
 
-export interface KunyeCard {
+export interface TagCard {
   readonly type: typeof ERC8004_REGISTRATION_TYPE;
   readonly name: string;
   readonly description: string;
   readonly image?: string;
-  readonly endpoints: readonly KunyeEndpoint[];
+  readonly endpoints: readonly TagEndpoint[];
   readonly registrations: readonly { readonly agentId: number; readonly agentRegistry: string }[];
   readonly supportedTrust: readonly string[];
   readonly lykia: {
-    readonly schema: typeof TAG_SCHEMA | typeof KUNYE_SCHEMA;
+    readonly schema: typeof TAG_SCHEMA;
     readonly owner: Address;
     readonly fenceHash: Sha256Digest;
     readonly fenceSchema: typeof FENCE_SCHEMA;
@@ -50,7 +48,7 @@ export interface KunyeCard {
   };
 }
 
-export interface KunyeDraftInput {
+export interface TagDraftInput {
   readonly environment: ArcEnvironment;
   readonly owner: Address;
   /** The agent's own signing wallet, when it differs from the owner. */
@@ -59,11 +57,11 @@ export interface KunyeDraftInput {
   readonly description: string;
   readonly image?: string;
   readonly fenceHash: Sha256Digest;
-  readonly endpoints?: readonly KunyeEndpoint[];
+  readonly endpoints?: readonly TagEndpoint[];
   readonly agentId?: number;
 }
 
-export function buildKunyeCard(input: KunyeDraftInput): KunyeCard {
+export function buildTagCard(input: TagDraftInput): TagCard {
   if (!isAddress(input.owner)) throw new Error("owner must be an address.");
   const name = input.name.trim();
   if (name.length < 2 || name.length > 64) throw new Error("name must be 2 to 64 characters.");
@@ -72,7 +70,7 @@ export function buildKunyeCard(input: KunyeDraftInput): KunyeCard {
   const network = networkFor(input.environment);
   const registry = contractAddress("identityRegistry", input.environment) as Address;
   const wallet = input.agentWallet ?? input.owner;
-  const endpoints: KunyeEndpoint[] = [...(input.endpoints ?? []).slice(0, 8), { name: "agentWallet", endpoint: `${network.caip2}:${wallet}` }];
+  const endpoints: TagEndpoint[] = [...(input.endpoints ?? []).slice(0, 8), { name: "agentWallet", endpoint: `${network.caip2}:${wallet}` }];
   return {
     type: ERC8004_REGISTRATION_TYPE,
     name,
@@ -93,7 +91,7 @@ export function buildKunyeCard(input: KunyeDraftInput): KunyeCard {
   };
 }
 
-export function kunyeCardDigest(card: KunyeCard): Sha256Digest {
+export function tagCardDigest(card: TagCard): Sha256Digest {
   return canonicalDigest(card);
 }
 
@@ -140,10 +138,3 @@ export function validationRequestHash(record: ValidationRecord): `0x${string}` {
 export function validationScore(verdict: FenceVerdict): number {
   return verdict.decision === "deny" ? 0 : verdict.decision === "confirm" ? 80 : 100;
 }
-
-/* Tag names: the agent Tag is the product name; the Kunye* names stay as aliases for existing callers. */
-export type TagEndpoint = KunyeEndpoint;
-export type TagCard = KunyeCard;
-export type TagDraftInput = KunyeDraftInput;
-export const buildTagCard = buildKunyeCard;
-export const tagCardDigest = kunyeCardDigest;

@@ -35,14 +35,13 @@ const ignored = (ctx: AppContext) => typedCollection<{ ids: string[] }>(ctx, "me
 export const contactView = (c: Contact): ContactView => ({ ...c, confirmed: c.origin === "manual" || c.confirmedSends > 0, learned: c.origin === "learned" });
 export const intentView = (r: IntentRecord): IntentView => ({ ...r, text: r.source });
 
-/** Learned preferences as rows: venue per step kind, typical amounts, slippage habit, destinations, language. */
+/** Learned preferences as rows: venue per step kind, typical amounts, slippage habit, destinations. */
 export function preferenceItems(p: Preferences): PreferenceItem[] {
   const out: PreferenceItem[] = [];
   for (const [verb, venue] of Object.entries(p.venues)) if (venue) out.push({ id: `pref_venue_${verb}`, key: `Usual venue for ${verb}`, value: venue, source: "learned from settled plans" });
   for (const [k, v] of Object.entries(p.typicalAmounts)) out.push({ id: `pref_amount_${k.replace(/[^a-zA-Z0-9]/gu, "_")}`, key: `Typical ${k.replace(":", " ")}`, value: v, source: "median of your plans" });
   if (p.slippageBps !== null) out.push({ id: "pref_slippage", key: "Slippage habit", value: `${p.slippageBps} bps`, source: "median of your swaps" });
   if (p.destinations.length) out.push({ id: "pref_destinations", key: "Bridge destinations", value: p.destinations.join(", "), source: "most used" });
-  if (p.language) out.push({ id: "pref_language", key: "Language", value: p.language, source: "the language you write in" });
   return out;
 }
 
@@ -98,7 +97,7 @@ export class MemoryService {
     });
   }
 
-  async record(owner: Address, graph: IntentGraph, input: { source: string; lang: "en" | "tr"; actions: readonly PlanAction[] }): Promise<IntentRecord | null> {
+  async record(owner: Address, graph: IntentGraph, input: { source: string; actions: readonly PlanAction[] }): Promise<IntentRecord | null> {
     const profile = await getProfile(this.ctx, owner);
     if (!profile.memory.enabled) return null;
     const at = new Date(this.ctx.clock.now()).toISOString();
@@ -113,7 +112,6 @@ export class MemoryService {
       at,
       environment: graph.environment,
       source: input.source.slice(0, 500),
-      lang: input.lang,
       actions: input.actions,
       resolved: resolvedSteps(graph, input.actions),
       venues: [...new Set(graph.steps.map((s) => s.venue))],
@@ -185,7 +183,6 @@ export class MemoryService {
       typicalAmounts: Object.fromEntries(Object.entries(prefs.typicalAmounts).filter(([k]) => !skip.has(`pref_amount_${k.replace(/[^a-zA-Z0-9]/gu, "_")}`))),
       slippageBps: skip.has("pref_slippage") ? null : prefs.slippageBps,
       destinations: skip.has("pref_destinations") ? [] : prefs.destinations,
-      language: skip.has("pref_language") ? null : prefs.language,
     };
   }
 

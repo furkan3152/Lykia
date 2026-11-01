@@ -59,7 +59,7 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
     <div className={cx("m-frame m-composer", morph && "vt-composer", className)}>
       <LykoFace mood={busy ? "herding" : text ? "alert" : "watching"} scale={1.8} />
       <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
-        <span className="m-composer__meta">{"ASK LYKO · TYPE IN ENGLISH OR TURKISH"}</span>
+        <span className="m-composer__meta">{"ASK LYKO · SAY IT IN PLAIN WORDS"}</span>
         <textarea
           ref={ref}
           rows={1}

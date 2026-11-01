@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
-import { DEFAULT_FEE_RECIPIENT, DEFAULT_FENCE, decodeMemo, kunyeCardDigest } from "@lykia/core";
+import { DEFAULT_FEE_RECIPIENT, DEFAULT_FENCE, decodeMemo, tagCardDigest } from "@lykia/core";
 import { decodeFunctionData, erc20Abi } from "viem";
 import { createApp } from "../app.js";
 import { closeContext, createContext, type AppContext } from "../context.js";
@@ -51,9 +51,9 @@ describe("Lykia API", () => {
     assert.equal(verdict.decision, "deny");
   });
 
-  it("plans from a Turkish sentence, prepares a memo-wrapped transfer and refuses mismatched hashes", async () => {
+  it("plans from a sentence, prepares a memo-wrapped transfer and refuses mismatched hashes", async () => {
     const fence = { ...DEFAULT_FENCE, recipients: { mode: "allowlist", allow: ["0x1111111111111111111111111111111111111111"] } };
-    const created = await post("/v1/intents", { text: "20 USDC'yi 0x1111111111111111111111111111111111111111 adresine fatura 12 için gönder", owner: OWNER, environment: "testnet", fence });
+    const created = await post("/v1/intents", { text: "send 20 USDC to 0x1111111111111111111111111111111111111111 for invoice 12", owner: OWNER, environment: "testnet", fence });
     assert.equal(created.status, 201);
     const { intent } = (await created.json()) as { intent: { id: string; verdict: { decision: string } } };
     assert.equal(intent.verdict.decision, "confirm");
@@ -70,7 +70,7 @@ describe("Lykia API", () => {
     assert.equal((feeTransfer.args[0] as string).toLowerCase(), DEFAULT_FEE_RECIPIENT);
     assert.equal(feeTransfer.args[1], 200_000n);
     const decoded = decodeFunctionData({ abi: MEMO_ABI, data: inner[1]!.callData });
-    assert.equal(decodeMemo(decoded.args[3])?.note, "fatura 12");
+    assert.equal(decodeMemo(decoded.args[3])?.note, "invoice 12");
     assert.match(prepared.memo, /^lykia:1:out_/u);
     const hash = `0x${"cd".repeat(32)}`;
     arc.transactions.set(hash, { from: OWNER, to: tx.to, input: "0xdeadbeef", value: 0n, chainId: 5042002 });
@@ -89,16 +89,10 @@ describe("Lykia API", () => {
     assert.equal(response.status, 422);
   });
 
-  it("keeps the old /v1/kunye routes as aliases of /v1/tags", async () => {
-    const res = await post("/v1/kunye/draft", { environment: "testnet", owner: OWNER, name: "Alias check", description: "Old route", fence: DEFAULT_FENCE });
-    assert.equal(res.status, 200);
-    const body = (await res.json()) as { card: { lykia: { schema: string } } };
-    assert.equal(body.card.lykia.schema, "lykia.tag/v1");
-  });
-
   it("drafts a Tag that pins the Fence hash on-chain", async () => {
     const body = (await (await post("/v1/tags/draft", { environment: "testnet", owner: OWNER, name: "Payroll Shepherd", description: "Pays the team", fence: DEFAULT_FENCE })).json()) as { card: never; cardDigest: string; fenceHash: string; agentURI: string; transaction: { data: `0x${string}` } };
-    assert.equal(body.cardDigest, kunyeCardDigest(body.card));
+    assert.equal(body.cardDigest, tagCardDigest(body.card));
+    assert.equal((body.card as { lykia: { schema: string } }).lykia.schema, "lykia.tag/v1");
     const decoded = decodeFunctionData({ abi: IDENTITY_REGISTRY_ABI, data: body.transaction.data });
     assert.equal(decoded.functionName, "register");
     const entries = decoded.args[1] as readonly { metadataKey: string; metadataValue: string }[];

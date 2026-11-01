@@ -169,7 +169,7 @@ contract LykiaAccount is EIP712, ReentrancyGuard, IERC1271 {
     event WhistleReleased();
     event GuardianSet(address indexed guardian);
     event NativeUsdcSet(address indexed token);
-    /// @notice Every agent call, for explorers and the Künye compliance trail.
+    /// @notice Every agent call, for explorers and the Tag compliance trail.
     event AgentCall(bytes32 indexed sessionId, address indexed target, bytes4 selector, uint256 value, bytes32 memoHash);
     event AgentTransfer(bytes32 indexed sessionId, address indexed token, address indexed to, uint256 amount, bytes32 memoHash);
     /// @notice The memo itself. Arc's Memo contract only accepts EOA callers, so the account emits its own.

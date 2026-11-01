@@ -31,18 +31,18 @@ function planner(arc: FakeArc) {
   return new Planner({ chains, prices: new PriceService({ chains, clock: systemClock }), fetch: offlineFetch(), stablefxConfigured: false });
 }
 
-describe("complex intents (EN/TR)", () => {
+describe("complex intents", () => {
   const cases: [string, unknown, unknown?][] = [
     [
       "put 40% of my USDC in the best vault, convert 20% to EURC and bridge the rest to Base",
       [{ verb: "earn", token: "USDC", amount: { percent: 40 } }, { verb: "fx", from: "USDC", to: "EURC", amount: { percent: 20 } }, { verb: "bridge", token: "USDC", amount: { all: true }, destination: "base" }],
     ],
-    ["maaş için 30 günlük 5000 USDC'yi likit tut, kalanını en iyi getiriye koy", [{ verb: "reserve", token: "USDC", amount: { exact: "5000" }, reason: "payroll" }, { verb: "earn", token: "USDC", amount: { all: true } }]],
+    ["keep 30 days of payroll, 5000 USDC, liquid and earn the rest in the best vault", [{ verb: "reserve", token: "USDC", amount: { exact: "5000" }, reason: "payroll" }, { verb: "earn", token: "USDC", amount: { all: true } }]],
     ["borrow 1000 USDC against my cirBTC but keep health above 1.8", [{ verb: "borrow", token: "USDC", amount: { exact: "1000" }, collateral: { token: "cirBTC" }, minHealth: "1.8" }]],
-    ["cirBTC teminatıyla 1000 USDC borç al, sağlık 1.8'in üstünde kalsın", [{ verb: "borrow", token: "USDC", amount: { exact: "1000" }, collateral: { token: "cirBTC" }, minHealth: "1.8" }]],
+    ["take a loan of 1000 USDC using cirBTC as collateral, health factor at least 1.8", [{ verb: "borrow", token: "USDC", amount: { exact: "1000" }, collateral: { token: "cirBTC" }, minHealth: "1.8" }]],
     ["rebalance to 60% USDC and 40% EURC", [{ verb: "rebalance", targets: [{ token: "USDC", weightBps: 6000 }, { token: "EURC", weightBps: 4000 }] }]],
-    ["%60 USDC %40 EURC olacak şekilde dengele", [{ verb: "rebalance", targets: [{ token: "USDC", weightBps: 6000 }, { token: "EURC", weightBps: 4000 }] }]],
-    ["%40'ını en güvenli kasaya yatır, %20'sini EURC'ye çevir ve kalanını Base'e köprüle", [{ verb: "earn", token: "USDC", amount: { percent: 40 }, maxRisk: "low" }, { verb: "fx", from: "USDC", to: "EURC", amount: { percent: 20 } }, { verb: "bridge", token: "USDC", amount: { all: true }, destination: "base" }]],
+    ["reallocate 60/40 between USDC and EURC", [{ verb: "rebalance", targets: [{ token: "USDC", weightBps: 6000 }, { token: "EURC", weightBps: 4000 }] }]],
+    ["deposit 40% in the safest vault, convert 20% to EURC and bridge the rest to Base", [{ verb: "earn", token: "USDC", amount: { percent: 40 }, maxRisk: "low" }, { verb: "fx", from: "USDC", to: "EURC", amount: { percent: 20 } }, { verb: "bridge", token: "USDC", amount: { all: true }, destination: "base" }]],
     ["keep 2000 USDC liquid for payroll and put the rest in Aave", [{ verb: "reserve", token: "USDC", amount: { exact: "2000" }, reason: "payroll" }, { verb: "earn", token: "USDC", amount: { all: true }, venue: "aave-v4" }]],
     ["swap 0.01 cirbtc to eurc", [{ verb: "swap", from: "cirBTC", to: "EURC", amount: { exact: "0.01" } }]],
   ];
@@ -54,19 +54,19 @@ describe("complex intents (EN/TR)", () => {
     });
   }
 
-  it("turns conditions and schedules into standing orders (EN/TR)", () => {
+  it("turns conditions and schedules into standing orders", () => {
     const price = compileGoals("if EURC/USD goes above 1.12 convert 1000 EURC to USDC");
     assert.deepEqual(price.actions, []);
     assert.deepEqual(price.standing[0]?.trigger, { kind: "price", feed: "EURC/USD", op: "above", value: "1.12" });
     assert.deepEqual(price.standing[0]?.actions, [{ verb: "fx", from: "EURC", to: "USDC", amount: { exact: "1000" } }]);
-    assert.deepEqual(compileGoals("EURC/USD 1.12'yi geçerse 1000 EURC'yi USDC'ye çevir").standing[0]?.trigger, { kind: "price", feed: "EURC/USD", op: "above", value: "1.12" });
+    assert.deepEqual(compileGoals("when EURC drops below 1.05 convert 1000 USDC to EURC").standing[0]?.trigger, { kind: "price", feed: "EURC/USD", op: "below", value: "1.05" });
     const weekly = compileGoals(`every friday pay ${ADDR} 200 USDC for rent`).standing[0];
     assert.deepEqual(weekly?.trigger, { kind: "schedule", every: "week", weekday: "fri", at: "09:00", timezone: "UTC" });
     assert.deepEqual(weekly?.actions, [{ verb: "send", token: "USDC", amount: { exact: "200" }, to: ADDR, memo: "rent" }]);
-    const tr = compileGoals(`her cuma ${ADDR} adresine kira için 200 USDC öde`).standing[0];
-    assert.equal(tr?.trigger.kind, "schedule");
-    assert.equal((tr?.actions[0] as { to: string }).to, ADDR);
-    assert.deepEqual(compileGoals("sağlık faktörü 1.5'in altına düşerse 500 USDC borcumu öde").standing[0]?.trigger, { kind: "health", below: "1.5" });
+    const daily = compileGoals(`daily at 8pm send ${ADDR} 5 USDC`).standing[0];
+    assert.deepEqual(daily?.trigger, { kind: "schedule", every: "day", at: "20:00", timezone: "UTC" });
+    assert.equal((daily?.actions[0] as { to: string }).to, ADDR);
+    assert.deepEqual(compileGoals("if my health factor drops below 1.5 repay 500 USDC").standing[0]?.trigger, { kind: "health", below: "1.5" });
     assert.deepEqual(compileGoals(`monthly on the 1st at 10:00 send 500 EURC to ${ADDR} for salary`).standing[0]?.trigger, { kind: "schedule", every: "month", day: 1, at: "10:00", timezone: "UTC" });
   });
 

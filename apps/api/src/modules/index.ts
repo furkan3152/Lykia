@@ -8,7 +8,7 @@ import { arcModule } from "./arc.js";
 import { fenceModule } from "./fence.js";
 import { flockModule } from "./flock.js";
 import { intentsModule } from "./intents.js";
-import { kunyeModule } from "./kunye.js";
+import { tagModule } from "./tag.js";
 import { languageModule } from "./language.js";
 import { mcpModule } from "./mcp.js";
 import { scentModule } from "./scent.js";
@@ -27,4 +27,4 @@ import { projectsModule } from "./projects.js";
 import { securityModule } from "./security.js";
 
 // developersModule goes first: its gate checks every request that presents a Lykia-Key.
-export const MODULES: readonly ApiModule[] = [developersModule, projectsModule, authModule, systemModule, arcModule, flockModule, fenceModule, languageModule, intentsModule, standingModule, routesModule, knowledgeModule, scentModule, kunyeModule, agentModule, personalModule, circleModule, jobsModule, ordersModule, alertsModule, discoverModule, ecosystemModule, adminModule, securityModule, mcpModule];
+export const MODULES: readonly ApiModule[] = [developersModule, projectsModule, authModule, systemModule, arcModule, flockModule, fenceModule, languageModule, intentsModule, standingModule, routesModule, knowledgeModule, scentModule, tagModule, agentModule, personalModule, circleModule, jobsModule, ordersModule, alertsModule, discoverModule, ecosystemModule, adminModule, securityModule, mcpModule];

@@ -11,7 +11,7 @@ server and standing orders all go through them.
 
 ### `compileGoals(text, options?) => CompiledGoals`
 
-Takes a sentence in English or Turkish and returns plan actions for now,
+Takes an English sentence and returns plan actions for now,
 standing orders for later, or questions. It is deterministic and does no I/O.
 
 ```ts
@@ -23,10 +23,9 @@ compileGoals("convert 100");
 // clarify: ["Swap which token into which?"], clarifyChoices: [{ choices: ["USDC to EURC", …] }]
 ```
 
-`options.timezone` sets the IANA zone for schedules. The default is
-Europe/Istanbul for Turkish sentences and UTC otherwise.
+`options.timezone` sets the IANA zone for schedules. The default is UTC.
 
-Result: `{ actions, standing, clarify, clarifyChoices, lang }`.
+Result: `{ actions, standing, clarify, clarifyChoices }`.
 
 ### `planActions(intents, input) => Promise<CreateIntentResponse>`
 

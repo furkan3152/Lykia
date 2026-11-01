@@ -24,7 +24,7 @@ export function keyOf(req: Request): StoredKey | null {
 export function scopeFor(method: string, path: string): ApiKeyScope {
   if (path.startsWith("/developers/webhooks")) return "webhooks";
   if (path.startsWith("/pack") || path.startsWith("/agent")) return method === "GET" ? "read" : "agents";
-  if (method !== "GET" && (path.startsWith("/intents") || path.startsWith("/language") || path.startsWith("/fence") || path.startsWith("/kunye") || path.startsWith("/tags") || path.startsWith("/mcp"))) return "plan";
+  if (method !== "GET" && (path.startsWith("/intents") || path.startsWith("/language") || path.startsWith("/fence") || path.startsWith("/tags") || path.startsWith("/mcp"))) return "plan";
   return "read";
 }
 

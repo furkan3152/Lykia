@@ -8,7 +8,7 @@ const day = 86_400_000;
 const NOW = Date.UTC(2026, 10, 6, 12);
 
 function rec(over) {
-  return { id: "mem_x", intentId: "out_abc123", at: new Date(NOW - day).toISOString(), environment: "mainnet", source: "s", lang: "en", actions: [], resolved: [], venues: [], usd: null, outcome: "settled", ...over };
+  return { id: "mem_x", intentId: "out_abc123", at: new Date(NOW - day).toISOString(), environment: "mainnet", source: "s", actions: [], resolved: [], venues: [], usd: null, outcome: "settled", ...over };
 }
 const swap = rec({ intentId: "out_swap01", source: "convert 100 USDC to EURC", actions: [{ verb: "fx", from: "USDC", to: "EURC", amount: { exact: "100" } }], resolved: [{ verb: "fx", venue: "uniswap-v3", tokenIn: "USDC", amountIn: "100", tokenOut: "EURC", amountOut: "89.6" }] });
 const earn = rec({ intentId: "out_earn01", at: new Date(NOW - 7 * day).toISOString(), source: "put half my USDC to work", actions: [{ verb: "earn", token: "USDC", amount: { percent: 50 } }], resolved: [{ verb: "deposit", venue: "morpho-vaults", tokenIn: "USDC", amountIn: "250", tokenOut: "vUSDC", amountOut: "249" }] });
@@ -19,8 +19,8 @@ test("undo plans the inverse at fresh prices; sends cannot be undone", () => {
   const u = resolveReference("undo the last swap", memory, NOW);
   assert.equal(u.kind, "undo");
   assert.deepEqual(u.actions, [{ verb: "fx", from: "EURC", to: "USDC", amount: { exact: "89.6" } }]);
-  const tr = resolveReference("son çevirmeyi geri al", memory, NOW);
-  assert.equal(tr.kind, "undo");
+  const conversion = resolveReference("undo the last conversion", memory, NOW);
+  assert.equal(conversion.kind, "undo");
   const s = resolveReference("undo the last payment", memory, NOW);
   assert.equal(s.kind, "cannot-undo");
   const dep = resolveReference("undo the deposit", memory, NOW);
@@ -28,7 +28,7 @@ test("undo plans the inverse at fresh prices; sends cannot be undone", () => {
 });
 
 test("again repeats the money that moved; same as last week finds the week-old plan", () => {
-  const again = resolveReference("tekrar yap", memory, NOW);
+  const again = resolveReference("do it again", memory, NOW);
   assert.equal(again.kind, "repeat");
   assert.equal(again.from.intentId, "out_swap01");
   const week = resolveReference("same as last week", memory, NOW);
@@ -43,13 +43,13 @@ test("more than last time asks how much, then scales", () => {
   assert.deepEqual(scaleActions(m.base.actions, 25)[0].amount, { exact: "6.25" });
 });
 
-test("contacts: Turkish endings, longest first, never trusted until confirmed", () => {
+test("contacts: possessives, longest first, never trusted until confirmed", () => {
   const contacts = [
     { id: "ct_1", name: "Ahmet", aliases: ["Ahmet Bey"], address: A, origin: "learned", confirmedSends: 0, createdAt: "", lastUsedAt: null },
-    { id: "ct_2", name: "Ayşe", aliases: [], address: B, origin: "manual", confirmedSends: 2, createdAt: "", lastUsedAt: null },
+    { id: "ct_2", name: "Ayla", aliases: [], address: B, origin: "manual", confirmedSends: 2, createdAt: "", lastUsedAt: null },
   ];
-  const r = substituteContacts("Ahmet'e 200 EURC gönder, Ayşe'ye de 5 USDC", contacts);
-  assert.equal(r.text, `${A} 200 EURC gönder, ${B} de 5 USDC`);
+  const r = substituteContacts("pay Ahmet 200 EURC, and send Ayla's wallet 5 USDC", contacts);
+  assert.equal(r.text, `pay ${A} 200 EURC, and send ${B} wallet 5 USDC`);
   assert.equal(r.used.length, 2);
   const u = untrustedContacts([{ verb: "send", token: "EURC", amount: { exact: "200" }, to: A }, { verb: "send", token: "USDC", amount: { exact: "5" }, to: B }], contacts);
   assert.deepEqual(u.map((c) => c.name), ["Ahmet"]);
@@ -61,7 +61,7 @@ test("preferences, patterns, usual venue and the model summary", () => {
   const prefs = computePreferences(memory.intents);
   assert.equal(prefs.venues.deposit, "morpho-vaults");
   assert.equal(usualVenue("put 100 USDC in my usual vault", prefs)?.venue, "morpho-vaults");
-  assert.equal(usualVenue("her zamanki kasama 50 USDC yatır", prefs)?.venue, "morpho-vaults");
+  assert.equal(usualVenue("deposit 50 USDC as usual", prefs)?.venue, "morpho-vaults");
   const fridays = [0, 7, 14].map((w) => rec({ at: new Date(Date.UTC(2026, 9, 2 + w, 9)).toISOString(), actions: [{ verb: "send", token: "USDC", amount: { exact: "200" }, to: B }] }));
   const p = detectPatterns(fridays);
   assert.equal(p.length, 1);

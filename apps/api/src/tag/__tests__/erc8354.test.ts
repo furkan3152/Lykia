@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { DEFAULT_FENCE, ERC8354_TAG, evaluateFence, POLICY_KIND, type Address } from "@lykia/core";
 import { decodeFunctionData, keccak256 } from "viem";
 import { MemoryStore } from "../../store/memory.js";
-import { KunyeService } from "../kunye.js";
+import { TagService } from "../tag.js";
 import { VALIDATION_REGISTRY_ABI } from "../../engine/abis.js";
 import type { ArcChains } from "../../chains/arc.js";
 
@@ -14,7 +14,7 @@ const ACTION = { to: "0x522fAf9A91c41c443c66765030741e4AaCe147D0" as Address, da
 const verdict = evaluateFence(DEFAULT_FENCE, { environment: "mainnet", signer: "agent", owner: OWNER, steps: [{ id: "s1", kind: "deposit", venue: "vault", usd: "10", tokens: [{ symbol: "USDC", address: "0x3600000000000000000000000000000000000000", listed: true, acquired: false }] }], spent: { dayUsd: "0", weekUsd: "0" }, now: Date.UTC(2026, 10, 2, 10) });
 
 function service(guard: Address | null) {
-  return new KunyeService({ chains: {} as ArcChains, store: new MemoryStore(), fetch: (async () => new Response("")) as never, guard });
+  return new TagService({ chains: {} as ArcChains, store: new MemoryStore(), fetch: (async () => new Response("")) as never, guard });
 }
 
 test("attest8354 builds the envelope, attestation and both registry calls", async () => {

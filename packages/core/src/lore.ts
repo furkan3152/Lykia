@@ -76,15 +76,15 @@ export function lykoMood(input: { readonly whistle: boolean; readonly threats: n
   return "watching";
 }
 
-/** What Lyko says, per mood (EN + TR). */
-export const LYKO_LINES: Readonly<Record<LykoMood, { readonly en: string; readonly tr: string }>> = Object.freeze({
-  resting: { en: "Whistle heard. I'm holding the flock. Homeward moves only.", tr: "Düdüğü duydum. Sürüyü tutuyorum, sadece eve dönüş." },
-  watching: { en: "All quiet in the valley.", tr: "Vadide her şey sakin." },
-  herding: { en: "On the outrun. Keep your eyes on the trail.", tr: "Yoldayız. Gözün patikada olsun." },
-  alert: { en: "Something smells off near the fence.", tr: "Çitin yanında bir koku var." },
-  growling: { en: "Wolves at the fence. Nothing passes.", tr: "Kurtlar çitte. Hiçbir şey geçmez." },
-  proud: { en: "Flock's home. Every step is final on Arc.", tr: "Sürü evde. Arc'ta her adım kesin." },
-  sleeping: { en: "Zzz. Wake me with “come bye”.", tr: "Zzz. “come bye” de, uyanırım." },
+/** What Lyko says, per mood. */
+export const LYKO_LINES: Readonly<Record<LykoMood, string>> = Object.freeze({
+  resting: "Whistle heard. I'm holding the flock. Homeward moves only.",
+  watching: "All quiet in the valley.",
+  herding: "On the outrun. Keep your eyes on the trail.",
+  alert: "Something smells off near the fence.",
+  growling: "Wolves at the fence. Nothing passes.",
+  proud: "Flock's home. Every step is final on Arc.",
+  sleeping: "Zzz. Wake me with “come bye”.",
 });
 
 /**

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildKunyeCard, decodeMemo, DEFAULT_FENCE, digestToBytes32, evaluateFence, fenceHash, kunyeCardDigest, memoData, memoId, memoString, validationRecord, validationRequestHash, validationScore, verdictTag } from "../dist/index.js";
+import { buildTagCard, decodeMemo, DEFAULT_FENCE, digestToBytes32, evaluateFence, fenceHash, tagCardDigest, memoData, memoId, memoString, validationRecord, validationRequestHash, validationScore, verdictTag } from "../dist/index.js";
 
 const OWNER = "0x1111111111111111111111111111111111111111";
 
@@ -18,13 +18,13 @@ test("memo strings round-trip through bytes and keep notes single-line", () => {
 
 test("a Tag card pins the Fence hash and the agent wallet", () => {
   const hash = fenceHash(DEFAULT_FENCE);
-  const card = buildKunyeCard({ environment: "mainnet", owner: OWNER, name: "Payroll Shepherd", description: "Pays the team", fenceHash: hash });
+  const card = buildTagCard({ environment: "mainnet", owner: OWNER, name: "Payroll Shepherd", description: "Pays the team", fenceHash: hash });
   assert.equal(card.type, "https://eips.ethereum.org/EIPS/eip-8004#registration-v1");
   assert.equal(card.lykia.fenceHash, hash);
   assert.deepEqual(card.endpoints.at(-1), { name: "agentWallet", endpoint: `eip155:5042:${OWNER}` });
-  assert.equal(kunyeCardDigest(card), kunyeCardDigest(JSON.parse(JSON.stringify(card))));
+  assert.equal(tagCardDigest(card), tagCardDigest(JSON.parse(JSON.stringify(card))));
   assert.equal(digestToBytes32(hash), `0x${hash.slice(7)}`);
-  assert.throws(() => buildKunyeCard({ environment: "mainnet", owner: OWNER, name: "x", description: "", fenceHash: hash }));
+  assert.throws(() => buildTagCard({ environment: "mainnet", owner: OWNER, name: "x", description: "", fenceHash: hash }));
 });
 
 test("validation records bind the verdict and score it", () => {

@@ -132,7 +132,7 @@ export default function BuildPage() {
             </div>
           ) : tab === "playground" ? (
             <Card title="Sentence parser" kicker="POST /v1/language/parse" footer={<Button onClick={() => void runPlay()}>RUN</Button>}>
-              <Field label="Sentence (EN or TR)"><Input value={play} onChange={(e) => setPlay(e.target.value)} /></Field>
+              <Field label="Sentence"><Input value={play} onChange={(e) => setPlay(e.target.value)} /></Field>
               {playOut ? <pre className="m-code" style={{ marginTop: 10, maxHeight: 320 }}>{playOut}</pre> : null}
             </Card>
           ) : tab === "mcp" ? (

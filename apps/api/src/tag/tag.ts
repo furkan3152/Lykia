@@ -14,13 +14,13 @@ import {
   registryHashes,
   responseScore,
   verdictJson,
-  buildKunyeCard,
+  buildTagCard,
   contractAddress,
   digestToBytes32,
   FENCE_METADATA_KEY,
   fenceHash,
   isAddress,
-  kunyeCardDigest,
+  tagCardDigest,
   networkFor,
   validationRecord,
   validationRequestHash,
@@ -29,8 +29,8 @@ import {
   type ArcEnvironment,
   type Fence,
   type FenceVerdict,
-  type KunyeCard,
-  type KunyeEndpoint,
+  type TagCard,
+  type TagEndpoint,
   type UnsignedTransaction,
   type ValidationRecord,
   type Mechanism,
@@ -54,20 +54,20 @@ export interface DraftInput {
   readonly description: string;
   readonly image?: string;
   readonly fence: Fence;
-  readonly endpoints?: readonly KunyeEndpoint[];
+  readonly endpoints?: readonly TagEndpoint[];
   /** Public base URL of this API, so the card can be served from /v1/tags/cards/:digest. */
   readonly publicBaseUrl?: string;
 }
 
 export interface DraftResult {
-  readonly card: KunyeCard;
+  readonly card: TagCard;
   readonly cardDigest: string;
   readonly fenceHash: string;
   readonly agentURI: string;
   readonly transaction: UnsignedTransaction;
 }
 
-export interface KunyeView {
+export interface TagView {
   readonly agentId: string;
   readonly environment: ArcEnvironment;
   readonly owner: Address | null;
@@ -121,7 +121,7 @@ export interface Erc8354Result {
   readonly notes: readonly string[];
 }
 
-export class KunyeService {
+export class TagService {
   constructor(private readonly deps: { readonly chains: ArcChains; readonly store: Store; readonly fetch: FetchLike; readonly guard?: Address | null }) {}
 
   private docs() {
@@ -206,12 +206,12 @@ export class KunyeService {
   }
 
   private cards() {
-    return this.deps.store.collection<JsonValue>("kunye_cards");
+    return this.deps.store.collection<JsonValue>("tag_cards");
   }
 
   async draft(input: DraftInput): Promise<DraftResult> {
     const hash = fenceHash(input.fence);
-    const card = buildKunyeCard({
+    const card = buildTagCard({
       environment: input.environment,
       owner: input.owner,
       ...(input.agentWallet ? { agentWallet: input.agentWallet } : {}),
@@ -221,7 +221,7 @@ export class KunyeService {
       fenceHash: hash,
       ...(input.endpoints ? { endpoints: input.endpoints } : {}),
     });
-    const digest = kunyeCardDigest(card);
+    const digest = tagCardDigest(card);
     await this.cards().put(digest.slice("sha256:".length), { card, fence: input.fence } as unknown as JsonValue);
     const agentURI = input.publicBaseUrl ? `${input.publicBaseUrl.replace(/\/$/u, "")}/v1/tags/cards/${digest.slice("sha256:".length)}` : `data:application/json;base64,${Buffer.from(JSON.stringify(card)).toString("base64")}`;
     const network = networkFor(input.environment);
@@ -240,10 +240,10 @@ export class KunyeService {
     };
   }
 
-  async card(digestHex: string): Promise<{ card: KunyeCard; fence: Fence } | null> {
+  async card(digestHex: string): Promise<{ card: TagCard; fence: Fence } | null> {
     if (!/^[0-9a-f]{64}$/u.test(digestHex)) return null;
     const found = await this.cards().get(digestHex);
-    return found ? (found.value as unknown as { card: KunyeCard; fence: Fence }) : null;
+    return found ? (found.value as unknown as { card: TagCard; fence: Fence }) : null;
   }
 
   /** The unsigned ValidationRegistry request filing a Fence verdict for an agent. */
@@ -261,7 +261,7 @@ export class KunyeService {
     };
   }
 
-  async view(environment: ArcEnvironment, agentId: string): Promise<KunyeView> {
+  async view(environment: ArcEnvironment, agentId: string): Promise<TagView> {
     if (!/^\d{1,30}$/u.test(agentId)) throw new LykiaHttpError("INVALID_REQUEST", 400, "agentId must be a decimal token id.");
     const client = this.deps.chains.client(environment);
     const id = BigInt(agentId);
@@ -294,7 +294,7 @@ export class KunyeService {
     });
     const erc = ercSummary?.status === "success" ? (ercSummary.result as readonly [bigint, number]) : null;
     const clientList = clients?.status === "success" ? (clients.result as readonly Address[]) : [];
-    let reputation: KunyeView["reputation"] = { clients: clientList.length, count: null, value: null };
+    let reputation: TagView["reputation"] = { clients: clientList.length, count: null, value: null };
     if (clientList.length > 0) {
       const summary = await client.readContract({ address: reputationRegistry, abi: REPUTATION_REGISTRY_ABI, functionName: "getSummary", args: [id, clientList, "", ""] }).catch(() => null);
       if (summary) reputation = { clients: clientList.length, count: Number(summary[0]), value: (Number(summary[1]) / 10 ** Number(summary[2])).toString() };
@@ -322,7 +322,7 @@ export class KunyeService {
     try {
       if (uri.startsWith("data:application/json;base64,")) return { card: JSON.parse(Buffer.from(uri.slice(29), "base64").toString("utf8")) };
       if (uri.startsWith("data:application/json,")) return { card: JSON.parse(decodeURIComponent(uri.slice(22))) };
-      const own = /\/v1\/kunye\/cards\/([0-9a-f]{64})$/u.exec(uri);
+      const own = /\/v1\/tags\/cards\/([0-9a-f]{64})$/u.exec(uri);
       if (own) {
         const stored = await this.card(own[1] as string);
         if (stored) return { card: stored.card };

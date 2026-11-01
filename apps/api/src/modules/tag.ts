@@ -20,45 +20,45 @@ const verdictSchema = z.object({
   digest: z.string().regex(/^sha256:[0-9a-f]{64}$/u),
 });
 
-export const kunyeModule: ApiModule = {
-  name: "kunye",
+export const tagModule: ApiModule = {
+  name: "tags",
   register(router, ctx) {
-    router.get(["/tags/cards/:digest", "/kunye/cards/:digest"], async (req, res) => {
+    router.get("/tags/cards/:digest", async (req, res) => {
       const { digest } = parseParams(req, z.object({ digest: z.string().regex(/^[0-9a-f]{64}$/u) }));
-      const stored = await services(ctx).kunye.card(digest);
+      const stored = await services(ctx).tags.card(digest);
       if (!stored) throw new LykiaHttpError("NOT_FOUND", 404, "No such card.");
       cachePublicly(res, 3600);
       res.json(stored.card);
     });
 
     // ERC-8354 request/response documents named by their ValidationRegistry hashes.
-    router.get(["/tags/verdicts/:hash", "/kunye/verdicts/:hash"], async (req, res) => {
+    router.get("/tags/verdicts/:hash", async (req, res) => {
       const { hash } = parseParams(req, z.object({ hash: z.string().regex(/^0x[0-9a-f]{64}$/u) }));
-      const doc = await services(ctx).kunye.verdictDoc(hash);
+      const doc = await services(ctx).tags.verdictDoc(hash);
       if (!doc) throw new LykiaHttpError("NOT_FOUND", 404, "No such verdict document.");
       cachePublicly(res, 86_400);
       res.json(doc);
     });
 
     // The salt padding an agent's policy commitment: only for the agent's owner, so they can disclose it to an auditor.
-    router.get(["/tags/:agentId/policy-salt", "/kunye/:agentId/policy-salt"], async (req, res) => {
+    router.get("/tags/:agentId/policy-salt", async (req, res) => {
       const { agentId } = parseParams(req, z.object({ agentId: z.string().regex(/^\d{1,30}$/u) }));
       const environment = environmentOf(ctx, parseQuery(req, environmentQuery).environment);
       const session = await sessionOf(ctx, req);
       if (!session) throw new LykiaHttpError("UNAUTHORIZED", 401, "Sign in with the agent owner's wallet.");
-      const view = await services(ctx).kunye.view(environment, agentId);
+      const view = await services(ctx).tags.view(environment, agentId);
       if (!view.owner || view.owner.toLowerCase() !== session.address.toLowerCase()) throw new LykiaHttpError("FORBIDDEN", 403, "Only the agent's owner can read its policy salt.");
       res.setHeader("cache-control", "no-store");
-      res.json({ agentId, environment, salt: await services(ctx).kunye.policySalt(environment, agentId), note: "policyRoot = keccak256(abi.encode(fenceHash, salt)). Share (Fence, salt) only with auditors." });
+      res.json({ agentId, environment, salt: await services(ctx).tags.policySalt(environment, agentId), note: "policyRoot = keccak256(abi.encode(fenceHash, salt)). Share (Fence, salt) only with auditors." });
     });
 
-    router.get(["/tags/:agentId", "/kunye/:agentId"], ctx.limits.heavy, async (req, res) => {
+    router.get("/tags/:agentId", ctx.limits.heavy, async (req, res) => {
       const { agentId } = parseParams(req, z.object({ agentId: z.string().regex(/^\d{1,30}$/u) }));
       const environment = environmentOf(ctx, parseQuery(req, environmentQuery).environment);
-      res.json(await services(ctx).kunye.view(environment, agentId));
+      res.json(await services(ctx).tags.view(environment, agentId));
     });
 
-    router.post(["/tags/draft", "/kunye/draft"], async (req, res) => {
+    router.post("/tags/draft", async (req, res) => {
       const body = parseBody(
         req,
         z.object({
@@ -76,7 +76,7 @@ export const kunyeModule: ApiModule = {
       const fence = fenceFrom(body.fence);
       if (!fence) throw new LykiaHttpError("INVALID_FENCE", 400, "A Tag pins a Fence: send one.");
       res.json(
-        await services(ctx).kunye.draft({
+        await services(ctx).tags.draft({
           environment: environmentOf(ctx, body.environment),
           owner: body.owner as Address,
           ...(body.agentWallet ? { agentWallet: body.agentWallet as Address } : {}),
@@ -90,7 +90,7 @@ export const kunyeModule: ApiModule = {
       );
     });
 
-    router.post(["/tags/attest", "/kunye/attest"], async (req, res) => {
+    router.post("/tags/attest", async (req, res) => {
       const body = parseBody(
         req,
         z.object({
@@ -120,7 +120,7 @@ export const kunyeModule: ApiModule = {
         verdict = stored.intent.verdict;
       }
       const environment = environmentOf(ctx, body.environment);
-      const legacy = services(ctx).kunye.attest({ environment, agentId: body.agentId, intentId: body.intentId, verdict, owner: body.owner as Address, validator: body.validator as Address });
+      const legacy = services(ctx).tags.attest({ environment, agentId: body.agentId, intentId: body.intentId, verdict, owner: body.owner as Address, validator: body.validator as Address });
       if (!body.erc8354) return void res.json(legacy);
       let action = body.erc8354.action as { to: Address; data: `0x${string}`; value: string } | undefined;
       if (!action && body.erc8354.stepId) {
@@ -130,7 +130,7 @@ export const kunyeModule: ApiModule = {
         action = { to: tx.to, data: tx.data, value: tx.value };
       }
       if (!action) throw new LykiaHttpError("INVALID_REQUEST", 400, "erc8354 needs stepId (a prepared step) or action { to, data, value }.");
-      const erc8354 = await services(ctx).kunye.attest8354({
+      const erc8354 = await services(ctx).tags.attest8354({
         environment,
         agentId: body.agentId,
         intentId: body.intentId,

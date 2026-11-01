@@ -42,8 +42,8 @@ The product language is English. Every surface uses these words:
 | Outrun | The path of a plan, drawn as an arc. |
 | Fold | Where the money ends up when the plan is done. |
 
-Lyko understands sentences in English and Turkish and can reply in the language
-the user writes in, but the interface itself is English only.
+The interface is English only. The deterministic reader understands English
+sentences; with the model on, Lyko replies in the language the user writes in.
 
 ## Easter eggs
 

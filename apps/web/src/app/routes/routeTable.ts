@@ -25,7 +25,6 @@ export type RouteId =
   | "fence"
   | "scent"
   | "tag"
-  | "kunyeRedirect"
   | "outrun"
   | "build"
   | "ecosystem"
@@ -71,7 +70,7 @@ const page = (id: RouteId, pattern: string, kind: RouteKind, title: string, desc
 
 export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze({
   landing: page("landing", "/", "site", BRAND_TITLE, BRAND_DESCRIPTION, () => import("../../pages/landing/LandingPage")),
-  ask: page("ask", "/app/ask/:threadId?", "app", "Ask Lyko", "Ask once in English or Turkish: Lyko and the Pack plan it across Arc, the Fence checks it, you sign once.", () => import("../../pages/ask/AskPage")),
+  ask: page("ask", "/app/ask/:threadId?", "app", "Ask Lyko", "Ask once in plain words: Lyko and the Pack plan it across Arc, the Fence checks it, you sign once.", () => import("../../pages/ask/AskPage")),
   move: page("move", "/app/move/:tab?", "app", "Move", "Send, receive, swap, earn, borrow and bridge: the best route, checked by your Fence and simulated before you sign.", () => import("../../pages/move/MovePage"), { robots: PRIVATE_ROBOTS }),
   flock: page("flock", "/app/flock/:address?", "app", "Flock", "Everything you hold on Arc mainnet and testnet in one pasture: wallet, Gateway and venues.", () => import("../../pages/flock/FlockPage"), { robots: PRIVATE_ROBOTS }),
   pastures: page("pastures", "/app/pastures", "app", "Greener pastures", "Live yields on Arc venues, grass height by rate, with risk tier and source.", () => import("../../pages/pastures/PasturesPage")),
@@ -79,7 +78,6 @@ export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze(
   fence: page("fence", "/app/fence", "app", "Fence", "The rules around your agents: caps, recipients, venues, tokens, slippage, health factor, FX band, Scent and the Whistle.", () => import("../../pages/fence/FencePage")),
   scent: page("scent", "/app/scent/:token?", "app", "Scent", "What can be proven about a token on Arc before anyone touches it. Never \"safe\".", () => import("../../pages/scent/ScentPage")),
   tag: page("tag", "/app/tag/:agentId?", "app", "Tag", "Agent Tags on Arc: an ERC-8004 identity that pins the Fence it obeys.", () => import("../../pages/tag/TagPage")),
-  kunyeRedirect: page("kunyeRedirect", "/app/kunye/:agentId?", "app", "Tag", "Agent Tags on Arc: an ERC-8004 identity that pins the Fence it obeys.", () => import("../../pages/redirect/TagRedirectPage"), { robots: PRIVATE_ROBOTS }),
   outrun: page("outrun", "/app/outrun/:id", "app", "Outrun", "Where the money is, step by step, from start to the Fold.", () => import("../../pages/outrun/OutrunPage"), { robots: PRIVATE_ROBOTS }),
   you: page("you", "/app/you", "app", "You", "Your Lykia: language, currency, risk, venues, Lyko's persona and look, quiet hours and notifications.", () => import("../../pages/you/YouPage"), { robots: PRIVATE_ROBOTS }),
   memory: page("memory", "/app/memory", "app", "Lyko remembers", "Intent history, learned preferences, named contacts and recurring patterns, all editable and forgettable.", () => import("../../pages/memory/MemoryPage"), { robots: PRIVATE_ROBOTS }),
@@ -102,7 +100,7 @@ export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze(
 });
 
 /** Matching order: specific routes first, the catch-alls last. `/app` itself is Ask Lyko. */
-const ORDER: readonly RouteId[] = ["landing", "ask", "move", "flock", "pastures", "pack", "fence", "scent", "tag", "outrun", "you", "memory", "circle", "orders", "markets", "discover", "alerts", "activity", "whatif", "security", "build", "ecosystem", "owner", "kit", "lykaion", "developers", "kunyeRedirect", "appNotFound", "notFound"];
+const ORDER: readonly RouteId[] = ["landing", "ask", "move", "flock", "pastures", "pack", "fence", "scent", "tag", "outrun", "you", "memory", "circle", "orders", "markets", "discover", "alerts", "activity", "whatif", "security", "build", "ecosystem", "owner", "kit", "lykaion", "developers", "appNotFound", "notFound"];
 
 let compiled: ReadonlyArray<readonly [RouteDefinition, CompiledPattern]> | null = null;
 

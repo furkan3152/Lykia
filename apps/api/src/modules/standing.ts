@@ -45,9 +45,9 @@ export const standingModule: ApiModule = {
       let drafts: StandingOrderDraft[];
       if (body.text !== undefined) {
         const parsed = readSentence(body.text, body.timezone ? { timezone: body.timezone } : {});
-        if (parsed.clarify.length > 0) throw new LykiaHttpError("NOT_UNDERSTOOD", 422, parsed.clarify.join(" "), { clarify: parsed.clarify, clarifyChoices: parsed.clarifyChoices ?? [], lang: parsed.lang });
+        if (parsed.clarify.length > 0) throw new LykiaHttpError("NOT_UNDERSTOOD", 422, parsed.clarify.join(" "), { clarify: parsed.clarify, clarifyChoices: parsed.clarifyChoices ?? [] });
         drafts = [...(parsed.standing ?? [])];
-        if (drafts.length === 0) throw new LykiaHttpError("NOT_UNDERSTOOD", 422, parsed.lang === "tr" ? "Bu bir koşul ya da zamanlama içermiyor; hemen yapmak için /v1/intents kullan." : "That has no condition or schedule; plan it now with /v1/intents.", { actions: parsed.actions });
+        if (drafts.length === 0) throw new LykiaHttpError("NOT_UNDERSTOOD", 422, "That has no condition or schedule; plan it now with /v1/intents.", { actions: parsed.actions });
       } else drafts = [body.draft as StandingOrderDraft];
       const fence = fenceFrom(body.fence);
       const environment = environmentOf(ctx, body.environment);

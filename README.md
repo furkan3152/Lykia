@@ -6,7 +6,7 @@
 > agent inside its Fence.
 
 Lykia is the agent and stablecoin desk of the Kletia family, built on Arc
-Network. Say an outcome, in English or Turkish, and Lykia does four things:
+Network. Say an outcome in plain words, and Lykia does four things:
 
 1. Plans it across the venues that are live on Arc.
 2. Checks the plan against your **Fence**, a typed rule book around an

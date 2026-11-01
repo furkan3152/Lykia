@@ -8,7 +8,7 @@ import { StandingService } from "./engine/standing.js";
 import { RouteSearch } from "./engine/search.js";
 import { YieldService } from "./engine/venues/yields.js";
 import { FlockService } from "./flock/flock.js";
-import { KunyeService } from "./kunye/kunye.js";
+import { TagService } from "./tag/tag.js";
 import { ScentService } from "./scent/scent.js";
 
 export interface Services {
@@ -17,7 +17,7 @@ export interface Services {
   readonly scent: ScentService;
   readonly planner: Planner;
   readonly intents: IntentService;
-  readonly kunye: KunyeService;
+  readonly tags: TagService;
   readonly yields: YieldService;
   readonly router: VenueRouter;
   readonly standing: StandingService;
@@ -36,10 +36,10 @@ export function services(ctx: AppContext): Services {
   const router = new VenueRouter({ chains: ctx.chains, prices, yields });
   const planner = new Planner({ chains: ctx.chains, prices, fetch: ctx.fetch, stablefxConfigured: ctx.config.stablefxApiKey !== null, router, fee: ctx.config.fee, beta: ctx.config.beta });
   const intents = new IntentService({ planner, chains: ctx.chains, store: ctx.store, clock: ctx.clock, bus: ctx.bus, fetch: ctx.fetch, log: ctx.log.child({ component: "intents" }) });
-  const kunye = new KunyeService({ chains: ctx.chains, store: ctx.store, fetch: ctx.publicFetch, guard: ctx.config.guardAddress });
+  const tags = new TagService({ chains: ctx.chains, store: ctx.store, fetch: ctx.publicFetch, guard: ctx.config.guardAddress });
   const standing = new StandingService({ chains: ctx.chains, store: ctx.store, clock: ctx.clock, bus: ctx.bus, log: ctx.log.child({ component: "standing" }), intents: () => intents });
   const search = new RouteSearch({ planner, router, chains: ctx.chains, now: () => ctx.clock.now() });
-  const built = { prices, flock, scent, planner, intents, kunye, yields, router, standing, search };
+  const built = { prices, flock, scent, planner, intents, tags, yields, router, standing, search };
   SERVICES.set(ctx, built);
   return built;
 }

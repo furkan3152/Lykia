@@ -21,9 +21,10 @@ describe("whistle box resolution", () => {
     assert.equal(fire.kind === "egg" && fire.href, null);
   });
 
-  it("routes pages (EN and TR), tokens, agents and sentences", () => {
-    assert.deepEqual(resolveInput("sürü"), { kind: "page", destination: "flock" });
-    assert.deepEqual(resolveInput("çit"), { kind: "page", destination: "fence" });
+  it("routes pages, tokens, agents and sentences", () => {
+    assert.deepEqual(resolveInput("portfolio"), { kind: "page", destination: "flock" });
+    assert.deepEqual(resolveInput("Rules"), { kind: "page", destination: "fence" });
+    assert.deepEqual(resolveInput("tag 7"), { kind: "agent", agentId: "7" });
     assert.deepEqual(resolveInput("0x3600000000000000000000000000000000000000"), { kind: "token", address: "0x3600000000000000000000000000000000000000" });
     assert.deepEqual(resolveInput("agent 12"), { kind: "agent", agentId: "12" });
     assert.deepEqual(resolveInput("bridge 50 USDC to base"), { kind: "sentence", text: "bridge 50 USDC to base" });

@@ -84,7 +84,7 @@ describe("testnet route gaps", () => {
     assert.doesNotMatch(result.text, /details above/u);
     const clarify = events.find((e) => e.event === "clarify")?.data as { question: string; options: string[] };
     assert.ok(clarify, "a clarify event");
-    assert.ok(clarify.options[0]!.startsWith(PREVIEW_ON_MAINNET.en));
+    assert.ok(clarify.options[0]!.startsWith(PREVIEW_ON_MAINNET));
     assert.ok(clarify.options[0]!.endsWith("put half my USDC on the greenest pasture"));
     const tool = events.find((e) => e.event === "tool")?.data as { ok: boolean; summary: string };
     assert.equal(tool.ok, false);
