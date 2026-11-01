@@ -1,0 +1,39 @@
+{
+  "name": "lykia",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Lykia: the agent and stablecoin desk built on Arc Network. Lyko keeps the flock inside the Fence.",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "workspaces": [
+    "packages/core",
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "postinstall": "node tooling/postinstall-packages.mjs",
+    "build:packages": "npm run build -w @lykia/core",
+    "test:packages": "npm test -w @lykia/core",
+    "lint": "eslint .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev:api": "npm run dev -w @lykia/api",
+    "dev:web": "npm run dev -w @lykia/web",
+    "build:api": "npm run build:packages && npm run build -w @lykia/api",
+    "build:web": "npm run build:packages && npm run build -w @lykia/web",
+    "test:api": "npm test -w @lykia/api",
+    "test:web": "npm test -w @lykia/web",
+    "verify": "npm run build:packages && npm run test:packages && npm run lint && npm run typecheck && npm run test:api && npm run test:web && npm run build:web && npm run build -w @lykia/api"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.8.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
+    "globals": "^17.8.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.65.0"
+  }
+}
