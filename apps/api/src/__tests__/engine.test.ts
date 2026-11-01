@@ -67,7 +67,8 @@ describe("planner + fence", () => {
     const arc = new FakeArc();
     arc.setBalance(USDC, OWNER, 1_000_000n);
     await assert.rejects(planner(arc).plan({ ...base, environment: "testnet", actions: [{ verb: "earn", token: "USDC", amount: { exact: "1" } }] }), /testnet/u);
-    await assert.rejects(planner(arc).plan({ ...base, environment: "mainnet", actions: [{ verb: "borrow", token: "USDC", amount: { exact: "1" } }] }), /not executable/u);
+    await assert.rejects(planner(arc).plan({ ...base, environment: "mainnet", actions: [{ verb: "borrow", token: "USDC", amount: { exact: "1" } }] }), /health factor at 1.5/u);
+    await assert.rejects(planner(arc).plan({ ...base, environment: "testnet", actions: [{ verb: "borrow", token: "USDC", amount: { exact: "1" } }] }), /Practice Lending is not deployed/u);
     await assert.rejects(planner(arc).plan({ ...base, environment: "mainnet", actions: [{ verb: "send", token: "USDC", amount: { exact: "5" }, to: OWNER }] }), /needs 5 USDC/u);
   });
 

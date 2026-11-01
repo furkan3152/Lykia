@@ -9,6 +9,10 @@ import { PriceService } from "../arc/prices.js";
 import { ArcChains } from "../chains/arc.js";
 import { systemClock } from "../clock.js";
 import { MEMO_ABI, MULTICALL3_FROM_ABI } from "../engine/abis.js";
+import { quoteVenues } from "../engine/api.js";
+import { VenueRouter } from "../engine/router.js";
+import { aaveCalls } from "../engine/venues/aave.js";
+import { YieldService } from "../engine/venues/yields.js";
 import { FlockService } from "../flock/flock.js";
 import { silentLogger } from "../log.js";
 import { ScentService } from "../scent/scent.js";
@@ -67,6 +71,41 @@ await check("Scent: USDC verified", async () => (await scent.sniff("mainnet", "0
 await check("Scent: a launchpad token", async () => {
   const report = await scent.sniff("mainnet", "0xeCe5cA8bf9220718E5727754026757512212cb3c");
   return `${report.symbol}: ${report.level} [${report.wolves.join(", ")}]`;
+});
+
+const yields = new YieldService({ fetch: (i, init) => fetch(i, init), clock: systemClock });
+const router = new VenueRouter({ chains, prices, yields });
+await check("Rates: Morpho API and Aave API answer", async () => {
+  const r = await yields.rates("mainnet");
+  if (r.sources.morpho !== "live" || r.sources.aave !== "live") throw new Error(JSON.stringify(r.sources));
+  return `${r.vaults.length} vaults, ${r.markets.length} markets, ${r.reserves.length} Aave reserves`;
+});
+await check("Route: 1000 USDC -> EURC across Uniswap v3, v4 and the Aerodrome estimate", async () => {
+  const q = await quoteVenues(router, { kind: "swap", environment: "mainnet", from: "USDC", to: "EURC", amount: "1000" });
+  if (!q.choice) throw new Error("no route");
+  return `${q.options.length} options; ${q.choice.reason}`;
+});
+await check("Route: best USDC yield within medium risk", async () => {
+  const q = await quoteVenues(router, { kind: "earn", environment: "mainnet", token: "USDC" });
+  if (!q.choice) throw new Error("no yield venue");
+  return q.choice.reason;
+});
+await check("Route: borrow 1000 USDC against cirBTC at health >= 1.8 (Aave V4 vs Morpho Blue)", async () => {
+  const q = await quoteVenues(router, { kind: "borrow", environment: "mainnet", token: "USDC", amount: "1000", minHealth: "1.8", account: "0x82916bee18fcef517b26c72d7cb5f13694e1db41" });
+  if (!q.choice) throw new Error("no borrow venue");
+  return q.choice.reason;
+});
+await check("Aave V4 Main Spoke: approve + supply + withdraw compose (eth_call)", async () => {
+  const whale = "0x82916bee18fcef517b26c72d7cb5f13694e1db41" as Address;
+  const spoke = "0xB843bdC3a87A05E77E07Df9FE48928b3A34b134d" as Address;
+  const usdc = contractAddress("usdc", "mainnet") as Address;
+  const calls = [
+    { target: usdc, allowFailure: false, callData: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [spoke, 1_000_000n] }) },
+    { target: spoke, allowFailure: false, callData: aaveCalls.supply(spoke, 0, 1_000_000n, whale, "s").data },
+    { target: spoke, allowFailure: false, callData: aaveCalls.withdraw(spoke, 0, null, whale, "w").data },
+  ];
+  await chains.client("mainnet").call({ account: whale, to: contractAddress("multicall3From", "mainnet") as Address, data: encodeFunctionData({ abi: MULTICALL3_FROM_ABI, functionName: "aggregate3", args: [calls] }) });
+  return "ok";
 });
 
 for (const r of results) console.log(`${r.ok ? "PASS" : "FAIL"}  ${r.check}  ${r.detail}`);

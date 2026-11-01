@@ -18,6 +18,7 @@ import type { Sha256Digest } from "./canonical.js";
 import type { Address } from "./contracts.js";
 import type { ArcEnvironment } from "./networks.js";
 import type { FenceVerdict } from "./fenceEvaluate.js";
+import type { RouteChoice } from "./routes.js";
 
 export const INTENT_SPEC_VERSION = "lykia.intent/v1" as const;
 
@@ -104,6 +105,8 @@ export interface IntentStep {
   readonly outputs: readonly StepAmount[];
   /** CCTP / Gateway legs leave Arc; everything else settles on the receipt. */
   readonly settlement: { readonly kind: "receipt" } | { readonly kind: "cctp" | "gateway"; readonly destination: string; readonly expectedSeconds: number };
+  /** Why this venue: the chosen option, the alternatives it beat and one sentence of reasoning. */
+  readonly route?: RouteChoice;
   status: StepStatus;
   /** Once prepared: the unsigned calls (one when batched through Multicall3From). */
   transactions?: readonly UnsignedTransaction[];

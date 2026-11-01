@@ -34,3 +34,10 @@ export interface FlockSnapshot {
 }
 
 export const FLOCK_STREAM_EVENTS = ["snapshot", "unchanged", "error"] as const;
+
+/** GET /flock/:address?environment=both: mainnet and testnet side by side. */
+export interface FlockBothSnapshot {
+  readonly address: Address;
+  readonly mainnet: FlockSnapshot | { readonly error: string };
+  readonly testnet: FlockSnapshot | { readonly error: string };
+}

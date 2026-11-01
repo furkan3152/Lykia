@@ -32,7 +32,10 @@ All variables are optional; see [`.env.example`](./.env.example).
 | `LYKIA_WEB_ORIGIN` | (none) | extra CORS origins; localhost dev origins are allowed outside production |
 | `LYKIA_DATABASE_URL` | (none) | Postgres for intents, hash claims, Künye cards, spend counters and x402 nonces; in-memory without it |
 | `ARC_MAINNET_RPC_URL`, `ARC_TESTNET_RPC_URL` | (none) | extra RPC endpoints, tried before `rpc.mainnet.arc.io` / `rpc.testnet.arc.io` |
-| `ANTHROPIC_API_KEY`, `LYKIA_AGENT_MODEL` | (none), `claude-sonnet-5-5` | Lyko answers with Claude and Lykia's tools; without a key the deterministic reader answers |
+| `ANTHROPIC_API_KEY`, `LYKIA_AGENT_MODEL` | (none), `claude-sonnet-5-5` | Lyko and the specialists run on Claude with Lykia's tools; without a key the deterministic path answers |
+| `LYKIA_AGENT_MAX_STEPS`, `LYKIA_AGENT_MAX_TOKENS` | `6`, `4096` | model rounds per agent per turn, output tokens per call |
+| `LYKIA_SESSION_SECRET` | (none) | 32+ characters; signs sessions and derives the keys that hash API keys and seal webhook secrets. Development uses a per-process secret when it is unset; production refuses sign-in without it |
+| `LYKIA_SIWE_DOMAINS`, `LYKIA_ADMIN_ADDRESSES` | (none) | extra sign-in domains (host[:port]); addresses with the admin role |
 | `STABLEFX_API_KEY` | (none) | Circle StableFX credentials (see "What is live") |
 | `LYKIA_X402_PAY_TO`, `LYKIA_X402_PRICE_USDC`, `LYKIA_X402_FACILITATOR_URL` | (none), `0.01`, (none) | x402 paid routes; off unless `PAY_TO` is set; settlement only with a facilitator |
 | `LYKIA_RATE_LIMIT_DEFAULT`, `_HEAVY`, `_AUTH` | `600`, `60`, `20` | requests per minute per IP |
@@ -51,7 +54,7 @@ Every failure uses the error envelope `{ "error": { "code", "message", "details"
 | `GET /v1/tokens?environment=` | USDC, EURC, USYC, cirBTC with addresses |
 | `GET /v1/contracts` | Circle and Arc system contracts (CCTP, Gateway, StableFX, ERC-8004, Memo, Multicall3From) |
 | `GET /v1/protocols?environment=` | the venue registry |
-| `GET /v1/venues?environment=` | registry rows plus `executable` (this engine has an adapter) and `live` |
+| `GET /v1/venues?environment=` | registry rows plus `executable` (this engine has an adapter) and `live`; on testnet also the Lykia practice venues (listed as not deployed until they are) |
 | `GET /v1/arc/pulse?environment=` | block, block time, base fee in gwei of USDC, tps, cost of a USDC transfer in USD |
 | `GET /v1/arc/pulse/stream` | SSE, event `pulse` |
 
@@ -59,7 +62,7 @@ Every failure uses the error envelope `{ "error": { "code", "message", "details"
 
 | route | answer |
 |---|---|
-| `GET /v1/flock/:address?environment=` | wallet tokens and native USDC (one Multicall3 round trip), Morpho vault positions (`convertToAssets`), the Circle Gateway unified balance, USD values and their sources |
+| `GET /v1/flock/:address?environment=mainnet\|testnet\|both` | wallet tokens and native USDC (one Multicall3 round trip), Morpho vault positions (`convertToAssets`), Aave V4 supplies and debts, Morpho Blue collateral and debt, Lykia practice positions, health factors per venue, the Circle Gateway unified balance, USD values and their sources; `both` returns mainnet and testnet side by side |
 | `GET /v1/flock/:address/stream` | SSE: `snapshot` when anything changed, `unchanged`, `error` |
 
 USD prices: USDC is the unit of account (it is Arc's gas token). EURC and cirBTC are priced from Chainlink EURC/USD and BTC/USD on Arc mainnet, with a staleness limit; a stale or missing feed leaves the holding unpriced (`null`) and the total `null`. USYC is never priced.
@@ -77,7 +80,7 @@ USD prices: USDC is the unit of account (it is Arc's gas token). EURC and cirBTC
 
 | route | answer |
 |---|---|
-| `POST /v1/language/parse` | `{ text }` -> plan actions, sheepdog command, hidden word, clarifying questions, reply (English and Turkish) |
+| `POST /v1/language/parse` | `{ text }` -> plan actions, standing orders (conditions and schedules), sheepdog command, hidden word, clarifying questions with suggested answers, reply. English and Turkish, several clauses per sentence. |
 | `POST /v1/intents` | `{ text | actions, owner, environment?, fence?, signer?, agent?, account?, dryRun? }` -> intent graph, Outrun, verdict |
 | `GET /v1/intents/:id`, `GET /v1/intents/:id/outrun` | the graph and where the money is |
 | `POST /v1/intents/:id/steps/:sid/prepare` | `{ confirm? }` -> unsigned transactions, binding digest, memo |
@@ -85,6 +88,27 @@ USD prices: USDC is the unit of account (it is Arc's gas token). EURC and cirBTC
 | `GET /v1/intents/:id/steps/:sid/attestation` | the CCTP attestation once Circle's Iris API reports it complete |
 | `POST /v1/intents/:id/stop` | stops every unstarted step |
 | `GET /v1/intents/:id/stream` | SSE: `intent`, `outrun` |
+
+Every routed step carries `route`: the chosen venue option, the alternatives it beat and one sentence of reasoning. The routing rules, the amount semantics across clauses and the engine calls other layers use (`compileGoals`, `planActions`, `quoteVenues`) are documented in [src/engine/README.md](src/engine/README.md).
+
+### Routes and Circle rails
+
+| route | answer |
+|---|---|
+| `POST /v1/quote` | `{ kind: "swap" \| "earn" \| "borrow", … }` -> every live venue's option, priced the same way (output after gas, live APY with its source, borrow rate and projected health factor), and the engine's pick with its reason |
+| `GET /v1/rates?environment=` | live vault APYs and market rates (Morpho API) and Aave V4 reserve rates (Aave API), labelled; empty on testnet |
+| `POST /v1/cctp/inbound` | `{ source, txHash, from? }` -> Iris attestation status for a burn on another chain and, once complete, the unsigned `receiveMessage` call that mints the USDC on Arc |
+
+### Standing orders
+
+| route | answer |
+|---|---|
+| `POST /v1/standing` | `{ text \| draft, owner, environment?, signer?, agent?, fence?, timezone? }` -> armed orders. Triggers: a Chainlink price above or below a value, a daily/weekly/monthly schedule, or a lending health factor falling below a value. |
+| `GET /v1/standing?owner=`, `GET /v1/standing/:id` | orders with their last observation, fire count and the last intent they planned |
+| `POST /v1/standing/:id/check` | checks now and fires when due (`force: true` plans it regardless of the trigger) |
+| `POST /v1/standing/:id/pause`, `/resume`, `DELETE /v1/standing/:id` | |
+
+A firing order plans an intent with the owner's Fence and emits `standing.fired`; it never signs. Stale prices or unreadable health factors never fire an order. Three failed plans in a row pause it.
 
 Rules the engine keeps:
 
@@ -112,15 +136,59 @@ Arc's public RPC does not offer `eth_simulateV1` or `debug_traceCall`, so Scent 
 | `GET /v1/kunye/:agentId?environment=` | owner, agent wallet, agent URI and card (data URIs, Lykia cards, or public https URLs behind the SSRF guard), the Fence hash on-chain and in the card, Lykia-tagged validations, reputation summary |
 | `POST /v1/kunye/attest` | `{ agentId, intentId, owner, validator, verdict? }` -> the validation record and the unsigned `ValidationRegistry.validationRequest` call |
 
-### Agents
+### Lyko and the Pack
 
 | route | answer |
 |---|---|
-| `POST /v1/agent/chat` | `{ messages, owner?, environment?, fence? }` -> Lyko's reply and any proposed (stored, unsigned) intents |
-| `POST /v1/agent/check` | `{ fence?, facts }` -> verdict (for agents checking a move before they make it) |
-| `POST /v1/mcp` | streamable HTTP MCP: `lykia_venues`, `lykia_flock`, `lykia_scent`, `lykia_plan`, `lykia_outrun`, `lykia_fence_evaluate` |
+| `POST /v1/agent/chat` | `{ message, owner?, threadId?, environment?, fence? }`. The reply is Server-Sent Events: `thread`, `reading`, `task`, `tool`, `thinking-summary`, `proposal`, `clarify`, `text`, `error`, `done`. Send `Accept: application/json` (or use the original `messages` array) to get the same events collected in one JSON document instead. |
+| `GET /v1/agent/threads?owner=` / `GET /v1/agent/threads/:id?owner=` / `POST /v1/agent/threads` | thread memory per owner: the last 40 messages, kept for 30 days |
+| `GET /v1/agent/insights?owner=&environment=` | insights on the Flock: idle cash, FX exposure, concentration, health factor, unpriced holdings, look-alike tokens, low gas. Each one comes with a sentence the deck can plan with one tap. |
+| `GET/POST /v1/agent/automations`, `POST /v1/agent/automations/:id/(enable\|disable)`, `POST /v1/agent/automations/run` | bounded automations, fired by an insight or a timer. They produce proposals only. |
+| `POST /v1/agent/check` | `{ fence?, facts }` -> a verdict, for agents that check a move before making it |
+| `GET /v1/pack?owner=&environment=` | the owner's agent tree. Each agent comes with its Fence hash and budget: caps, the amount allocated to children, what is free and what was spent. |
+| `POST /v1/pack` | creates a root agent: `{ owner, name, role, fence?, mission?, signer?, agentId? }` |
+| `POST /v1/pack/:id/spawn` | creates a sub-agent. Its Fence must sit inside the parent's (`SUB_FENCE_VIOLATION`) and its caps must fit in the parent's free budget (`BUDGET_EXCEEDED`). Both errors list every field that broke the rule. |
+| `POST /v1/pack/:id/revoke` | revokes the agent and its whole subtree, and frees its allocation |
+| `POST /v1/pack/:id/(pause\|resume)`, `GET /v1/pack/:id/budget` | |
+| `POST /v1/pack/:id/session-tx` | `{ account, key?, validDays?, maxCalls?, calls? }` -> an unsigned `createSession` call (root agent, signed by the owner) or `createSubSession` call (signed by the parent's session key) on the owner's LykiaAccount. The session mirrors the agent's Fence. |
+| `POST /v1/pack/:id/session` | records the session id once the transaction has landed |
+| `POST /v1/pack/whistle` | an unsigned `blowWhistle()` call for the owner's LykiaAccount, plus a `whistle.blown` webhook. A sentinel agent may request it. |
+| `POST /v1/mcp` | streamable HTTP MCP: `lykia_venues`, `lykia_flock`, `lykia_scent`, `lykia_plan`, `lykia_outrun`, `lykia_fence_evaluate`, `lykia_pack`, `lykia_insights`, `lykia_pack_plan` |
 
-Lyko only proposes. With an Anthropic key it uses tools over the same services; plans it proposes are marked as agent proposals, so the Shepherd Fence asks the owner to confirm them.
+Writes to the Pack need a `Lykia-Session` for the owner, or a secret API key with the `agents` scope.
+
+How a turn works:
+
+1. Lyko reads the situation: the network, the owner, the Fence, a Flock summary, the pulse and the Pack roster.
+2. Lyko delegates each part of a goal to a specialist: treasurer, payroll, FX hedger, yield keeper, bill payer, sentinel or researcher. The specialist is the owner's Pack agent with that role. If the owner has none, Lyko uses a transient specialist whose Fence is the owner's Fence narrowed by the role template.
+3. Each specialist runs its own bounded tool loop. It has only the tools its capabilities allow, and it plans under its own Fence.
+4. When two or more specialists produce plans that pass their Fences, Lyko merges them into one intent under the owner's Fence. The owner signs one route, and every part of it is attributed to the specialist that planned it.
+
+Bounds and safety:
+
+- Turns are capped by `LYKIA_AGENT_MAX_STEPS` (model rounds per agent), four specialists per turn and `LYKIA_AGENT_MAX_TOKENS` per call.
+- Tool output reaches the model wrapped as untrusted data.
+- No tool signs, sends funds or edits a Fence.
+- Without `ANTHROPIC_API_KEY`, the same events come from the deterministic path: the sentence reader assigns each action to its specialist and merges the resulting plans the same way.
+
+### Sign-in, developers and admin
+
+| route | answer |
+|---|---|
+| `POST /v1/auth/nonce`, `POST /v1/auth/verify`, `GET /v1/auth/session`, `POST /v1/auth/logout` | Sign-In with Ethereum (EIP-4361) on Arc (5042, 5042002) and common wallet chains. Nonces are single use. EOA and ERC-1271 signatures are both accepted. The session token travels in the `Lykia-Session` header. |
+| `POST /v1/developers/register`, `GET /v1/developers/me` | developer profile |
+| `GET/POST /v1/developers/keys`, `POST /v1/developers/keys/:id/(rotate\|revoke)` | API keys, sent in the `Lykia-Key` header. Secret keys look like `lk_sk_…`. Publishable keys look like `lk_pk_…`: they are limited to read and plan, and only work from their allowed origins. Each key has scopes and its own per-minute and per-day quota. Only an HMAC of a key is stored, and the full key is shown once. |
+| `PUT /v1/developers/settings`, `GET /v1/developers/usage` | integrator fee (at most 50 bps) and usage per day and per key |
+| `GET/POST /v1/developers/webhooks`, `POST /v1/developers/webhooks/:id/disable`, `GET /v1/developers/webhooks/deliveries`, `POST /v1/developers/webhooks/test` | signed webhooks for `intent.step.settled`, `intent.settled`, `pack.agent.spawned`, `pack.agent.revoked`, `whistle.blown` and `standing_order.fired` |
+| `GET /v1/deployments` | Lykia contract deployments that were verified on Arc |
+| `GET/POST /v1/admin/deployments`, `GET/PUT /v1/admin/flags`, `GET /v1/admin/overview` | admin role only (`LYKIA_ADMIN_ADDRESSES`). A deployment is recorded only after the server checks the receipt, the creating transaction and the runtime bytecode hash against the artifacts in `@lykia/core`. |
+
+Webhook details:
+
+- Each delivery carries `Lykia-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256(secret, "<t>.<raw body>")>`. Verify it with `verifyWebhook` from `@lykia/sdk`.
+- Failed deliveries are retried after 30 s, 2 min, 10 min, 1 h and 6 h.
+- Endpoints must resolve to public addresses.
+- Endpoint secrets are encrypted at rest with a key derived from `LYKIA_SESSION_SECRET`.
 
 ### x402
 
@@ -133,21 +201,42 @@ Executable venues:
 | venue | mainnet | testnet |
 |---|---|---|
 | `arc-transfer` (ERC-20 transfer with an Arc Memo) | yes | yes |
-| `cctp` (CCTP V2 `depositForBurn` to EVM chains) | yes | yes |
+| `cctp` (CCTP V2 burn to EVM chains; inbound mints via `/v1/cctp/inbound`) | yes | yes |
 | `gateway` (Circle Gateway deposit) | yes | yes |
-| `morpho-vaults` (Morpho Vault V2, ERC-4626 deposit and withdraw) | yes | no deployment |
-| `uniswap-v3` (QuoterV2 + SwapRouter02; also USDC to EURC FX) | yes | no deployment |
+| `morpho-vaults` (Morpho Vault V2, ERC-4626 deposit and withdraw, ranked by live APY) | yes | no deployment |
+| `aave-v4` (Main and Forex Spokes: supply, withdraw, borrow with cirBTC collateral, repay) | yes | no deployment |
+| `morpho-blue` (cirBTC/USDC and cirBTC/EURC 86% LLTV: post collateral and borrow, repay by shares) | yes | no deployment |
+| `uniswap-v3` (every fee tier and two-hop paths through USDC) | yes | no deployment |
+| `uniswap-v4` (hookless pools through UniversalRouter and Permit2) | yes | no deployment |
+| `lykia-practice` (Lykia's own vault, USDC/EURC swap and cirBTC lending) | testnet only | once deployed from the contracts package |
 
-Registered for discovery but not executed: Aave V4 (Hub and Spoke), Morpho Blue borrowing, Uniswap v4, Curve (deployed, no pools yet), Archery, Synthra, Aerodrome Slipstream, launchpads, oracles, USYC Teller.
+Listed for discovery but not executed:
+
+- Aerodrome Slipstream. It holds the deepest USDC/EURC pool on Arc, but its Metarouter is not wired yet, so routes show its pool price as a read-only estimate.
+- Other venues: Synthra, Archery, SushiSwap V3, PancakeSwap Infinity, Kaleido, Uniswap v2, and Curve (deployed, no pools yet).
+- Launchpads: ArgusPad, FAZE, LIFT V2, Tolly.
+- Oracles: Chainlink, Pyth, Stork.
+- Circle services: the x402 facilitator, Gateway nanopayments, and the USYC Teller (its source is unverified).
 
 Needs credentials or more work:
 
-- StableFX RFQ needs Circle credentials and a taker signature flow that this build does not implement. FX intents route through the Uniswap v3 USDC/EURC pool instead, and the Fence checks the quote against Chainlink EURC/USD.
-- Borrow and repay answer `NO_ROUTE` until the Morpho Blue and Aave V4 adapters exist.
-- CCTP to Solana needs a token account as the mint recipient and is refused for now. A CCTP step settles when Circle's attestation is complete; the mint on the destination is a `receiveMessage` call that any relayer can make with the stored attestation.
-- Earn ranks Morpho vaults by total assets, not by yield, because no APY is read on-chain.
+- StableFX RFQ needs Circle credentials and a taker signature flow that this build does not implement. FX routes through the best on-chain pool instead (Uniswap v3 or v4), and the Fence checks the quote against Chainlink EURC/USD.
+- CCTP to Solana needs a token account as the mint recipient and is refused for now.
+- Lykia practice venues route only after they are deployed and recorded in `@lykia/core` contracts deployments.
 
-Checked against the live network by `npm run smoke` (read-only): chain ids; USDC accepting an EIP-3009 authorization signed for domain `USDC` v2 (simulated with a state override); Memo nested inside Multicall3From composing on both networks; Chainlink prices; a Flock read; Scent on USDC and on a launchpad token. Prepared Morpho deposits, Uniswap swaps, USDC to EURC conversions and CCTP burns were also simulated with `eth_call` from funded addresses on mainnet.
+Checked against the live network by `npm run smoke` (read-only, 15 checks):
+
+- chain ids on both networks
+- USDC accepting an EIP-3009 authorization signed for domain `USDC` v2
+- Memo nested inside Multicall3From
+- Chainlink prices
+- a Flock read
+- Scent
+- the Morpho and Aave rate APIs
+- live swap, earn and borrow routes
+- an Aave V4 approve + supply + withdraw batch
+
+Every adapter's prepared batch was also simulated with `eth_call` from funded addresses on mainnet: Aave supply and borrow, a Morpho Galaxy deposit, a Morpho Blue borrow, a Uniswap v4 FX through Permit2, and a Uniswap v3 two-hop swap.
 
 ## Layout
 
@@ -165,6 +254,8 @@ src/
   engine/     ABIs, call shaping (Memo, Multicall3From), adapters, planner, intent service
   kunye/      ERC-8004 cards, register and validation calls, agent views
   x402/       payment requirements and verification middleware
-  modules/    route modules (system, arc, flock, fence, language, intents, scent, kunye, agent, mcp)
+  agents/     the Pack service, Lyko's orchestrator and specialists, tools, thread memory, perception, insights, automations, LykiaAccount session calls
+  platform/   SIWE sessions, API keys and the developer gate, webhooks, developer settings and usage, admin registry and flags
+  modules/    route modules (developers, auth, system, arc, flock, fence, language, intents, scent, kunye, agent, admin, mcp)
   scripts/    smoke.ts (live, read-only)
 ```

@@ -11,6 +11,10 @@ import type { ApiModule } from "../http/router.js";
 import { readSentence } from "../language/reader.js";
 import { services } from "../services.js";
 import { EXECUTABLE_VENUES } from "../engine/adapters.js";
+import { agentServices } from "../agents/index.js";
+import { runDeterministicTurn } from "../agents/deterministic.js";
+import { insightsFor } from "../agents/insights.js";
+import { DEFAULT_FENCE as OWNER_DEFAULT_FENCE } from "@lykia/core";
 
 const env = z.enum(["mainnet", "testnet"]).optional();
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/u);
@@ -72,6 +76,23 @@ export function buildMcpServer(ctx: AppContext): McpServer {
     if (checked && !checked.ok) return text({ error: "Invalid Fence", issues: checked.issues });
     return text(evaluateFence(checked?.ok ? checked.fence : DEFAULT_FENCE, { now: ctx.clock.now(), ...(facts as object) } as FenceFacts));
   });
+  server.registerTool("lykia_pack", { description: "The owner's Pack: agents and sub-agents with roles, Fence hashes and budgets (caps, allocated to children, free, spent).", inputSchema: toolSchema(z.object({ owner: address, environment: env }), objectJson({ owner: ADDRESS_JSON, environment: ENV_JSON }, ["owner"])) }, async ({ owner, environment }) =>
+    text(await agentServices(ctx).pack.tree(owner, environment)),
+  );
+  server.registerTool("lykia_insights", { description: "What Lyko notices on the owner's Flock (idle cash, FX exposure, concentration, health, unpriced, low gas), each with a one-tap sentence when a move makes sense.", inputSchema: toolSchema(z.object({ owner: address, environment: env }), objectJson({ owner: ADDRESS_JSON, environment: ENV_JSON }, ["owner"])) }, async ({ owner, environment }) =>
+    text(await insightsFor(ctx, environmentOf(environment), owner as Address)),
+  );
+  server.registerTool(
+    "lykia_pack_plan",
+    { description: "Plan a multi-part goal the way Lyko's Pack does: each part goes to its specialist (payroll, FX hedger, yield keeper, treasurer), each plans under its own Fence, and passing parts merge into one route under the owner's Fence. Proposals only; the owner signs.", inputSchema: toolSchema(z.object({ sentence: z.string().min(3).max(500), owner: address, environment: env }), objectJson({ sentence: { type: "string", maxLength: 500 }, owner: ADDRESS_JSON, environment: ENV_JSON }, ["sentence", "owner"])) },
+    async ({ sentence, owner, environment }) => {
+      const e = environmentOf(environment);
+      const events: { event: string; data: unknown }[] = [];
+      const pack = (await agentServices(ctx).pack.ownedBy(owner, e)).filter((a) => a.status === "active");
+      const result = await runDeterministicTurn({ ctx, environment: e, owner: owner as Address, fence: OWNER_DEFAULT_FENCE, pack, message: sentence, emit: (event, data) => events.push({ event, data }) });
+      return text({ reply: result.text, proposals: result.proposals, events });
+    },
+  );
   return server;
 }
 

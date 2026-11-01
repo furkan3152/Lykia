@@ -14,6 +14,10 @@ import type { Clock } from "../clock.js";
 import type { FetchLike } from "../health/dependencies.js";
 import type { Logger } from "../log.js";
 import { usdValue, type PriceService } from "../arc/prices.js";
+import { PRACTICE_LENDING_ABI } from "../engine/abis.js";
+import { aavePositions, readAaveAccount, wadToRatio } from "../engine/venues/aave.js";
+import { morphoPositions, projectMorphoHealth } from "../engine/venues/morphoBlue.js";
+import { practiceVenues } from "../engine/venues/practice.js";
 
 export const ERC4626_ABI = parseAbi([
   "function asset() view returns (address)",
@@ -88,6 +92,9 @@ export class FlockService {
       });
     }
 
+    const health: { venue: string; healthFactor: string | null }[] = [];
+    await this.lendingPositions(environment, address, holdings, health, notes);
+
     const gateway = await this.gatewayBalance(environment, address);
     if (gateway.note) notes.push(gateway.note);
     if (gateway.unifiedUsdc !== null && gateway.unifiedUsdc !== "0") {
@@ -120,11 +127,77 @@ export class FlockService {
       totalUsd: total === null ? null : fromBaseUnits(total, 6),
       holdings: priced,
       gateway,
-      health: [],
+      health,
       native: { usdc18: nativeRaw.toString() },
       prices: Object.fromEntries(Object.entries(prices).map(([k, v]) => [k, { usd: v.usd, source: v.source }])),
       notes,
     };
+  }
+
+  /** Aave V4 supplies and debts, Morpho Blue collateral and debt, Lykia practice lending; health factors per venue. */
+  private async lendingPositions(environment: ArcEnvironment, address: Address, holdings: Omit<FlockHolding, "usd">[], health: { venue: string; healthFactor: string | null }[], notes: string[]): Promise<void> {
+    const tokenOf = (symbol: string) => TOKENS.find((t) => t.symbol === symbol);
+    try {
+      const positions = await aavePositions(this.deps.chains, environment, address);
+      for (const p of positions) {
+        const t = tokenOf(p.reserve.symbol);
+        if (!t) continue;
+        if (p.supplied > 0n) holdings.push({ symbol: t.symbol, token: tokenAddress(t, environment) as Address, amount: fromBaseUnits(p.supplied, t.decimals), where: "aave-v4", kind: "supply" });
+        if (p.debt > 0n) holdings.push({ symbol: t.symbol, token: tokenAddress(t, environment) as Address, amount: fromBaseUnits(p.debt, t.decimals), where: "aave-v4", kind: "debt" });
+      }
+      for (const spoke of new Set(positions.filter((p) => p.debt > 0n).map((p) => p.spoke))) {
+        const account = await readAaveAccount(this.deps.chains, environment, spoke.address, address);
+        health.push({ venue: "aave-v4", healthFactor: account ? wadToRatio(account.healthFactorWad) : null });
+      }
+    } catch {
+      if (environment === "mainnet") notes.push("Aave V4 positions could not be read.");
+    }
+    try {
+      for (const { market, position } of await morphoPositions(this.deps.chains, environment, address)) {
+        const coll = tokenOf(market.collateral);
+        const loan = tokenOf(market.loan);
+        if (coll && position.collateral > 0n) holdings.push({ symbol: coll.symbol, token: tokenAddress(coll, environment) as Address, amount: fromBaseUnits(position.collateral, coll.decimals), where: "morpho-blue", kind: "supply" });
+        if (loan && position.borrowAssets > 0n) {
+          holdings.push({ symbol: loan.symbol, token: tokenAddress(loan, environment) as Address, amount: fromBaseUnits(position.borrowAssets, loan.decimals), where: "morpho-blue", kind: "debt" });
+          health.push({ venue: "morpho-blue", healthFactor: wadToRatio(projectMorphoHealth(market, position, 0n, 0n)) });
+        }
+      }
+    } catch {
+      if (environment === "mainnet") notes.push("Morpho Blue positions could not be read.");
+    }
+    const practice = await practiceVenues(environment);
+    if (practice.lending) {
+      try {
+        const client = this.deps.chains.client(environment);
+        const [collateral, debt, hf] = await Promise.all([
+          client.readContract({ address: practice.lending, abi: PRACTICE_LENDING_ABI, functionName: "collateralOf", args: [address] }),
+          client.readContract({ address: practice.lending, abi: PRACTICE_LENDING_ABI, functionName: "debtOf", args: [address] }),
+          client.readContract({ address: practice.lending, abi: PRACTICE_LENDING_ABI, functionName: "healthFactor", args: [address] }),
+        ]);
+        const btc = tokenOf("cirBTC");
+        const usdc = tokenOf("USDC");
+        if (btc && collateral > 0n) holdings.push({ symbol: "cirBTC", token: tokenAddress(btc, environment) as Address, amount: fromBaseUnits(collateral, btc.decimals), where: "lykia-practice", kind: "supply" });
+        if (usdc && debt > 0n) {
+          holdings.push({ symbol: "USDC", token: tokenAddress(usdc, environment) as Address, amount: fromBaseUnits(debt, usdc.decimals), where: "lykia-practice", kind: "debt" });
+          health.push({ venue: "lykia-practice", healthFactor: wadToRatio(hf) });
+        }
+      } catch {
+        notes.push("Lykia practice lending could not be read.");
+      }
+    }
+    for (const vault of [practice.vaultUsdc, practice.vaultEurc]) {
+      if (!vault) continue;
+      try {
+        const client = this.deps.chains.client(environment);
+        const shares = await client.readContract({ address: vault, abi: ERC4626_ABI, functionName: "balanceOf", args: [address] });
+        if (shares === 0n) continue;
+        const assets = await client.readContract({ address: vault, abi: ERC4626_ABI, functionName: "convertToAssets", args: [shares] });
+        const t = tokenOf(vault === practice.vaultEurc ? "EURC" : "USDC");
+        if (t) holdings.push({ symbol: t.symbol, token: vault, amount: fromBaseUnits(assets, t.decimals), where: "lykia-practice", kind: "vault" });
+      } catch {
+        notes.push("A Lykia practice vault could not be read.");
+      }
+    }
   }
 
   /** Circle Gateway unified USDC balance; null with a note when the API does not answer. */

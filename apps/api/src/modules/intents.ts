@@ -52,7 +52,8 @@ export const intentsModule: ApiModule = {
       let source: string;
       if (body.text !== undefined) {
         const parsed = readSentence(body.text);
-        if (parsed.clarify.length > 0) throw new LykiaHttpError("NOT_UNDERSTOOD", 422, parsed.clarify.join(" "), { clarify: parsed.clarify, lang: parsed.lang });
+        if (parsed.clarify.length > 0) throw new LykiaHttpError("NOT_UNDERSTOOD", 422, parsed.clarify.join(" "), { clarify: parsed.clarify, clarifyChoices: parsed.clarifyChoices ?? [], lang: parsed.lang });
+        if ((parsed.standing ?? []).length > 0) throw new LykiaHttpError("NOT_UNDERSTOOD", 422, parsed.lang === "tr" ? "Bu bir bekleyen emir: kurmak için POST /v1/standing." : "That is a standing order: arm it with POST /v1/standing.", { standing: parsed.standing, lang: parsed.lang });
         if (parsed.actions.length === 0) throw new LykiaHttpError("NOT_UNDERSTOOD", 422, parsed.reply, { lang: parsed.lang });
         actions = parsed.actions;
         source = body.text;

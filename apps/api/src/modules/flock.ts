@@ -1,5 +1,6 @@
-/** The Flock: GET /flock/:address and its SSE stream (snapshot when anything changed). */
+/** The Flock: GET /flock/:address (?environment=mainnet|testnet|both) and its SSE stream (snapshot when anything changed). */
 import { canonicalDigest, type Address } from "@lykia/core";
+import type { FlockBothSnapshot } from "@lykia/core/api/flock";
 import { z } from "zod";
 import type { ApiModule } from "../http/router.js";
 import { openSse } from "../http/sse.js";
@@ -15,8 +16,14 @@ export const flockModule: ApiModule = {
   register(router, ctx) {
     router.get("/flock/:address", ctx.limits.heavy, async (req, res) => {
       const { address } = parseParams(req, Params);
-      const environment = environmentOf(ctx, parseQuery(req, environmentQuery).environment);
-      res.json(await services(ctx).flock.snapshot(environment, address as Address));
+      const { environment: requested } = parseQuery(req, z.object({ environment: z.enum(["mainnet", "testnet", "both"]).optional() }));
+      if (requested === "both") {
+        const read = (env: "mainnet" | "testnet") => services(ctx).flock.snapshot(env, address as Address).catch((error: unknown) => ({ error: error instanceof Error ? error.message : "The flock could not be read." }));
+        const [mainnet, testnet] = await Promise.all([read("mainnet"), read("testnet")]);
+        const both: FlockBothSnapshot = { address: address as Address, mainnet, testnet };
+        return void res.json(both);
+      }
+      res.json(await services(ctx).flock.snapshot(environmentOf(ctx, requested), address as Address));
     });
 
     router.get("/flock/:address/stream", ctx.limits.heavy, (req, res) => {

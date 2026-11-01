@@ -188,8 +188,8 @@ export class IntentService {
     if (step.status !== "ready" && step.status !== "awaiting-signature") throw new LykiaHttpError("STEP_NOT_READY", 409, `Step ${stepId} is ${step.status}.`);
     const network = networkFor(graph.environment);
     const memo: LykiaMemo = { intentId: graph.id, stepId, verdict: verdictTag(graph.verdict.digest), ...(plan.params.note ? { note: plan.params.note } : {}) };
-    const { main, approval } = await buildCalls(plan, { environment: graph.environment, chains: this.deps.chains, account: step.account });
-    const transactions = shape(main, approval, { environment: graph.environment, chainId: network.chainId, from: step.account, memo, account: doc.account });
+    const built = await buildCalls(plan, { environment: graph.environment, chains: this.deps.chains, account: step.account });
+    const transactions = shape(built.calls, built.approvals, { environment: graph.environment, chainId: network.chainId, from: step.account, memo, account: doc.account });
     const binding = bindingOf(transactions);
     step.transactions = transactions;
     step.binding = binding as IntentStep["binding"];

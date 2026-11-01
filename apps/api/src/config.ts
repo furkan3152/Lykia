@@ -48,6 +48,17 @@ export interface Config {
   readonly agent: {
     readonly anthropicApiKey: string | null;
     readonly model: string;
+    /** Upper bound on tool rounds per agent turn (orchestrator and each specialist). */
+    readonly maxSteps: number;
+    /** Output token budget per model call. */
+    readonly maxTokens: number;
+  };
+  /** Sign-in, developer platform and admin. */
+  readonly platform: {
+    /** Extra SIWE domains (host[:port]) besides the hosts of webOrigins. */
+    readonly siweDomains: readonly string[];
+    /** Lower-case addresses that hold the admin role. */
+    readonly adminAddresses: readonly string[];
   };
   /** Circle StableFX RFQ credentials (fx steps are not executable without them). */
   readonly stablefxApiKey: string | null;
@@ -168,6 +179,10 @@ const EnvSchema = z.object({
   LYKIA_SESSION_SECRET: optionalString,
   ANTHROPIC_API_KEY: optionalString,
   LYKIA_AGENT_MODEL: optionalString,
+  LYKIA_AGENT_MAX_STEPS: intInRange(1, 20, 6),
+  LYKIA_AGENT_MAX_TOKENS: intInRange(256, 32_000, 4_096),
+  LYKIA_SIWE_DOMAINS: optionalString,
+  LYKIA_ADMIN_ADDRESSES: optionalString,
   ARC_MAINNET_RPC_URL: optionalString,
   ARC_TESTNET_RPC_URL: optionalString,
   STABLEFX_API_KEY: optionalString,
@@ -252,6 +267,10 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
   if (env.LYKIA_X402_PAY_TO && !/^0x[0-9a-fA-F]{40}$/u.test(env.LYKIA_X402_PAY_TO)) issues.push("LYKIA_X402_PAY_TO: must be a 0x address");
   if (env.LYKIA_X402_PRICE_USDC && !/^\d{1,6}(?:\.\d{1,6})?$/u.test(env.LYKIA_X402_PRICE_USDC)) issues.push("LYKIA_X402_PRICE_USDC: a USDC amount such as 0.01");
   if (env.LYKIA_X402_FACILITATOR_URL && !/^https:\/\//u.test(env.LYKIA_X402_FACILITATOR_URL)) issues.push("LYKIA_X402_FACILITATOR_URL: must be an https URL");
+  const adminAddresses = splitList(env.LYKIA_ADMIN_ADDRESSES).map((a) => a.toLowerCase());
+  if (adminAddresses.some((a) => !/^0x[0-9a-f]{40}$/u.test(a))) issues.push("LYKIA_ADMIN_ADDRESSES: comma-separated 0x addresses");
+  const siweDomains = splitList(env.LYKIA_SIWE_DOMAINS).map((d) => d.toLowerCase());
+  if (siweDomains.some((d) => !/^[a-z0-9.-]+(?::\d{1,5})?$/u.test(d))) issues.push("LYKIA_SIWE_DOMAINS: comma-separated host[:port] entries");
   if (issues.length > 0) throw new ConfigError(issues);
 
   const config: Config = {
@@ -266,7 +285,10 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
     agent: Object.freeze({
       anthropicApiKey: env.ANTHROPIC_API_KEY ?? null,
       model: env.LYKIA_AGENT_MODEL ?? DEFAULT_AGENT_MODEL,
+      maxSteps: env.LYKIA_AGENT_MAX_STEPS,
+      maxTokens: env.LYKIA_AGENT_MAX_TOKENS,
     }),
+    platform: Object.freeze({ siweDomains: Object.freeze(siweDomains), adminAddresses: Object.freeze(adminAddresses) }),
     stablefxApiKey: env.STABLEFX_API_KEY ?? null,
     x402: Object.freeze({
       payTo: (env.LYKIA_X402_PAY_TO as `0x${string}` | undefined) ?? null,

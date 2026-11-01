@@ -1,19 +1,27 @@
 /**
  * The planner: plan actions -> an intent graph with live reads and quotes,
- * the facts the Fence needs, and the Fence verdict. Amounts chain through
- * the plan ("bridge 50, then earn the rest" spends what the first step
- * leaves), so "all" never double-counts.
+ * a routed venue per step (with the alternatives it beat and why), the facts
+ * the Fence needs, and the Fence verdict.
+ *
+ * Amount semantics (core/actions.ts): a share ("40%") is a share of the
+ * balance the plan starts with, minus what `reserve` actions keep liquid;
+ * "all" / "the rest" is what is still spendable at that point. So
+ * "40% to the best vault, 20% to EURC, bridge the rest" never double-counts.
  */
 import {
+  allocationActions,
   DEFAULT_FENCE,
   evaluateFence,
   findCctpDestination,
   fromBaseUnits,
   getToken,
   INTENT_SPEC_VERSION,
+  planAllocation,
   portionOf,
+  ratioBps,
   toBaseUnitsBig,
   tokenAddress,
+  usdMicrosOf,
   type ActionAmount,
   type Address,
   type ArcEnvironment,
@@ -22,6 +30,8 @@ import {
   type IntentGraph,
   type IntentStep,
   type PlanAction,
+  type RiskTier,
+  type RouteChoice,
   type StepAmount,
   type StepFact,
   type TokenFact,
@@ -30,16 +40,27 @@ import type { ArcChains } from "../chains/arc.js";
 import type { FetchLike } from "../health/dependencies.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { usdValue, type PriceService } from "../arc/prices.js";
+import { systemClock } from "../clock.js";
 import { ERC4626_ABI, morphoVaults } from "../flock/flock.js";
-import { ADAPTER_VENUE, bestUniswapQuote, cctpFeeBps, noRoute, pickVault, stepKindOf, type AdapterId, type StepPlan } from "./adapters.js";
+import { ADAPTER_VENUE, cctpFeeBps, noRoute, stepKindOf, type AdapterId, type StepPlan } from "./adapters.js";
+import { PRACTICE_LENDING_ABI } from "./abis.js";
+import { VenueRouter, type Candidate } from "./router.js";
+import { aavePositions, aaveSpokes, projectAaveHealth, readAaveAccount, wadToRatio } from "./venues/aave.js";
+import { morphoPositions } from "./venues/morphoBlue.js";
+import { practiceVenues } from "./venues/practice.js";
+import { YieldService } from "./venues/yields.js";
 
 export const DEFAULT_SLIPPAGE_BPS = 50;
+export const DEFAULT_MIN_HEALTH = "1.5";
+export const PLAN_TOKENS = ["USDC", "EURC", "cirBTC"] as const;
 
 export interface PlannerDeps {
   readonly chains: ArcChains;
   readonly prices: PriceService;
   readonly fetch: FetchLike;
   readonly stablefxConfigured: boolean;
+  /** Defaults to a router over a fresh YieldService. */
+  readonly router?: VenueRouter;
 }
 
 export interface PlanInput {
@@ -76,52 +97,116 @@ interface Draft {
   readonly fact: Omit<StepFact, "id" | "kind" | "venue">;
   readonly settlement: IntentStep["settlement"];
   readonly warnings: string[];
+  readonly route?: RouteChoice;
 }
 
-function resolve(amount: ActionAmount, available: bigint, decimals: number): bigint {
-  if ("exact" in amount) return toBaseUnitsBig(amount.exact, decimals);
-  if ("percent" in amount) return portionOf(available, amount.percent * 100);
-  return available;
+interface Ledger {
+  readonly env: ArcEnvironment;
+  readonly account: Address;
+  readonly owner: Address;
+  readonly fence: Fence;
+  readonly dryRun: boolean;
+  readonly start: Map<string, bigint>;
+  readonly balances: Map<string, bigint>;
+  readonly reserved: Map<string, bigint>;
+  readonly prices: Record<string, { usd: string | null }>;
+  readonly warnings: string[];
+}
+
+/** Turns amounts into base units against the ledger and records spends and receipts. */
+class Book {
+  constructor(readonly l: Ledger) {}
+
+  spendable(symbol: string): bigint {
+    const have = this.l.balances.get(symbol) ?? 0n;
+    const keep = this.l.reserved.get(symbol) ?? 0n;
+    return have > keep ? have - keep : 0n;
+  }
+
+  resolve(amount: ActionAmount, symbol: string, decimals: number): bigint {
+    if ("exact" in amount) return toBaseUnitsBig(amount.exact, decimals);
+    if ("percent" in amount) {
+      const base = (this.l.start.get(symbol) ?? 0n) - (this.l.reserved.get(symbol) ?? 0n);
+      return portionOf(base > 0n ? base : 0n, amount.percent * 100);
+    }
+    return this.spendable(symbol);
+  }
+
+  spend(symbol: string, units: bigint, label: string): void {
+    const token = getToken(symbol);
+    const decimals = token?.decimals ?? 6;
+    const available = this.spendable(symbol);
+    const kept = this.l.reserved.get(symbol) ?? 0n;
+    if (units > 0n && units > available && this.l.dryRun) {
+      this.l.warnings.push(`Dry run: ${label} needs ${fromBaseUnits(units, decimals)} ${symbol}; ${fromBaseUnits(available, decimals)} is spendable${kept > 0n ? ` after keeping ${fromBaseUnits(kept, decimals)} liquid` : ""}. Fund the wallet before signing.`);
+      this.l.balances.set(symbol, kept);
+      return;
+    }
+    if (units <= 0n) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `Nothing to ${label}: the spendable ${symbol} balance is 0${kept > 0n ? ` (${fromBaseUnits(kept, decimals)} kept liquid)` : ""}.`);
+    if (units > available) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `${label} needs ${fromBaseUnits(units, decimals)} ${symbol}; ${this.l.account} has ${fromBaseUnits(available, decimals)} spendable${kept > 0n ? ` (${fromBaseUnits(kept, decimals)} kept liquid)` : ""}.`);
+    this.l.balances.set(symbol, (this.l.balances.get(symbol) ?? 0n) - units);
+  }
+
+  receive(symbol: string, units: bigint): void {
+    this.l.balances.set(symbol, (this.l.balances.get(symbol) ?? 0n) + units);
+  }
+
+  amount(symbol: string, units: bigint, minimum?: bigint): StepAmount {
+    const token = getToken(symbol)!;
+    const whole = fromBaseUnits(units, token.decimals);
+    return { symbol: token.symbol, token: tokenAddress(token, this.l.env) as Address, decimals: token.decimals, amount: units.toString(), ...(minimum !== undefined ? { minimum: minimum.toString() } : {}), usd: usdValue(whole, this.l.prices[token.symbol]?.usd ?? null) };
+  }
+
+  fact(symbol: string, acquired: boolean): TokenFact {
+    return { symbol, address: tokenAddress(getToken(symbol)!, this.l.env) as Address, listed: true, acquired };
+  }
+
+  display(symbol: string, units: bigint): string {
+    return `${fromBaseUnits(units, getToken(symbol)!.decimals)} ${symbol}`;
+  }
 }
 
 export class Planner {
-  constructor(private readonly deps: PlannerDeps) {}
+  readonly router: VenueRouter;
+
+  constructor(private readonly deps: PlannerDeps) {
+    this.router = deps.router ?? new VenueRouter({ chains: deps.chains, prices: deps.prices, yields: new YieldService({ fetch: deps.fetch, clock: systemClock }) });
+  }
 
   async plan(input: PlanInput): Promise<PlanResult> {
     const env = input.environment;
     const account = input.agent?.address ?? input.owner;
     const client = this.deps.chains.client(env);
     const fence = input.fence ?? DEFAULT_FENCE;
-    const symbols = ["USDC", "EURC", "cirBTC"] as const;
-    const balances = new Map<string, bigint>();
     const reads = await client.multicall({
-      contracts: symbols.map((s) => ({ address: tokenAddress(getToken(s)!, env) as Address, abi: ERC4626_ABI, functionName: "balanceOf", args: [account] }) as const),
+      contracts: PLAN_TOKENS.map((s) => ({ address: tokenAddress(getToken(s)!, env) as Address, abi: ERC4626_ABI, functionName: "balanceOf", args: [account] }) as const),
       allowFailure: true,
     });
-    symbols.forEach((s, i) => balances.set(s, reads[i]?.status === "success" ? (reads[i].result as bigint) : 0n));
-    const prices = await this.deps.prices.prices([...symbols]);
-    const amountOf = (symbol: string, units: bigint, minimum?: bigint): StepAmount => {
-      const token = getToken(symbol)!;
-      const whole = fromBaseUnits(units, token.decimals);
-      return { symbol: token.symbol, token: tokenAddress(token, env) as Address, decimals: token.decimals, amount: units.toString(), ...(minimum !== undefined ? { minimum: minimum.toString() } : {}), usd: usdValue(whole, prices[token.symbol]?.usd ?? null) };
-    };
-    const tokenFact = (symbol: string, acquired: boolean): TokenFact => ({ symbol, address: tokenAddress(getToken(symbol)!, env) as Address, listed: true, acquired });
-    const planWarnings: string[] = [];
-    const spend = (symbol: string, units: bigint, label: string) => {
-      const have = balances.get(symbol) ?? 0n;
-      if (units > 0n && units > have && input.dryRun) {
-        planWarnings.push(`Dry run: ${label} needs ${fromBaseUnits(units, getToken(symbol)!.decimals)} ${symbol}; ${account} has ${fromBaseUnits(have, getToken(symbol)!.decimals)}. Fund the wallet before signing.`);
-        balances.set(symbol, 0n);
-        return;
-      }
-      if (units <= 0n) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `Nothing to ${label}: the ${symbol} balance is 0.`);
-      if (units > have) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `${label} needs ${fromBaseUnits(units, getToken(symbol)!.decimals)} ${symbol}; ${account} has ${fromBaseUnits(have, getToken(symbol)!.decimals)}.`);
-      balances.set(symbol, have - units);
-    };
-    const receive = (symbol: string, units: bigint) => balances.set(symbol, (balances.get(symbol) ?? 0n) + units);
+    const start = new Map<string, bigint>();
+    PLAN_TOKENS.forEach((s, i) => start.set(s, reads[i]?.status === "success" ? (reads[i].result as bigint) : 0n));
+    const prices = await this.deps.prices.prices([...PLAN_TOKENS]);
+    const ledger: Ledger = { env, account, owner: input.owner, fence, dryRun: input.dryRun === true, start, balances: new Map(start), reserved: new Map(), prices, warnings: [] };
+    const book = new Book(ledger);
+
+    // Reserves apply to the whole plan, wherever they appear in the sentence.
+    for (const action of input.actions) {
+      if (action.verb !== "reserve") continue;
+      const token = getToken(action.token)!;
+      const units = "exact" in action.amount ? toBaseUnitsBig(action.amount.exact, token.decimals) : "percent" in action.amount ? portionOf(start.get(token.symbol) ?? 0n, action.amount.percent * 100) : start.get(token.symbol) ?? 0n;
+      ledger.reserved.set(token.symbol, (ledger.reserved.get(token.symbol) ?? 0n) + units);
+      ledger.warnings.push(`Keeping ${book.display(token.symbol, units)} liquid${action.reason ? ` (${action.reason})` : ""}; shares and "the rest" are taken from what is left.`);
+    }
+
+    const actions: PlanAction[] = [];
+    for (const action of input.actions) {
+      if (action.verb === "reserve") continue;
+      if (action.verb === "rebalance") actions.push(...this.expandRebalance(action, book));
+      else actions.push(action);
+    }
+    if (actions.length === 0) throw new LykiaHttpError("NO_ROUTE", 422, "Nothing to do: the flock is already where you want it.");
 
     const drafts: Draft[] = [];
-    for (const action of input.actions) drafts.push(await this.draft(action, { env, account, owner: input.owner, balances, amountOf, tokenFact, spend, receive, prices }));
+    for (const action of actions) drafts.push(...(await this.draft(action, book)));
 
     const plans: Record<string, StepPlan> = {};
     const steps: IntentStep[] = drafts.map((d, i) => {
@@ -138,6 +223,7 @@ export class Planner {
         inputs: d.inputs,
         outputs: d.outputs,
         settlement: d.settlement,
+        ...(d.route ? { route: d.route } : {}),
         status: i === 0 ? "ready" : "blocked",
       };
     });
@@ -161,179 +247,345 @@ export class Planner {
       ...(input.agent ? { agent: input.agent } : {}),
       steps,
       verdict,
-      warnings: [...planWarnings, ...drafts.flatMap((d) => d.warnings)],
+      warnings: [...ledger.warnings, ...drafts.flatMap((d) => d.warnings)],
     };
     return { graph, plans, facts, fence };
   }
 
-  private async draft(
-    action: PlanAction,
-    c: {
-      env: ArcEnvironment;
-      account: Address;
-      owner: Address;
-      balances: Map<string, bigint>;
-      amountOf: (symbol: string, units: bigint, minimum?: bigint) => StepAmount;
-      tokenFact: (symbol: string, acquired: boolean) => TokenFact;
-      spend: (symbol: string, units: bigint, label: string) => void;
-      receive: (symbol: string, units: bigint) => void;
-      prices: Record<string, { usd: string | null }>;
-    },
-  ): Promise<Draft> {
-    const { env } = c;
+  /** Target weights -> the fewest fx/swap actions (USD values from Chainlink). */
+  private expandRebalance(action: Extract<PlanAction, { verb: "rebalance" }>, book: Book): PlanAction[] {
+    const holdings = action.targets.map((t) => {
+      const token = getToken(t.token)!;
+      return { symbol: token.symbol, units: book.spendable(token.symbol), decimals: token.decimals, usd: book.l.prices[token.symbol]?.usd ?? null };
+    });
+    const plan = planAllocation(holdings, action.targets.map((t) => ({ token: getToken(t.token)!.symbol, weightBps: t.weightBps })), action.toleranceBps ?? 100);
+    if (plan.unpriced.length > 0) throw new LykiaHttpError("UNPRICED", 422, `Cannot rebalance without a price for ${plan.unpriced.join(", ")}.`);
+    const now = plan.current.map((c) => `${c.symbol} ${(c.weightBps / 100).toFixed(1)}%`).join(", ");
+    const want = action.targets.map((t) => `${getToken(t.token)!.symbol} ${(t.weightBps / 100).toFixed(1)}%`).join(", ");
+    book.l.warnings.push(plan.balanced ? `Already balanced (${now}); target ${want}.` : `Rebalance: now ${now}; target ${want}.`);
+    return allocationActions(plan, (s) => getToken(s)!.decimals);
+  }
+
+  private async draft(action: PlanAction, book: Book): Promise<Draft[]> {
+    const { env } = book.l;
     switch (action.verb) {
       case "send": {
         const token = getToken(action.token)!;
-        const units = resolve(action.amount, c.balances.get(token.symbol) ?? 0n, token.decimals);
-        c.spend(token.symbol, units, "send");
-        const amount = c.amountOf(token.symbol, units);
-        const display = `${fromBaseUnits(units, token.decimals)} ${token.symbol}`;
-        return {
+        const units = book.resolve(action.amount, token.symbol, token.decimals);
+        book.spend(token.symbol, units, "send");
+        const amount = book.amount(token.symbol, units);
+        const display = book.display(token.symbol, units);
+        return [{
           adapter: "transfer",
           fx: false,
           summary: `Send ${display} to ${action.to}${action.memo ? ` (${action.memo})` : ""}`,
           params: { token: amount.token, amount: units.toString(), to: action.to, display, decimals: String(token.decimals), ...(action.memo ? { note: action.memo } : {}) },
           inputs: [amount],
           outputs: [],
-          fact: { usd: amount.usd, tokens: [c.tokenFact(token.symbol, false)], recipient: action.to },
+          fact: { usd: amount.usd, tokens: [book.fact(token.symbol, false)], recipient: action.to },
           settlement: { kind: "receipt" },
           warnings: [],
-        };
+        }];
       }
       case "bridge": {
         const dest = findCctpDestination(action.destination);
         if (!dest) throw noRoute(`${action.destination} is not a CCTP destination.`);
         if (dest.vm !== "evm") throw noRoute(`${dest.name} needs a token account as the mint recipient; Lykia bridges to EVM chains for now.`);
-        const recipient = (action.recipient as Address | undefined) ?? c.owner;
+        const recipient = (action.recipient as Address | undefined) ?? book.l.owner;
         if (!/^0x[0-9a-fA-F]{40}$/u.test(recipient)) throw new LykiaHttpError("INVALID_ACTIONS", 400, "recipient must be an EVM address.");
-        const units = resolve(action.amount, c.balances.get("USDC") ?? 0n, 6);
-        c.spend("USDC", units, "bridge");
+        const units = book.resolve(action.amount, "USDC", 6);
+        book.spend("USDC", units, "bridge");
         const feeBps = await cctpFeeBps(this.deps.fetch, env, dest.domain);
         const warnings: string[] = [];
         if (feeBps === null) warnings.push("The CCTP fee could not be read; the burn allows no fee (standard transfer).");
         const maxFee = feeBps ? (units * BigInt(Math.ceil(feeBps * 100)) + 999_999n) / 1_000_000n : 0n;
-        const amount = c.amountOf("USDC", units);
-        const display = `${fromBaseUnits(units, 6)} USDC`;
-        return {
+        const amount = book.amount("USDC", units);
+        const display = book.display("USDC", units);
+        return [{
           adapter: "bridge",
           fx: false,
           summary: `Bridge ${display} to ${dest.name} over CCTP`,
           params: { token: amount.token, amount: units.toString(), domain: String(dest.domain), recipient, maxFee: maxFee.toString(), destinationName: dest.name, destination: dest.key, display, decimals: "6" },
           inputs: [amount],
-          outputs: [{ ...c.amountOf("USDC", units - maxFee), symbol: `USDC@${dest.key}` }],
-          fact: { usd: amount.usd, tokens: [c.tokenFact("USDC", false)], recipient, destination: dest.key },
+          outputs: [{ ...book.amount("USDC", units - maxFee), symbol: `USDC@${dest.key}` }],
+          fact: { usd: amount.usd, tokens: [book.fact("USDC", false)], recipient, destination: dest.key },
           settlement: { kind: "cctp", destination: dest.key, expectedSeconds: 30 },
           warnings,
-        };
+        }];
       }
       case "unify": {
-        const units = resolve(action.amount, c.balances.get("USDC") ?? 0n, 6);
-        c.spend("USDC", units, "deposit into Gateway");
-        const amount = c.amountOf("USDC", units);
-        const display = `${fromBaseUnits(units, 6)} USDC`;
-        return {
+        const units = book.resolve(action.amount, "USDC", 6);
+        book.spend("USDC", units, "deposit into Gateway");
+        const amount = book.amount("USDC", units);
+        const display = book.display("USDC", units);
+        return [{
           adapter: "gateway",
           fx: false,
           summary: `Deposit ${display} into Circle Gateway (one balance on every Gateway chain)`,
           params: { token: amount.token, amount: units.toString(), display, decimals: "6" },
           inputs: [amount],
           outputs: [{ ...amount, symbol: "USDC@gateway" }],
-          fact: { usd: amount.usd, tokens: [c.tokenFact("USDC", false)] },
+          fact: { usd: amount.usd, tokens: [book.fact("USDC", false)] },
           settlement: { kind: "gateway", destination: "gateway", expectedSeconds: 1 },
           warnings: [],
-        };
+        }];
       }
-      case "earn": {
-        if (action.token !== "USDC" && action.token !== "EURC") throw noRoute("Earn takes USDC or EURC on Arc.");
-        const vault = await pickVault(this.deps.chains, env, action.token, action.venue);
-        if (!vault) throw noRoute(env === "testnet" ? "No earn venue on Arc testnet: Morpho vaults are mainnet only." : `No ${action.token} vault found.`);
+      case "earn":
+        return [await this.draftEarn(action.token, action.amount, book, action.venue, action.maxRisk)];
+      case "supply": {
         const token = getToken(action.token)!;
-        const units = resolve(action.amount, c.balances.get(token.symbol) ?? 0n, token.decimals);
-        c.spend(token.symbol, units, "deposit");
-        const amount = c.amountOf(token.symbol, units);
-        const display = `${fromBaseUnits(units, token.decimals)} ${token.symbol}`;
-        return {
-          adapter: "vault-deposit",
+        if (token.symbol !== "cirBTC") return [await this.draftEarn(token.symbol, action.amount, book, action.venue ?? "aave-v4", "high")];
+        const spoke = aaveSpokes(env).find((s) => s.key === "main");
+        if (!spoke) throw noRoute(env === "testnet" ? "Supplying cirBTC alone has no testnet venue; borrow against it to post it on Lykia Practice Lending." : "Aave V4 is not on this environment.");
+        const units = book.resolve(action.amount, token.symbol, token.decimals);
+        book.spend(token.symbol, units, "supply");
+        const amount = book.amount(token.symbol, units);
+        const display = book.display(token.symbol, units);
+        return [{
+          adapter: "aave-supply",
           fx: false,
-          summary: `Deposit ${display} into Morpho ${vault.id} (largest ${token.symbol} vault by assets)`,
-          params: { token: amount.token, symbol: token.symbol, amount: units.toString(), vault: vault.address, vaultName: `Morpho ${vault.id}`, display, decimals: String(token.decimals) },
+          summary: `Supply ${display} to ${spoke.label}`,
+          params: { spoke: spoke.address, spokeName: spoke.label, reserveId: "2", token: amount.token, symbol: token.symbol, amount: units.toString(), display, decimals: String(token.decimals) },
           inputs: [amount],
-          outputs: [{ ...amount, symbol: `${token.symbol}@morpho:${vault.id}` }],
-          fact: { usd: amount.usd, tokens: [c.tokenFact(token.symbol, false)] },
+          outputs: [{ ...amount, symbol: `${token.symbol}@aave-v4` }],
+          fact: { usd: amount.usd, tokens: [book.fact(token.symbol, false)] },
           settlement: { kind: "receipt" },
-          warnings: ["Vaults are ranked by total assets, not by yield: Lykia shows no APY it cannot read on chain."],
-        };
+          warnings: ["Supplied cirBTC earns little on its own; enable it as collateral when you borrow."],
+        }];
       }
-      case "withdraw": {
-        if (action.token !== "USDC" && action.token !== "EURC") throw noRoute("Withdraw takes USDC or EURC vault positions on Arc.");
-        const token = getToken(action.token)!;
-        const client = this.deps.chains.client(env);
-        const vaults = morphoVaults(env).filter((v) => v.asset === action.token);
-        if (vaults.length === 0) throw noRoute("No vault positions on this environment.");
-        const positions = await client.multicall({ contracts: vaults.map((v) => ({ address: v.address, abi: ERC4626_ABI, functionName: "maxWithdraw", args: [c.account] }) as const), allowFailure: true });
-        const held = vaults.map((v, i) => ({ v, max: positions[i]?.status === "success" ? (positions[i].result as bigint) : 0n })).filter((h) => h.max > 0n).sort((a, b) => (b.max > a.max ? 1 : -1));
-        const named = action.venue?.includes(":") ? held.find((h) => h.v.id.toLowerCase().startsWith((action.venue as string).split(":")[1]!.toLowerCase().replace(/usdc|eurc/u, ""))) : held[0];
-        if (!named) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `No ${action.token} vault position to withdraw from.`);
-        const all = "all" in action.amount;
-        const units = all ? named.max : resolve(action.amount, named.max, token.decimals);
-        if (units > named.max) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `The vault holds ${fromBaseUnits(named.max, token.decimals)} ${token.symbol} for you.`);
-        let shares = "0";
-        if (all) shares = (await client.readContract({ address: named.v.address, abi: ERC4626_ABI, functionName: "balanceOf", args: [c.account] })).toString();
-        c.receive(token.symbol, units);
-        const amount = c.amountOf(token.symbol, units);
-        const display = `${fromBaseUnits(units, token.decimals)} ${token.symbol}`;
-        return {
-          adapter: "vault-withdraw",
-          fx: false,
-          summary: `Withdraw ${display} from Morpho ${named.v.id}`,
-          params: { vault: named.v.address, vaultName: `Morpho ${named.v.id}`, mode: all ? "redeem" : "withdraw", amount: units.toString(), shares, display, decimals: String(token.decimals) },
-          inputs: [],
-          outputs: [amount],
-          fact: { usd: amount.usd, tokens: [c.tokenFact(token.symbol, true)], recipient: c.account === c.owner ? c.owner : c.account },
-          settlement: { kind: "receipt" },
-          warnings: [],
-        };
-      }
-      case "fx":
-      case "swap": {
-        const from = getToken(action.from)!;
-        const to = getToken(action.to)!;
-        const isFx = (from.symbol === "USDC" && to.symbol === "EURC") || (from.symbol === "EURC" && to.symbol === "USDC");
-        const units = resolve(action.amount, c.balances.get(from.symbol) ?? 0n, from.decimals);
-        if (env === "testnet") throw noRoute(isFx ? "No FX venue on Arc testnet that Lykia can execute (StableFX needs Circle credentials; Uniswap is mainnet only)." : "No swap venue on Arc testnet: Uniswap v3 is mainnet only.");
-        const tokenIn = tokenAddress(from, env) as Address;
-        const tokenOut = tokenAddress(to, env) as Address;
-        const quote = await bestUniswapQuote(this.deps.chains, env, tokenIn, tokenOut, units > 0n ? units : 1n);
-        if (!quote) throw noRoute(`No Uniswap v3 pool quotes ${from.symbol} -> ${to.symbol}.`);
-        c.spend(from.symbol, units, action.verb);
-        const slippageBps = action.verb === "swap" && action.slippageBps !== undefined ? action.slippageBps : DEFAULT_SLIPPAGE_BPS;
-        const minOut = (quote.amountOut * BigInt(10_000 - slippageBps)) / 10_000n;
-        c.receive(to.symbol, minOut);
-        const warnings: string[] = [];
-        let fxDeviationBps: number | null | undefined;
-        if (isFx) {
-          warnings.push(this.deps.stablefxConfigured ? "StableFX RFQ is configured but its taker flow is not built yet; routed through the Uniswap v3 USDC/EURC pool." : "StableFX RFQ needs Circle credentials; routed through the Uniswap v3 USDC/EURC pool and checked against Chainlink EURC/USD.");
-          const eurUsd = c.prices.EURC?.usd ?? null;
-          fxDeviationBps = eurUsd === null ? null : fxDeviation(from.symbol, units, quote.amountOut, eurUsd);
-        }
-        const input = c.amountOf(from.symbol, units);
-        const display = `${fromBaseUnits(units, from.decimals)} ${from.symbol} -> ${fromBaseUnits(quote.amountOut, to.decimals)} ${to.symbol}`;
-        return {
-          adapter: "swap",
-          fx: isFx,
-          summary: `${isFx ? "Convert" : "Swap"} ${display} (Uniswap v3, ${quote.fee / 10_000}% pool, min ${fromBaseUnits(minOut, to.decimals)})`,
-          params: { tokenIn, tokenOut, symbolIn: from.symbol, amountIn: units.toString(), fee: String(quote.fee), minOut: minOut.toString(), display, decimals: String(from.decimals) },
-          inputs: [input],
-          outputs: [c.amountOf(to.symbol, quote.amountOut, minOut)],
-          fact: { usd: input.usd, tokens: [c.tokenFact(from.symbol, false), c.tokenFact(to.symbol, true)], slippageBps, ...(isFx ? { fxDeviationBps } : {}) },
-          settlement: { kind: "receipt" },
-          warnings,
-        };
-      }
+      case "withdraw":
+        return [await this.draftWithdraw(action, book)];
       case "borrow":
+        return [await this.draftBorrow(action, book)];
       case "repay":
-        throw noRoute(`${action.verb === "borrow" ? "Borrowing" : "Repaying"} is not executable yet: Morpho Blue and Aave V4 adapters are on the trail, not in this build.`);
+        return [await this.draftRepay(action, book)];
+      case "fx":
+      case "swap":
+        return this.draftSwap(action, book);
+      case "reserve":
+      case "rebalance":
+        return [];
     }
+  }
+
+  private async draftEarn(symbol: string, amountSpec: ActionAmount, book: Book, venue?: string, maxRisk?: RiskTier): Promise<Draft> {
+    const { env } = book.l;
+    const token = getToken(symbol)!;
+    if (token.symbol !== "USDC" && token.symbol !== "EURC") throw noRoute("Earn takes USDC or EURC on Arc.");
+    const candidates = await this.router.earn(env, token.symbol);
+    const choice = this.router.chooseEarn(candidates, maxRisk ?? "medium", venue);
+    if (!choice) throw noRoute(env === "testnet" ? "No earn venue on Arc testnet yet: the Lykia practice vault is not deployed (Morpho and Aave are mainnet only)." : `No ${token.symbol} earn venue answered.`);
+    const units = book.resolve(amountSpec, token.symbol, token.decimals);
+    book.spend(token.symbol, units, "deposit");
+    const amount = book.amount(token.symbol, units);
+    const display = book.display(token.symbol, units);
+    const c: Candidate = choice.candidate;
+    const where = c.adapter === "aave-supply" ? c.params.spokeName : c.params.vaultName;
+    return {
+      adapter: c.adapter as AdapterId,
+      fx: false,
+      summary: `Deposit ${display} into ${where}`,
+      params: { ...c.params, amount: units.toString(), display },
+      inputs: [amount],
+      outputs: [{ ...amount, symbol: `${token.symbol}@${c.option.venue}` }],
+      fact: { usd: amount.usd, tokens: [book.fact(token.symbol, false)] },
+      settlement: { kind: "receipt" },
+      warnings: [],
+      route: choice.route,
+    };
+  }
+
+  private async draftWithdraw(action: Extract<PlanAction, { verb: "withdraw" }>, book: Book): Promise<Draft> {
+    const { env, account } = book.l;
+    const token = getToken(action.token)!;
+    const client = this.deps.chains.client(env);
+    type Held = { venue: string; label: string; max: bigint; adapter: AdapterId; params: Record<string, string>; healthAfter?: (units: bigint) => Promise<string | null | undefined> };
+    const held: Held[] = [];
+    const vaults = morphoVaults(env).filter((v) => v.asset === token.symbol);
+    const practice = await practiceVenues(env);
+    const practiceVault = token.symbol === "USDC" ? practice.vaultUsdc : token.symbol === "EURC" ? practice.vaultEurc : null;
+    const vaultList = [...vaults.map((v) => ({ ...v, practice: false })), ...(practiceVault ? [{ id: `Lykia Practice Vault ${token.symbol}`, address: practiceVault, asset: token.symbol, practice: true }] : [])];
+    if (vaultList.length > 0) {
+      const reads = await client.multicall({ contracts: vaultList.map((v) => ({ address: v.address, abi: ERC4626_ABI, functionName: "maxWithdraw", args: [account] }) as const), allowFailure: true });
+      vaultList.forEach((v, i) => {
+        const max = reads[i]?.status === "success" ? (reads[i].result as bigint) : 0n;
+        if (max > 0n) held.push({ venue: v.practice ? "lykia-practice" : "morpho-vaults", label: v.practice ? v.id : `Morpho ${v.id}`, max, adapter: v.practice ? "practice-vault-withdraw" : "vault-withdraw", params: { vault: v.address, vaultName: v.practice ? v.id : `Morpho ${v.id}` } });
+      });
+    }
+    try {
+      for (const p of await aavePositions(this.deps.chains, env, account)) {
+        if (p.reserve.symbol !== token.symbol || p.supplied === 0n) continue;
+        const spoke = p.spoke;
+        const cf = p.reserve.collateralFactorBps;
+        held.push({
+          venue: "aave-v4",
+          label: spoke.label,
+          max: p.supplied,
+          adapter: "aave-withdraw",
+          params: { spoke: spoke.address, spokeName: spoke.label, reserveId: String(p.reserve.reserveId) },
+          healthAfter: cf === 0 ? undefined : async (units) => {
+            const acct = await readAaveAccount(this.deps.chains, env, spoke.address, account);
+            const price = book.l.prices[token.symbol]?.usd ?? null;
+            if (!acct || price === null) return null;
+            if (acct.debtValueRay === 0n) return undefined;
+            return wadToRatio(projectAaveHealth(acct, -usdMicrosOf(units, token.decimals, price), cf, 0n));
+          },
+        });
+      }
+    } catch {
+      /* no Aave on this environment */
+    }
+    if (held.length === 0) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `No ${token.symbol} position to withdraw from on Arc ${env}.`);
+    const [venueId, name] = (action.venue ?? "").split(":");
+    const named = action.venue ? held.find((h) => h.venue === venueId && (!name || h.label.toLowerCase().replace(/\s+/gu, "").includes(name.toLowerCase().replace(/usdc|eurc/gu, "")))) : undefined;
+    const pick = named ?? [...held].sort((a, b) => (b.max > a.max ? 1 : -1))[0]!;
+    const all = "all" in action.amount;
+    const units = all ? pick.max : "percent" in action.amount ? portionOf(pick.max, action.amount.percent * 100) : toBaseUnitsBig((action.amount as { exact: string }).exact, token.decimals);
+    if (units > pick.max) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `${pick.label} holds ${book.display(token.symbol, pick.max)} for you.`);
+    let shares = "0";
+    if (all && (pick.adapter === "vault-withdraw" || pick.adapter === "practice-vault-withdraw")) shares = (await client.readContract({ address: pick.params.vault as Address, abi: ERC4626_ABI, functionName: "balanceOf", args: [account] })).toString();
+    book.receive(token.symbol, units);
+    const amount = book.amount(token.symbol, units);
+    const display = book.display(token.symbol, units);
+    const health = pick.healthAfter ? await pick.healthAfter(units) : undefined;
+    return {
+      adapter: pick.adapter,
+      fx: false,
+      summary: `Withdraw ${display} from ${pick.label}`,
+      params: { ...pick.params, mode: all ? (pick.adapter === "aave-withdraw" ? "all" : "redeem") : "withdraw", amount: units.toString(), shares, display, decimals: String(token.decimals), symbol: token.symbol },
+      inputs: [],
+      outputs: [amount],
+      fact: { usd: amount.usd, tokens: [book.fact(token.symbol, true)], recipient: account, ...(health !== undefined ? { healthFactorAfter: health } : {}) },
+      settlement: { kind: "receipt" },
+      warnings: held.length > 1 && !named ? [`Withdrawing from ${pick.label}, your largest ${token.symbol} position; name a venue to pick another.`] : [],
+    };
+  }
+
+  private async draftBorrow(action: Extract<PlanAction, { verb: "borrow" }>, book: Book): Promise<Draft> {
+    const { env, account, fence } = book.l;
+    const loan = getToken(action.token)!;
+    if (loan.symbol !== "USDC" && loan.symbol !== "EURC") throw noRoute("Lykia borrows USDC or EURC on Arc.");
+    const coll = getToken(action.collateral?.token ?? "cirBTC")!;
+    if (coll.symbol !== "cirBTC") throw noRoute("cirBTC is the collateral Lykia posts on Arc for now.");
+    const minHealth = action.minHealth ?? (fence.lending?.minHealthFactor && ratioBps(fence.lending.minHealthFactor) > ratioBps(DEFAULT_MIN_HEALTH) ? fence.lending.minHealthFactor : DEFAULT_MIN_HEALTH);
+    const amountUnits = "exact" in action.amount ? toBaseUnitsBig(action.amount.exact, loan.decimals) : null;
+    if (amountUnits === null || amountUnits <= 0n) throw new LykiaHttpError("INVALID_ACTIONS", 400, "Say how much to borrow as an exact amount (e.g. 1000 USDC).");
+    const wallet = book.spendable(coll.symbol);
+    const collateralUnits = action.collateral?.amount ? book.resolve(action.collateral.amount, coll.symbol, coll.decimals) : null;
+    const minHealthWad = ratioBps(minHealth) * 10n ** 14n;
+    const candidates = await this.router.borrow(env, { loan: loan.symbol, amount: amountUnits, collateral: coll.symbol, collateralUnits, walletCollateral: book.l.dryRun && wallet === 0n ? 10n ** 30n : wallet, minHealthWad, account });
+    if (candidates.length === 0) throw noRoute(env === "testnet" ? "No borrow venue on Arc testnet yet: Lykia Practice Lending is not deployed (Aave V4 and Morpho Blue are mainnet only)." : `No ${loan.symbol} market against ${coll.symbol} answered.`);
+    const choice = this.router.chooseBorrow(candidates, minHealth, action.venue);
+    if (!choice) {
+      const best = candidates.map((c) => `${c.option.label}: health ${c.healthFactor ?? "unknown"}`).join("; ");
+      throw new LykiaHttpError("NO_ROUTE", 422, `No venue keeps the health factor at ${minHealth} or above for this borrow (${best}). Post more ${coll.symbol} or borrow less.`, { alternatives: candidates.map((c) => c.option) });
+    }
+    const c = choice.candidate;
+    if (c.collateralUnits > 0n) book.spend(coll.symbol, c.collateralUnits, "post collateral");
+    book.receive(loan.symbol, amountUnits);
+    const debt = book.amount(loan.symbol, amountUnits);
+    const display = book.display(loan.symbol, amountUnits);
+    const collText = c.collateralUnits > 0n ? `post ${book.display(coll.symbol, c.collateralUnits)} and ` : "";
+    return {
+      adapter: c.adapter as AdapterId,
+      fx: false,
+      summary: `On ${c.option.label}: ${collText}borrow ${display} (health factor ${c.healthFactor ?? "unknown"} after, floor ${minHealth})`,
+      params: { ...c.params, amount: amountUnits.toString(), collateral: c.collateralUnits.toString(), display, minHealth },
+      inputs: c.collateralUnits > 0n ? [book.amount(coll.symbol, c.collateralUnits)] : [],
+      outputs: [debt],
+      fact: { usd: debt.usd, tokens: [book.fact(loan.symbol, true), ...(c.collateralUnits > 0n ? [book.fact(coll.symbol, false)] : [])], healthFactorAfter: c.healthFactor },
+      settlement: { kind: "receipt" },
+      warnings: action.minHealth && fence.lending?.minHealthFactor && ratioBps(action.minHealth) < ratioBps(fence.lending.minHealthFactor) ? [`You asked for health ${action.minHealth}; the Fence floor is ${fence.lending.minHealthFactor} and still applies.`] : [],
+      route: choice.route,
+    };
+  }
+
+  private async draftRepay(action: Extract<PlanAction, { verb: "repay" }>, book: Book): Promise<Draft> {
+    const { env, account } = book.l;
+    const token = getToken(action.token)!;
+    type Debt = { venue: string; label: string; debt: bigint; adapter: AdapterId; params: Record<string, string> };
+    const debts: Debt[] = [];
+    try {
+      for (const p of await aavePositions(this.deps.chains, env, account)) if (p.reserve.symbol === token.symbol && p.debt > 0n) debts.push({ venue: "aave-v4", label: p.spoke.label, debt: p.debt, adapter: "aave-repay", params: { spoke: p.spoke.address, spokeName: p.spoke.label, reserveId: String(p.reserve.reserveId) } });
+    } catch {
+      /* no Aave here */
+    }
+    try {
+      for (const { market, position } of await morphoPositions(this.deps.chains, env, account)) if (market.loan === token.symbol && position.borrowAssets > 0n) debts.push({ venue: "morpho-blue", label: market.label, debt: position.borrowAssets, adapter: "morpho-repay", params: { market: market.id } });
+    } catch {
+      /* no Morpho here */
+    }
+    const practice = await practiceVenues(env);
+    if (practice.lending && token.symbol === "USDC") {
+      try {
+        const debt = await this.deps.chains.client(env).readContract({ address: practice.lending, abi: PRACTICE_LENDING_ABI, functionName: "debtOf", args: [account] });
+        if (debt > 0n) debts.push({ venue: "lykia-practice", label: "Lykia Practice Lending", debt, adapter: "practice-repay", params: { pool: practice.lending } });
+      } catch {
+        /* unreadable */
+      }
+    }
+    if (debts.length === 0) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `No ${token.symbol} debt to repay on Arc ${env}.`);
+    const named = action.venue ? debts.find((d) => d.venue === action.venue!.split(":")[0]) : undefined;
+    const pick = named ?? [...debts].sort((a, b) => (b.debt > a.debt ? 1 : -1))[0]!;
+    const all = "all" in action.amount;
+    const units = all ? pick.debt : "percent" in action.amount ? portionOf(pick.debt, action.amount.percent * 100) : toBaseUnitsBig((action.amount as { exact: string }).exact, token.decimals);
+    const capped = units > pick.debt ? pick.debt : units;
+    book.spend(token.symbol, all ? capped + capped / 1000n : capped, "repay");
+    const amount = book.amount(token.symbol, capped);
+    const display = book.display(token.symbol, capped);
+    return {
+      adapter: pick.adapter,
+      fx: false,
+      summary: `Repay ${all ? "all " : ""}${display} on ${pick.label}`,
+      params: { ...pick.params, token: amount.token, symbol: token.symbol, amount: capped.toString(), mode: all ? "all" : "exact", display, decimals: String(token.decimals) },
+      inputs: [amount],
+      outputs: [],
+      fact: { usd: amount.usd, tokens: [book.fact(token.symbol, false)] },
+      settlement: { kind: "receipt" },
+      warnings: all ? ["Interest accrues every second: the approval leaves 0.1% headroom and the repay clears the debt exactly."] : [],
+    };
+  }
+
+  private async draftSwap(action: Extract<PlanAction, { verb: "fx" | "swap" }>, book: Book): Promise<Draft[]> {
+    const { env } = book.l;
+    const from = getToken(action.from)!;
+    const to = getToken(action.to)!;
+    const isFx = (from.symbol === "USDC" && to.symbol === "EURC") || (from.symbol === "EURC" && to.symbol === "USDC");
+    const units = book.resolve(action.amount, from.symbol, from.decimals);
+    if (units <= 0n && !book.l.dryRun) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `Nothing to ${action.verb}: the spendable ${from.symbol} balance is 0.`);
+    const best = await this.router.bestSwap(env, from.symbol, to.symbol, units > 0n ? units : 10n ** BigInt(from.decimals));
+    if (!best) throw noRoute(env === "testnet" ? `No ${isFx ? "FX" : "swap"} venue on Arc testnet yet: the Lykia practice swap is not deployed (Uniswap is mainnet only).` : `No venue on Arc quotes ${from.symbol} -> ${to.symbol}.`);
+    book.spend(from.symbol, units, action.verb);
+    // An explicit slippage is kept as asked (the Fence then judges it); the default never exceeds the Fence's ceiling.
+    const fenceMax = book.l.fence.limits?.maxSlippageBps;
+    const slippageBps = action.verb === "swap" && action.slippageBps !== undefined ? action.slippageBps : fenceMax !== undefined ? Math.min(DEFAULT_SLIPPAGE_BPS, fenceMax) : DEFAULT_SLIPPAGE_BPS;
+    const eurUsd = book.l.prices.EURC?.usd ?? null;
+    const drafts: Draft[] = [];
+    const scale = (value: bigint, legIn: bigint, quotedIn: bigint) => (quotedIn === 0n ? 0n : (value * legIn) / quotedIn);
+    for (const [index, leg] of best.legs.entries()) {
+      const quotedIn = BigInt(leg.candidate.params.amountIn as string);
+      const legIn = best.legs.length === 1 ? units : leg.amountIn;
+      const out = scale(leg.candidate.amountOut, legIn, quotedIn);
+      const minOut = (out * BigInt(10_000 - slippageBps)) / 10_000n;
+      book.receive(to.symbol, minOut);
+      const input = book.amount(from.symbol, legIn);
+      const display = `${fromBaseUnits(legIn, from.decimals)} ${from.symbol} -> ${fromBaseUnits(out, to.decimals)} ${to.symbol}`;
+      const warnings: string[] = [];
+      if (isFx && index === 0) warnings.push(this.deps.stablefxConfigured ? "StableFX RFQ credentials are set but its taker flow is not built yet; routed on-chain and checked against Chainlink EURC/USD." : "Routed on-chain and checked against Chainlink EURC/USD; StableFX RFQ needs Circle credentials.");
+      drafts.push({
+        adapter: leg.candidate.adapter as AdapterId,
+        fx: isFx,
+        summary: `${isFx ? "Convert" : "Swap"} ${display} on ${leg.candidate.option.label} (min ${fromBaseUnits(minOut, to.decimals)})`,
+        params: { ...leg.candidate.params, amountIn: legIn.toString(), minOut: minOut.toString(), display },
+        inputs: [input],
+        outputs: [book.amount(to.symbol, out, minOut)],
+        fact: { usd: input.usd, tokens: [book.fact(from.symbol, false), book.fact(to.symbol, true)], slippageBps, ...(isFx ? { fxDeviationBps: eurUsd === null ? null : fxDeviation(from.symbol, legIn, out, eurUsd) } : {}) },
+        settlement: { kind: "receipt" },
+        warnings,
+        ...(index === 0 ? { route: best.route } : {}),
+      });
+    }
+    return drafts;
   }
 }
 

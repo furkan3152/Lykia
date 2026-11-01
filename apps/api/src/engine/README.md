@@ -1,0 +1,141 @@
+# The Lykia engine
+
+The engine turns outcomes into routed, Fence-checked plans on Arc, and keeps
+standing orders. It never signs and never prepares a transaction on its own
+initiative: signing always happens in the owner's or the agent's own wallet.
+
+## The three calls other layers use
+
+They are exported from `engine/api.ts`. The Lyko agent, sub-agents, the MCP
+server and standing orders all go through them.
+
+### `compileGoals(text, options?) => CompiledGoals`
+
+Takes a sentence in English or Turkish and returns plan actions for now,
+standing orders for later, or questions. It is deterministic and does no I/O.
+
+```ts
+compileGoals("put 40% of my USDC in the best vault, convert 20% to EURC and bridge the rest to Base");
+// actions: earn 40%, fx 20%, bridge all (shares are shares of the starting balance)
+compileGoals("if EURC/USD goes above 1.12 convert 1000 EURC to USDC");
+// standing: [{ trigger: { kind: "price", feed: "EURC/USD", op: "above", value: "1.12" }, actions: [fx …] }]
+compileGoals("convert 100");
+// clarify: ["Swap which token into which?"], clarifyChoices: [{ choices: ["USDC to EURC", …] }]
+```
+
+`options.timezone` sets the IANA zone for schedules. The default is
+Europe/Istanbul for Turkish sentences and UTC otherwise.
+
+Result: `{ actions, standing, clarify, clarifyChoices, lang }`.
+
+### `planActions(intents, input) => Promise<CreateIntentResponse>`
+
+Equivalent to `IntentService.create`. It reads balances and prices, routes
+every action to a venue, attaches `step.route` (the chosen option, the
+alternatives and the reason), evaluates the Fence, and stores the plan unless
+`dryRun` is set.
+
+| Input | Meaning |
+|---|---|
+| `environment`, `owner`, `actions`, `source` | Required. |
+| `fence` | The owner's Fence. Defaults to Shepherd. |
+| `signer` | `"wallet"` or `"agent"`. |
+| `agent` | `{ address, agentId? }`. The account that acts. |
+| `proposedByAgent` | Set by agents. Fences can require the owner's confirmation for these plans. |
+| `dryRun` | Plans past a short balance, with a warning, so a route can be previewed before funding. |
+| `account` | `"eoa"` (the default) or `"smart"` (plain calls instead of Memo / Multicall3From). |
+
+### `quoteVenues(router, request) => Promise<QuoteResponse>`
+
+Returns every live venue's option for one action, priced the same way, plus
+the engine's pick. Use it to answer "why this route?" without planning.
+
+```ts
+quoteVenues(router, { kind: "swap", environment: "mainnet", from: "USDC", to: "EURC", amount: "1000" });
+quoteVenues(router, { kind: "earn", environment: "mainnet", token: "USDC", maxRisk: "medium" });
+quoteVenues(router, { kind: "borrow", environment: "mainnet", token: "USDC", amount: "1000", collateral: "cirBTC", minHealth: "1.8", account });
+```
+
+Result: `{ kind, environment, options: VenueOption[], choice: RouteChoice | null }`.
+`VenueOption` and `RouteChoice` are defined in `@lykia/core` (`routes.ts`).
+
+The same data is served over HTTP as `POST /v1/quote`.
+
+## Routing ("neyi nereye")
+
+`router.ts` (`VenueRouter`) asks every live venue that can do an action and
+ranks the answers.
+
+- **Swap and FX.** The router quotes Uniswap v3 on every fee tier (QuoterV2),
+  two-hop paths through USDC, and hookless Uniswap v4 pools (V4Quoter). On
+  testnet it also quotes the Lykia practice swap. Options are compared by
+  output after gas: gas is priced in USDC at the live gas price, plus the
+  Memo/Multicall3From overhead. When the two best options sit in different
+  pools, the router re-quotes a 50/50 split and takes it if it wins by at
+  least 5 bps. Aerodrome Slipstream holds the deepest USDC/EURC pool on Arc,
+  but Lykia cannot execute its Metarouter yet. Its pool mid price is shown as
+  a read-only estimate so the reason can say so.
+- **Earn.** The router compares Morpho Vault V2 (net APY from the Morpho API)
+  with the Aave V4 Main Spoke (supply APY from the Aave API), and the Lykia
+  practice vault on testnet. Risk tiers come from TVL: low at $10M or more,
+  medium at $1M or more, high below that. The default ceiling is medium;
+  `maxRisk` changes it ("safest" → low, "highest" → high). Vaults under $50k
+  are never picked automatically. When an API does not answer, the APY is
+  shown as unknown and options are ranked by size.
+- **Borrow.** The router compares the Aave V4 Main Spoke and Morpho Blue
+  (cirBTC/USDC or cirBTC/EURC, 86% LLTV), and Lykia Practice Lending on
+  testnet. Collateral is sized so the health factor reaches the floor, plus a
+  2% buffer, capped at the wallet balance. The health factor is projected
+  from the venue's own math: the Spoke's account data for Aave, and the
+  oracle price times LLTV for Morpho. The cheapest borrow rate that keeps the
+  floor wins. The floor is `minHealth`, otherwise the Fence's
+  `lending.minHealthFactor`, otherwise 1.5.
+
+## Amounts across clauses
+
+A share is a share of the balance the plan starts with, minus whatever
+`reserve` actions keep liquid. "all" or "the rest" means whatever is still
+spendable at that point in the plan. Reserves apply to the whole plan,
+wherever they appear in the sentence. `rebalance` becomes the fewest fx/swap
+steps that reach the target weights (`@lykia/core` `allocation.ts`, USD
+values from Chainlink).
+
+Slippage defaults to 50 bps and never exceeds the Fence's
+`limits.maxSlippageBps`. An explicit slippage in the action is kept as asked,
+and the Fence judges it.
+
+## Executable venues
+
+| Adapter | Venue | Environment |
+|---|---|---|
+| `transfer` | ERC-20 transfer with an Arc Memo | both |
+| `bridge` | CCTP V2 `depositForBurn` (attestation tracked; inbound mints via `POST /v1/cctp/inbound`) | both |
+| `gateway` | Circle Gateway deposit | both |
+| `vault-deposit` / `vault-withdraw` | Morpho Vault V2 (ERC-4626) | mainnet |
+| `aave-supply` / `aave-withdraw` / `aave-borrow` / `aave-repay` | Aave V4 Spokes | mainnet |
+| `morpho-borrow` / `morpho-repay` | Morpho Blue (repay all by shares) | mainnet |
+| `swap` / `swap-path` | Uniswap v3 single pool / two hops | mainnet |
+| `swap-v4` | Uniswap v4 through UniversalRouter + Permit2 | mainnet |
+| `practice-*` | Lykia practice vault, swap, lending | testnet, once deployed |
+
+Calls are shaped by `calls.ts`. An EOA signs one Multicall3From transaction
+`[approvals…, calls…, Memo(last call)]`, or a single Memo-wrapped call. Smart
+accounts get plain calls. Every adapter's batch was simulated with `eth_call`
+on Arc mainnet on 2026-11-01.
+
+## Standing orders
+
+`standing.ts` (`StandingService`) stores orders and checks them every 30
+seconds.
+
+- **Triggers:** Chainlink prices (EURC, BTC, ETH, EUR, JPY, BRL, MXN, PAXG
+  against USD), daily/weekly/monthly schedules, or a lending health factor
+  falling below a value.
+- **When an order fires:** it plans an intent with the owner's Fence and
+  emits `standing.fired` on the bus. It does not sign.
+- **Unknown facts never fire an order:** a stale price or an unreadable health
+  factor means the order waits.
+- **Repeated failures:** after three failed plans in a row, the order pauses
+  itself.
+
+HTTP routes are in `modules/standing.ts`.

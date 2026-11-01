@@ -36,7 +36,9 @@ describe("Lykia API", () => {
     assert.equal(venues.venues.find((v) => v.id === "cctp")?.executable, true);
     assert.equal(venues.venues.some((v) => v.id === "morpho-vaults"), false);
     const mainnet = (await (await fetch(`${served.url}/v1/venues?environment=mainnet`)).json()) as { venues: { id: string; executable: boolean }[] };
-    assert.equal(mainnet.venues.find((v) => v.id === "aave-v4")?.executable, false);
+    assert.equal(mainnet.venues.find((v) => v.id === "aave-v4")?.executable, true);
+    assert.equal(mainnet.venues.find((v) => v.id === "aerodrome-slipstream")?.executable, false);
+    assert.equal(venues.venues.find((v) => v.id === "lykia-practice")?.executable, false);
   });
 
   it("validates and evaluates Fences", async () => {

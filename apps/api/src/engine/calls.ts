@@ -46,15 +46,21 @@ export function batched(calls: readonly RawCall[], environment: ArcEnvironment):
 }
 
 /**
- * The transactions for a step: [approval?] + main call.
- *  - EOA, approval needed: one Multicall3From batch [approve, Memo(main)]
- *    (composition checked with eth_call on Arc testnet, 2026-11-01).
- *  - EOA, no approval: the main call wrapped in a Memo.
+ * The transactions for a step: [approvals…] + calls, the last call being
+ * the value-moving one that carries the memo.
+ *  - EOA, one call, no approval: the call wrapped in a Memo.
+ *  - EOA otherwise: one Multicall3From batch [approvals…, calls…, Memo(last)]
+ *    (composition checked with eth_call on Arc, 2026-11-01): one signature,
+ *    one final transaction, the signer stays msg.sender throughout.
  *  - smart account: plain calls in order.
  */
-export function shape(main: RawCall, approval: RawCall | null, options: ShapeOptions): UnsignedTransaction[] {
+export function shape(main: RawCall | readonly RawCall[], approval: RawCall | readonly RawCall[] | null, options: ShapeOptions): UnsignedTransaction[] {
+  const calls = Array.isArray(main) ? (main as readonly RawCall[]) : [main as RawCall];
+  const approvals = approval === null ? [] : Array.isArray(approval) ? (approval as readonly RawCall[]) : [approval as RawCall];
+  if (calls.length === 0) throw new Error("A step needs at least one call.");
   const tx = (call: RawCall): UnsignedTransaction => ({ chainId: options.chainId, from: options.from, to: call.to, data: call.data, value: "0", label: call.label });
-  if (options.account === "smart") return [...(approval ? [tx(approval)] : []), tx(main)];
-  if (approval) return [tx(batched([approval, withMemo(main, options)], options.environment))];
-  return [tx(withMemo(main, options))];
+  if (options.account === "smart") return [...approvals, ...calls].map(tx);
+  const last = calls[calls.length - 1] as RawCall;
+  if (approvals.length === 0 && calls.length === 1) return [tx(withMemo(last, options))];
+  return [tx(batched([...approvals, ...calls.slice(0, -1), withMemo(last, options)], options.environment))];
 }

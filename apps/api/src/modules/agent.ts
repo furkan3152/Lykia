@@ -1,151 +1,332 @@
 /**
- * Lyko, the agent. With ANTHROPIC_API_KEY set, Lyko answers with Claude and
- * a small toolset over Lykia's own services (Flock, Scent, plan, Fence).
- * Lyko may only propose plans: proposals are stored intents the owner
- * prepares and signs in their own wallet. Without a key, Lyko falls back
- * to the deterministic reader and plans what it understood.
+ * Lyko and the Pack.
+ *
+ *   POST /agent/chat                     SSE: thread, reading, task, tool, thinking-summary, proposal, clarify, text, error, done
+ *                                        (Accept: application/json returns the same events as one JSON document)
+ *   GET  /agent/threads?owner            thread list        GET /agent/threads/:id?owner   one thread
+ *   POST /agent/threads                  open an empty thread
+ *   GET  /agent/insights?owner&environment
+ *   GET  /agent/automations?owner        POST /agent/automations   POST /agent/automations/:id/(enable|disable)
+ *   POST /agent/automations/run          evaluate the owner's automations now (proposals only)
+ *   POST /agent/check                    a Fence verdict for an agent's own facts
+ *
+ *   GET  /pack?owner&environment         the owner's agent tree with budgets
+ *   POST /pack                           create a root agent
+ *   GET  /pack/:id                       POST /pack/:id/spawn   POST /pack/:id/revoke (cascades)
+ *   POST /pack/:id/(pause|resume)        GET /pack/:id/budget
+ *   POST /pack/:id/session-tx            unsigned LykiaAccount createSession / createSubSession
+ *   POST /pack/:id/session               record the session once the transaction landed
+ *   POST /pack/whistle                   unsigned blowWhistle() for the owner's LykiaAccount + whistle.blown webhook
+ *
+ * Writes to the Pack need a Lykia-Session for the owner, or a secret API
+ * key with the agents scope (a developer acting for its users). Nothing
+ * here signs or moves funds.
  */
-import Anthropic from "@anthropic-ai/sdk";
-import { DEFAULT_FENCE, evaluateFence, LYKO_LINES, type Address, type ArcEnvironment, type Fence, type FenceFacts, type PlanAction } from "@lykia/core";
+import { DEFAULT_FENCE, evaluateFence, PACK_ROLES, type Address, type ArcEnvironment, type FenceFacts, type PackAgent, type PackRole } from "@lykia/core";
+import type { Request, Response } from "express";
+import { encodeFunctionData, type Hex } from "viem";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
+import { LykiaHttpError } from "../http/errors.js";
 import type { ApiModule } from "../http/router.js";
-import { evmAddress, parseBody } from "../http/validate.js";
+import { openSse } from "../http/sse.js";
+import { evmAddress, parseBody, parseParams, parseQuery } from "../http/validate.js";
+import { agentServices } from "../agents/index.js";
 import { readSentence } from "../language/reader.js";
-import { services } from "../services.js";
+import { createAutomation, listAutomations, runAutomations, setAutomationEnabled } from "../agents/automations.js";
+import { runDeterministicTurn } from "../agents/deterministic.js";
+import { insightsFor } from "../agents/insights.js";
+import { appendMessages, getThread, listThreads, openThread } from "../agents/memory.js";
+import { buildSessionTx } from "../agents/onchain.js";
+import { runTurn, type Emit } from "../agents/orchestrator.js";
+import { perceive } from "../agents/perception.js";
+import { flags } from "../platform/admin.js";
+import { keyOf } from "../platform/gate.js";
+import { sessionOf } from "../platform/session.js";
 import { environmentOf, environmentSchema, fenceFrom } from "./common.js";
 import { factsSchema } from "./fence.js";
 
-export const MAX_TOOL_ROUNDS = 5;
+const ownerQuery = z.object({ owner: evmAddress, environment: environmentSchema.optional() });
+const idParams = z.object({ id: z.string().min(8).max(120) });
+const roleSchema = z.enum(PACK_ROLES as unknown as [PackRole, ...PackRole[]]);
 
-export const SYSTEM_PROMPT = `You are Lyko, the shepherd dog of Lykia, an agent and stablecoin desk built on Arc Network (Circle's L1 where USDC is gas and finality is deterministic).
-You keep the flock (the owner's assets and agents) inside the Fence (the owner's rules) and the wolves (scam tokens, rug pulls, exploits) outside.
-Rules you never break:
-- You never sign or move funds. You propose plans with the plan_intent tool; the owner reviews and signs in their own wallet.
-- Every number you state comes from a tool result. If you do not have it, say so.
-- Run scent before suggesting any token outside USDC, EURC, USYC and cirBTC.
-- If the Fence denies a plan, explain the reason; do not look for ways around it.
-Be short and warm. Answer in the user's language (Turkish or English).`;
-
-interface ChatProposal {
-  readonly intentId: string | null;
-  readonly summary: readonly string[];
-  readonly decision: string;
-  readonly reasons: readonly string[];
+/** The owner a write may act for: the signed-in owner, or any owner for a secret key with the agents scope. */
+export async function authorizeOwner(ctx: AppContext, req: Request, owner: string): Promise<void> {
+  const session = await sessionOf(ctx, req);
+  if (session && session.address === owner.toLowerCase()) return;
+  const key = keyOf(req);
+  if (key && key.kind === "secret" && key.scopes.includes("agents")) return;
+  throw new LykiaHttpError(session ? "FORBIDDEN" : "UNAUTHORIZED", session ? 403 : 401, session ? "This session belongs to another address." : "Sign in as the owner (Lykia-Session) or use a secret API key with the agents scope.");
 }
 
-export const TOOLS: Anthropic.Tool[] = [
-  { name: "flock", description: "Read the owner's balance sheet on Arc (wallet tokens, Morpho vaults, Gateway balance, USD values).", input_schema: { type: "object", properties: {}, required: [] } },
-  { name: "scent", description: "Inspect a token by address: registry, proxy, privileged functions, owner, transfer simulation. Returns a level and the wolves found.", input_schema: { type: "object", properties: { token: { type: "string", description: "0x token address" } }, required: ["token"] } },
-  {
-    name: "plan_intent",
-    description: "Propose a plan from a plain sentence (English or Turkish), e.g. 'deposit 100 USDC into Morpho' or 'send 20 USDC to 0x... for invoice 12'. Returns the steps and the Fence verdict. The owner signs later.",
-    input_schema: { type: "object", properties: { sentence: { type: "string" } }, required: ["sentence"] },
-  },
-  { name: "venues", description: "List the venues on Arc and which ones Lykia can execute.", input_schema: { type: "object", properties: {}, required: [] } },
-];
-
-async function runTool(ctx: AppContext, name: string, input: Record<string, unknown>, c: { environment: ArcEnvironment; owner: Address | null; fence: Fence; proposals: ChatProposal[]; byAgent: boolean }): Promise<unknown> {
-  const s = services(ctx);
-  switch (name) {
-    case "flock":
-      if (!c.owner) return { error: "No owner address was given." };
-      return s.flock.snapshot(c.environment, c.owner);
-    case "scent":
-      if (typeof input.token !== "string" || !/^0x[0-9a-fA-F]{40}$/u.test(input.token)) return { error: "token must be a 0x address." };
-      return s.scent.sniff(c.environment, input.token as Address);
-    case "plan_intent": {
-      if (!c.owner) return { error: "No owner address was given." };
-      const parsed = readSentence(String(input.sentence ?? ""));
-      if (parsed.clarify.length > 0 || parsed.actions.length === 0) return { clarify: parsed.clarify, reply: parsed.reply };
-      const result = await s.intents.create({ environment: c.environment, owner: c.owner, actions: parsed.actions, source: String(input.sentence), fence: c.fence, ...(c.byAgent ? { proposedByAgent: true } : {}) });
-      const proposal: ChatProposal = { intentId: result.intent.id, summary: result.intent.steps.map((st) => st.summary), decision: result.intent.verdict.decision, reasons: result.intent.verdict.reasons.map((r) => r.message) };
-      c.proposals.push(proposal);
-      return { ...proposal, warnings: result.intent.warnings };
-    }
-    case "venues": {
-      const { protocolsFor } = await import("@lykia/core");
-      const { EXECUTABLE_VENUES } = await import("../engine/adapters.js");
-      return protocolsFor(c.environment).map((p) => ({ id: p.id, name: p.name, category: p.category, executable: EXECUTABLE_VENUES[c.environment].has(p.id) }));
-    }
-    default:
-      return { error: `Unknown tool ${name}.` };
-  }
-}
+const BLOW_WHISTLE_ABI = [{ type: "function", name: "blowWhistle", stateMutability: "nonpayable", inputs: [], outputs: [] }] as const;
 
 export const agentModule: ApiModule = {
   name: "agent",
   register(router, ctx) {
-    router.post("/agent/chat", ctx.limits.heavy, async (req, res) => {
+    const s = () => agentServices(ctx);
+
+    router.post("/agent/chat", ctx.limits.heavy, async (req: Request, res: Response) => {
       const body = parseBody(
         req,
         z.object({
-          messages: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(4_000) })).min(1).max(30),
+          message: z.string().min(1).max(4_000).optional(),
+          messages: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().min(1).max(4_000) })).min(1).max(30).optional(),
           owner: evmAddress.optional(),
           environment: environmentSchema.optional(),
+          threadId: z.string().max(120).optional(),
           fence: z.unknown().optional(),
         }),
       );
+      const message = body.message ?? body.messages?.[body.messages.length - 1]?.content;
+      if (!message) throw new LykiaHttpError("INVALID_REQUEST", 400, "Send a message.");
       const environment = environmentOf(ctx, body.environment);
+      const session = await sessionOf(ctx, req);
+      const owner = ((body.owner as string | undefined) ?? session?.address ?? null) as Address | null;
       const fence = fenceFrom(body.fence) ?? DEFAULT_FENCE;
-      const owner = (body.owner as Address | undefined) ?? null;
-      const proposals: ChatProposal[] = [];
-      const last = body.messages[body.messages.length - 1]?.content ?? "";
+      const pack = owner ? (await s().pack.ownedBy(owner, environment)).filter((a) => a.status === "active") : [];
+      const thread = await openThread(ctx, owner, environment, body.threadId, message);
+      const history = thread.messages.length > 0 ? thread.messages.map((m) => ({ role: m.role, text: m.text })) : (body.messages ?? []).slice(0, -1).map((m) => ({ role: m.role, text: m.content }));
+      const client = (await flags(ctx))["agents.llm"] ? s().llm() : null;
 
-      if (!ctx.config.agent.anthropicApiKey) {
-        const parsed = readSentence(last);
-        let reply = parsed.reply;
-        if (parsed.actions.length > 0 && parsed.clarify.length === 0 && owner) {
-          try {
-            await runTool(ctx, "plan_intent", { sentence: last }, { environment, owner, fence, proposals, byAgent: false });
-            const p = proposals[0];
-            reply = p ? `${p.summary.join(" → ")}. ${p.decision === "deny" ? `The Fence says no: ${p.reasons.join(" ")}` : LYKO_LINES.herding[parsed.lang]}` : reply;
-          } catch (error) {
-            reply = error instanceof Error ? error.message : reply;
-          }
-        } else if (parsed.actions.length > 0 && !owner) reply = parsed.lang === "tr" ? "Planlamak için bir cüzdan adresi lazım." : "Connect a wallet so I can plan that.";
-        res.json({ mode: "reader", reply, lang: parsed.lang, command: parsed.command, easterEgg: parsed.easterEgg, clarify: parsed.clarify, proposals });
-        return;
-      }
-
-      const client = new Anthropic({ apiKey: ctx.config.agent.anthropicApiKey });
-      const messages: Anthropic.MessageParam[] = body.messages.map((m) => ({ role: m.role, content: m.content }));
-      const toolCalls: { name: string; input: unknown }[] = [];
-      const system = `${SYSTEM_PROMPT}\nEnvironment: Arc ${environment}. Owner: ${owner ?? "not connected"}. Fence: ${fence.label ?? "custom"} (${fence.mode ?? "live"}).`;
-      let reply = "";
-      for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-        const response = await client.messages.create({ model: ctx.config.agent.model, max_tokens: 1_024, system, messages, tools: TOOLS });
-        const text = response.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
-        if (response.stop_reason !== "tool_use") {
-          reply = text;
-          break;
+      // SSE unless the client asks for JSON, or uses the original `messages` contract without asking for a stream.
+      const accept = req.get("accept") ?? "";
+      const wantsJson = !accept.includes("text/event-stream") && (accept.includes("application/json") || body.message === undefined);
+      const events: { event: string; data: unknown }[] = [];
+      const stream = wantsJson ? null : openSse(req, res, { slots: ctx.limits.streams });
+      const emit: Emit = (event, data) => {
+        events.push({ event, data });
+        stream?.send(event, data);
+      };
+      emit("thread", { threadId: thread.id, mode: client ? "llm" : "reader" });
+      let text = "";
+      let proposals: readonly unknown[] = [];
+      let stopReason: string;
+      try {
+        if (client) {
+          const seen = await perceive(ctx, { environment, owner, fence, pack, emit });
+          const result = await runTurn({ ctx, client, environment, owner, fence, pack, history, message, stateLine: seen.line, emit });
+          text = result.text;
+          proposals = result.proposals;
+          stopReason = result.stopReason;
+        } else {
+          const result = await runDeterministicTurn({ ctx, environment, owner, fence, pack, message, emit });
+          text = result.text;
+          proposals = result.proposals;
+          stopReason = result.stopReason;
         }
-        messages.push({ role: "assistant", content: response.content });
-        const results: Anthropic.ToolResultBlockParam[] = [];
-        for (const block of response.content) {
-          if (block.type !== "tool_use") continue;
-          toolCalls.push({ name: block.name, input: block.input });
-          let output: unknown;
-          try {
-            output = await runTool(ctx, block.name, (block.input ?? {}) as Record<string, unknown>, { environment, owner, fence, proposals, byAgent: true });
-          } catch (error) {
-            output = { error: error instanceof Error ? error.message : "Tool failed." };
-          }
-          results.push({ type: "tool_result", tool_use_id: block.id, content: JSON.stringify(output).slice(0, 20_000) });
-        }
-        messages.push({ role: "user", content: results });
-        reply = text;
+      } catch (error) {
+        stopReason = "error";
+        const failure = error instanceof LykiaHttpError ? { code: error.code, message: error.message } : { code: "AGENT_FAILED", message: "Lyko could not finish this turn. Try again shortly." };
+        ctx.log.warn("agent turn failed", { code: failure.code, error: error instanceof Error ? error.message.slice(0, 200) : String(error) });
+        emit("error", failure);
       }
-      res.json({ mode: "llm", reply, proposals, toolCalls });
+      await appendMessages(ctx, thread, [
+        { role: "user", text: message },
+        { role: "assistant", text: text || "(no answer)", proposals: proposals as never },
+      ]).catch(() => undefined);
+      emit("done", { threadId: thread.id, stopReason });
+      if (stream) stream.close();
+      else {
+        const parsed = readSentence(message);
+        res.json({ threadId: thread.id, mode: client ? "llm" : "reader", reply: text, proposals, stopReason, events, command: parsed.command, easterEgg: parsed.easterEgg, lang: parsed.lang });
+      }
     });
 
-    // A quick verdict for an agent's own facts (agents call this before acting).
+    router.get("/agent/threads", async (req, res) => {
+      const { owner } = parseQuery(req, ownerQuery);
+      res.json({ threads: await listThreads(ctx, owner as Address) });
+    });
+    router.get("/agent/threads/:id", async (req, res) => {
+      const { owner } = parseQuery(req, ownerQuery);
+      const { id } = parseParams(req, idParams);
+      res.json(await getThread(ctx, owner as Address, id));
+    });
+    router.post("/agent/threads", async (req, res) => {
+      const body = parseBody(req, z.object({ owner: evmAddress, environment: environmentSchema.optional(), title: z.string().min(1).max(80).optional() }));
+      await authorizeOwner(ctx, req, body.owner);
+      res.status(201).json(await openThread(ctx, body.owner as Address, environmentOf(ctx, body.environment), undefined, body.title ?? "New thread"));
+    });
+
+    router.get("/agent/insights", ctx.limits.heavy, async (req, res) => {
+      const { owner, environment } = parseQuery(req, ownerQuery);
+      res.json(await insightsFor(ctx, environmentOf(ctx, environment), owner as Address));
+    });
+
+    router.get("/agent/automations", async (req, res) => {
+      const { owner } = parseQuery(req, ownerQuery);
+      res.json({ automations: await listAutomations(ctx, owner as Address) });
+    });
+    router.post("/agent/automations", async (req, res) => {
+      const body = parseBody(
+        req,
+        z.object({
+          owner: evmAddress,
+          environment: environmentSchema.optional(),
+          agentId: z.string().max(120).nullable().optional(),
+          when: z.union([z.object({ insight: z.enum(["idle-cash", "concentration", "health-factor", "fx-exposure", "stale-approval", "scent-warning", "unpriced", "low-gas"]) }), z.object({ everyMinutes: z.number().int().min(15).max(10_080) })]),
+          sentence: z.string().min(3).max(400),
+          mode: z.enum(["propose", "session"]).default("propose"),
+          maxRunsPerDay: z.number().int().min(1).max(6).optional(),
+        }),
+      );
+      await authorizeOwner(ctx, req, body.owner);
+      res.status(201).json(await createAutomation(ctx, s().pack, { owner: body.owner as Address, environment: environmentOf(ctx, body.environment), agentId: body.agentId ?? null, when: body.when, sentence: body.sentence, mode: body.mode, ...(body.maxRunsPerDay ? { maxRunsPerDay: body.maxRunsPerDay } : {}) }));
+    });
+    for (const action of ["enable", "disable"] as const) {
+      router.post(`/agent/automations/:id/${action}`, async (req, res) => {
+        const { id } = parseParams(req, idParams);
+        const { owner } = parseBody(req, z.object({ owner: evmAddress }));
+        await authorizeOwner(ctx, req, owner);
+        res.json(await setAutomationEnabled(ctx, owner as Address, id, action === "enable"));
+      });
+    }
+    router.post("/agent/automations/run", ctx.limits.heavy, async (req, res) => {
+      const body = parseBody(req, z.object({ owner: evmAddress, environment: environmentSchema.optional() }));
+      await authorizeOwner(ctx, req, body.owner);
+      const runs = await runAutomations(ctx, s().pack, body.owner as Address, environmentOf(ctx, body.environment), (a, p) => {
+        void s().webhooks.emit("standing_order.fired", a.owner, { automationId: a.id, intentId: p.intentId, decision: p.decision, steps: [...p.steps] }).catch(() => undefined);
+      });
+      res.json({ runs });
+    });
+
     router.post("/agent/check", (req, res) => {
       const body = parseBody(req, z.object({ fence: z.unknown().optional(), facts: factsSchema }));
       const fence = fenceFrom(body.fence) ?? DEFAULT_FENCE;
       res.json(evaluateFence(fence, { ...body.facts, now: body.facts.now ?? ctx.clock.now() } as FenceFacts));
     });
+
+    /* ------------------------------------------------------------ Pack */
+
+    router.get("/pack", async (req, res) => {
+      const { owner, environment } = parseQuery(req, ownerQuery);
+      res.json({ agents: await s().pack.tree(owner, environment) });
+    });
+
+    router.post("/pack", async (req, res) => {
+      const body = parseBody(
+        req,
+        z.object({
+          owner: evmAddress,
+          environment: environmentSchema.optional(),
+          name: z.string().min(1).max(48),
+          role: roleSchema,
+          fence: z.unknown().optional(),
+          mission: z.string().max(400).optional(),
+          signer: evmAddress.optional(),
+          agentId: z.string().regex(/^\d{1,30}$/u).optional(),
+        }),
+      );
+      await authorizeOwner(ctx, req, body.owner);
+      const fence = fenceFrom(body.fence);
+      const agent = await s().pack.create({
+        owner: body.owner as Address,
+        environment: environmentOf(ctx, body.environment),
+        name: body.name,
+        role: body.role,
+        ...(fence ? { fence } : {}),
+        ...(body.mission ? { mission: body.mission } : {}),
+        ...(body.signer ? { signer: body.signer as Address } : {}),
+        ...(body.agentId ? { agentId: body.agentId } : {}),
+      });
+      res.status(201).json(await s().pack.view(agent.id));
+    });
+
+    router.post("/pack/whistle", async (req, res) => {
+      const body = parseBody(req, z.object({ owner: evmAddress, environment: environmentSchema.optional(), account: evmAddress.optional(), by: z.string().max(120).optional(), reason: z.string().max(300).optional() }));
+      await authorizeOwner(ctx, req, body.owner);
+      const environment = environmentOf(ctx, body.environment);
+      let by: PackAgent | null = null;
+      if (body.by) {
+        by = await s().pack.get(body.by);
+        if (by.owner !== body.owner.toLowerCase() || !by.capabilities.includes("whistle")) throw new LykiaHttpError("FORBIDDEN", 403, "That agent may not blow the whistle for this owner.");
+      }
+      const transaction = body.account
+        ? { chainId: environment === "mainnet" ? 5042 : 5042002, from: (by?.signer ?? body.owner) as Address, to: body.account as Address, data: encodeFunctionData({ abi: BLOW_WHISTLE_ABI, functionName: "blowWhistle" }) as Hex, value: "0", label: "Blow the whistle on the LykiaAccount" }
+        : null;
+      void s().webhooks.emit("whistle.blown", body.owner, { by: by?.id ?? "owner", reason: body.reason ?? null, environment }).catch(() => undefined);
+      res.json({ transaction, note: "Set your Fence to whistle mode in the deck as well; on chain, sending this transaction stops every session except homeward calls." });
+    });
+
+    router.get("/pack/:id", async (req, res) => {
+      const { id } = parseParams(req, idParams);
+      res.json(await s().pack.view(id));
+    });
+
+    router.get("/pack/:id/budget", async (req, res) => {
+      const { id } = parseParams(req, idParams);
+      res.json((await s().pack.view(id)).budget);
+    });
+
+    router.post("/pack/:id/spawn", async (req, res) => {
+      const { id } = parseParams(req, idParams);
+      const body = parseBody(req, z.object({ name: z.string().min(1).max(48), role: roleSchema, fence: z.unknown().optional(), mission: z.string().max(400).optional(), signer: evmAddress.optional(), agentId: z.string().regex(/^\d{1,30}$/u).optional() }));
+      const parent = await s().pack.get(id);
+      await authorizeOwner(ctx, req, parent.owner);
+      const fence = fenceFrom(body.fence);
+      const child = await s().pack.spawn(id, {
+        name: body.name,
+        role: body.role,
+        ...(fence ? { fence } : {}),
+        ...(body.mission ? { mission: body.mission } : {}),
+        ...(body.signer ? { signer: body.signer as Address } : {}),
+        ...(body.agentId ? { agentId: body.agentId } : {}),
+      });
+      res.status(201).json(await s().pack.view(child.id));
+    });
+
+    router.post("/pack/:id/revoke", async (req, res) => {
+      const { id } = parseParams(req, idParams);
+      const agent = await s().pack.get(id);
+      await authorizeOwner(ctx, req, agent.owner);
+      const revoked = await s().pack.revoke(id, agent.owner);
+      res.json({ revoked: revoked.map((a) => a.id), note: revoked.some((a) => a.session) ? "Agents with on-chain sessions: also send revokeSession on the LykiaAccount (a parent's revocation already invalidates its sub-sessions there)." : null });
+    });
+
+    for (const action of ["pause", "resume"] as const) {
+      router.post(`/pack/:id/${action}`, async (req, res) => {
+        const { id } = parseParams(req, idParams);
+        const agent = await s().pack.get(id);
+        await authorizeOwner(ctx, req, agent.owner);
+        res.json(await s().pack.setStatus(id, agent.owner, action === "pause" ? "paused" : "active"));
+      });
+    }
+
+    router.post("/pack/:id/session-tx", async (req, res) => {
+      const { id } = parseParams(req, idParams);
+      const body = parseBody(
+        req,
+        z.object({
+          account: evmAddress,
+          key: evmAddress.optional(),
+          validDays: z.number().int().min(1).max(365).default(30),
+          maxCalls: z.number().int().min(1).max(100_000).default(500),
+          calls: z.array(z.object({ target: evmAddress, selector: z.string().regex(/^0x[0-9a-fA-F]{8}$/u), receiverWords: z.number().int().min(0).max(0xffffffff), homeward: z.boolean() })).max(32).optional(),
+        }),
+      );
+      const agent = await s().pack.get(id);
+      await authorizeOwner(ctx, req, agent.owner);
+      if (!(await flags(ctx))["pack.onchain"]) throw new LykiaHttpError("FORBIDDEN", 403, "On-chain sessions are switched off on this server.");
+      if (agent.status !== "active") throw new LykiaHttpError("CONFLICT", 409, `${agent.name} is ${agent.status}.`);
+      const key = (body.key ?? agent.signer) as Address | undefined;
+      if (!key) throw new LykiaHttpError("INVALID_REQUEST", 400, "Give the session key address (the agent's signer).");
+      const parent = agent.parentId ? await s().pack.get(agent.parentId) : null;
+      const built = await buildSessionTx(ctx, { agent, parent, account: body.account as Address, key, validDays: body.validDays, maxCalls: body.maxCalls, ...(body.calls ? { calls: body.calls as never } : {}) }, agent.environment as ArcEnvironment);
+      res.json({
+        agentId: agent.id,
+        limits: { fenceHash: agent.fenceHash, maxPerTxUnits: built.spec.tokens[0]?.perCall.toString() ?? "0", maxPerDayUnits: built.spec.tokens[0]?.daily.toString() ?? "0", expiresAt: Number(built.spec.validUntil), whistle: agent.fence.mode === "whistle" },
+        spec: JSON.parse(JSON.stringify(built.spec, (_k, v: unknown) => (typeof v === "bigint" ? v.toString() : v))),
+        transaction: built.transaction,
+        note: built.note,
+      });
+    });
+
+    router.post("/pack/:id/session", async (req, res) => {
+      const { id } = parseParams(req, idParams);
+      const body = parseBody(req, z.object({ account: evmAddress, sessionId: z.string().regex(/^0x[0-9a-fA-F]{64}$/u), txHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/u).optional() }));
+      const agent = await s().pack.get(id);
+      await authorizeOwner(ctx, req, agent.owner);
+      res.json(await s().pack.bindSession(id, { account: body.account as Address, sessionId: body.sessionId, ...(body.txHash ? { txHash: body.txHash as `0x${string}` } : {}) }));
+    });
   },
 };
-
-export type { PlanAction };
