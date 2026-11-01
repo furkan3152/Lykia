@@ -183,6 +183,8 @@ const EnvSchema = z.object({
   ),
   LYKIA_WEB_ORIGIN: optionalString,
   LYKIA_DATABASE_URL: optionalString,
+  DATABASE_URL: optionalString,
+  POSTGRES_URL: optionalString,
   LYKIA_SESSION_SECRET: optionalString,
   ANTHROPIC_API_KEY: optionalString,
   LYKIA_AGENT_MODEL: optionalString,
@@ -269,7 +271,9 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
     if (urls.length > 0) rpcOverrides[key] = Object.freeze(dedupeUrls(urls));
   }
 
-  if (env.LYKIA_DATABASE_URL && !/^postgres(?:ql)?:\/\//u.test(env.LYKIA_DATABASE_URL)) {
+  // Hosting integrations (Vercel + Neon, Render) expose DATABASE_URL or POSTGRES_URL; LYKIA_DATABASE_URL wins.
+  const databaseUrl = env.LYKIA_DATABASE_URL ?? env.DATABASE_URL ?? env.POSTGRES_URL;
+  if (databaseUrl && !/^postgres(?:ql)?:\/\//u.test(databaseUrl)) {
     issues.push("LYKIA_DATABASE_URL: must be a postgres:// or postgresql:// URL");
   }
   if (env.LYKIA_SESSION_SECRET && env.LYKIA_SESSION_SECRET.length < 32) {
@@ -291,7 +295,7 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
     port: env.PORT,
     mode: env.LYKIA_MODE,
     webOrigins: Object.freeze([...webOrigins]),
-    databaseUrl: env.LYKIA_DATABASE_URL ?? null,
+    databaseUrl: databaseUrl ?? null,
     sessionSecret: env.LYKIA_SESSION_SECRET ?? null,
     agent: Object.freeze({
       anthropicApiKey: env.ANTHROPIC_API_KEY ?? null,

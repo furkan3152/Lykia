@@ -20,7 +20,7 @@ export interface RunningServer {
 }
 
 /** Starts background work of each module (pollers, schedulers); a failing module is logged, never fatal. */
-async function startModules(ctx: AppContext, modules: readonly ApiModule[]): Promise<void> {
+export async function startModules(ctx: AppContext, modules: readonly ApiModule[]): Promise<void> {
   for (const module of modules) {
     if (!module.start) continue;
     try {
