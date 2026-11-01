@@ -69,15 +69,20 @@ export function outrunOf(graph: IntentGraph): Outrun {
     leavesArc: step.settlement.kind === "receipt" ? null : step.settlement.destination,
   }));
   const currentIndex = waypoints.findIndex((w) => w.status !== "settled");
-  const consumed = new Set(steps.flatMap((s) => s.dependsOn));
+  // The fold: everything the plan produces, minus what later steps spend again (per symbol, in order).
   const totals = new Map<string, { amount: bigint; decimals: number }>();
   for (const step of steps) {
-    if (consumed.has(step.id) || step.kind === "approve") continue;
+    if (step.kind === "approve") continue;
+    for (const input of step.inputs) {
+      const prev = totals.get(input.symbol);
+      if (prev) prev.amount = prev.amount > BigInt(input.amount) ? prev.amount - BigInt(input.amount) : 0n;
+    }
     for (const out of step.outputs) {
       const prev = totals.get(out.symbol);
       totals.set(out.symbol, { amount: (prev?.amount ?? 0n) + BigInt(out.amount), decimals: out.decimals });
     }
   }
+  for (const [symbol, t] of totals) if (t.amount === 0n) totals.delete(symbol);
   const settled = waypoints.filter((w) => w.status === "settled").length;
   return {
     intentId: graph.id,

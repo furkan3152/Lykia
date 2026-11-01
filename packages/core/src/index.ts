@@ -14,3 +14,5 @@ export * from "./fenceEvaluate.js";
 export * from "./errors.js";
 export * from "./format.js";
 export * from "./lore.js";
+export * from "./memo.js";
+export * from "./kunye.js";
