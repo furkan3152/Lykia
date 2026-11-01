@@ -48,6 +48,22 @@ export function agentServices(ctx: AppContext): AgentServices {
   });
   const settled = new Set<string>();
   ctx.bus.on("intent.updated", ({ id, intent, outrun }) => {
+    // Catalogue events (platform/webhooks.ts): first sight of a plan, prepared and failed steps, Fence denials.
+    const environment = intent.environment;
+    if (!settled.has(`planned:${id}`)) {
+      settled.add(`planned:${id}`);
+      fire("intent.planned", intent.owner, { intentId: id, decision: intent.verdict.decision, steps: intent.steps.length, verdictDigest: intent.verdict.digest, environment });
+      if (intent.verdict.decision === "deny") fire("security.blocked", intent.owner, { intentId: id, source: "fence", verdictDigest: intent.verdict.digest, environment });
+    }
+    for (const step of intent.steps) {
+      for (const [status, event] of [["awaiting-signature", "step.prepared"], ["failed", "step.failed"]] as const) {
+        const seen = `${status}:${id}:${step.id}`;
+        if (step.status === status && !settled.has(seen)) {
+          settled.add(seen);
+          fire(event, intent.owner, { intentId: id, stepId: step.id, kind: step.kind, environment });
+        }
+      }
+    }
     for (const step of intent.steps) {
       const key = `${id}:${step.id}`;
       if (step.status === "settled" && !settled.has(key)) {

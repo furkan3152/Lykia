@@ -20,6 +20,8 @@ import { startModules } from "./server.js";
 import { services } from "./services.js";
 import { ordersService } from "./orders/service.js";
 import { alertsService } from "./alerts/service.js";
+import { flowTick } from "./devflows/tick.js";
+import { drainWebhooks } from "./platform/events.js";
 
 interface Instance {
   readonly ctx: AppContext;
@@ -66,8 +68,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return;
     }
     const fired = await services(ctx).standing.tick();
+    // Webhook retries ride the same cron (they also drain on ordinary traffic).
+    const webhookRetries = await drainWebhooks(ctx).catch(() => 0);
+    // Developer flow reconciliation: payout receipts, invoice memos, native automations.
+    const flows = await flowTick(ctx).catch(() => null);
     res.setHeader("content-type", "application/json");
-    res.end(JSON.stringify({ fired }));
+    res.end(JSON.stringify({ fired, webhookRetries, flows }));
     return;
   }
   app(req as Parameters<Express>[0], res as Parameters<Express>[1]);

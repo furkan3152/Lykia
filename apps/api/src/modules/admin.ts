@@ -18,7 +18,7 @@ import { mustSession } from "../platform/session.js";
 import { EntitySecretError, registerEntitySecret } from "../circle/entitySecret.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { environmentSchema } from "./common.js";
-import { FEE_POLICY_TEXT, feePercent, MAX_FEE_BPS } from "@lykia/core";
+import { effectiveFeeSchedule, FEE_POLICY_TEXT, feePercent, MAX_FEE_BPS } from "@lykia/core";
 import { routerStatus } from "../engine/lykiaRouter.js";
 
 const hex = (len: number) => z.string().regex(new RegExp(`^0x[0-9a-fA-F]{${len}}$`, "u"));
@@ -41,8 +41,8 @@ export const adminModule: ApiModule = {
       res.status(201).json(await recordDeployment(ctx, { environment: body.environment, contract: body.contract, ...(body.name ? { name: body.name } : {}), address: body.address as `0x${string}`, txHash: body.txHash as `0x${string}`, recordedBy: session.address }));
     });
     router.get("/fees", (_req, res) => {
-      const { bps, recipient } = ctx.config.fee;
-      res.json({ bps, percent: feePercent(bps), recipient, maxBps: MAX_FEE_BPS, policy: FEE_POLICY_TEXT, exempt: ["repay", "withdraw", "approve", "revoke", "register-agent", "attest"], beta: ctx.config.beta ? { ...ctx.config.beta, environment: "mainnet", note: "A hard cap above every Fence while Lykia's contracts are unaudited. Moves that bring value home are never capped." } : null });
+      const { bps, recipient, schedule } = ctx.config.fee;
+      res.json({ bps, percent: feePercent(bps), recipient, maxBps: MAX_FEE_BPS, schedule: effectiveFeeSchedule(bps, schedule), scheduled: Boolean(schedule), policy: FEE_POLICY_TEXT, exempt: ["repay", "withdraw", "approve", "revoke", "register-agent", "attest"], beta: ctx.config.beta ? { ...ctx.config.beta, environment: "mainnet", note: "A hard cap above every Fence while Lykia's contracts are unaudited. Moves that bring value home are never capped." } : null });
     });
     router.get("/admin/router", async (req, res) => {
       await mustSession(ctx, req, "admin");

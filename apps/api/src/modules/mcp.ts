@@ -22,6 +22,7 @@ import { ARC_NETWORKS, discoverServices } from "../circle/discovery.js";
 import { discoverService } from "../discover/service.js";
 import { ordersService } from "../orders/service.js";
 import { DEFAULT_FENCE as OWNER_DEFAULT_FENCE } from "@lykia/core";
+import { registerBuilderTools } from "../aggregator/mcpTools.js";
 
 const env = z.enum(["mainnet", "testnet"]).optional();
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/u);
@@ -136,6 +137,7 @@ export function buildMcpServer(ctx: AppContext): McpServer {
     return text({ config: await ordersService(ctx).config(e), orders: await ordersService(ctx).list(e, owner as Address) });
   });
   server.registerTool("lykia_dev_tools", { description: "Circle and Arc developer tools (App Kits, Circle Skills, Arc docs MCP, Arc Foundry, references) and how each relates to Lykia.", inputSchema: toolSchema(z.object({}), objectJson({}, [])) }, async () => text(DEV_TOOLS));
+  registerBuilderTools(server, ctx);
   return server;
 }
 

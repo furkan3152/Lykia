@@ -26,8 +26,11 @@ export const MAX_FEE_BPS = 300;
 export const DEFAULT_FEE_RECIPIENT: Address = "0x8c5281055b197443ff01dbbdfbf29fd63946ca1e";
 
 export interface FeePolicy {
+  /** Base fee for every fee-bearing kind the schedule does not name. */
   readonly bps: number;
   readonly recipient: Address;
+  /** Optional per-kind schedule (LYKIA_FEE_SCHEDULE); absent = `bps` everywhere. */
+  readonly schedule?: FeeSchedule | null;
 }
 
 /**
@@ -121,4 +124,61 @@ export function feeTotals(fees: readonly (StepFee | undefined)[]): string[] {
     totals.set(fee.symbol, { amount: (prev?.amount ?? 0n) + feeUnits(fee), decimals: fee.decimals });
   }
   return [...totals.entries()].filter(([, t]) => t.amount > 0n).map(([symbol, t]) => `${fromBaseUnits(t.amount, t.decimals)} ${symbol}`);
+}
+
+/* ------------------------------------------------------- fee schedule */
+
+/**
+ * A per-action-kind fee schedule in basis points (`LYKIA_FEE_SCHEDULE`, JSON:
+ * `{"transfer":100,"swap":100}`). Kinds left out pay the base fee
+ * (`LYKIA_FEE_BPS`, 100 by default), so an unset schedule changes nothing.
+ * Exempt kinds stay free whatever the schedule says.
+ */
+export type FeeSchedule = Readonly<Partial<Record<StepKind, number>>>;
+
+/** Kinds a schedule may price: every fee-bearing step kind. */
+export const FEE_SCHEDULE_KINDS: readonly StepKind[] = ["transfer", "swap", "fx", "deposit", "supply", "borrow", "bridge", "gateway-deposit"];
+
+/**
+ * A recommended B2B schedule, documented in docs/fees.md as an option. It is
+ * NOT applied anywhere: the owner opts in by setting LYKIA_FEE_SCHEDULE.
+ */
+export const RECOMMENDED_B2B_FEE_SCHEDULE: FeeSchedule = Object.freeze({ transfer: 0, deposit: 0, "gateway-deposit": 0, supply: 0, swap: 30, fx: 20, bridge: 10, borrow: 25 });
+
+export type FeeScheduleParse = { readonly ok: true; readonly schedule: FeeSchedule } | { readonly ok: false; readonly issue: string };
+
+/** Parses and validates a schedule (a JSON string or an object). Unknown kinds and out-of-range values are refused. */
+export function parseFeeSchedule(input: unknown): FeeScheduleParse {
+  let value: unknown = input;
+  if (typeof input === "string") {
+    try {
+      value = JSON.parse(input);
+    } catch {
+      return { ok: false, issue: "must be a JSON object like {\"transfer\":100,\"swap\":100}" };
+    }
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return { ok: false, issue: "must be a JSON object of step kind -> basis points" };
+  const out: Partial<Record<StepKind, number>> = {};
+  for (const [kind, bps] of Object.entries(value as Record<string, unknown>)) {
+    if (!FEE_SCHEDULE_KINDS.includes(kind as StepKind)) return { ok: false, issue: `unknown or fee-exempt kind "${kind}" (use ${FEE_SCHEDULE_KINDS.join(", ")})` };
+    if (typeof bps !== "number" || !validFeeBps(bps)) return { ok: false, issue: `"${kind}" must be an integer from 0 to ${MAX_FEE_BPS}` };
+    out[kind as StepKind] = bps;
+  }
+  return { ok: true, schedule: Object.freeze(out) };
+}
+
+/**
+ * The fee in basis points for a step kind: exempt kinds pay 0; otherwise a
+ * plan override (API customers) wins over the schedule, which wins over the
+ * base fee. With no schedule and no override this is always `baseBps`.
+ */
+export function feeBpsFor(kind: StepKind | undefined, baseBps: number, schedule?: FeeSchedule | null, override?: FeeSchedule | null): number {
+  if (kind !== undefined && FEE_EXEMPT_KINDS.has(kind)) return 0;
+  if (kind === undefined) return baseBps;
+  return override?.[kind] ?? schedule?.[kind] ?? baseBps;
+}
+
+/** The effective schedule for every fee-bearing kind (for /v1/fees and docs). */
+export function effectiveFeeSchedule(baseBps: number, schedule?: FeeSchedule | null, override?: FeeSchedule | null): Record<string, number> {
+  return Object.fromEntries(FEE_SCHEDULE_KINDS.map((k) => [k, feeBpsFor(k, baseBps, schedule, override)]));
 }

@@ -42,6 +42,7 @@ import { quoteV3Single, quoteV4, uniswapCalls, v3Contracts, v4Contracts } from "
 import { aerodromeCalls, quoteCl } from "./venues/aerodrome.js";
 import { approveCall, feeCall, type RawCall } from "./calls.js";
 import { lykiaRouterAddress, routerRunCall, type RouterLeg } from "./lykiaRouter.js";
+import { encodeManifestStep } from "../integrations/runtime.js";
 
 export type AdapterId =
   | "transfer"
@@ -64,7 +65,9 @@ export type AdapterId =
   | "practice-swap"
   | "practice-borrow"
   | "practice-repay"
-  | "router-split";
+  | "router-split"
+  /** A routable Lykia adapter manifest (integrations/runtime.ts): the call is encoded from the manifest's own ABI fragment. */
+  | "manifest";
 
 /** Venues the engine executes per environment (practice venues once deployed, see venues/practice.ts). */
 export const EXECUTABLE_VENUES: Readonly<Record<ArcEnvironment, ReadonlySet<string>>> = {
@@ -145,6 +148,12 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
     if (fresh === null || fresh < big("minOut")) throw new LykiaHttpError("NO_ROUTE", 422, "The price moved past the planned minimum; plan again.");
   };
   switch (plan.adapter) {
+    case "manifest": {
+      const step = encodeManifestStep(p, ctx.account, Math.floor(Date.now() / 1000));
+      const approvals: RawCall[] = [];
+      for (const a of step.approvals) approvals.push(...(await needApproval(a.token, a.spender, a.amount, p.symbol as string, p.protocolName as string)));
+      return { approvals, calls: [{ to: step.to, data: step.data, label: `${p.verb === "withdraw" ? "Withdraw" : p.verb === "swap" || p.verb === "fx" ? "Swap" : "Deposit"} ${p.display ?? ""} on ${p.label}`.replace(/\s+/gu, " ") }] };
+    }
     case "transfer":
       return { approvals: [], calls: [{ to: p.token as Address, data: encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [p.to as Address, big("amount")] }), label: `Send ${p.display} to ${p.to}` }] };
     case "bridge": {
@@ -372,7 +381,15 @@ export const ADAPTER_VENUE: Readonly<Record<AdapterId, string>> = {
   "practice-borrow": "lykia-practice",
   "practice-repay": "lykia-practice",
   "router-split": "lykia-router",
+  /* The real venue of a manifest step is its protocol id (params.protocol); see manifestStep. */
+  manifest: "lykia-adapter",
 };
+
+/** The venue and step kind of a manifest step come from its params, not the adapter id. */
+export function manifestStep(params: Readonly<Record<string, string>>, fx: boolean): { readonly venue: string; readonly kind: StepKind } {
+  const verb = params.verb === "fx" || params.verb === "swap" ? (fx ? "fx" : "swap") : (params.verb as StepKind);
+  return { venue: params.protocol ?? "lykia-adapter", kind: verb };
+}
 
 export function stepKindOf(adapter: AdapterId, fx: boolean): StepKind {
   switch (adapter) {
@@ -397,6 +414,7 @@ export function stepKindOf(adapter: AdapterId, fx: boolean): StepKind {
     case "swap-aerodrome":
     case "practice-swap":
     case "router-split":
+    case "manifest":
       return fx ? "fx" : "swap";
     case "aave-borrow":
     case "morpho-borrow":

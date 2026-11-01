@@ -9,7 +9,7 @@
  * as fallbacks.
  */
 import { createRequire } from "node:module";
-import { DEFAULT_FEE_BPS, DEFAULT_FEE_RECIPIENT, MAX_FEE_BPS, NETWORKS, type ArcEnvironment, type ArcNetwork, type ArcNetworkKey } from "@lykia/core";
+import { DEFAULT_FEE_BPS, DEFAULT_FEE_RECIPIENT, MAX_FEE_BPS, parseFeeSchedule, type FeeSchedule, NETWORKS, type ArcEnvironment, type ArcNetwork, type ArcNetworkKey } from "@lykia/core";
 import { z } from "zod";
 import { LOG_LEVELS, type LogLevel } from "./log.js";
 
@@ -67,10 +67,13 @@ export interface Config {
     readonly apiKey: string | null;
     readonly entitySecret: string | null;
     readonly walletSetId: string | null;
+    /** A developer-controlled wallet (the x402 payTo) that signs Circle facilitator seller proofs; null = none. */
+    readonly sellerWalletId?: string | null;
   };
   readonly telegramBotToken: string | null;
   /** Lykia's protocol fee, paid on chain in every value-moving step. */
-  readonly fee: { readonly bps: number; readonly recipient: `0x${string}` };
+  /** `schedule` (LYKIA_FEE_SCHEDULE) prices kinds individually; null = `bps` everywhere. `plans` are per-plan overrides for API customers. */
+  readonly fee: { readonly bps: number; readonly recipient: `0x${string}`; readonly schedule?: FeeSchedule | null; readonly plans?: Readonly<Record<string, FeeSchedule>> };
   /** Mainnet beta cap (USD) that sits above every Fence while the contracts are unaudited; null when switched off. */
   readonly beta: { readonly perStepUsd: string; readonly perDayUsd: string } | null;
   /** x402: paid routes are disabled unless payTo is set. */
@@ -209,6 +212,9 @@ const EnvSchema = z.object({
   LYKIA_GUARD_ADDRESS: optionalString,
   LYKIA_X402_PRICE_USDC: optionalString,
   LYKIA_FEE_BPS: optionalString,
+  LYKIA_FEE_SCHEDULE: optionalString,
+  LYKIA_FEE_SCHEDULE_PLANS: optionalString,
+  CIRCLE_X402_SELLER_WALLET_ID: optionalString,
   LYKIA_BETA_CAP_USD: optionalString,
   LYKIA_FEE_RECIPIENT: optionalString,
   LYKIA_X402_FACILITATOR_URL: optionalString,
@@ -294,6 +300,12 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
   if (env.LYKIA_BETA_CAP_USD !== undefined && !/^(?:off|\d{1,9}(?:\/\d{1,9})?)$/u.test(env.LYKIA_BETA_CAP_USD)) issues.push("LYKIA_BETA_CAP_USD: 'off', a per-step USD cap such as 1000, or per-step/per-day such as 1000/5000");
   if (env.LYKIA_FEE_BPS !== undefined && !(/^\d{1,3}$/u.test(env.LYKIA_FEE_BPS) && Number(env.LYKIA_FEE_BPS) <= MAX_FEE_BPS)) issues.push(`LYKIA_FEE_BPS: an integer from 0 to ${MAX_FEE_BPS} (100 = 1%)`);
   if (env.LYKIA_FEE_RECIPIENT && !/^0x[0-9a-fA-F]{40}$/u.test(env.LYKIA_FEE_RECIPIENT)) issues.push("LYKIA_FEE_RECIPIENT: must be a 0x address");
+  if (env.LYKIA_FEE_SCHEDULE !== undefined) {
+    const parsed = parseFeeSchedule(env.LYKIA_FEE_SCHEDULE);
+    if (!parsed.ok) issues.push(`LYKIA_FEE_SCHEDULE: ${parsed.issue}`);
+  }
+  if (env.LYKIA_FEE_SCHEDULE_PLANS !== undefined && !planSchedules(env.LYKIA_FEE_SCHEDULE_PLANS)) issues.push('LYKIA_FEE_SCHEDULE_PLANS: a JSON object of plan id -> schedule, e.g. {"scale":{"transfer":0}}');
+  if (env.CIRCLE_X402_SELLER_WALLET_ID !== undefined && !/^[0-9a-f-]{36}$/u.test(env.CIRCLE_X402_SELLER_WALLET_ID)) issues.push("CIRCLE_X402_SELLER_WALLET_ID: a Circle wallet id (UUID)");
   if (env.LYKIA_X402_PRICE_USDC && !/^\d{1,6}(?:\.\d{1,6})?$/u.test(env.LYKIA_X402_PRICE_USDC)) issues.push("LYKIA_X402_PRICE_USDC: a USDC amount such as 0.01");
   if (env.LYKIA_X402_FACILITATOR_URL && env.LYKIA_X402_FACILITATOR_URL !== "off" && !/^https:\/\//u.test(env.LYKIA_X402_FACILITATOR_URL)) issues.push("LYKIA_X402_FACILITATOR_URL: must be an https URL or off");
   const adminAddresses = splitList(env.LYKIA_ADMIN_ADDRESSES).map((a) => a.toLowerCase());
@@ -319,10 +331,10 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
     }),
     platform: Object.freeze({ siweDomains: Object.freeze(siweDomains), adminAddresses: Object.freeze(adminAddresses) }),
     stablefxApiKey: env.STABLEFX_API_KEY ?? env.CIRCLE_API_KEY ?? null,
-    circle: Object.freeze({ apiKey: env.CIRCLE_API_KEY ?? null, entitySecret: env.CIRCLE_ENTITY_SECRET ?? null, walletSetId: env.CIRCLE_WALLET_SET_ID ?? null }),
+    circle: Object.freeze({ apiKey: env.CIRCLE_API_KEY ?? null, entitySecret: env.CIRCLE_ENTITY_SECRET ?? null, walletSetId: env.CIRCLE_WALLET_SET_ID ?? null, sellerWalletId: env.CIRCLE_X402_SELLER_WALLET_ID ?? null }),
     telegramBotToken: env.TELEGRAM_BOT_TOKEN ?? null,
     beta: betaCap(env.LYKIA_BETA_CAP_USD),
-    fee: Object.freeze({ bps: env.LYKIA_FEE_BPS !== undefined ? Number(env.LYKIA_FEE_BPS) : DEFAULT_FEE_BPS, recipient: (env.LYKIA_FEE_RECIPIENT ?? DEFAULT_FEE_RECIPIENT).toLowerCase() as `0x${string}` }),
+    fee: Object.freeze({ bps: env.LYKIA_FEE_BPS !== undefined ? Number(env.LYKIA_FEE_BPS) : DEFAULT_FEE_BPS, recipient: (env.LYKIA_FEE_RECIPIENT ?? DEFAULT_FEE_RECIPIENT).toLowerCase() as `0x${string}`, schedule: feeScheduleOf(env.LYKIA_FEE_SCHEDULE), plans: planSchedules(env.LYKIA_FEE_SCHEDULE_PLANS) ?? {} }),
     guardAddress: (env.LYKIA_GUARD_ADDRESS as `0x${string}` | undefined) ?? null,
     x402: Object.freeze({
       payTo: x402PayTo(env.LYKIA_X402_PAY_TO, env.LYKIA_FEE_RECIPIENT ?? DEFAULT_FEE_RECIPIENT),
@@ -364,6 +376,32 @@ export function betaCap(raw: string | undefined): Config["beta"] {
 export const CIRCLE_X402_FACILITATOR = "https://api.circle.com/v1/facilitator/x402";
 
 /** Paid routes pay the fee recipient unless LYKIA_X402_PAY_TO names another wallet or is "off". */
+/** LYKIA_FEE_SCHEDULE parsed (validated in the issues pass); unset = null, so the base fee applies everywhere. */
+export function feeScheduleOf(raw: string | undefined): FeeSchedule | null {
+  if (raw === undefined || raw.trim() === "") return null;
+  const parsed = parseFeeSchedule(raw);
+  return parsed.ok ? parsed.schedule : null;
+}
+
+/** LYKIA_FEE_SCHEDULE_PLANS: { "<plan id>": { "<kind>": bps } }; null when malformed. */
+export function planSchedules(raw: string | undefined): Record<string, FeeSchedule> | null {
+  if (raw === undefined || raw.trim() === "") return {};
+  try {
+    const value = JSON.parse(raw) as unknown;
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+    const out: Record<string, FeeSchedule> = {};
+    for (const [plan, schedule] of Object.entries(value as Record<string, unknown>)) {
+      if (!/^[a-z0-9-]{1,32}$/u.test(plan)) return null;
+      const parsed = parseFeeSchedule(schedule);
+      if (!parsed.ok) return null;
+      out[plan] = parsed.schedule;
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
 export function x402PayTo(raw: string | undefined, feeRecipient: string): `0x${string}` | null {
   if (raw === "off") return null;
   return (raw ?? feeRecipient).toLowerCase() as `0x${string}`;

@@ -4,10 +4,11 @@
  * LangChain's `tool`), so this package stays dependency-free.
  */
 import type { LykiaToolExecutor, ToolResult } from "./executor.js";
-import { LYKIA_TOOLS, type JsonSchema, type ToolDefinition, type ToolName } from "./tools.js";
+import { LYKIA_BUILDER_TOOLS } from "./builderTools.js";
+import { LYKIA_FLOW_TOOLS, LYKIA_TOOLS, type JsonSchema, type ToolDefinition, type ToolName } from "./tools.js";
 
 function pick(names?: readonly ToolName[]): readonly ToolDefinition[] {
-  return names ? LYKIA_TOOLS.filter((t) => names.includes(t.name)) : LYKIA_TOOLS;
+  return names ? [...LYKIA_TOOLS, ...LYKIA_FLOW_TOOLS, ...LYKIA_BUILDER_TOOLS].filter((t) => names.includes(t.name)) : LYKIA_TOOLS;
 }
 
 const asText = (result: ToolResult) => JSON.stringify(result);

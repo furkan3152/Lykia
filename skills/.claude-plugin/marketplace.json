@@ -1,0 +1,6 @@
+{
+  "name": "lykia",
+  "owner": { "name": "Lykia" },
+  "metadata": { "description": "Lykia skills and MCP config for agents on Arc Network", "version": "0.1.0" },
+  "plugins": [{ "name": "lykia-skills", "source": "./", "description": "Fence preflight, Circle wallet policies, Fence-checked plans and Marketplace payments for agents on Arc Network." }]
+}

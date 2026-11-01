@@ -56,9 +56,49 @@
       "types": "./dist/transport.d.ts",
       "import": "./dist/transport.js"
     },
+    "./aggregator": {
+      "types": "./dist/aggregator.d.ts",
+      "import": "./dist/aggregator.js"
+    },
+    "./build": {
+      "types": "./dist/build.d.ts",
+      "import": "./dist/build.js"
+    },
+    "./integrations": {
+      "types": "./dist/integrations.d.ts",
+      "import": "./dist/integrations.js"
+    },
+    "./data": {
+      "types": "./dist/data.d.ts",
+      "import": "./dist/data.js"
+    },
     "./webhooks": {
       "types": "./dist/webhooks.d.ts",
       "import": "./dist/webhooks.js"
+    },
+    "./platform": {
+      "types": "./dist/platform.d.ts",
+      "import": "./dist/platform.js"
+    },
+    "./generated": {
+      "types": "./dist/generated/openapi.d.ts",
+      "import": "./dist/generated/openapi.js"
+    },
+    "./operations": {
+      "types": "./dist/operations.d.ts",
+      "import": "./dist/operations.js"
+    },
+    "./payouts": {
+      "types": "./dist/payouts.d.ts",
+      "import": "./dist/payouts.js"
+    },
+    "./invoices": {
+      "types": "./dist/invoices.d.ts",
+      "import": "./dist/invoices.js"
+    },
+    "./automations": {
+      "types": "./dist/automations.d.ts",
+      "import": "./dist/automations.js"
     },
     "./package.json": "./package.json"
   },

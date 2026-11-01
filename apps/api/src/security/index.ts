@@ -1,5 +1,5 @@
 /** Lykia's security layer, API side. See docs/security/layer.md. */
-export { securityPreflight, securityPostflight } from "./preflight.js";
+export { securityPreflight, securityPostflight, securityReview, type ReviewInput } from "./preflight.js";
 export { auditAppend, auditRead, auditSafe, ownerChain, PLATFORM_CHAIN } from "./audit.js";
 export { venueBreakers, isHalted, setVenueSwitch, pausedTargets } from "./breakers.js";
 export { checkRecipient, rememberRecipient } from "./recipients.js";

@@ -29,7 +29,7 @@ Integration is free and open to every team building on Arc Network.
 |---|---|---|
 | Listed | Shows you in the registry and on `/ecosystem`. | A registry row with `status: "announced"`. |
 | Read | Prices and positions in the Flock, Scent on your tokens. | Verified addresses (checklist below). |
-| Routed | Plans, checks and executes through you. | Verified addresses plus one typed adapter. |
+| Routed | Plans, checks and executes through you. | A validated and approved adapter manifest, or a typed adapter in code. |
 
 ## Checklist for a verified registry entry
 
@@ -48,7 +48,62 @@ same details to the Lykia team.
 
 A row marked `live` without evidence fails validation at load time.
 
-## The adapter
+## Adapter manifests: integrate without a pull request
+
+The fastest way to be **Routed** is a Lykia Adapter Manifest
+(`lykia.adapter/v1`). It describes your protocol in the same model as Lykia's
+own knowledge rows, and the API merges it into the knowledge model, the route
+search and the aggregator at runtime, with no redeploy.
+
+A manifest holds:
+
+| Part | What it says |
+|---|---|
+| `protocol` | id (kebab-case, not a registry id), name, category, summary, website, docs, contact. |
+| `contracts` | Addresses per environment (`mainnet`, `testnet`), by key. |
+| `abi` | Human-readable fragments for every function Lykia may call or read. |
+| `capabilities` | One per action: `verb` (swap, fx, deposit, withdraw, supply, borrow, repay), contract, function, argument templates, `tokenIn`, `tokenOut` (a token or `SYMBOL@<your id>`), receiver (always `$account`), exact approvals, preconditions, failure modes, gas, venue fee, and the reads that price it (`quote` for swaps, `apy` for deposits, `position` for withdrawals). |
+| `reads` | View functions with their scale (`raw`, `bps`, `wad`, `ray`, `1e6`): quotes, APYs, positions, TVL. |
+| `risk` | Tier, oracle, admin keys, upgradeability, audits, notes. |
+| `evidence` | Where the facts come from. |
+
+Argument templates: `$amount` (what your contract receives, after Lykia's
+fee), `$minOut` (slippage floor, required for swaps), `$account` (the
+signer), `$tokenIn`, `$tokenOut`, `$deadline` and `$contract:<key>`. Every
+other argument is a literal. Output always goes back to the signer.
+
+A complete example that validates on Arc mainnet is in
+[`examples/adapter-manifest/manifest.json`](../examples/adapter-manifest/manifest.json).
+
+### The flow
+
+```
+submitted --validate--> validated --admin approve--> approved --admin route--> routable
+                                   \--admin reject--> rejected     routable --admin suspend--> suspended
+```
+
+1. `POST /v1/integrations/adapters { manifest, validate: true }` with a secret
+   key (`Lykia-Key`) or a signed-in session. Structural problems come back as
+   `400 INVALID_MANIFEST` with one issue per field.
+2. Validation runs on chain: `eth_getCode` for every contract, every selector
+   in your ABI (and, as information, in the bytecode), every read called with
+   sample values, and a dry simulation of each capability with its sample
+   amount: the exact batch the engine would build (exact approvals, the call,
+   the Arc Memo) in one Multicall3From `eth_call` from a probe account funded
+   with state overrides. A withdraw is simulated after your deposit for the
+   same token. `POST /v1/integrations/adapters/:id/validate` runs it again.
+3. A Lykia admin reviews it (`POST /v1/integrations/adapters/:id/review`
+   with `approve`, then `route`). Approved adapters appear in
+   `GET /v1/knowledge`; routable ones are quoted by the router next to every
+   other venue, pass through the Fence and the security layer like them, and
+   pay Lykia's fee in the same batch.
+
+`GET /v1/integrations/adapters/:id/status` shows the status, the last
+validation report and the history. See
+[docs/platform/integrations.md](platform/integrations.md) for curl and SDK
+examples.
+
+## The adapter in code
 
 The full walkthrough, with the code, is in
 [`apps/api/src/engine/venues/TEMPLATE.md`](../apps/api/src/engine/venues/TEMPLATE.md).

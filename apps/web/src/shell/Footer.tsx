@@ -20,7 +20,13 @@ export function Footer() {
         <Link to="/app/pastures">PASTURES</Link>
         <Link to="/app/scent">SCENT</Link>
         <Link to="/app/tag">TAG</Link>
+        <Link to="/stats">STATS</Link>
         <Link to="/owner">OWNER</Link>
+        <span>·</span>
+        <Link to="/legal/notice">TERMS · SOFTWARE NOTICE</Link>
+        <Link to="/legal/notice">RISKS</Link>
+        <Link to="/legal/privacy">PRIVACY</Link>
+        <span>{"DRAFT · NOT AFFILIATED WITH CIRCLE OR ARC"}</span>
       </div>
     </footer>
   );

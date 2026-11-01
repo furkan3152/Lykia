@@ -10,11 +10,14 @@ export interface EcosystemProtocolView {
   readonly verbs: readonly string[];
   readonly tvlUsd: number | null;
   readonly routed: { readonly steps: number; readonly usd: string };
+  /** The protocol's official entry on arc.io/ecosystem, when it has one. */
+  readonly arcEcosystem?: string | null;
 }
 
 export interface EcosystemView {
   readonly environment: "mainnet" | "testnet";
   readonly positioning: string;
+  readonly directory?: { readonly url: string; readonly note: string };
   readonly protocols: readonly EcosystemProtocolView[];
   readonly totals: { readonly protocols: number; readonly verified: number; readonly routable: number; readonly tvlUsd: number | null; readonly routed: { readonly intents: number; readonly steps: number; readonly usd: string; readonly window: string } };
   readonly circle: readonly { readonly id: string; readonly name: string; readonly state: string; readonly lykia: string; readonly docs: string }[];
@@ -23,7 +26,10 @@ export interface EcosystemView {
   readonly sources: { readonly tvl: string; readonly tvlAt: string | null };
 }
 
-export const POSITIONING = "Built on Circle's rails, routing value to every Arc protocol, keeping every agent inside its Fence.";
+export const POSITIONING = "Built on Arc Network and Circle's products: every Arc protocol routable on Lykia, every agent inside its Fence.";
+
+/** The official Arc ecosystem directory; Lykia links to it rather than competing with it. */
+export const ARC_ECOSYSTEM_DIRECTORY = "https://www.arc.io/ecosystem";
 
 export function usdShort(value: number | null): string {
   if (value === null) return "n/a";
@@ -34,7 +40,7 @@ export function usdShort(value: number | null): string {
 }
 
 export const LYKIA_ROLE: Readonly<Record<EcosystemProtocolView["lykia"], { readonly label: string; readonly tone: "ok" | "sea" | "ghost" }>> = {
-  routes: { label: "ROUTED", tone: "ok" },
+  routes: { label: "ROUTABLE ON LYKIA", tone: "ok" },
   reads: { label: "READ", tone: "sea" },
   lists: { label: "LISTED", tone: "ghost" },
 };

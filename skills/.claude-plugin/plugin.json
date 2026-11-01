@@ -1,0 +1,8 @@
+{
+  "name": "lykia-skills",
+  "version": "0.1.0",
+  "description": "Skills for agents on Arc Network that use Lykia: Fence preflight before a Circle wallet signs, Fence to Circle wallet policies, Fence-checked plans across Arc venues, and paying Agent Marketplace services inside the Fence.",
+  "author": { "name": "Lykia" },
+  "keywords": ["arc", "usdc", "agents", "fence", "circle", "x402"],
+  "license": "MIT"
+}

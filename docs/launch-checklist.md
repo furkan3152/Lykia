@@ -19,7 +19,7 @@ in the hosting dashboards, never in the repository, chats or tickets.
 | Router venue allowlist | Empty on mainnet |
 | API | Vercel (serverless): https://lykia-api-akdogan1.vercel.app |
 | App | Vercel: https://lykia-akdogan1.vercel.app |
-| Audit | Not started. Mainnet beta cap is on (default 1,000 USD per step, 5,000 USD per day). |
+| Audit | No paid audit (no budget). Self-review with Slither, Mythril and fuzz/invariant tests: `docs/security/self-review.md`. Mainnet beta cap is on because of that (default 1,000 USD per step, 5,000 USD per day). |
 
 ## Phase 1: finish the contracts
 
@@ -39,11 +39,13 @@ in the hosting dashboards, never in the repository, chats or tickets.
    the deploy block in the comment, then run the core tests and redeploy.
 4. **Verify the source on the Arc explorer.** Who: developer. How: use the
    Hardhat setup in `packages/contracts`. Verified source is a precondition
-   for the audit and for pilots.
-5. **Move contract ownership to a multisig.** Who: owner. How: create a Safe
-   (or equivalent) on Arc with at least two signers, then call
-   `transferOwnership(safe)` on LykiaRouter and LykiaOrders. Both use
-   two-step ownership, so the Safe must call `acceptOwnership()` to finish.
+   for community review and for pilots.
+5. **Move contract ownership to a 2-of-3 Safe behind a timelock.** Who: owner.
+   How: follow `docs/security/ownership.md`: a 2-of-3 Safe with keys on three
+   devices you control, a `LykiaTimelock` with the Safe as the only proposer,
+   then `node packages/contracts/scripts/ownership-plan.cjs` (or
+   `GET /v1/admin/ownership`) for the unsigned calls. Both contracts are
+   `Ownable2Step`, so nothing changes until the timelock accepts.
    Update `LYKIA_ADMIN_ADDRESSES` if the admin wallet changes.
 
 ## Phase 2: move the API to an always-on host
@@ -116,14 +118,14 @@ an instance is warm. Public beta needs a process that stays up.
 18. **Monitoring.** Who: owner. How: an uptime check on `/health` with alerts
     to the owner's phone; Render and Vercel log retention on; an alert on the
     keeper wallet's balance; a weekly look at `GET /v1/developers/usage`.
-19. **Agent Marketplace listing.** Who: owner. How: apply through Circle's
-    Agent Marketplace with the MCP URL, the Tag of the Lykia agent and a link
-    to `docs/integrate-your-protocol.md`.
+19. **Agent Marketplace listing.** Who: owner. How: follow
+    `docs/circle/marketplace-listing.md` (intake form, payout wallet,
+    `GET /v1/circle/marketplace/listing` for every field).
 20. **Pilots.** Who: owner. How: send `docs/pilots/pilot-kit.md` to two or three
     teams once phases 1 to 4 are done.
-21. **Grants and audit.** Who: owner. How: submit the drafts in `docs/grants/`
-    and send `docs/security/audit-pack.md` to audit firms. These can start in
-    parallel with phase 2.
+21. **Grants and community review.** Who: owner. How: apply through the
+    channels in `docs/grants/README.md` (open to individuals) and share
+    `docs/security/help-us-review.md`. These can start in parallel with phase 2.
 
 ## Before calling it public beta
 
@@ -135,6 +137,7 @@ an instance is warm. Public beta needs a process that stays up.
 - [ ] At least one pilot has settled a real step inside a Fence.
 - [ ] `LYKIA_BETA_CAP_USD` is set deliberately (default `1000/5000`), and the
       app says plainly that the contracts are unaudited.
-- [ ] `packages/contracts/SECURITY.md` names a working security contact.
-- [ ] The bug bounty draft in `docs/security/audit-pack.md` has rewards and
-      response times filled in, or is clearly marked as not yet open.
+- [ ] `SECURITY.md` (responsible disclosure) is reachable: GitHub private
+      vulnerability reporting is switched on for the repository.
+- [ ] Every Slither / Mythril finding in `docs/security/self-review.md` is
+      fixed or justified.

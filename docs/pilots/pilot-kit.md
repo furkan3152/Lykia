@@ -16,7 +16,7 @@ Fields marked **[OWNER]** must be filled in before the kit is sent.
   Multicall3From batching.
 - A Tag for each agent: its ERC-8004 identity plus the hash of the Fence it
   follows, so anyone can check afterwards that it stayed inside its rules.
-- Direct support from the Lykia team during the pilot (see Support).
+- Direct support from the developer during the pilot (see Support; Lykia is a one-person project).
 
 ## Five-minute setup: MCP
 
@@ -143,8 +143,9 @@ See `docs/pack.md`.
 
 ## Beta limits
 
-The contracts have not been audited yet (see `docs/security/audit-pack.md`).
-Until they are, the mainnet API applies a beta cap above every Fence:
+The contracts have not had a paid audit (there is no budget; see
+`docs/security/self-review.md`). Because of that, the mainnet API applies a
+beta cap above every Fence:
 
 - Default: 1,000 USD per step and 5,000 USD per day.
 - **[OWNER]** Any different cap agreed for a specific pilot.
@@ -155,7 +156,7 @@ right place for load and edge-case testing.
 ## Support
 
 - Channel: **[OWNER: Telegram group, Discord channel or email]**
-- Response target during the pilot: **[OWNER: for example, same business day]**
+- Response target during the pilot: **[OWNER: best effort, for example within two days]**
 - Security reports: follow `packages/contracts/SECURITY.md`, not the public
   channel.
 

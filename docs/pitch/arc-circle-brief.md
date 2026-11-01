@@ -1,6 +1,6 @@
 # Lykia: a brief for the Arc and Circle teams
 
-Lykia is built on Arc Network and runs on Circle's rails. Arc gives agents money. Lykia gives them judgment, and sends their stablecoins to the protocols already live on Arc.
+Lykia is built on Arc Network and on Circle's products. Arc gives agents money. Lykia gives them judgment, and sends their stablecoins to the protocols already live on Arc. It is open source and built by one developer, without a company. It is not affiliated with Circle or Arc.
 
 ## The problem
 
@@ -26,7 +26,9 @@ Lykia sits between agents and the Arc ecosystem. It does not compete with any pa
 | CCTP V2 and Forwarding Service | Bridging USDC out of Arc, inbound mints, live fees per route | `apps/api/src/engine/adapters.ts`, `apps/api/src/circle/` |
 | Gateway | Unified balance in the Flock, deposits in plans, transfers out (burn intent, attestation, unsigned mint) | `apps/api/src/circle/` |
 | Gateway Nanopayments and x402 | Paid API routes in USDC on Arc, and an x402 buyer whose price and payee the Fence checks | `apps/api/src/x402/`, `apps/api/src/circle/` |
-| Agent Marketplace | Lyko can discover services that accept USDC on Arc | `apps/api/src/circle/` |
+| Agent Marketplace | Agents discover services and pay them inside the Fence; Lykia's own x402 routes are listing-ready | `apps/api/src/circle/`, `docs/circle/marketplace-listing.md` |
+| Agent Wallets policies | A Fence compiles into the Circle wallet's spending policy; Lykia's preflight covers the rest (default agent setup) | `apps/api/src/circle/policy.ts` |
+| x402 Facilitator | Settles Lykia's paid routes on Arc | `apps/api/src/x402/` |
 | Compliance Engine | Screening results feed the Fence's recipient deny list | `apps/api/src/circle/` |
 | Developer-controlled wallets and Gas Station | Agent wallets for Pack agents, with sponsored gas | `apps/api/src/circle/` |
 | Modular Wallets (passkeys) | Passkey smart accounts on Arc as a sign-in and signing option | `apps/web/src/features/wallet/` |
@@ -58,12 +60,12 @@ Full product status: `GET https://lykia-api-akdogan1.vercel.app/v1/circle/status
 - Deploy `LykiaOrders` (limit, stop, take-profit, TWAP, DCA) and allowlist venues on `LykiaRouter`.
 - Move the API to an always-on host so standing orders and keepers run every 30 seconds.
 - First real end-to-end transactions with small amounts, then pilots with teams building agents on Arc.
-- An independent audit of the contracts. They are not audited today.
+- Community review of the contracts. There is no budget for a paid audit; the self-review is `docs/security/self-review.md` and the beta caps stay on because of that.
 
 ## Our asks
 
-1. **Builder program.** Inclusion in Arc and Circle builder support, including the Circle Developer Grants program.
-2. **Audit support.** Help to fund or introduce an auditor before larger amounts flow through the contracts.
+1. **Builder programs open to individuals.** Arc microgrants, hackathons and, if eligible, Circle Developer Grants.
+2. **Review.** Security-minded builders reviewing the contracts (`docs/security/help-us-review.md`).
 3. **Introductions.** Contacts at Arc protocol teams to make their venues executable and verified in the registry.
-4. **Agent Marketplace listing.** List Lykia's planning and Scent endpoints as paid services agents can call.
+4. **Agent Marketplace listing.** Review of Lykia's submission (Fence check, Scent and route quotes as x402 services).
 5. **Co-marketing.** A joint post or demo once pilots are live.

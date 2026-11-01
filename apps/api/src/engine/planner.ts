@@ -39,6 +39,8 @@ import {
   DEFAULT_FEE_POLICY,
   feeLine,
   feeOf,
+  feeBpsFor,
+  type StepKind,
   feeUnits,
   type IntegratorFeePolicy,
   validIntegratorFee,
@@ -51,7 +53,7 @@ import { LykiaHttpError } from "../http/errors.js";
 import { usdValue, type PriceService } from "../arc/prices.js";
 import { systemClock } from "../clock.js";
 import { ERC4626_ABI, morphoVaults } from "../flock/flock.js";
-import { ADAPTER_VENUE, cctpFeeBps, noRoute, stepKindOf, type AdapterId, type StepPlan } from "./adapters.js";
+import { ADAPTER_VENUE, cctpFeeBps, manifestStep, noRoute, stepKindOf, type AdapterId, type StepPlan } from "./adapters.js";
 import { PRACTICE_LENDING_ABI } from "./abis.js";
 import { VenueRouter, type Candidate, type VenuePrefs } from "./router.js";
 import { legsAllowlisted, ROUTER_LEG_ADAPTERS, type RouterLeg } from "./lykiaRouter.js";
@@ -206,13 +208,15 @@ class Book {
   }
 
   /** Lykia's fee on `units` of `symbol`, or undefined when the policy charges nothing. */
-  fee(symbol: string, units: bigint, basis: StepFee["basis"]): StepFee | undefined {
-    const amount = feeOf(units, this.l.fee.bps);
+  fee(symbol: string, units: bigint, basis: StepFee["basis"], kind?: StepKind): StepFee | undefined {
+    // Per-kind schedule (LYKIA_FEE_SCHEDULE); without one this is the base fee, as before.
+    const bps = feeBpsFor(kind, this.l.fee.bps, this.l.fee.schedule);
+    const amount = feeOf(units, bps);
     const extra = this.l.integrator ? feeOf(units, this.l.integrator.bps) : 0n;
     if (amount === 0n && extra === 0n) return undefined;
     const a = this.amount(symbol, amount);
     const i = this.l.integrator && extra > 0n ? { integrator: { bps: this.l.integrator.bps, recipient: this.l.integrator.recipient, amount: extra.toString(), usd: this.amount(symbol, extra).usd, ...(this.l.integrator.projectId ? { projectId: this.l.integrator.projectId } : {}) } } : {};
-    return { bps: this.l.fee.bps, recipient: this.l.fee.recipient, symbol: a.symbol, token: a.token, decimals: a.decimals, amount: amount.toString(), usd: a.usd, basis, ...i };
+    return { bps, recipient: this.l.fee.recipient, symbol: a.symbol, token: a.token, decimals: a.decimals, amount: amount.toString(), usd: a.usd, basis, ...i };
   }
 }
 
@@ -290,8 +294,8 @@ export class Planner {
       plans[id] = { adapter: d.adapter, params: d.params };
       return {
         id,
-        kind: stepKindOf(d.adapter, d.fx),
-        venue: ADAPTER_VENUE[d.adapter],
+        kind: d.adapter === "manifest" ? manifestStep(d.params, d.fx).kind : stepKindOf(d.adapter, d.fx),
+        venue: d.adapter === "manifest" ? manifestStep(d.params, d.fx).venue : ADAPTER_VENUE[d.adapter],
         summary: d.summary,
         signer: input.signer,
         account,
@@ -351,7 +355,7 @@ export class Planner {
         const resolved = book.resolve(action.amount, token.symbol, token.decimals);
         // An exact send reaches the recipient in full and pays the fee on top; a share or "all" pays it from the amount.
         const onTop = "exact" in action.amount;
-        const fee = book.fee(token.symbol, resolved, onTop ? "on-top" : "input");
+        const fee = book.fee(token.symbol, resolved, onTop ? "on-top" : "input", "transfer");
         const feePaid = feeUnits(fee);
         const units = onTop ? resolved : resolved - feePaid;
         book.spend(token.symbol, units + feePaid, "send");
@@ -379,7 +383,7 @@ export class Planner {
         if (!/^0x[0-9a-fA-F]{40}$/u.test(recipient)) throw new LykiaHttpError("INVALID_ACTIONS", 400, "recipient must be an EVM address.");
         const gross = book.resolve(action.amount, "USDC", 6);
         book.spend("USDC", gross, "bridge");
-        const fee = book.fee("USDC", gross, "input");
+        const fee = book.fee("USDC", gross, "input", "bridge");
         const units = gross - feeUnits(fee);
         const feeBps = await cctpFeeBps(this.deps.fetch, env, dest.domain);
         const warnings: string[] = [];
@@ -403,7 +407,7 @@ export class Planner {
       case "unify": {
         const gross = book.resolve(action.amount, "USDC", 6);
         book.spend("USDC", gross, "deposit into Gateway");
-        const fee = book.fee("USDC", gross, "input");
+        const fee = book.fee("USDC", gross, "input", "gateway-deposit");
         const units = gross - feeUnits(fee);
         const amount = book.amount("USDC", units);
         const display = book.display("USDC", units);
@@ -429,7 +433,7 @@ export class Planner {
         if (!spoke) throw noRoute(env === "testnet" ? "Supplying cirBTC alone has no testnet venue; borrow against it to post it on Lykia Practice Lending." : "Aave V4 is not on this environment.");
         const gross = book.resolve(action.amount, token.symbol, token.decimals);
         book.spend(token.symbol, gross, "supply");
-        const fee = book.fee(token.symbol, gross, "input");
+        const fee = book.fee(token.symbol, gross, "input", "supply");
         const units = gross - feeUnits(fee);
         const amount = book.amount(token.symbol, units);
         const display = book.display(token.symbol, units);
@@ -470,7 +474,7 @@ export class Planner {
     if (!choice) throw noRoute(env === "testnet" ? "No earn venue on Arc testnet yet: the Lykia practice vault is not deployed (Morpho and Aave are mainnet only)." : `No ${token.symbol} earn venue answered.`);
     const gross = book.resolve(amountSpec, token.symbol, token.decimals);
     book.spend(token.symbol, gross, "deposit");
-    const fee = book.fee(token.symbol, gross, "input");
+    const fee = book.fee(token.symbol, gross, "input", "deposit");
     const units = gross - feeUnits(fee);
     const amount = book.amount(token.symbol, units);
     const display = book.display(token.symbol, units);
@@ -531,6 +535,8 @@ export class Planner {
     } catch {
       /* no Aave on this environment */
     }
+    // Positions at routable adapter manifests (integrations/runtime.ts), read through their position function.
+    for (const m of await this.router.adapterPositions(env, token.symbol, account)) held.push({ venue: m.venue, label: m.label, max: m.max, adapter: "manifest", params: m.params });
     if (held.length === 0) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `No ${token.symbol} position to withdraw from on Arc ${env}.`);
     const [venueId, name] = (action.venue ?? "").split(":");
     const named = action.venue ? held.find((h) => h.venue === venueId && (!name || h.label.toLowerCase().replace(/\s+/gu, "").includes(name.toLowerCase().replace(/usdc|eurc/gu, "")))) : undefined;
@@ -579,7 +585,7 @@ export class Planner {
     const c = choice.candidate;
     if (c.collateralUnits > 0n) book.spend(coll.symbol, c.collateralUnits, "post collateral");
     // The fee comes out of the borrowed amount, right after the borrow, in the same transaction.
-    const fee = book.fee(loan.symbol, amountUnits, "output");
+    const fee = book.fee(loan.symbol, amountUnits, "output", "borrow");
     book.receive(loan.symbol, amountUnits - feeUnits(fee));
     const debt = book.amount(loan.symbol, amountUnits);
     const display = book.display(loan.symbol, amountUnits);
@@ -653,7 +659,7 @@ export class Planner {
     const gross = book.resolve(action.amount, from.symbol, from.decimals);
     if (gross <= 0n && !book.l.dryRun) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `Nothing to ${action.verb}: the spendable ${from.symbol} balance is 0.`);
     // The fee leaves the input first; every venue is quoted on the same net amount, so the comparison is fair.
-    const fee = book.fee(from.symbol, gross, "input");
+    const fee = book.fee(from.symbol, gross, "input", isFx ? "fx" : "swap");
     const units = gross - feeUnits(fee);
     const best = await this.router.bestSwap(env, from.symbol, to.symbol, units > 0n ? units : 10n ** BigInt(from.decimals), book.l.prefs);
     if (!best) throw noRoute(env === "testnet" ? `No ${isFx ? "FX" : "swap"} venue on Arc testnet yet: the Lykia practice swap is not deployed (Uniswap is mainnet only).` : `No venue on Arc quotes ${from.symbol} -> ${to.symbol}.`);
@@ -715,7 +721,7 @@ export class Planner {
       legsOut += minOut;
       // The whole fee rides on the first leg (one transfer per plan action).
       const legFee = index === 0 ? fee : undefined;
-      const input = book.amount(from.symbol, legIn + (legFee ? BigInt(legFee.amount) : 0n));
+      const input = book.amount(from.symbol, legIn + feeUnits(legFee));
       const display = `${fromBaseUnits(legIn, from.decimals)} ${from.symbol} -> ${fromBaseUnits(out, to.decimals)} ${to.symbol}`;
       const warnings: string[] = [];
       if (routerNote && index === 0) warnings.push(routerNote);

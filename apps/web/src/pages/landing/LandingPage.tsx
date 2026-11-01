@@ -22,6 +22,17 @@ const CHIPS = {
   en: ["Put half my USDC to work", "Keep 5000 USDC for payroll, put the rest in the best vault and hedge 20% into EURC", "Convert 200 USDC to EURC", "Bridge 50 USDC to Base"],
 } as const;
 
+/** Which Circle product each Lykia feature uses (docs/circle/README.md). */
+const TOGETHER: readonly (readonly [string, string, string])[] = [
+  ["Agent wallets", "Circle Wallets", "The default signer for every agent, with gas sponsored by Gas Station."],
+  ["Fence caps and allow lists", "Agent Wallet policies", "Your Fence compiles into the wallet's Circle spending policy; Lykia checks the rest."],
+  ["Bridging", "CCTP V2 · Gateway", "Burn and mint USDC across chains, or spend one unified balance."],
+  ["FX", "StableFX", "USDC and EURC on Arc, checked against the Chainlink reference."],
+  ["Recipient checks", "Compliance Engine", "A screened-out address becomes a Fence deny."],
+  ["Paid agent services", "x402 · Agent Marketplace", "Agents find services and pay them in USDC, inside their caps."],
+  ["Every plan", "USDC · EURC", "USDC is Arc's gas and Lykia's unit of account."],
+];
+
 export default function LandingPage() {
   const rates = useRates("mainnet");
   const eco = useEcosystem("mainnet");
@@ -49,7 +60,7 @@ export default function LandingPage() {
           )}
         </h1>
         <p className="m-sub">
-          {"Built on Circle's rails, routing value to every Arc protocol, keeping every agent inside its Fence. Say it once; Lyko herds your stablecoins and keeps the wolves outside."}
+          {"Built on Arc Network and Circle's products: every Arc protocol routable on Lykia, every agent inside its Fence. Say it once; Lyko herds your stablecoins and keeps the wolves outside."}
         </p>
       </header>
 
@@ -182,6 +193,24 @@ export default function LandingPage() {
           <EcosystemLink />
         </div>
         <p className="m-kick m-center" style={{ marginTop: 14 }}>{"VERDICTS FILED AS ERC-8354 POLICY ATTESTATIONS · BUILT ON ARC NETWORK · POWERED BY CIRCLE"}</p>
+      </section>
+
+      <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="better-together">
+        <div className="m-center">
+          <span className="m-kick">{"POWERED BY CIRCLE"}</span>
+          <h2 id="better-together" className="m-h2" style={{ marginTop: 8 }}>{"Better together with Circle"}</h2>
+          <p className="m-sub" style={{ marginTop: 8 }}>{"Lykia is built on Circle's products and uses them wherever they exist. Your agent runs on a Circle wallet; Lykia's Fence checks every step before it gets there."}</p>
+        </div>
+        <ul className="together" aria-label="Which Circle product each Lykia feature uses">
+          {TOGETHER.map(([feature, product, line]) => (
+            <li key={feature} className="m-frame m-frame--thin together__row">
+              <b>{feature}</b>
+              <Tag tone="sea">{product}</Tag>
+              <p className="m-small m-muted">{line}</p>
+            </li>
+          ))}
+        </ul>
+        <p className="m-small m-muted m-center" style={{ marginTop: 12 }}>{"Built on Arc Network · Powered by Circle. Lykia is independent: not affiliated with or endorsed by Circle or Arc."}</p>
       </section>
 
       <section className="m-wrap" style={{ marginTop: 48 }}>

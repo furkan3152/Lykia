@@ -16,6 +16,7 @@ import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { sendError } from "../http/request.js";
 import type { JsonValue } from "../store/types.js";
+import { sellerProofHeader } from "../circle/sellerProof.js";
 
 export const X402_VERSION = 2;
 export const USDC_DOMAIN = { name: "USDC", version: "2" } as const;
@@ -140,10 +141,50 @@ export function settlementMode(ctx: AppContext): { readonly mode: "settled" | "v
   return { mode: "settled", facilitator: facilitatorUrl, note: circle ? "Circle's facilitator settles every payment on Arc before the answer is sent." : "The configured facilitator settles every payment before the answer is sent." };
 }
 
+export type AcceptResult =
+  | { readonly ok: true; readonly payer: Address; readonly settlement: { readonly success: boolean; readonly transaction?: string; readonly mode: "settled" | "verify-only"; readonly error?: string } }
+  | { readonly ok: false; readonly reason: string };
+
+/**
+ * Verifies an x402 payment header against requirements, claims its nonce
+ * once, and settles it through the facilitator when one is configured.
+ * Shared by paid routes and by API billing (overage and credit top-ups).
+ */
+export async function acceptPayment(ctx: AppContext, header: string, requirements: PaymentRequirements, environment: ArcEnvironment): Promise<AcceptResult> {
+  const payment = decodePayment(header);
+  if (!payment) return { ok: false, reason: "The payment header is not valid base64 JSON." };
+  const verdict = await verifyPayment(payment, requirements, Math.floor(ctx.clock.now() / 1000));
+  if (!verdict.ok) return { ok: false, reason: verdict.reason };
+  const nonceKey = `${environment}:${payment.payload.authorization.from.toLowerCase()}:${payment.payload.authorization.nonce.toLowerCase()}`;
+  const claimed = await ctx.store.collection<JsonValue>("x402_nonces").compareAndSet(nonceKey, null, { at: ctx.clock.now() }, { ttlMs: 7 * 24 * 3600_000 });
+  if (!claimed) return { ok: false, reason: "That authorization was already used." };
+  const { facilitatorUrl } = ctx.config.x402;
+  let settlement: { success: boolean; transaction?: string; mode: "settled" | "verify-only"; error?: string } = { success: true, mode: "verify-only" };
+  if (facilitatorUrl) {
+    try {
+      const settleBody = JSON.stringify({ x402Version: X402_VERSION, paymentPayload: payment, paymentRequirements: requirements });
+      // Circle's hosted facilitator also wants a seller proof (signed by a Circle wallet when one is configured).
+      const proof = await sellerProofHeader(ctx, { purpose: "settle", body: settleBody, network: requirements.network, payTo: requirements.payTo });
+      const response = await ctx.fetch(`${facilitatorUrl.replace(/\/$/u, "")}/settle`, {
+        method: "POST",
+        headers: { ...facilitatorHeaders(facilitatorUrl, ctx.config.circle.apiKey), ...proof },
+        body: settleBody,
+        signal: AbortSignal.timeout(10_000),
+      });
+      const body = (await response.json().catch(() => ({}))) as { success?: boolean; transaction?: string; errorReason?: string };
+      settlement = body.success ? { success: true, mode: "settled", ...(body.transaction ? { transaction: body.transaction } : {}) } : { success: false, mode: "settled", error: body.errorReason ?? `facilitator answered ${response.status}` };
+    } catch {
+      settlement = { success: false, mode: "settled", error: "facilitator unreachable" };
+    }
+    if (!settlement.success) return { ok: false, reason: `Settlement failed: ${settlement.error}.` };
+  }
+  return { ok: true, payer: verdict.payer, settlement };
+}
+
 /** Express middleware: free when x402 is not configured, otherwise 402 until a valid payment arrives. */
 export function paid(ctx: AppContext, description: string): RequestHandler {
   return async (req, res, next) => {
-    const { payTo, priceUnits, facilitatorUrl } = ctx.config.x402;
+    const { payTo, priceUnits } = ctx.config.x402;
     if (!payTo) {
       sendError(req, res, new LykiaHttpError("NOT_FOUND", 404, "Paid routes are not enabled on this server (LYKIA_X402_PAY_TO is unset)."));
       return;
@@ -157,30 +198,9 @@ export function paid(ctx: AppContext, description: string): RequestHandler {
       res.status(402).setHeader("PAYMENT-REQUIRED", Buffer.from(JSON.stringify(body)).toString("base64")).json(body);
     };
     if (!header) return challenge("Payment required: USDC on Arc.");
-    const payment = decodePayment(header);
-    if (!payment) return challenge("The payment header is not valid base64 JSON.");
-    const verdict = await verifyPayment(payment, requirements, Math.floor(ctx.clock.now() / 1000));
-    if (!verdict.ok) return challenge(verdict.reason);
-    const nonceKey = `${environment}:${payment.payload.authorization.from.toLowerCase()}:${payment.payload.authorization.nonce.toLowerCase()}`;
-    const claimed = await ctx.store.collection<JsonValue>("x402_nonces").compareAndSet(nonceKey, null, { at: ctx.clock.now() }, { ttlMs: 7 * 24 * 3600_000 });
-    if (!claimed) return challenge("That authorization was already used.");
-    let settlement: { success: boolean; transaction?: string; mode: "settled" | "verify-only"; error?: string } = { success: true, mode: "verify-only" };
-    if (facilitatorUrl) {
-      try {
-        const response = await ctx.fetch(`${facilitatorUrl.replace(/\/$/u, "")}/settle`, {
-          method: "POST",
-          headers: facilitatorHeaders(facilitatorUrl, ctx.config.circle.apiKey),
-          body: JSON.stringify({ x402Version: X402_VERSION, paymentPayload: payment, paymentRequirements: requirements }),
-          signal: AbortSignal.timeout(10_000),
-        });
-        const body = (await response.json().catch(() => ({}))) as { success?: boolean; transaction?: string; errorReason?: string };
-        settlement = body.success ? { success: true, mode: "settled", ...(body.transaction ? { transaction: body.transaction } : {}) } : { success: false, mode: "settled", error: body.errorReason ?? `facilitator answered ${response.status}` };
-      } catch {
-        settlement = { success: false, mode: "settled", error: "facilitator unreachable" };
-      }
-      if (!settlement.success) return challenge(`Settlement failed: ${settlement.error}.`);
-    }
-    res.setHeader("PAYMENT-RESPONSE", Buffer.from(JSON.stringify({ ...settlement, network: requirements.network, payer: verdict.payer })).toString("base64"));
+    const accepted = await acceptPayment(ctx, header, requirements, environment);
+    if (!accepted.ok) return challenge(accepted.reason);
+    res.setHeader("PAYMENT-RESPONSE", Buffer.from(JSON.stringify({ ...accepted.settlement, network: requirements.network, payer: accepted.payer })).toString("base64"));
     next();
   };
 }

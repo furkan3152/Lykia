@@ -51,8 +51,9 @@ Fence.
 | Routing value to every Arc protocol | Every Arc protocol is in the registry. For each move Lykia compares the routable ones and records why it chose one. Any team can integrate (`docs/integrate-your-protocol.md`). | `/ecosystem`, `GET /v1/ecosystem` |
 | Keeping every agent inside its Fence | Every step is checked before it can be signed, and each verdict is filed as an ERC-8354 policy attestation. | `docs/fence.md` |
 
-**Mainnet beta.** Lykia's contracts are not audited yet. Until they are,
-every mainnet move is capped at $1,000 per step and $5,000 per day per owner,
+**Mainnet beta.** Lykia's contracts have not had a paid audit (an open-source,
+one-person project with no budget for one; see `docs/security/self-review.md`).
+That is why every mainnet move is capped at $1,000 per step and $5,000 per day per owner,
 above every Fence (`LYKIA_BETA_CAP_USD`). Moves that bring value home are
 never capped.
 
@@ -73,6 +74,18 @@ What sets Lykia apart:
   attestation. The attestation commits to the Fence without revealing it.
   See [docs/tag.md](docs/tag.md) and
   [docs/positioning.md](docs/positioning.md).
+
+## Better together with Circle
+
+Lykia is built on Circle's products and integrates them instead of
+duplicating them. The default agent setup is a **Circle wallet plus Lykia's
+Fence preflight**: `POST /v1/circle/policies/compile` turns a Fence into
+the wallet's Circle spending policy and reports which rules Lykia enforces
+on top. A Lykia smart account (`LykiaAccount`) is optional, for on-chain
+enforcement. Circle execution providers (CCTP, Gateway, StableFX, Circle
+wallets) are offered beside Lykia's own routes and labelled "Powered by
+Circle". See [docs/circle/README.md](docs/circle/README.md). Lykia is not
+affiliated with or endorsed by Circle or Arc.
 
 ## Pillars
 

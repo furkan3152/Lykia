@@ -4,12 +4,18 @@ import type { Request } from "express";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
+import { currentEnvironmentLock, testKeyMainnetError } from "../platform/requestState.js";
 
 export const environmentSchema = z.enum(["mainnet", "testnet"]);
 
 export const environmentQuery = z.object({ environment: environmentSchema.optional() });
 
 export function environmentOf(ctx: AppContext, value: ArcEnvironment | undefined): ArcEnvironment {
+  // A test key locks the request to testnet: no explicit mainnet, and testnet is the default.
+  if (currentEnvironmentLock() === "testnet") {
+    if (value === "mainnet") throw testKeyMainnetError();
+    return "testnet";
+  }
   return value ?? ctx.config.mode;
 }
 

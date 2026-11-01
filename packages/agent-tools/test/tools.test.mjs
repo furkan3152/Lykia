@@ -82,3 +82,15 @@ test("framework adapters wrap the same tools", async () => {
   assert.equal(block.is_error, true);
   assert.deepEqual(lykiaMcpServer({ baseUrl: "https://api.lykia.xyz", apiKey: "lk_sk_x" }), { lykia: { type: "http", url: "https://api.lykia.xyz/v1/mcp", headers: { "Lykia-Key": "lk_sk_x" } } });
 });
+
+test("developer flow tools are opt-in and build the documented calls", async () => {
+  const { LYKIA_FLOW_TOOLS } = await import("../dist/index.js");
+  assert.deepEqual(LYKIA_FLOW_TOOLS.map((t) => t.name), ["create_payout", "payout_status", "create_invoice", "run_agent", "verify_verdict"]);
+  const { executor, calls } = fakeApi(() => json(201, { id: "po_abcdefabcdef" }));
+  const r = await executor.execute("create_payout", { rows: [{ to: OWNER, token: "USDC", amount: "10", reference: "INV-1" }] });
+  assert.equal(r.ok, true);
+  assert.equal(calls[0].body.payer, OWNER);
+  assert.equal(calls[0].body.rows.length, 1);
+  const lc = langchainTools(executor, { tool: (fn, fields) => ({ fn, ...fields }) }, ["verify_verdict", "run_agent"]);
+  assert.deepEqual(lc.map((t) => t.name), ["run_agent", "verify_verdict"]);
+});

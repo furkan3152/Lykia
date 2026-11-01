@@ -18,6 +18,8 @@ import { getProfile } from "../personal/profile.js";
 import { knowledgePaths } from "../engine/search.js";
 import { EXECUTABLE_VENUES } from "../engine/adapters.js";
 import { services } from "../services.js";
+import { adapterRows, liveAdapters } from "../integrations/registry.js";
+import { adapterKnowledge } from "../integrations/runtime.js";
 import { actionsFrom, environmentOf, environmentQuery, environmentSchema, fenceFrom } from "./common.js";
 
 function selector(abi: string): string | null {
@@ -51,11 +53,13 @@ const searchSchema = z
 export const knowledgeModule: ApiModule = {
   name: "knowledge",
   register(router, ctx) {
-    router.get("/knowledge", (req, res) => {
+    router.get("/knowledge", async (req, res) => {
       const environment = environmentOf(ctx, parseQuery(req, environmentQuery).environment);
+      // Approved and routable adapter manifests join the model at runtime (integrations/registry.ts).
+      const adapters = await adapterRows(ctx).catch(() => []);
       res.json({
         environment,
-        venues: KNOWLEDGE_ROWS.map((row) => ({ ...venueBrief(row), executableHere: EXECUTABLE_VENUES[environment].has(row.venue) })),
+        venues: [...KNOWLEDGE_ROWS.map((row) => ({ ...venueBrief(row), executableHere: EXECUTABLE_VENUES[environment].has(row.venue) })), ...adapters.map((row) => ({ ...venueBrief(row), executableHere: row.executable, source: "adapter-manifest" }))],
         tokens: tokensFor(environment).map((t) => ({ symbol: t.symbol, name: t.name, decimals: t.decimals, peg: t.peg, pricing: t.pricing, issuer: t.issuer, address: tokenAddress(t, environment) })),
         earnable: earnableAssets(KNOWLEDGE_ROWS),
         capabilities: KNOWLEDGE_ROWS.flatMap((r) => r.capabilities).length,
@@ -63,16 +67,17 @@ export const knowledgeModule: ApiModule = {
       });
     });
 
-    router.get("/knowledge/venues/:venue", (req, res) => {
+    router.get("/knowledge/venues/:venue", async (req, res) => {
       const { venue } = parseParams(req, z.object({ venue: z.string().regex(/^[a-z0-9-]{2,48}$/u) }));
       const environment = environmentOf(ctx, parseQuery(req, environmentQuery).environment);
-      const row = venueKnowledge(venue);
+      const adapter = venueKnowledge(venue) ? null : (await liveAdapters(ctx).catch(() => [])).find((a) => a.id === venue) ?? null;
+      const row = venueKnowledge(venue) ?? (adapter ? adapterKnowledge(adapter.manifest, adapter.status === "routable") : null);
       if (!row) throw new LykiaHttpError("NOT_FOUND", 404, `Lykia has no knowledge row for ${venue}.`);
-      const addresses = getProtocol(venue)?.deployments[environment]?.contracts ?? {};
+      const addresses = adapter ? (adapter.manifest.contracts[environment] ?? {}) : (getProtocol(venue)?.deployments[environment]?.contracts ?? {});
       res.json({
         environment,
         ...row,
-        executableHere: EXECUTABLE_VENUES[environment].has(venue),
+        executableHere: adapter ? adapter.status === "routable" : EXECUTABLE_VENUES[environment].has(venue),
         contracts: row.contracts.map((c) => ({ ...c, address: (addresses as Record<string, Address>)[c.key] ?? null })),
         functions: row.functions.map((f) => ({ ...f, selector: selector(f.abi) })),
         reads: row.reads.map((r) => ({ ...r, selector: selector(r.abi) })),

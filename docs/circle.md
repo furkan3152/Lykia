@@ -6,6 +6,15 @@ key. Nothing in this list signs for the user: every step that moves value
 comes back as an unsigned call or as typed data for the owner's or the
 agent's wallet.
 
+## Agent Stack, providers, Marketplace, mandates
+
+See [docs/circle/README.md](circle/README.md): which Circle product each
+Lykia feature uses, the Fence -> Circle Agent Wallet policy compiler (the
+default agent setup is a Circle wallet plus Lykia's Fence preflight), the
+Circle execution providers registered with the aggregator, the Agent
+Marketplace listing and consumer flow, Arc mandate drafts, and Circle MCP
+next to Lykia MCP.
+
 ## Works without a key
 
 | Product | What Lykia does |
@@ -31,9 +40,6 @@ agent's wallet.
 
 - **Circle Paymaster.** It lets users pay gas in USDC on chains where gas
   is something else. Arc's gas is already USDC.
-- **Agent Wallets (Circle CLI).** These run through Circle's CLI with an
-  email session. Lykia's Fence and LykiaAccount sessions play the same
-  role on chain, and a Circle CLI wallet can join the Pack by its address.
 - **USYC.** Shown in the Flock. Subscribing and redeeming stay off until
   the teller contract's source is verified and eligibility (non-US,
   minimums) is handled.

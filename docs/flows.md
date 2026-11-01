@@ -82,7 +82,40 @@ Result key:
 | Agent: transfer to a recipient outside the session | REFUSED (expected) | agent pays 5 USDC to 0x3333…: RecipientNotAllowed(0x3333333333333333333333333333333333333333) |
 | Agent: revoke, then the agent tries again | REFUSED (expected) | agent pays 5 USDC to 0x2222…: SessionInvalid(0x195d7d95cc8e44b6a35e24c10c199aa23bda5ff5fdb58918404e0fdf96501f4b) |
 | Agent: Whistle blown, then a payment to a stranger | REFUSED (expected) | agent pays 5 USDC to 0x2222…: WhistleBlownOnlyHomeward() |
+| Payout batch: 3 recipients (USDC, USDC, EURC) in one Multicall3From transaction, an Arc Memo per row | PASS | 1 transaction, 6 inner calls (3 fee transfers + 3 memo-wrapped transfers) ok at block 29050807. Send 40 USDC, 25 USDC and 15 EURC to three payees, fees 400000, 250000 and 150000 units. Fence allow. Memo notes: payout po_prove000001 · ref INV-1001 / INV-1002 / INV-1003. Funded: USDC (native balance override), EURC (storage override). |
+| Invoice payment: pay a 120 USDC invoice in full through the pay page's plan | PASS | 2 calls ok at block 29050816. Send 120 USDC to 0x2222…2222 (invoice inv_prove0000001 ref INV-77) [fee 1200000 USDC units]. Fence confirm (invoice Fence: this payee and token only). The memo note reconciles to inv_prove0000001. |
+| Invoice payment: partial payment of 50 USDC on the same invoice | PASS | 2 calls ok at block 29050816. Send 50 USDC [fee 500000 USDC units]. Fence confirm. The memo note reconciles to inv_prove0000001. |
 | LykiaOrders (limit, stop-loss, DCA, TWAP) | GATED | Not deployed on mainnet: the Orders page shows “deploy from the owner console”. |
+
+Payouts and invoices are documented in [platform/payouts.md](platform/payouts.md)
+and [platform/invoices.md](platform/invoices.md). The payout row is the
+exact transaction `POST /v1/payouts` returns, run as one `eth_call` from the
+payer: with `allowFailure: false` it only passes when every fee transfer and
+every memo-wrapped transfer succeeds.
+
+## Aggregator: quote -> build on mainnet (2026-11-01, sender 0xada5…f7cb)
+
+`npm run prove` also runs the aggregator (`src/scripts/proveAggregator.ts`)
+exactly as `POST /v1/aggregator/quote` and `POST /v1/aggregator/build` do:
+the quote, then a build from the quote id with fresh quotes, the Fence,
+one `Multicall3From` eth_call over the whole route (`preview`: inputs funded
+with state overrides) and the security layer on every step.
+
+| Flow | Result | Detail |
+|---|---|---|
+| Swap 100 USDC → cirBTC | PASS | Uniswap v3 0.01% pool: 99 USDC → 0.00127133 cirBTC (min 0.00126497), impact 7 bps, gas 0.00399 USDC, fee $1.00, 2 alternatives. Build: 1 tx, 3 calls, simulation ok at block 29052190, security pass, Fence allow. |
+| FX 100 USDC → EURC | PASS | Aerodrome Slipstream: 99 USDC → 88.931752 EURC (min 88.487093), impact −23 bps (better than Chainlink EURC/USD), gas 0.00672 USDC, fee $1.00, 5 alternatives. Build: 1 tx, 3 calls, simulation ok at block 29052190, security pass. |
+| FX 100 EURC → USDC with a 20 bps integrator fee | PASS | Uniswap v4 0.05% pool: 98.8 EURC → 109.893003 USDC (min 109.343537), impact 32 bps, fees $1.34 (Lykia 1% + app 0.2%), 5 alternatives. Build: 1 tx, 5 calls (approve, Lykia fee, app fee, Permit2, swap), simulation ok at block 29052201, security pass. |
+| Bridge 50 USDC to Base (CCTP V2) | PASS | 49.5 USDC burned for Base, gas 0.00504 USDC, fee $0.50. Build with `confirm: true` (Shepherd asks for cross-chain moves): 1 tx, 3 calls, simulation ok at block 29052201, security pass, Fence confirm. |
+| Deposit 200 USDC at the best venue | PASS | Aave V4 Main Spoke, 198 USDC after the fee, 7 alternatives priced. Build: 1 tx, 3 calls, simulation ok at block 29052201, security pass. |
+| Batch: FX 50 USDC → EURC + deposit 100 USDC | PASS | Aerodrome Slipstream then Aave V4, gas 0.0126 USDC, fees $1.50. Build: 2 tx, 6 calls, simulation ok at block 29052213, security pass. |
+| Adapter manifest: validate the example | PASS | `examples/adapter-manifest/manifest.json` (ERC-4626 vault at the Morpho Galaxy USDC address): code, 3 reads and dry simulations of deposit (2 calls) and deposit + withdraw (3 calls) passed at block 29052213. |
+| Deposit 10 USDC through the routable example adapter | PASS | After submit → validate → approve → route, the router quoted it beside 8 alternatives: 9.9 USDC into Example USDC Vault through the generic `manifest` adapter. Build: 1 tx, 3 calls, simulation ok at block 29052249, security pass. |
+
+Found and fixed on the way: the planner left the integrator's share out of a
+swap step's inputs, so the step understated what leaves the wallet (and the
+Fence saw a slightly lower USD amount). The FX row with the integrator fee
+failed its self-check until `planner.ts` counted both fees.
 
 ## Flows that are not an eth_call
 

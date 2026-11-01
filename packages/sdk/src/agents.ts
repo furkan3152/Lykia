@@ -1,5 +1,5 @@
 /** `@lykia/sdk/agents`: Lyko's chat turn, threads, insights, automations and the Pack (sub-agents with their own Fence and Tag). */
-import type { Address, ArcEnvironment, Fence, PackRole, UnsignedTransaction } from "@lykia/core";
+import type { Address, ArcEnvironment, AgentApiBudget, AgentApiView, AgentApiTool, Fence, PackRole, StepKind, UnsignedTransaction } from "@lykia/core";
 import type { AgentProposal, Automation, ChatEvent, InsightsResponse, PackAgentView, SessionTxResponse, ThreadView } from "@lykia/core/api/agents";
 import type { SseMessage } from "./sse.js";
 import { q, type LykiaTransport } from "./transport.js";
@@ -89,3 +89,66 @@ export function ordersApi(t: LykiaTransport) {
 export type AgentApi = ReturnType<typeof agentApi>;
 export type PackApi = ReturnType<typeof packApi>;
 export type { AgentProposal, Automation, ChatEvent, InsightsResponse, PackAgentView, SessionTxResponse, ThreadView };
+
+/* ------------------------------------------------------------ agents over the API (/v1/agents) */
+
+export interface AgentInput {
+  readonly name: string;
+  readonly owner: Address;
+  readonly projectId?: string;
+  readonly environment?: ArcEnvironment;
+  readonly tools?: readonly AgentApiTool[];
+  readonly kinds?: readonly StepKind[] | null;
+  readonly venues?: readonly string[] | null;
+  readonly fence?: Fence;
+  readonly budget?: AgentApiBudget;
+  readonly pack?: readonly string[];
+  readonly persona?: string;
+  readonly memory?: boolean;
+  readonly autoPrepare?: boolean;
+  /** "lykia": Lykia's server model when it has one; "none": the deterministic reader only. */
+  readonly llm?: { readonly provider: "lykia" | "none" };
+  readonly status?: "active" | "paused";
+}
+
+export interface AgentRunResult {
+  readonly agentId: string;
+  readonly threadId: string;
+  readonly mode: "llm" | "reader";
+  readonly reply: string;
+  readonly proposals: AgentProposal[];
+  readonly prepared: { intentId: string; stepId: string; transactions: UnsignedTransaction[]; memo: string; security: unknown }[];
+  readonly notes: string[];
+  readonly fenceHash: string;
+}
+
+export interface VerdictCheck {
+  readonly digest: string;
+  readonly found: boolean;
+  readonly match: boolean;
+  readonly intentId: string | null;
+  readonly decision: "allow" | "confirm" | "deny" | null;
+  readonly recomputed: string | null;
+  readonly memoTag: string;
+}
+
+export function agentsApi(t: LykiaTransport) {
+  const id = (value: string) => encodeURIComponent(value);
+  return {
+    create: (input: AgentInput) => t.request<AgentApiView>("POST", "/v1/agents", { ...input, environment: t.env(input.environment) }),
+    list: () => t.request<{ agents: AgentApiView[] }>("GET", "/v1/agents"),
+    get: (agentId: string) => t.request<AgentApiView>("GET", `/v1/agents/${id(agentId)}`),
+    update: (agentId: string, patch: Partial<AgentInput>) => t.request<AgentApiView>("PATCH", `/v1/agents/${id(agentId)}`, patch),
+    remove: (agentId: string) => t.request<{ deleted: true }>("DELETE", `/v1/agents/${id(agentId)}`),
+    /** A sentence to a plan under the agent's Fence; `autoPrepare` returns the first step's unsigned calls for allow verdicts. */
+    run: (agentId: string, input: { message: string; threadId?: string; autoPrepare?: boolean; dryRun?: boolean }) => t.request<AgentRunResult>("POST", `/v1/agents/${id(agentId)}/run`, input),
+    threads: (agentId: string) => t.request<{ threads: { id: string; title: string; updatedAt: string }[] }>("GET", `/v1/agents/${id(agentId)}/threads`),
+    thread: (agentId: string, threadId: string) => t.request<{ id: string; messages: { role: string; text: string; at: string }[] }>("GET", `/v1/agents/${id(agentId)}/threads/${id(threadId)}`),
+    /** ERC-8004 registration: a card pinning the agent's Fence hash and the unsigned register call. */
+    tag: (agentId: string, input: { description?: string; agentWallet?: Address } = {}) => t.request<unknown>("POST", `/v1/agents/${id(agentId)}/tag`, input),
+    /** Recomputes a Fence verdict from the stored plan and says whether it matches. */
+    verifyVerdict: (digest: string) => t.request<VerdictCheck>("GET", `/v1/verdicts/${id(digest)}`),
+  };
+}
+
+export type AgentsApi = ReturnType<typeof agentsApi>;

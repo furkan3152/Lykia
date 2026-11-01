@@ -28,6 +28,12 @@ export interface DocumentedRoute {
   readonly idempotent?: boolean;
   /** Paid with x402 instead of (or as well as) a key. */
   readonly x402?: boolean;
+  /** Optional additions read by the OpenAPI builder (all optional, so existing calls stay valid). */
+  readonly operationId?: string;
+  readonly deprecated?: boolean;
+  /** Success status (default 200, or 201 for creating POSTs that say so). */
+  readonly status?: number;
+  readonly example?: unknown;
 }
 
 const routes = new Map<string, DocumentedRoute>();

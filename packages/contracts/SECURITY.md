@@ -1,6 +1,6 @@
 # Security
 
-These contracts are **not audited**. They are meant for Arc testnet and small amounts until an independent review has been done.
+These contracts are **not audited** by a paid firm (an unfunded, one-person project). They have a self-review with Slither, Mythril and fuzz/invariant tests (`docs/security/self-review.md`). Mainnet use is capped for that reason.
 
 ## Threat model
 
@@ -26,4 +26,4 @@ The router protects callers from venues that under-deliver (per-step and final f
 
 ## Reporting
 
-Please report vulnerabilities privately to the repository owner through GitHub's private vulnerability reporting rather than in a public issue.
+Follow the responsible-disclosure policy in the repository's root `SECURITY.md`: report privately through GitHub's private vulnerability reporting, never in a public issue.

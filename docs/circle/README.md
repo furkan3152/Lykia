@@ -1,0 +1,28 @@
+# Lykia and Circle: better together
+
+Circle is not a competitor; Lykia is built on Circle's products and sends
+them traffic. Wherever Circle already runs something, Lykia uses it instead
+of rebuilding it, and adds what an agent still needs on top: a DeFi-aware
+Fence, routing to every Arc protocol, and records of every decision.
+
+Wording: "Built on Arc Network", "Powered by Circle", "built on Circle's
+products". Lykia does not claim to be a Circle or Arc partner, and does not
+claim endorsement.
+
+## Which Circle product each Lykia feature uses
+
+| Lykia feature | Circle product | How | Doc |
+|---|---|---|---|
+| Agent wallets (default path) | Developer-controlled wallets, Agent Wallets | A Circle wallet signs; Lykia's Fence preflight checks every step first. A Lykia smart account is optional. | [policies.md](policies.md) |
+| Fence caps and allow/block lists | Agent Wallets spending policies | `POST /v1/circle/policies/compile` turns a Fence into the Circle policy and the CLI commands | [policies.md](policies.md) |
+| Bridging | CCTP V2 + Forwarding Service, Gateway | Execution providers `circle-cctp`, `circle-gateway` | [providers.md](providers.md) |
+| FX | StableFX | Provider `circle-stablefx` (with access) | [providers.md](providers.md) |
+| Gas | Gas Station | SCA agent wallets, sponsored by a Console policy | [providers.md](providers.md) |
+| Recipient screening | Compliance Engine | DENIED becomes a Fence deny | [../legal/software-notice.md](../legal/software-notice.md) |
+| Paid API routes | x402 Facilitator | Settles Lykia's x402 routes on Arc; seller proof signed by a Circle wallet | [marketplace-listing.md](marketplace-listing.md) |
+| Buying services | Agent Marketplace Discovery API + x402 | Discover, then pay inside the Fence (caps apply) | [marketplace-listing.md](marketplace-listing.md) |
+| Front-end flows | App Kit (send / swap / bridge / earn), Onramp Kit | Client-side; pair with `POST /v1/fence/evaluate` | [providers.md](providers.md) |
+| Developer tooling | Circle MCP (docs/codegen), Circle Skills | Side by side with Lykia MCP (execution planning) and Lykia skills | [mcp-and-skills.md](mcp-and-skills.md) |
+| Agent mandates | Arc typed mandates and execution proofs (announced) | Adapter ready, status pending | [mandates.md](mandates.md) |
+
+Live status: `GET /v1/circle/status` and `GET /v1/circle/providers`.

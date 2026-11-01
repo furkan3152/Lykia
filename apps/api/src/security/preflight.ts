@@ -18,7 +18,8 @@ import { auditSafe, ownerChain } from "./audit.js";
 import { pausedTargets, venueBreakers } from "./breakers.js";
 import { decodeTransactions } from "./decode.js";
 import { checkRecipient, rememberRecipient } from "./recipients.js";
-import { simulateStep } from "./simulate.js";
+import { simulateStep, type SimulationResult } from "./simulate.js";
+import { adapterContracts } from "../integrations/registry.js";
 
 const RECIPIENT_KEYS = new Set(["to", "recipient", "mintRecipient", "receiver"]);
 
@@ -41,6 +42,7 @@ async function knownContracts(ctx: AppContext, graph: IntentGraph, params: Reado
   for (const p of protocolsFor(env)) for (const a of Object.values(p.deployments[env]?.contracts ?? {})) out.add(a.toLowerCase());
   for (const [key, value] of Object.entries(params)) if (!RECIPIENT_KEYS.has(key) && isAddress(value)) out.add(value.toLowerCase());
   for (const d of await listDeployments(ctx, env).catch(() => [])) if (d.verified) out.add(d.address.toLowerCase());
+  for (const a of await adapterContracts(ctx, env).catch(() => [])) out.add(a.toLowerCase());
   return [...out] as Address[];
 }
 
@@ -56,6 +58,28 @@ export async function securityPreflight(ctx: AppContext, input: PreflightInput):
   const step = graph.steps.find((s) => s.id === input.stepId);
   const plan = (doc.plans as Record<string, { params: Readonly<Record<string, string>> }>)[input.stepId];
   if (!step || !plan) throw new LykiaHttpError("NOT_FOUND", 404, "No such step.");
+  return securityReview(ctx, { graph, step, params: plan.params, transactions: input.prepared.transactions, binding: input.prepared.binding, mode: "prepare" });
+}
+
+export interface ReviewInput {
+  readonly graph: IntentGraph;
+  readonly step: IntentStep;
+  readonly params: Readonly<Record<string, string>>;
+  readonly transactions: readonly UnsignedTransaction[];
+  readonly binding: string;
+  /**
+   * "prepare": the signing gate of a stored intent (records the activity and may auto-pause).
+   * "build": a stateless aggregator build (reads pauses and the monitor, never records or pauses).
+   */
+  readonly mode: "prepare" | "build";
+  /** A simulation the caller already ran (a whole route in one batch); replaces the per-step one. */
+  readonly simulation?: SimulationResult;
+}
+
+/** Layers 1 to 5 over one step's prepared transactions. Throws 409 SECURITY_BLOCKED on a block. */
+export async function securityReview(ctx: AppContext, input: ReviewInput): Promise<SecurityReport> {
+  const { graph, step } = input;
+  const plan = { params: input.params };
   const env = graph.environment;
   const now = ctx.clock.now();
   const findings: SecurityFinding[] = [];
@@ -72,7 +96,7 @@ export async function securityPreflight(ctx: AppContext, input: PreflightInput):
   if (paused) findings.push(soften({ layer: "monitor", rule: "monitor.paused", severity: "block", message: `${subject} is paused (${paused.by}): ${paused.reason}`, stepId: step.id }));
 
   // Layer 1: decode, diff, simulate.
-  const calls = decodeTransactions(input.prepared.transactions);
+  const calls = decodeTransactions(input.transactions);
   const recipient = planRecipient(step.kind, plan.params);
   const expect: ExpectedFlow = {
     stepId: step.id,
@@ -87,7 +111,7 @@ export async function securityPreflight(ctx: AppContext, input: PreflightInput):
   };
   const flow = analyzeFlow(expect, calls);
   findings.push(...flow.findings);
-  const sim = await simulateStep(ctx.chains.client(env), step.id, input.prepared.transactions);
+  const sim = input.simulation ?? (await simulateStep(ctx.chains.client(env), step.id, input.transactions));
   findings.push(...sim.findings);
   const touched = flow.summary.contractsTouched.filter((a) => !step.inputs.some((i) => sameAddress(i.token, a)));
   for (const a of await pausedTargets(ctx, env, touched)) findings.push(soften({ layer: "breakers", rule: "breakers.paused", severity: "block", message: `${a} reports paused(): nothing moves through it right now.`, stepId: step.id, address: a }));
@@ -100,7 +124,7 @@ export async function securityPreflight(ctx: AppContext, input: PreflightInput):
   const monitor = monitorFindings(await recentActivity(ctx, subject, now), { at: now, usd: stepUsd(step), venue: step.venue, recipient }, policy, step.id).map(soften);
   findings.push(...monitor);
   const action = whistleAction(monitor, policy, step.signer === "agent");
-  if (action !== "none") {
+  if (action !== "none" && input.mode === "prepare") {
     const first = monitor.find((f) => f.severity !== "info") as SecurityFinding;
     await raiseAlert(ctx, { owner: graph.owner, subject, severity: action === "pause" ? "block" : first.severity, rule: first.rule, title: action === "pause" ? `Auto-Whistle paused ${subject}` : "Auto-Whistle flagged unusual activity", body: monitor.map((f) => f.message).join(" ") }).catch(() => null);
     if (action === "pause" && !homeward) {
@@ -132,12 +156,12 @@ export async function securityPreflight(ctx: AppContext, input: PreflightInput):
     cleanup,
   } as const;
   const report: SecurityReport = { ...body, digest: canonicalDigest(body) };
-  await auditSafe(ctx, ownerChain(graph.owner), { kind: report.decision === "block" ? "blocked" : "prepare", actor: step.signer === "agent" ? (graph.agent?.address ?? "agent") : graph.owner, subject: `${graph.id}:${step.id}`, data: { decision: report.decision, digest: report.digest, verdict: graph.verdict.digest, binding: input.prepared.binding, rules: findings.filter((f) => f.severity !== "info").map((f) => f.rule) } });
+  await auditSafe(ctx, ownerChain(graph.owner), { kind: report.decision === "block" ? "blocked" : "prepare", actor: step.signer === "agent" ? (graph.agent?.address ?? "agent") : graph.owner, subject: `${graph.id}:${step.id}`, data: { decision: report.decision, digest: report.digest, verdict: graph.verdict.digest, binding: input.binding, mode: input.mode, rules: findings.filter((f) => f.severity !== "info").map((f) => f.rule) } });
   if (report.decision === "block") {
     const first = findings.find((f) => f.severity === "block") as SecurityFinding;
     throw new LykiaHttpError("SECURITY_BLOCKED", 409, first.message, { security: report });
   }
-  await recordActivity(ctx, subject, { at: now, kind: "prepare", usd: stepUsd(step), venue: step.venue, recipient }).catch(() => undefined);
+  if (input.mode === "prepare") await recordActivity(ctx, subject, { at: now, kind: "prepare", usd: stepUsd(step), venue: step.venue, recipient }).catch(() => undefined);
   return report;
 }
 

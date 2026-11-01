@@ -1,7 +1,9 @@
 /**
  * The Pack: Lyko's kennel. Agents and their pups (sub-agents) with collar
  * colours by role, budgets as bones, spawn-a-pup with Fence inheritance,
- * cascading revoke, and the on-chain LykiaAccount session.
+ * cascading revoke. Default setup: a Circle wallet signs and Lykia's Fence
+ * checks every step first (the Fence compiles into the wallet's Circle
+ * spending policy); a Lykia smart account session is optional.
  */
 import { useLykiaWallet } from "../../features/wallet/useLykiaWallet";
 import { PACK_ROLES, ROLE_TEMPLATES, type PackRole } from "@lykia/core";
@@ -21,6 +23,12 @@ import { availabilityOf } from "../../lib/optional";
 import { useLamp } from "../../lib/pulseStore";
 import { Button, Card, EmptyState, Field, Input, Modal, PageHead, PupIcon, Select, Skeleton, toast } from "../../mosaic";
 import { kennel, KENNEL_H, KENNEL_W } from "../../mosaic/scenes";
+
+interface CirclePolicyView {
+  readonly commands: readonly string[];
+  readonly coverage: readonly { readonly rule: string; readonly enforcedBy: "circle" | "lykia" | "both"; readonly how: string }[];
+  readonly warnings: readonly string[];
+}
 
 const ROLE_LABEL = (role: PackRole) => (role === "custom" || role === "orchestrator" ? (role === "custom" ? ("Custom") : "Lyko") : ROLE_TEMPLATES[role].title.en);
 
@@ -51,6 +59,7 @@ export default function PackPage() {
   const [form, setForm] = useState<WizardInput>(EMPTY_WIZ);
   const [violations, setViolations] = useState<Record<string, string[]>>({});
   const [account, setAccount] = useState("");
+  const [policy, setPolicy] = useState<CirclePolicyView | null>(null);
 
   const tree = useQuery({
     queryKey: ["pack", address, environment],
@@ -115,6 +124,14 @@ export default function PackPage() {
     }
   };
 
+  const compilePolicy = async (agent: PackAgentView) => {
+    try {
+      setPolicy(await apiPost<CirclePolicyView>("/v1/circle/policies/compile", { fence: agent.fence, ...(address ? { owner: address } : {}) }));
+    } catch (e) {
+      toast.error(describeError(e), { from: "LYKO" });
+    }
+  };
+
   const depthOf = (a: PackAgentView) => a.depth;
   const ordered = [...agents].sort((a, b) => (a.parentId === b.parentId ? a.createdAt.localeCompare(b.createdAt) : depthOf(a) - depthOf(b)));
 
@@ -166,6 +183,7 @@ export default function PackPage() {
                     <dt>{"Session"}</dt><dd>{selected.session ? `${selected.session.account.slice(0, 8)}… · ${selected.session.sessionId.slice(0, 10)}…` : "not on chain"}</dd>
                   </dl>
                   {selected.mission ? <p className="m-note">{selected.mission}</p> : null}
+                  <p className="m-small m-muted">{"Default setup: a Circle wallet signs, and Lykia's Fence checks every step before it gets there. Circle enforces the caps and allow lists natively; Lykia covers venues, slippage, health factor, Scent and hours. Powered by Circle."}</p>
                   {siwe.signedIn && selected.status !== "revoked" ? (
                     <div className="flex gap-2 flex-wrap justify-center">
                       {selected.capabilities.includes("spawn") || selected.depth < 3 ? <Button tone="sea" size="sm" onClick={() => setWizard({ parent: selected })}>{"SPAWN A PUP"}</Button> : null}
@@ -173,11 +191,12 @@ export default function PackPage() {
                       <Button tone="navy" size="sm" onClick={() => { if (window.confirm("Revoke this agent and every pup under it?")) void act(`/v1/pack/${selected.id}/revoke`, "Revoked, with its pups"); }}>{"REVOKE"}</Button>
                       <Button tone="ochre" size="sm" onClick={() => navigate(`/app/tag${selected.agentId ? `/${selected.agentId}` : ""}`)}>TAG</Button>
                       <Button tone="sea" size="sm" onClick={() => void provision(selected.id)}>{"CIRCLE WALLET"}</Button>
+                      <Button tone="ghost" size="sm" onClick={() => void compilePolicy(selected)}>{"CIRCLE POLICY"}</Button>
                     </div>
                   ) : null}
                   {siwe.signedIn && selected.status === "active" ? (
                     <form className="m-frame m-frame--thin" style={{ padding: 12, display: "grid", gap: 8 }} onSubmit={(e) => { e.preventDefault(); void bindSession(); }}>
-                      <span className="m-kick">{"BIND ON CHAIN · LYKIAACCOUNT SESSION"}</span>
+                      <span className="m-kick">{"OPTIONAL · LYKIA SMART ACCOUNT SESSION (ON-CHAIN ENFORCEMENT)"}</span>
                       <Input placeholder={"Your LykiaAccount 0x…"} value={account} onChange={(e) => setAccount(e.target.value)} />
                       <Button type="submit" size="sm" disabled={!/^0x[0-9a-fA-F]{40}$/u.test(account)}>{"SIGN THE SESSION TX"}</Button>
                     </form>
@@ -188,6 +207,21 @@ export default function PackPage() {
           </div>
         )}
       </section>
+      <Modal open={policy !== null} onClose={() => setPolicy(null)} title={"Circle wallet policy"}>
+        {policy ? (
+          <div style={{ display: "grid", gap: 10 }}>
+            <p className="m-small">{"Your Fence, compiled into a Circle Agent Wallet spending policy. Run these commands in your own terminal with the Circle CLI; each asks for a code sent to your email. Never share that code with Lykia or an agent."}</p>
+            <pre className="m-code" style={{ whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{policy.commands.join("\n\n")}</pre>
+            <ul className="m-small" style={{ display: "grid", gap: 4 }}>
+              {policy.coverage.map((c) => (
+                <li key={c.rule}><b className="mono">{c.rule}</b>{` · ${c.enforcedBy === "both" ? "Circle + Lykia" : c.enforcedBy === "circle" ? "Circle" : "Lykia"}`}</li>
+              ))}
+            </ul>
+            {policy.warnings.map((w) => <p key={w} className="m-note">{w}</p>)}
+            <p className="m-kick">{"POWERED BY CIRCLE"}</p>
+          </div>
+        ) : null}
+      </Modal>
       <Modal open={wizard !== null} onClose={() => setWizard(null)} title={wizard?.parent ? (`A pup for ${wizard.parent.name}`) : "A root agent"}>
         <form style={{ display: "grid", gap: 12 }} onSubmit={(e) => { e.preventDefault(); create.mutate(); }}>
           <Field label={"Name"} error={validateWizard(form).find((i) => i.field === "name" && form.name)?.message ?? violations.name?.join(" ")}>

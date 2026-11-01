@@ -15,7 +15,16 @@ export interface PaidService {
   readonly name: string;
   readonly description: string;
   readonly example?: Record<string, unknown>;
+  /** Agent Marketplace category (the Discovery API's enum). */
+  readonly category: "FINANCIAL_ANALYSIS" | "INFRASTRUCTURE";
+  readonly tags: readonly string[];
+  /** JSON Schemas for the Discovery API's metadata.input / metadata.output. */
+  readonly input: Record<string, unknown>;
+  readonly output: Record<string, unknown>;
 }
+
+const ADDRESS_SCHEMA = { type: "string", pattern: "^0x[0-9a-fA-F]{40}$" } as const;
+const ENVIRONMENT_SCHEMA = { type: "string", enum: ["mainnet", "testnet"] } as const;
 
 export const PAID_SERVICES: readonly PaidService[] = [
   {
@@ -25,6 +34,10 @@ export const PAID_SERVICES: readonly PaidService[] = [
     name: "Fence check",
     description: "Checks a planned DeFi move against an owner's Fence (caps, venues, tokens, recipients, schedule, Scent) and returns allow, confirm or deny with one reason per rule and a verdict digest an agent can put in its Arc Memo.",
     example: { facts: { environment: "mainnet", owner: "0x0000000000000000000000000000000000000001", signer: "agent", steps: [{ id: "s1", kind: "transfer", venue: "arc-transfer", usd: "25", tokens: [{ symbol: "USDC", address: "0x3600000000000000000000000000000000000000", listed: true, acquired: false }], recipient: "0x0000000000000000000000000000000000000002" }] } },
+    category: "FINANCIAL_ANALYSIS",
+    tags: ["policy", "agents", "risk", "arc", "usdc", "fence"],
+    input: { type: "object", required: ["facts"], properties: { fence: { type: "object", description: "A lykia.fence/v1 document; absent = the default Shepherd Fence." }, facts: { type: "object", required: ["environment", "owner", "signer", "steps"], properties: { environment: ENVIRONMENT_SCHEMA, owner: ADDRESS_SCHEMA, signer: { type: "string", enum: ["wallet", "agent"] }, steps: { type: "array", maxItems: 12, items: { type: "object" } } } } } },
+    output: { type: "object", required: ["schema", "decision", "signable", "reasons", "digest"], properties: { schema: { const: "lykia.verdict/v1" }, decision: { type: "string", enum: ["allow", "confirm", "deny"] }, signable: { type: "boolean" }, reasons: { type: "array", items: { type: "object" } }, fenceHash: { type: "string" }, digest: { type: "string" } } },
   },
   {
     id: "scent-report",
@@ -32,6 +45,10 @@ export const PAID_SERVICES: readonly PaidService[] = [
     path: "/v1/x402/scent/{token}",
     name: "Deep Scent report",
     description: "What can be proven about an Arc token before anyone touches it: look-alikes, mint authority, upgradeability, blacklists, transfer fees and owner activity, with a wider balance-slot search than the free report.",
+    category: "FINANCIAL_ANALYSIS",
+    tags: ["token-risk", "security", "arc", "scent"],
+    input: { type: "object", required: ["token"], properties: { token: ADDRESS_SCHEMA, environment: ENVIRONMENT_SCHEMA } },
+    output: { type: "object", properties: { token: ADDRESS_SCHEMA, level: { type: "string", enum: ["verified", "no-red-flags", "caution", "danger", "unknown"] }, findings: { type: "array", items: { type: "object" } } } },
   },
   {
     id: "route-quote",
@@ -40,6 +57,10 @@ export const PAID_SERVICES: readonly PaidService[] = [
     name: "Route quote",
     description: "The best executable venue on Arc for a swap, deposit or borrow, with every alternative it beat and why. Covers Uniswap, Aerodrome, Morpho, Aave, Circle StableFX and every other venue Lykia routes to.",
     example: { kind: "swap", environment: "mainnet", from: "USDC", to: "EURC", amount: "100" },
+    category: "INFRASTRUCTURE",
+    tags: ["routing", "defi", "swap", "lending", "arc", "usdc", "eurc"],
+    input: { type: "object", required: ["kind", "amount"], properties: { kind: { type: "string", enum: ["swap", "deposit", "borrow"] }, environment: ENVIRONMENT_SCHEMA, from: { type: "string" }, to: { type: "string" }, amount: { type: "string", pattern: "^\\d+(?:\\.\\d+)?$" } } },
+    output: { type: "object", properties: { best: { type: "object" }, alternatives: { type: "array", items: { type: "object" } } } },
   },
 ];
 
@@ -64,7 +85,30 @@ export function serviceManifest(ctx: AppContext, origin: string) {
     networks,
     settlement: { mode: settlement.mode, facilitator: settlement.facilitator, note: settlement.note },
     openapi: `${origin}/v1/openapi.json`,
-    services: PAID_SERVICES.map((s) => ({ id: s.id, name: s.name, description: s.description, method: s.method, resource: `${origin}${s.path}`, price: { amount: priceUnits, asset: "USDC" }, mimeType: "application/json" })),
+    health: `${origin}/v1/x402/health`,
+    listing: { marketplace: "Circle Agent Marketplace", status: "submission-ready", guide: "docs/circle/marketplace-listing.md", package: `${origin}/v1/circle/marketplace/listing` },
+    services: PAID_SERVICES.map((s) => ({
+      id: s.id,
+      name: s.name,
+      description: s.description,
+      method: s.method,
+      resource: `${origin}${s.path}`,
+      price: { amount: priceUnits, asset: "USDC" },
+      mimeType: "application/json",
+      // Discovery API item metadata (developers.circle.com/agent-stack/agent-marketplace/discovery-api).
+      type: "http",
+      metadata: {
+        provider: { name: "Lykia", description: "Fence checks, token Scent and route quotes for agents on Arc Network.", category: s.category, tags: s.tags, website: origin.replace("lykia-api-", "lykia-"), docsUrl: `${origin.replace("lykia-api-", "lykia-")}/build`, openApiUrl: `${origin}/v1/openapi.json` },
+        path: s.path,
+        method: s.method,
+        description: s.description,
+        mimeType: "application/json",
+        input: s.input,
+        output: s.output,
+        supportsVanillax402: true,
+        supportsCircleGateway: false,
+      },
+    })),
     free: { ecosystem: `${origin}/v1/ecosystem`, fenceEvaluate: `${origin}/v1/fence/evaluate`, scent: `${origin}/v1/scent/{token}`, quote: `${origin}/v1/quote` },
   };
 }
@@ -93,6 +137,7 @@ export function openApi(ctx: AppContext, origin: string) {
   for (const s of PAID_SERVICES) paths[s.path] = { ...(paths[s.path] ?? {}), [s.method.toLowerCase()]: paidOp(s) };
   paths["/v1/ecosystem"] = { get: { operationId: "ecosystem", summary: "The Arc ecosystem: every protocol, Circle product, TVL and value routed by Lykia", tags: ["public"], parameters: [{ name: "environment", in: "query", schema: { type: "string", enum: ["mainnet", "testnet"] } }], responses: { "200": { description: "Ecosystem snapshot (CORS-open, cached 60 s)." } } } };
   paths["/v1/fees"] = { get: { operationId: "fees", summary: "Lykia's protocol fee and the beta caps", tags: ["public"], responses: { "200": { description: "Fee and caps." } } } };
+  paths["/v1/x402/health"] = { get: { operationId: "x402Health", summary: "Health of the paid x402 routes (for Agent Marketplace health checks)", tags: ["public"], responses: { "200": { description: "Healthy." }, "503": { description: "Paid routes are off." } } } };
   paths["/v1/health"] = { get: { operationId: "health", summary: "Service health and features", tags: ["public"], responses: { "200": { description: "Health." } } } };
   return {
     openapi: "3.1.0",

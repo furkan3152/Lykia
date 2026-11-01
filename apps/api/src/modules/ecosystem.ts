@@ -2,7 +2,7 @@
  * The ecosystem and the marketplace documents. All public and cacheable.
  *
  *   GET /ecosystem              every Arc protocol, Circle product, TVL, value routed by Lykia (CORS-open)
- *   GET /openapi.json           OpenAPI 3.1 for the paid x402 routes and the public ones
+ *   GET /openapi.json           OpenAPI 3.1 for every documented route (platform/openapi/document.ts)
  *   GET /.well-known/x402       (root) the x402 service manifest for marketplaces and agents
  */
 import type { Response } from "express";
@@ -10,7 +10,8 @@ import type { ApiModule } from "../http/router.js";
 import { cachePublicly } from "../http/request.js";
 import { parseQuery } from "../http/validate.js";
 import { ecosystem } from "../ecosystem/ecosystem.js";
-import { openApi, originOf, serviceManifest } from "../x402/manifest.js";
+import { originOf, serviceManifest } from "../x402/manifest.js";
+import { buildOpenApi } from "../platform/openapi/document.js";
 import { environmentOf, environmentQuery } from "./common.js";
 
 /** Readable from any origin: the data is public and carries no credentials. */
@@ -38,7 +39,8 @@ export const ecosystemModule: ApiModule = {
     router.get("/openapi.json", (req, res) => {
       openToEveryone(res);
       cachePublicly(res, 300);
-      res.json(openApi(ctx, originOf(req)));
+      // The full reference: every documented route, the x402 details of paid ones (platform/openapi).
+      res.json(buildOpenApi(ctx, originOf(req)));
     });
   },
 };

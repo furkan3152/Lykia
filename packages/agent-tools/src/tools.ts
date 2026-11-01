@@ -5,6 +5,8 @@
  * wrappers over these. No dependencies.
  */
 
+import { LYKIA_BUILDER_TOOLS, type BuilderToolName } from "./builderTools.js";
+
 export interface JsonSchema {
   readonly type?: string;
   readonly description?: string;
@@ -19,7 +21,10 @@ export interface JsonSchema {
   readonly additionalProperties?: boolean | JsonSchema;
 }
 
-export type ToolName = "plan_intent" | "check_fence" | "scent_token" | "quote_route" | "flock" | "spawn_agent" | "standing_order" | "place_order" | "x402_buy";
+export type ToolName = "plan_intent" | "check_fence" | "scent_token" | "quote_route" | "flock" | "spawn_agent" | "standing_order" | "place_order" | "x402_buy" | FlowToolName | BuilderToolName;
+
+/** Developer flow tools (opt-in by name; they need a secret key): payouts, invoices, API agents and verdict checks. */
+export type FlowToolName = "create_payout" | "create_invoice" | "payout_status" | "run_agent" | "verify_verdict";
 
 export interface HttpCall {
   readonly method: "GET" | "POST";
@@ -168,8 +173,66 @@ export const LYKIA_TOOLS: readonly ToolDefinition[] = Object.freeze<ToolDefiniti
   },
 ]);
 
+/**
+ * Developer flow tools. Not in LYKIA_TOOLS (the default set stays the same); pass
+ * their names to an adapter to add them. They plan and build, never sign: a
+ * payout comes back as unsigned batches the payer signs.
+ */
+export const LYKIA_FLOW_TOOLS: readonly ToolDefinition[] = Object.freeze<ToolDefinition[]>([
+  {
+    name: "create_payout",
+    effect: "plan",
+    description: "Pay up to 100 recipients in one go: each row has a recipient, a token (USDC, EURC or a partner stablecoin), an amount and a reference that goes into the Arc Memo. Payees are screened, balances and the Fence are checked, and the result is unsigned Multicall3From batches the payer signs.",
+    parameters: {
+      type: "object",
+      properties: {
+        payer: ADDRESS,
+        rows: { type: "array", description: "Up to 100 rows.", items: { type: "object", properties: { to: ADDRESS, token: TOKEN, amount: AMOUNT, reference: { type: "string", maxLength: 64 }, memo: { type: "string", maxLength: 120 } }, required: ["to", "token", "amount"], additionalProperties: false } },
+        dryRun: { type: "boolean" },
+        environment: ENV,
+      },
+      required: ["rows"],
+      additionalProperties: false,
+    },
+    call: (a, d) => ({ method: "POST", path: "/v1/payouts", body: { payer: (a.payer as string | undefined) ?? owner(a, d), rows: a.rows, ...(a.dryRun ? { dryRun: true } : {}), ...env(a, d) } }),
+  },
+  {
+    name: "payout_status",
+    effect: "read",
+    description: "Read a payout row by row: which rows were refused and why, which batch each row is in, and whether it settled (with the transaction hash and memo id).",
+    parameters: { type: "object", properties: { payoutId: { type: "string", pattern: "^po_[a-z0-9]{12}$" } }, required: ["payoutId"], additionalProperties: false },
+    call: (a) => ({ method: "GET", path: `/v1/payouts/${encodeURIComponent(String(a.payoutId))}` }),
+  },
+  {
+    name: "create_invoice",
+    effect: "plan",
+    description: "Issue an invoice with a hosted payment link and QR code. Payments are reconciled automatically from the Arc Memo that names the invoice; partial payments add up.",
+    parameters: {
+      type: "object",
+      properties: { payee: ADDRESS, token: TOKEN, amount: AMOUNT, reference: { type: "string", maxLength: 64 }, dueDate: { type: "string", maxLength: 40, description: "ISO 8601 date." }, memo: { type: "string", maxLength: 200 }, environment: ENV },
+      required: ["token", "amount"],
+      additionalProperties: false,
+    },
+    call: (a, d) => ({ method: "POST", path: "/v1/invoices", body: { payee: (a.payee as string | undefined) ?? owner(a, d), token: a.token, amount: a.amount, ...(a.reference ? { reference: a.reference } : {}), ...(a.dueDate ? { dueDate: a.dueDate } : {}), ...(a.memo ? { memo: a.memo } : {}), ...env(a, d) } }),
+  },
+  {
+    name: "run_agent",
+    effect: "plan",
+    description: "Ask one of the developer's API agents to plan a sentence under its own Fence and budget. Returns the proposals, their Fence verdicts and, when the agent is set to, the first step's unsigned calls.",
+    parameters: { type: "object", properties: { agentId: { type: "string", pattern: "^agt_[a-z0-9]{12}$" }, message: { type: "string", maxLength: 4000 }, threadId: { type: "string", maxLength: 80 } }, required: ["agentId", "message"], additionalProperties: false },
+    call: (a) => ({ method: "POST", path: `/v1/agents/${encodeURIComponent(String(a.agentId))}/run`, body: { message: a.message, ...(a.threadId ? { threadId: a.threadId } : {}) } }),
+  },
+  {
+    name: "verify_verdict",
+    effect: "read",
+    description: "Recompute a Fence verdict from its digest (the one in an Arc Memo or an ERC-8354 attestation) and say whether the stored plan still produces it.",
+    parameters: { type: "object", properties: { digest: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" } }, required: ["digest"], additionalProperties: false },
+    call: (a) => ({ method: "GET", path: `/v1/verdicts/${encodeURIComponent(String(a.digest))}` }),
+  },
+]);
+
 export function toolByName(name: string): ToolDefinition | undefined {
-  return LYKIA_TOOLS.find((t) => t.name === name);
+  return LYKIA_TOOLS.find((t) => t.name === name) ?? LYKIA_FLOW_TOOLS.find((t) => t.name === name) ?? LYKIA_BUILDER_TOOLS.find((t) => t.name === name);
 }
 
 /** A small JSON-Schema check: required fields, types, enums, patterns, unknown keys. Enough for model output. */

@@ -29,7 +29,8 @@ describe("knowledge model", () => {
   });
 
   it("covers every mainnet engine adapter with a function and a capability", () => {
-    const adapters = Object.keys(ADAPTER_VENUE).filter((a) => !a.startsWith("practice-")) as AdapterId[];
+    // "manifest" encodes routable adapter manifests; their knowledge rows come from the manifests themselves.
+    const adapters = Object.keys(ADAPTER_VENUE).filter((a) => !a.startsWith("practice-") && a !== "manifest") as AdapterId[];
     for (const adapter of adapters) {
       const row = venueKnowledge(ADAPTER_VENUE[adapter]);
       assert.ok(row, `${adapter}: venue ${ADAPTER_VENUE[adapter]} has a knowledge row`);

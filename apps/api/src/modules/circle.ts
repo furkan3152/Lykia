@@ -214,7 +214,7 @@ export const circleModule: ApiModule = {
       const { apiKey, entitySecret, walletSetId } = ctx.config.circle;
       if (!apiKey || !entitySecret) needKey("CIRCLE_API_KEY and CIRCLE_ENTITY_SECRET");
       const wallet = await createAgentWallet(ctx.fetch, { apiKey, entitySecret, walletSetId }, { environment: environmentOf(ctx, b.environment), refId: `${session.address.slice(0, 10)}:${b.refId}`, name: b.name }, ctx.clock.now());
-      res.status(201).json({ wallet, note: "SCA wallet on Arc: pair it with a LykiaAccount session, and add a Gas Station policy in the Circle Console to sponsor its gas." });
+      res.status(201).json({ wallet, note: "SCA wallet on Arc: Lykia checks every step against the Fence before it reaches this wallet. Compile the Fence into Circle policies with POST /v1/circle/policies/compile, add a Gas Station policy in the Circle Console to sponsor gas, and optionally bind a Lykia smart account session for on-chain enforcement." });
     });
     router.post("/circle/agent-wallets", ctx.limits.heavy, async (req, res) => {
       const session = await mustSession(ctx, req);
@@ -222,7 +222,7 @@ export const circleModule: ApiModule = {
       const { apiKey, entitySecret, walletSetId } = ctx.config.circle;
       if (!apiKey || !entitySecret) needKey("CIRCLE_API_KEY and CIRCLE_ENTITY_SECRET");
       const wallet = await createAgentWallet(ctx.fetch, { apiKey, entitySecret, walletSetId }, { environment: environmentOf(ctx, b.environment), refId: `${session.address.slice(0, 10)}:${b.agentId}`, name: b.name ?? b.agentId }, ctx.clock.now());
-      res.status(201).json({ address: wallet.address, walletId: wallet.id, wallet, note: "SCA wallet on Arc: bind it to the agent's LykiaAccount session; a Gas Station policy in the Circle Console can sponsor its gas." });
+      res.status(201).json({ address: wallet.address, walletId: wallet.id, wallet, note: "SCA wallet on Arc, the default agent signer: Lykia's Fence preflight checks every step first; a Gas Station policy in the Circle Console can sponsor its gas. Binding a Lykia smart account session is optional." });
     });
     router.get("/circle/wallets/:id/balances", async (req, res) => {
       await mustSession(ctx, req);

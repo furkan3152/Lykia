@@ -31,3 +31,5 @@ export * from "./devtools.js";
 export * from "./knowledge.js";
 export * from "./knowledgeData.js";
 export * from "./project.js";
+export * from "./adapterManifest.js";
+export * from "./devflows.js";

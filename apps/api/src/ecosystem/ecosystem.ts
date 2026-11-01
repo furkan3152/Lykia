@@ -29,6 +29,43 @@ const LLAMA_SLUGS: Readonly<Record<string, string>> = {
   "vfat-io": "vfat.io",
 };
 
+/** The official Arc ecosystem directory, which Lykia links to rather than competes with. */
+export const ARC_ECOSYSTEM_DIRECTORY = "https://www.arc.io/ecosystem";
+
+/**
+ * Registry id -> slug of the protocol's official entry on arc.io/ecosystem
+ * (slugs read from the directory on 2026-11-01). Ids without an entry link nowhere.
+ */
+export const ARC_ECOSYSTEM_SLUGS: Readonly<Record<string, string>> = {
+  "aave-v4": "aave",
+  "uniswap-v2": "uniswap",
+  "uniswap-v3": "uniswap",
+  "uniswap-v4": "uniswap",
+  "morpho-vaults": "morpho",
+  "morpho-blue": "morpho",
+  "curve-lite": "curve",
+  "aerodrome-slipstream": "dromos-labs",
+  chainlink: "chainlink",
+  pyth: "pyth",
+  stork: "stork",
+  kaleido: "kaleido",
+  argus: "argus",
+  faze: "faze",
+  tolly: "tolly",
+  safe: "safe",
+  zerox: "0x",
+  relay: "relay",
+  "layerzero-v2": "layerzero",
+  wormhole: "wormhole",
+  "zerodev-kernel": "zerodev",
+  seaport: "opensea",
+};
+
+export function arcEcosystemUrl(id: string): string | null {
+  const slug = ARC_ECOSYSTEM_SLUGS[id];
+  return slug ? `${ARC_ECOSYSTEM_DIRECTORY}/${slug}` : null;
+}
+
 export interface EcosystemProtocol {
   readonly id: string;
   readonly name: string;
@@ -43,11 +80,15 @@ export interface EcosystemProtocol {
   readonly verbs: readonly string[];
   readonly tvlUsd: number | null;
   readonly routed: { readonly steps: number; readonly usd: string };
+  /** The protocol's official entry in the Arc ecosystem directory, when it has one. */
+  readonly arcEcosystem: string | null;
 }
 
 export interface EcosystemResponse {
   readonly environment: ArcEnvironment;
   readonly positioning: string;
+  /** The official directory this hub reconciles with. */
+  readonly directory: { readonly url: string; readonly note: string };
   readonly protocols: readonly EcosystemProtocol[];
   readonly totals: {
     readonly protocols: number;
@@ -63,7 +104,7 @@ export interface EcosystemResponse {
   readonly at: string;
 }
 
-export const POSITIONING = "Built on Circle's rails, routing value to every Arc protocol, keeping every agent inside its Fence.";
+export const POSITIONING = "Built on Arc Network and Circle's products: every Arc protocol routable on Lykia, every agent inside its Fence.";
 
 interface TvlCache {
   readonly at: number;
@@ -162,6 +203,7 @@ export async function ecosystem(ctx: AppContext, environment: ArcEnvironment): P
       verbs: p.verbs,
       tvlUsd: tvl && environment === "mainnet" ? (tvl.arc[slug] ?? null) : null,
       routed: { steps: routed.steps, usd: usdOfCents(routed.cents) },
+      arcEcosystem: arcEcosystemUrl(p.id),
     };
   });
   const order = { routes: 0, reads: 1, lists: 2 } as const;
@@ -174,6 +216,7 @@ export async function ecosystem(ctx: AppContext, environment: ArcEnvironment): P
   return {
     environment,
     positioning: POSITIONING,
+    directory: { url: ARC_ECOSYSTEM_DIRECTORY, note: "The official Arc ecosystem directory. This hub shows which of those protocols are routable on Lykia, and links each one to its official entry." },
     protocols,
     totals: {
       protocols: protocols.length,

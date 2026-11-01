@@ -32,6 +32,8 @@ import { practiceVenues } from "./venues/practice.js";
 import { quoteV3Single, quoteV3TwoHop, quoteV4 } from "./venues/uniswap.js";
 import { CL_POOLS, metarouter, quoteCl } from "./venues/aerodrome.js";
 import { sameAddr, type YieldService } from "./venues/yields.js";
+import { apyFraction, manifestParams, readAdapterValue } from "../integrations/runtime.js";
+import { RISK_ORDER, type AdapterManifest } from "@lykia/core";
 
 export type RoutedAdapter =
   | "vault-deposit"
@@ -44,13 +46,16 @@ export type RoutedAdapter =
   | "practice-swap"
   | "aave-borrow"
   | "morpho-borrow"
-  | "practice-borrow";
+  | "practice-borrow"
+  | "manifest";
 
 /** Owner venue preferences (from the profile). */
 export interface VenuePrefs {
   readonly favorites?: readonly string[];
   readonly blocked?: readonly string[];
   readonly maxRisk?: RiskTier;
+  /** Never split a swap across two venues (aggregator callers can turn splitting off). */
+  readonly noSplit?: boolean;
 }
 
 /** Favourites win when within this many bps of the best output, or this many APY points of the best yield. */
@@ -93,7 +98,48 @@ export const QUOTE_CACHE_MS = 15_000;
 export class VenueRouter {
   private readonly cache = new Map<string, { at: number; value: Promise<unknown> }>();
 
-  constructor(private readonly deps: { readonly chains: ArcChains; readonly prices: PriceService; readonly yields: YieldService; readonly now?: () => number }) {}
+  constructor(private readonly deps: { readonly chains: ArcChains; readonly prices: PriceService; readonly yields: YieldService; readonly now?: () => number; readonly adapters?: (environment: ArcEnvironment) => Promise<readonly AdapterManifest[]> }) {}
+
+  /** Routable adapter manifests (integrations/registry.ts); none when the router has no registry. */
+  async adapterManifests(environment: ArcEnvironment): Promise<readonly AdapterManifest[]> {
+    if (!this.deps.adapters) return [];
+    return this.deps.adapters(environment).catch(() => []);
+  }
+
+  /** Positions held at routable adapters, through each withdraw capability's position read. */
+  async adapterPositions(environment: ArcEnvironment, symbol: string, account: Address): Promise<{ venue: string; label: string; max: bigint; params: Record<string, string> }[]> {
+    const out: { venue: string; label: string; max: bigint; params: Record<string, string> }[] = [];
+    for (const m of await this.adapterManifests(environment)) {
+      for (const cap of m.capabilities.filter((c) => c.verb === "withdraw" && c.tokenIn === symbol && c.position)) {
+        const params = manifestParams(m, environment, cap);
+        const max = params ? await readAdapterValue(this.deps.chains, environment, m, cap.position!, { account }) : null;
+        if (params && max !== null && max > 0n) out.push({ venue: m.protocol.id, label: m.protocol.name, max, params });
+      }
+    }
+    return out;
+  }
+
+  /** Earn options at routable adapters: deposit/supply capabilities for `symbol`, priced by their APY read. */
+  private async adapterEarn(environment: ArcEnvironment, symbol: string): Promise<Candidate[]> {
+    const out: Candidate[] = [];
+    for (const m of await this.adapterManifests(environment)) {
+      for (const cap of m.capabilities.filter((c) => (c.verb === "deposit" || c.verb === "supply") && c.tokenIn === symbol)) {
+        const params = manifestParams(m, environment, cap);
+        if (!params) continue;
+        const read = cap.apy ? m.reads.find((r) => r.id === cap.apy) : undefined;
+        const raw = read ? await readAdapterValue(this.deps.chains, environment, m, read.id, {}) : null;
+        const apy = raw !== null && read ? apyFraction(raw, read.scale) : null;
+        // TVL is not tracked for manifests: the risk is the manifest's tier, never below medium.
+        const risk: RiskTier = RISK_ORDER.indexOf(m.risk.tier) < RISK_ORDER.indexOf("medium") ? "medium" : m.risk.tier;
+        out.push({
+          option: { venue: m.protocol.id, label: `${m.protocol.name} ${symbol}`, apy, ...(apy !== null ? { apySource: "on-chain (adapter manifest)" } : {}), tvlUsd: null, risk, executable: true, notes: ["Integrated through a Lykia adapter manifest (validated on chain, approved by a Lykia admin)."] },
+          adapter: "manifest",
+          params: { ...params, vaultName: m.protocol.name },
+        });
+      }
+    }
+    return out;
+  }
 
   /** Memoises `load` under `key` for QUOTE_CACHE_MS; failures are not cached. */
   private memo<T>(key: string, load: () => Promise<T>): Promise<T> {
@@ -171,6 +217,8 @@ export class VenueRouter {
         params: { spoke: spoke.address, spokeName: spoke.label, reserveId: String(reserve.reserveId), token: address, symbol: token.symbol, decimals: String(token.decimals) },
       });
     }
+
+    out.push(...(await this.adapterEarn(environment, token.symbol)));
 
     const practice = await practiceVenues(environment);
     const practiceVault = token.symbol === "EURC" ? practice.vaultEurc : token.symbol === "USDC" ? practice.vaultUsdc : null;
@@ -271,6 +319,18 @@ export class VenueRouter {
       }
     }
 
+    // Routable adapter manifests with a swap or fx capability for this pair, priced by their quote read.
+    for (const m of await this.adapterManifests(environment)) {
+      for (const cap of m.capabilities.filter((c) => (c.verb === "swap" || c.verb === "fx") && c.tokenIn === from.symbol && c.tokenOut === to.symbol && c.quote)) {
+        const params = manifestParams(m, environment, cap);
+        const out = params ? await readAdapterValue(this.deps.chains, environment, m, cap.quote!, { amount: amountIn, tokenIn, tokenOut }) : null;
+        if (!params || out === null || out <= 0n) continue;
+        const n = await net(out, BigInt(cap.gas));
+        const risk: RiskTier = RISK_ORDER.indexOf(m.risk.tier) < RISK_ORDER.indexOf("medium") ? "medium" : m.risk.tier;
+        candidates.push({ option: { venue: m.protocol.id, label: `${m.protocol.name} (${cap.id})`, amountOut: out.toString(), netAmountOut: n.toString(), risk, executable: true, notes: [`Quote ${fmt(out)} (adapter manifest read ${cap.quote}).`] }, adapter: "manifest", params: { ...base, ...params }, amountOut: out, netOut: n });
+      }
+    }
+
     const readOnly: VenueOption[] = [];
     const router = metarouter(environment);
     for (const pool of CL_POOLS[environment] ?? []) {
@@ -334,7 +394,7 @@ export class VenueRouter {
       }
     }
     const second = candidates.filter((c) => c !== best && c.adapter !== "swap-path" && !(c.adapter === best.adapter && c.params.fee === best.params.fee)).sort((a, b) => (b.netOut > a.netOut ? 1 : -1))[0];
-    if (second && amountIn >= 2n) {
+    if (second && amountIn >= 2n && !prefs?.noSplit) {
       const half = amountIn / 2n;
       const rest = amountIn - half;
       const [a, b] = await Promise.all([this.swap(environment, fromSymbol, toSymbol, half), this.swap(environment, fromSymbol, toSymbol, rest)]);

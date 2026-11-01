@@ -2,8 +2,9 @@
  * The /v1 router. Order matters:
  *
  *   no-store default -> body guards (413 / 415) -> JSON parser (256 KB)
- *   -> default per-IP rate limit -> modules (each on its own sub-router)
- *   -> 404 NOT_FOUND -> error envelope
+ *   -> default per-IP rate limit -> Lykia-Version -> developer gate (keys,
+ *   scopes, quotas, request log) -> Idempotency-Key -> modules (each on its
+ *   own sub-router) -> 404 NOT_FOUND -> error envelope
  *
  * A module is `{ name, register(router, ctx) }`; it adds routes to the
  * router it is given (paths relative to /v1) and may add per-route
@@ -12,6 +13,8 @@
  * throw LykiaHttpError (or let zod/upstream errors propagate).
  */
 import { idempotency } from "./idempotency.js";
+import { apiVersionMiddleware, developerGate } from "../platform/gate.js";
+import { drainWebhooksSoon } from "../platform/events.js";
 import express, { type Express, type RequestHandler, type Router } from "express";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "./errors.js";
@@ -71,7 +74,14 @@ export function createV1Router(ctx: AppContext, modules: readonly ApiModule[]): 
   router.use(bodyGuards);
   router.use(express.json({ limit: MAX_BODY_BYTES, strict: true, type: ["application/json", "application/*+json"] }));
   router.use(ctx.limits.default);
+  router.use(apiVersionMiddleware());
+  router.use(developerGate(ctx));
   router.use(idempotency(ctx));
+  // Serverless: webhook retries also drain on traffic, not only on a timer or the cron.
+  router.use((_req, _res, next) => {
+    drainWebhooksSoon(ctx);
+    next();
+  });
 
   const names = new Set<string>();
   for (const module of modules) {

@@ -5,6 +5,7 @@
  * dependencies. For MCP clients (Claude Agent SDK, Claude Code, Cursor),
  * point them at Lykia's MCP server instead: `lykiaMcpServer()`.
  */
-export { LYKIA_TOOLS, ToolInputError, toolByName, validateArgs, type HttpCall, type JsonSchema, type ToolDefaults, type ToolDefinition, type ToolName } from "./tools.js";
+export { LYKIA_FLOW_TOOLS, LYKIA_TOOLS, ToolInputError, toolByName, validateArgs, type FlowToolName, type HttpCall, type JsonSchema, type ToolDefaults, type ToolDefinition, type ToolName } from "./tools.js";
 export { createLykiaExecutor, summarizeForModel, type ExecutorOptions, type FetchLike, type LykiaToolExecutor, type ToolResult } from "./executor.js";
 export { aiSdkTools, anthropicTools, langchainTools, lykiaMcpServer, openaiTools, runAnthropicToolUse, runOpenAiToolCall, type AnthropicTool, type OpenAiTool } from "./adapters.js";
+export { LYKIA_BUILDER_TOOLS, type BuilderToolName } from "./builderTools.js";

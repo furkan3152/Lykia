@@ -1,11 +1,14 @@
 # Positioning
 
-> Built on Circle's rails, routing value to every Arc protocol, keeping every
-> agent inside its Fence.
+> Built on Arc Network and Circle's products: every Arc protocol routable on
+> Lykia, every agent inside its Fence.
 
-Lykia is the unifier and amplifier of the Arc Network ecosystem. It does not
-compete with Circle or with any protocol on Arc. It runs on Circle's products,
-sends traffic to every protocol and makes agents safe enough to use them.
+Lykia is the unifier and amplifier of the Arc Network ecosystem. Circle is
+not a competitor: Lykia is built on Circle's products, and wherever Circle
+already runs something (wallet policies, CCTP, Gateway, StableFX, the x402
+facilitator, the Agent Marketplace) Lykia integrates it instead of
+rebuilding it (`docs/circle/README.md`). It sends traffic to every protocol
+and links each one to its official entry on https://www.arc.io/ecosystem.
 
 ## Three parts, one sentence
 
@@ -25,6 +28,10 @@ sends traffic to every protocol and makes agents safe enough to use them.
 
 ## Words to avoid
 
+- "Partner", "partnership", "endorsed by", "official partner" about Circle or Arc:
+  there is no signed agreement. Say "built on Circle's products".
+- "Competitor" about Circle, or any copy that sets Lykia against a Circle
+  product.
 - Anything that positions Lykia against Circle, Arc or a protocol
   ("replaces", "instead of", "better than").
 - "Arc" inside Lykia's own name, logo or page titles (Arc's brand rules).
@@ -32,7 +39,8 @@ sends traffic to every protocol and makes agents safe enough to use them.
 
 ## Mainnet beta
 
-Lykia's own contracts are not audited yet. Until they are, every mainnet move
+Lykia's own contracts have not had a paid audit: it is a one-person,
+unfunded project. That is why every mainnet move
 is capped at $1,000 per step and $5,000 per day per owner, above every Fence.
 Moves that bring value home are never capped. The cap is in `GET /v1/health`
 and `GET /v1/fees`, and the app shows "Beta · contracts not yet audited · caps

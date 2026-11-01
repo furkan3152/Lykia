@@ -50,6 +50,11 @@ export function PartnerStalls({ data, limit, filter = "all" }: { readonly data: 
               <span>{`TVL ${usdShort(p.tvlUsd)}`}</span>
               <span>{p.routed.steps > 0 ? `ROUTED $${Number(p.routed.usd).toLocaleString("en-US")}` : p.lykia === "routes" ? "READY TO ROUTE" : ""}</span>
             </div>
+            {p.arcEcosystem ? (
+              <a className="m-small eco-stall__arc" href={p.arcEcosystem} target="_blank" rel="noreferrer noopener">
+                {"Arc ecosystem entry ↗"}
+              </a>
+            ) : null}
           </li>
         );
       })}
@@ -62,7 +67,7 @@ export function EcosystemStats({ data }: { readonly data: EcosystemView | undefi
   return (
     <div className="m-grid-4 eco-stats">
       <Stat label="ARC PROTOCOLS" value={t ? String(t.protocols) : "…"} hint={t ? `${t.verified} verified on chain` : undefined} />
-      <Stat label="ROUTED BY LYKIA" value={t ? String(t.routable) : "…"} hint="executable venues" />
+      <Stat label="ROUTABLE ON LYKIA" value={t ? String(t.routable) : "…"} hint="executable venues" />
       <Stat label="TVL ON ARC" value={t ? usdShort(t.tvlUsd) : "…"} hint={data?.sources.tvl ?? "DefiLlama"} />
       <Stat label="VALUE ROUTED" value={t ? `$${Number(t.routed.usd).toLocaleString("en-US")}` : "…"} hint={t ? `${t.routed.steps} settled steps` : undefined} />
     </div>

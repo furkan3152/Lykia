@@ -297,6 +297,32 @@ export class IntentService {
     return { step, outrun: outrunOf(graph) };
   }
 
+  /**
+   * Steps that ran inside one transaction built outside prepare/submit (a
+   * payout batch: many transfers, one Multicall3From call). The caller has
+   * verified the transaction and its receipt; this records the outcome on
+   * each step and counts the spend toward the daily caps.
+   */
+  async settleExternal(id: string, stepIds: readonly string[], reference: string, ok: boolean): Promise<void> {
+    const { doc, version } = await this.load(id);
+    for (const step of doc.graph.steps) {
+      if (!stepIds.includes(step.id) || step.status === "settled" || step.status === "failed") continue;
+      if (step.status === "blocked") step.status = "ready";
+      if (step.status === "ready") transition(step, "awaiting-signature");
+      if (step.status === "awaiting-signature") transition(step, "submitted");
+      step.references = [reference as `0x${string}`];
+      if (ok) {
+        transition(step, "settled");
+        step.settledAt = new Date(this.deps.clock.now()).toISOString();
+        await this.recordSpend(doc.graph, step);
+      } else {
+        transition(step, "failed");
+        step.failure = { code: "RECEIPT_REVERTED", message: "The batch transaction reverted on Arc.", retryable: false };
+      }
+    }
+    await this.save(id, version, doc);
+  }
+
   async stop(id: string): Promise<{ intent: IntentGraph; outrun: Outrun }> {
     const { doc, version } = await this.load(id);
     for (const step of doc.graph.steps) if (step.status === "blocked" || step.status === "ready" || step.status === "awaiting-signature") step.status = "stopped";

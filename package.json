@@ -15,13 +15,14 @@
     "packages/widget",
     "packages/embed",
     "packages/agent-tools",
+    "packages/cli",
     "apps/api",
     "apps/web"
   ],
   "scripts": {
     "postinstall": "node tooling/postinstall-packages.mjs",
     "build:packages": "npm run build -w @lykia/core && npm run build -w @lykia/sdk && npm run build -w @lykia/widget -w @lykia/embed -w @lykia/agent-tools",
-    "test:packages": "npm test -w @lykia/core -w @lykia/sdk -w @lykia/widget -w @lykia/embed -w @lykia/agent-tools",
+    "test:packages": "npm test -w @lykia/core -w @lykia/sdk -w @lykia/widget -w @lykia/embed -w @lykia/agent-tools -w @lykia/cli",
     "lint": "eslint .",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "dev:api": "npm run dev -w @lykia/api",

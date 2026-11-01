@@ -8,14 +8,14 @@ import { useMemo, useState } from "react";
 
 import { Link } from "../../app/routes/Link";
 import { CircleQuay, EcosystemStats, PartnerStalls } from "../../features/ecosystem/Harbour";
-import { POSITIONING } from "../../features/ecosystem/model";
+import { ARC_ECOSYSTEM_DIRECTORY, POSITIONING } from "../../features/ecosystem/model";
 import { useEcosystem } from "../../features/ecosystem/useEcosystem";
 import { API_BASE } from "../../lib/env";
 import { Card, MeanderBand } from "../../mosaic";
 
 const FILTERS = [
   ["all", "EVERY PROTOCOL"],
-  ["routes", "ROUTED BY LYKIA"],
+  ["routes", "ROUTABLE ON LYKIA"],
   ["verified", "VERIFIED ON ARC"],
   ["lending", "LENDING"],
   ["dex", "DEX"],
@@ -47,6 +47,11 @@ export default function EcosystemPage() {
           Lykia brings the <em>Arc ecosystem</em> together.
         </h1>
         <p className="m-sub">{POSITIONING}</p>
+        <p className="m-small" style={{ marginTop: 10 }}>
+          {"The full list of who builds on Arc lives in the official "}
+          <a href={ARC_ECOSYSTEM_DIRECTORY} target="_blank" rel="noreferrer noopener">{"Arc ecosystem directory"}</a>
+          {". This page shows which of those protocols are routable on Lykia, and links each one to its Arc entry."}
+        </p>
       </header>
 
       <section className="m-wrap">
@@ -64,7 +69,7 @@ export default function EcosystemPage() {
         <div className="m-center">
           <span className="m-kick">{"EVERY STALL ALONG THE QUAY"}</span>
           <h2 id="eco-stalls" className="m-h2" style={{ marginTop: 8 }}>{"Every Arc protocol, one route away"}</h2>
-          <p className="m-small m-muted" style={{ marginTop: 8 }}>{"ROUTED: Lykia plans, checks and executes through it. READ: prices and positions in the Flock. LISTED: in the registry, routed as soon as an adapter lands."}</p>
+          <p className="m-small m-muted" style={{ marginTop: 8 }}>{"ROUTABLE ON LYKIA: Lykia plans, checks and executes through it. READ: prices and positions in the Flock. LISTED: in the registry, routable as soon as an adapter lands. Each card links to the protocol's official Arc ecosystem entry where one exists."}</p>
         </div>
         <div className="eco-filters" role="group" aria-label="Filter protocols">
           {FILTERS.map(([key, label]) => (

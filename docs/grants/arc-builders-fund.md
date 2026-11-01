@@ -2,6 +2,10 @@
 
 Program: https://www.circle.com/blog/introducing-the-arc-builders-fund (Circle Ventures).
 
+> Not a fit today: the fund invests in teams and companies, and Lykia is an
+> individual, unincorporated project. Kept for later; see `README.md` for
+> channels open to individuals.
+
 Published focus: teams whose products need Arc's unique attributes, that can show a path to real use cases, and that build primitives other Arc projects will want to compose with. Arc's request for builders (https://www.arc.io/blog/the-unfinished-business-of-finance-machine-commerce-and-global-money) names programmable money and machine commerce. This draft answers those three points.
 
 Fields marked **[OWNER]** must be filled in by the owner.
@@ -24,7 +28,7 @@ Fields marked **[OWNER]** must be filled in by the owner.
 
 ## Path to real use cases
 
-- Business treasuries: payees with invoice memos, FX bands, office hours (the Treasury template).
+- Treasuries of small teams and DAOs: payees with invoice memos, FX bands, office hours (the Treasury template).
 - Autonomous agents paying for services within small caps (the Caravan template) through x402.
 - Yield management across Arc vaults and lending markets with a minimum health factor.
 
@@ -32,7 +36,7 @@ Current state and evidence: `docs/pitch/arc-circle-brief.md`. Pilot plan: `docs/
 
 ## Team and terms
 
-- Team: **[OWNER]**
+- Builder: **[OWNER]**
 - Traction to date: **[OWNER: only verifiable figures]**
 - Raise or support requested: **[OWNER]**
-- Use of funds: **[OWNER: audit, engineering, pilots, hosting]**
+- Use of funds: **[OWNER: engineering, hosting, an optional independent review]**

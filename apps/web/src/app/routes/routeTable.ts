@@ -42,6 +42,9 @@ export type RouteId =
   | "activity"
   | "whatif"
   | "security"
+  | "pay"
+  | "stats"
+  | "legal"
   | "appNotFound"
   | "notFound";
 
@@ -88,9 +91,12 @@ export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze(
   alerts: page("alerts", "/app/alerts", "app", "Alerts", "Price, health factor, transfer, Scent and fill alerts, delivered to the inbox, webhooks and Telegram.", () => import("../../pages/alerts/AlertsPage"), { robots: PRIVATE_ROBOTS }),
   activity: page("activity", "/app/activity", "app", "Activity", "Every intent, order and alert in one trail.", () => import("../../pages/activity/ActivityPage"), { robots: PRIVATE_ROBOTS }),
   whatif: page("whatif", "/app/whatif", "app", "What-if", "Shock cirBTC and EURC and see your flock's value and health factors move, with the PnL explained.", () => import("../../pages/whatif/WhatIfPage"), { robots: PRIVATE_ROBOTS }),
+  pay: page("pay", "/pay/:id", "app", "Pay", "Pay an invoice or payment link on Arc: the amount, the line items and Lykia's fee shown before your wallet signs.", () => import("../../pages/pay/PayPage"), { robots: PRIVATE_ROBOTS }),
   security: page("security", "/app/security", "app", "Security", "Six layers between the flock and the wolves: pre-sign simulation, address protection, approval hygiene, agent monitors, circuit breakers and the audit log.", () => import("../../pages/security/SecurityPage"), { robots: PRIVATE_ROBOTS }),
   build: page("build", "/build", "app", "Build", "Keys, usage, webhooks, your fee, the playground, MCP, the SDK and the integration program for Arc protocols.", () => import("../../pages/build/BuildPage")),
-  ecosystem: page("ecosystem", "/ecosystem", "site", "Ecosystem", "Built on Circle's rails, routing value to every Arc protocol: every protocol on Arc Network, Circle's products, TVL and the value Lykia routes, live.", () => import("../../pages/ecosystem/EcosystemPage")),
+  ecosystem: page("ecosystem", "/ecosystem", "site", "Ecosystem", "Every Arc protocol routable on Lykia, linked to its official Arc ecosystem entry, with Circle's products, TVL and the value Lykia routes, live.", () => import("../../pages/ecosystem/EcosystemPage")),
+  stats: page("stats", "/stats", "site", "Stats", "Lykia in numbers: on-chain counts on Arc mainnet, value routed, protocols routable and integrators. Public, aggregate, sourced.", () => import("../../pages/stats/StatsPage")),
+  legal: page("legal", "/legal/:doc?", "site", "Notice, risks and privacy", "Lykia's draft software notice and risk disclosure (open source, non-custodial, no warranty, beta caps) and privacy note.", () => import("../../pages/legal/LegalPage")),
   owner: page("owner", "/owner", "app", "Owner console", "Deploy Lykia's contracts step by step with your wallet, record them and manage flags.", () => import("../../pages/owner/OwnerPage"), { robots: PRIVATE_ROBOTS }),
   kit: page("kit", "/kit", "site", "Mosaic kit", "Every Mosaic component and scene.", () => import("../../pages/kit/KitPage"), { robots: PRIVATE_ROBOTS }),
   lykaion: page("lykaion", "/lykaion", "site", "Lykaion", "Mount Lykaion, Arcadia, at night.", () => import("../../pages/lykaion/LykaionPage"), { robots: PRIVATE_ROBOTS }),
@@ -100,7 +106,7 @@ export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze(
 });
 
 /** Matching order: specific routes first, the catch-alls last. `/app` itself is Ask Lyko. */
-const ORDER: readonly RouteId[] = ["landing", "ask", "move", "flock", "pastures", "pack", "fence", "scent", "tag", "outrun", "you", "memory", "circle", "orders", "markets", "discover", "alerts", "activity", "whatif", "security", "build", "ecosystem", "owner", "kit", "lykaion", "developers", "appNotFound", "notFound"];
+const ORDER: readonly RouteId[] = ["landing", "ask", "move", "flock", "pastures", "pack", "fence", "scent", "tag", "outrun", "you", "memory", "circle", "orders", "markets", "discover", "alerts", "activity", "whatif", "security", "pay", "build", "ecosystem", "stats", "legal", "owner", "kit", "lykaion", "developers", "appNotFound", "notFound"];
 
 let compiled: ReadonlyArray<readonly [RouteDefinition, CompiledPattern]> | null = null;
 

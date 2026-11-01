@@ -27,6 +27,8 @@ export interface LykiaOptions {
   readonly timeoutMs?: number;
   /** Headers sent on every request (for example Lykia-Embed-Parent from an embed page). */
   readonly headers?: Readonly<Record<string, string>>;
+  /** Pin the API version (`Lykia-Version`, e.g. "2026-11-01"); defaults to the key's pinned version. */
+  readonly apiVersion?: string;
 }
 
 export interface RequestOptions {
@@ -92,7 +94,7 @@ export class LykiaTransport {
     this.fetchImpl = options.fetch ?? ((input, init) => fetch(input, init));
     this.retries = options.retries ?? 2;
     this.timeoutMs = options.timeoutMs ?? 30_000;
-    this.baseHeaders = options.headers ?? {};
+    this.baseHeaders = { ...(options.apiVersion ? { "Lykia-Version": options.apiVersion } : {}), ...(options.headers ?? {}) };
   }
 
   /** Use a session token from now on (after sign-in). */

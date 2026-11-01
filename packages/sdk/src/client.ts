@@ -14,12 +14,20 @@ import type { ApiKeyView, CreatedApiKey, SessionView, SiweNonceResponse, Webhook
 import type { Contact, LykiaProfile } from "@lykia/core";
 import type { ContactsResponse, MemoryExport, MemoryIntentsResponse, MemoryView } from "@lykia/core/api/memory";
 import type { ProfileResponse } from "@lykia/core/api/profile";
-import { agentApi, ordersApi, packApi, standingApi, type PackAccountResponse } from "./agents.js";
+import { agentApi, agentsApi, ordersApi, packApi, standingApi, type PackAccountResponse } from "./agents.js";
+import { automationsApi } from "./automations.js";
+import { invoicesApi } from "./invoices.js";
+import { payoutsApi } from "./payouts.js";
 import { circleApi } from "./circle.js";
 import { ecosystemApi } from "./ecosystem.js";
 import { fenceApi } from "./fence.js";
 import { intentsApi } from "./intents.js";
 import { projectsApi } from "./projects.js";
+import { aggregatorApi } from "./aggregator.js";
+import { buildApi } from "./build.js";
+import { integrationsApi } from "./integrations.js";
+import { dataApi } from "./data.js";
+import { platformApi } from "./platform.js";
 import { LykiaTransport, q, type FetchLike, type LykiaOptions, type RequestOptions } from "./transport.js";
 
 export type { FetchLike, LykiaOptions, RequestOptions, PackAccountResponse };
@@ -58,6 +66,21 @@ export class Lykia extends LykiaTransport {
   readonly orders = ordersApi(this);
   readonly circle = circleApi(this);
   readonly projects = projectsApi(this);
+  /** Best execution on Arc: quote any action, then build ready-to-sign calls. */
+  readonly aggregator = aggregatorApi(this);
+  /** One builder per action type: build.swap, build.deposit, build.bridge, ... */
+  readonly build = buildApi(this);
+  /** Adapter manifests, generic contracts and AI routing. */
+  readonly integrations = integrationsApi(this);
+  /** Tokens, prices, protocols, portfolios, screening and transaction explanations. */
+  readonly data = dataApi(this);
+  /** Developer flows: batch payouts, invoices and payment links, agents over the API and unified automations. */
+  readonly payouts = payoutsApi(this);
+  readonly invoices = invoicesApi(this);
+  readonly agents = agentsApi(this);
+  readonly automations = automationsApi(this);
+  /** Keys, webhooks, events, logs, usage, billing and versions. */
+  readonly platform = platformApi(this);
 
   /* ------------------------------------------- profile, memory, contacts (need a session) */
 

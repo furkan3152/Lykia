@@ -1,6 +1,6 @@
 # Audit pack
 
-Lykia's contracts are **not audited**. This pack prepares an independent review: scope, architecture, trust assumptions, invariants with the tests that cover them, known limitations, the threat model of the off-chain parts, deployment and keys, and a readiness checklist.
+Lykia's contracts are **not audited** by a paid firm: Lykia is a one-person, unfunded project. This pack supports self-review and community review (`docs/security/self-review.md`, `docs/security/help-us-review.md`): scope, architecture, trust assumptions, invariants with the tests that cover them, known limitations, the threat model of the off-chain parts, deployment and keys, and a readiness checklist. The mainnet beta caps exist because there is no audit.
 
 ## Scope
 
@@ -12,6 +12,7 @@ Lykia's contracts are **not audited**. This pack prepares an independent review:
 | `LykiaOrders` | `packages/contracts/contracts/orders/LykiaOrders.sol` | 299 | Not deployed yet |
 | `PracticeVault`, `PracticeSwap`, `PracticeLending` | `packages/contracts/contracts/practice/` | 329 | Testnet only, never for real value |
 | `LykiaClQuoter` | `packages/contracts/contracts/quoters/LykiaClQuoter.sol` | 43 | Never deployed; placed by `eth_call` state override for quotes |
+| `LykiaTimelock` | `packages/contracts/contracts/governance/LykiaTimelock.sol` | 17 | OpenZeppelin TimelockController for admin actions; not deployed (see `docs/security/ownership.md`) |
 
 Out of scope for the contract audit but in scope for the threat model below: the planner, the Fence evaluator, the fee binding and submit verification in `apps/api/src/engine/` and `packages/core/src/`.
 
@@ -120,7 +121,7 @@ From `packages/contracts/SECURITY.md`:
 | Keeper | `LYKIA_KEEPER_PRIVATE_KEY` (optional) | Pays gas to execute orders; cannot move maker funds beyond the signed order |
 | Tag guard | `LYKIA_GUARD_ADDRESS` (optional) | Responds to ERC-8354 validation requests |
 
-Recommendation before larger amounts: move the contract owner role to a multisig and keep the fee recipient separate from the owner key.
+Before larger amounts: move the owner role to a 2-of-3 Safe behind `LykiaTimelock` (`docs/security/ownership.md`) and keep the fee recipient separate from the signer keys.
 
 ## Readiness checklist
 
@@ -128,15 +129,29 @@ Recommendation before larger amounts: move the contract owner role to a multisig
 - [ ] Share this pack, `packages/contracts/README.md` and `SECURITY.md`.
 - [ ] Provide the test suite and coverage (`npm test -w @lykia/contracts`).
 - [ ] Document every external call target the router and orders may allowlist on mainnet.
-- [ ] Move ownership to a multisig; record signers.
-- [ ] Decide the mainnet caps that apply until the audit is complete.
-- [ ] Publish the audit report and the fixes.
+- [ ] Move ownership to a 2-of-3 Safe behind `LykiaTimelock` (`docs/security/ownership.md`); record the Safe and timelock.
+- [ ] Keep the mainnet beta caps on: there is no paid audit.
+- [ ] Publish the self-review (`docs/security/self-review.md`) and community findings with fixes.
 
-## Bug bounty policy (draft)
+## Disclosure policy
 
-- **Scope:** the contracts listed above at the audited commit, and the API's binding, submit verification and Fence evaluation.
-- **Out of scope:** practice venues, third-party protocols, the web front end's styling, issues that need a compromised owner key, and denial of service against the hosting provider.
-- **Reporting:** privately through GitHub's private vulnerability reporting on the repository. Do not open public issues. Do not test against other users' funds.
-- **Rewards:** **[OWNER: amounts per severity, paid in USDC]**, decided by impact and likelihood.
-- **Safe harbour:** good-faith research within these rules will not be pursued.
-- **Response targets:** acknowledgement within **[OWNER]** days; fix or decision within **[OWNER]** days.
+There is no paid bug bounty: Lykia is a one-person, unfunded project.
+Reports follow the free responsible-disclosure policy in `SECURITY.md`
+(private GitHub report, public credit). The community review call is
+`docs/security/help-us-review.md`; the self-review with every Slither and
+Mythril finding is `docs/security/self-review.md`.
+
+## New surfaces (2026-11)
+
+| Surface | Code | What to check | Tests |
+|---|---|---|---|
+| Fence -> Circle wallet policy compiler | `apps/api/src/circle/policy.ts`, `POST /v1/circle/policies/compile` | No mapping may produce a Circle policy looser than the Fence or the beta cap; tiers stay monotonic; rules Circle cannot enforce are reported as Lykia-only | `apps/api/src/__tests__/circle-stack.test.ts` |
+| Policy apply | `POST /v1/circle/policies/apply` | Never applies on its own; returns owner commands (OTP stays with the owner) | same |
+| Circle execution providers | `apps/api/src/circle/providers.ts` | Providers run only after the Fence; builds go through simulation and the security layer in the aggregator | same |
+| x402 facilitator seller proof | `apps/api/src/circle/sellerProof.ts`, `apps/api/src/x402/x402.ts` | Proof signed by a Circle wallet through Circle's API; never a local key; failure sends no header | same |
+| Agent Marketplace consumer | `GET /v1/circle/marketplace/services`, `POST /v1/circle/x402/prepare` | Price and payee go through the Fence as a transfer; SSRF guard on resources | `circle.test.ts` |
+| Mandate drafts | `apps/api/src/circle/mandates.ts` | Drafts only, status pending; verdicts unchanged | `circle-stack.test.ts` |
+| Fee schedule | `packages/core/src/fee.ts` (`feeBpsFor`), `apps/api/src/engine/planner.ts` | Exempt kinds stay free; unset schedule = base fee; values capped at 300 bps | `circle-stack.test.ts` |
+| Public stats | `GET /v1/stats` | Aggregates only, no user addresses | `circle-stack.test.ts` |
+| Ownership hardening | `LykiaTimelock.sol`, `scripts/ownership-plan.cjs`, `GET /v1/admin/ownership` | Two-step transfer, delay, no timelock admin | `governance.test.cjs` |
+| Invariants | `test/invariants.test.cjs` | Caps, rolling window, sub-session charging, Whistle, revocation vs a reference model | `invariants.test.cjs` |

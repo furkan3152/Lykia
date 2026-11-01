@@ -14,6 +14,9 @@ brand, or take one part of Lykia and shape it.
 | MCP | the API's `/v1/mcp` | Claude Code, the Claude Agent SDK, Cursor and other MCP clients. No code. |
 | SDK | `@lykia/sdk` | Servers and custom clients; modular subpaths and typed events. |
 | REST | `/v1` | Everything above is built on it (`/v1/openapi.json`). |
+| Aggregator | `/v1/aggregator`, `/v1/build/*` | Best execution on Arc: quote -> build for every action ([aggregator.md](aggregator.md)). |
+| Integrations | `/v1/integrations`, `/v1/contracts/*` | Adapter manifests and any contract call ([integrations.md](integrations.md)). |
+| Data | `/v1/data/*`, `/v1/security/screen`, `/v1/tx/explain` | Tokens, prices, protocols, portfolios, screening ([data.md](data.md)). |
 
 Every path rests on a **project** ([projects.md](projects.md)): the brand,
 the origins that may use it, the modules it turns on, a default Fence with
@@ -39,5 +42,20 @@ custom strings.
 - Prompt additions add tone and context; they cannot change the assistant's
   rules, the Fence, confirmations, Scent checks or the Whistle.
 
+## The API platform
+
+Start at [overview.md](overview.md) (from a one-line call to enterprise),
+then [authentication](authentication.md), [keys and scopes](keys-and-scopes.md),
+[idempotency](idempotency.md), [webhooks](webhooks.md), [errors](errors.md),
+[rate limits](rate-limits.md), [versioning](versioning.md)
+([changelog](changelog.md)), [billing](billing.md), [SDKs](sdks.md) and the
+[CLI](cli.md). The reference is `GET /v1/openapi.json` (rendered at
+`/v1/reference` and on `/build`, API Reference tab).
+
 See also: [embed-protocol.md](embed-protocol.md) and
 [agents.md](agents.md). Runnable examples live in `examples/`.
+
+Developer APIs for money flows: [payouts.md](payouts.md) (batch payouts
+with an Arc Memo per row), [invoices.md](invoices.md) (invoices and hosted
+payment links), [agents-api.md](agents-api.md) (configure and run agents,
+verify verdicts) and [automations.md](automations.md) (one trigger API).

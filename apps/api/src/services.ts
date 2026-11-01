@@ -10,6 +10,7 @@ import { YieldService } from "./engine/venues/yields.js";
 import { FlockService } from "./flock/flock.js";
 import { TagService } from "./tag/tag.js";
 import { ScentService } from "./scent/scent.js";
+import { routableManifests } from "./integrations/registry.js";
 
 export interface Services {
   readonly prices: PriceService;
@@ -33,7 +34,7 @@ export function services(ctx: AppContext): Services {
   const flock = new FlockService({ chains: ctx.chains, prices, clock: ctx.clock, fetch: ctx.fetch, log: ctx.log.child({ component: "flock" }) });
   const scent = new ScentService({ chains: ctx.chains, clock: ctx.clock });
   const yields = new YieldService({ fetch: ctx.fetch, clock: ctx.clock });
-  const router = new VenueRouter({ chains: ctx.chains, prices, yields });
+  const router = new VenueRouter({ chains: ctx.chains, prices, yields, adapters: (environment) => routableManifests(ctx, environment) });
   const planner = new Planner({ chains: ctx.chains, prices, fetch: ctx.fetch, stablefxConfigured: ctx.config.stablefxApiKey !== null, router, fee: ctx.config.fee, beta: ctx.config.beta });
   const intents = new IntentService({ planner, chains: ctx.chains, store: ctx.store, clock: ctx.clock, bus: ctx.bus, fetch: ctx.fetch, log: ctx.log.child({ component: "intents" }) });
   const tags = new TagService({ chains: ctx.chains, store: ctx.store, fetch: ctx.publicFetch, guard: ctx.config.guardAddress });

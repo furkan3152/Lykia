@@ -87,3 +87,39 @@ test("modular subpaths share one transport and emit typed events", async () => {
   assert.deepEqual(await lykia.projects.list(), { projects: [] });
   assert.equal(typeof lykia.ecosystem.map, "function");
 });
+
+test("platform: keys, logs pagination, Lykia-Version and typed operations", async () => {
+  const { operations, operationPath, paginate, LYKIA_OPERATIONS } = await import("../dist/index.js");
+  const seen = [];
+  const lykia = new Lykia({ baseUrl: "https://api.test", apiKey: "lk_test_abcdefabcdef_" + "A".repeat(32), apiVersion: "2026-11-01", fetch: async (url, init) => {
+    seen.push({ url, init });
+    if (url.includes("/v1/logs")) return json(200, url.includes("cursor=c2") ? { data: [{ requestId: "r3" }], nextCursor: null } : { data: [{ requestId: "r1" }, { requestId: "r2" }], nextCursor: "c2" });
+    return json(200, { ok: true });
+  } });
+  await lykia.platform.keys.rotate("abcdefabcdef", 60);
+  assert.equal(seen[0].url, "https://api.test/v1/developers/keys/abcdefabcdef/rotate");
+  assert.equal(JSON.parse(seen[0].init.body).overlapSeconds, 60);
+  assert.equal(seen[0].init.headers["Lykia-Version"], "2026-11-01");
+  const ids = [];
+  for await (const entry of lykia.platform.logs.all({ statusClass: "error" })) ids.push(entry.requestId);
+  assert.deepEqual(ids, ["r1", "r2", "r3"]);
+  assert.match(seen[1].url, /statusClass=error/u);
+  assert.equal(operationPath("/v1/intents/{id}/steps/{sid}/prepare", { id: "out_abc123", sid: "s1" }, { x: undefined }), "/v1/intents/out_abc123/steps/s1/prepare");
+  assert.ok(LYKIA_OPERATIONS.postIntents && LYKIA_OPERATIONS.postIntents.idempotent);
+  await operations(lykia).call("getVenues", { query: { environment: "testnet" } });
+  assert.equal(seen.at(-1).url, "https://api.test/v1/venues?environment=testnet");
+  let n = 0;
+  for await (const x of paginate(async () => ({ data: [n++], nextCursor: null }))) assert.equal(x, 0);
+});
+
+test("constructEvent verifies and parses a delivery, accepting rotated secrets", async () => {
+  const { constructEvent, WebhookSignatureError } = await import("../dist/index.js");
+  const body = JSON.stringify({ id: "evt_1", type: "payout.sent", event: "payout.sent", data: { amount: "5" } });
+  const t = 1_800_000_000;
+  const good = createHmac("sha256", "whsec_new").update(`${t}.${body}`).digest("hex");
+  const old = createHmac("sha256", "whsec_old").update(`${t}.${body}`).digest("hex");
+  const event = await constructEvent("whsec_new", body, `t=${t},v1=${old},v1=${good}`, { now: t + 10 });
+  assert.equal(event.type, "payout.sent");
+  await assert.rejects(constructEvent("whsec_new", `${body} `, `t=${t},v1=${good}`, { now: t }), (e) => e instanceof WebhookSignatureError);
+  await assert.rejects(constructEvent("whsec_new", body, `t=${t},v1=${good}`, { now: t + 301 }), WebhookSignatureError);
+});

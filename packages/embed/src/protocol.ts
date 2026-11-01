@@ -69,7 +69,8 @@ export function clampHeight(value: unknown): number | null {
 
 const HEX = /^#[0-9a-fA-F]{6}$/u;
 export const PROJECT_ID = /^prj_[a-z0-9]{12}$/u;
-export const PUBLISHABLE_KEY = /^lk_pk_[a-z0-9]{12}_[A-Za-z0-9_-]{32}$/u;
+/** Publishable keys: lk_pk_<id>_<secret> (legacy) or lk_pk_live_ / lk_pk_test_ keys. */
+export const PUBLISHABLE_KEY = /^lk_pk_(?:(?:live|test)_)?[a-z0-9]{12}_[A-Za-z0-9_-]{32}$/u;
 
 /** Appearance attributes that reach the frame URL, each checked; anything invalid is dropped. */
 export function appearanceParams(get: (name: string) => string | null): Record<string, string> {

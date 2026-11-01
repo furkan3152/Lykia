@@ -6,11 +6,12 @@ Circle's published criteria: alignment with Circle products, team strength, inno
 
 Fields marked **[OWNER]** must be filled in by the owner.
 
+Lykia is built by one developer without a company. The official page speaks of teams and publishes no separate individual track (checked 2026-11-01): apply as a solo builder only if the form allows it.
+
 ## Applicant
 
 - Project: Lykia (built on Arc Network)
-- Team: **[OWNER: names, roles, prior work, links]**
-- Entity and jurisdiction: **[OWNER]**
+- Builder: **[OWNER: name, prior work, links]** (individual developer, no company)
 - Contact: **[OWNER]**
 - Repository: **[OWNER: public or private access for reviewers]**
 - Live app: https://lykia-akdogan1.vercel.app · API: https://lykia-api-akdogan1.vercel.app
@@ -42,31 +43,30 @@ Lykia is built on USDC and EURC and uses CCTP V2 and the Forwarding Service, Gat
 - Agents can discover and pay for services in USDC through the Agent Marketplace and x402.
 - Open SDK and MCP server so other agent teams can use Arc's protocols without integrating each one.
 
-Usage figures are not claimed here. Targets are listed under milestones.
+Usage figures come only from `GET /v1/stats` (public, aggregate). Targets are listed under milestones.
 
 ## Milestones (targets)
 
 | # | Deliverable | Evidence | Target date | Amount |
 |---|---|---|---|---|
 | 1 | `LykiaOrders` deployed on Arc mainnet; `LykiaRouter` venues allowlisted; API on an always-on host with 30 s schedulers | Explorer links; health endpoint | **[OWNER]** | **[OWNER]** |
-| 2 | Independent audit of `LykiaAccount`, `LykiaAccountFactory`, `LykiaRouter`, `LykiaOrders`; findings fixed and published | Audit report | **[OWNER]** | **[OWNER]** |
+| 2 | Self-review published (Slither, Mythril, fuzz and invariant tests, every finding triaged) and a community review round; ownership moved to a 2-of-3 Safe behind a timelock | `docs/security/self-review.md`; explorer links | **[OWNER]** | **[OWNER]** |
 | 3 | Two to three pilot teams building agents on Arc integrated through the SDK or MCP | Pilot write-ups; on-chain transactions | **[OWNER]** | **[OWNER]** |
 | 4 | Mainnet usage target: **[OWNER: e.g. number of executed plans and USDC volume routed to Arc venues]** | Public dashboard from the API and explorer | **[OWNER]** | **[OWNER]** |
-| 5 | StableFX taker flow live once access is granted; Agent Marketplace listing of Lykia services | Live endpoints | **[OWNER]** | **[OWNER]** |
+| 5 | StableFX taker flow live once access is granted; Lykia's x402 services submitted to the Agent Marketplace; Fence -> Circle wallet policies in the agent setup | Live endpoints; `GET /v1/circle/policies/compile` | **[OWNER]** | **[OWNER]** |
 
 ## Budget (placeholders)
 
 | Line | Amount (USDC) |
 |---|---|
-| Audit | **[OWNER]** |
+| Independent review (optional, if funded) | **[OWNER]** |
 | Engineering | **[OWNER]** |
 | Hosting and infrastructure | **[OWNER]** |
 | Pilot support | **[OWNER]** |
-| Bug bounty pool | **[OWNER]** |
 | Total | **[OWNER]** |
 
 ## Risks and how they are handled
 
-- Contracts are not audited: mainnet use is limited to small amounts until milestone 2 (`docs/security/audit-pack.md`).
+- No paid audit (no budget): a self-review and community review instead, and mainnet beta caps stay on because of that (`docs/security/self-review.md`).
 - Thin liquidity on some Arc pairs: the Fence denies quotes that drift from the Chainlink reference.
 - Agent demand on Arc is still forming: pilots in milestone 3 test it directly.

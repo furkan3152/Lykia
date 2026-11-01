@@ -12,8 +12,8 @@
  *
  * Run: npm run prove -w @lykia/api   (PROVE_OWNER overrides the sender)
  */
-import { contractAddress, DEFAULT_FENCE, getToken, lykiaContracts, tokenAddress, type Address, type Fence, type PlanAction } from "@lykia/core";
-import { decodeErrorResult, decodeFunctionResult, encodeAbiParameters, encodeFunctionData, erc20Abi, keccak256, parseAbi, type Hex } from "viem";
+import { contractAddress, decodeMemo, DEFAULT_FENCE, getToken, invoiceIdFromNote, invoiceNote, lykiaContracts, memoData, payoutNote, tokenAddress, verdictTag, type Address, type Fence, type PlanAction } from "@lykia/core";
+import { decodeErrorResult, decodeFunctionResult, encodeAbiParameters, encodeFunctionData, erc20Abi, keccak256, numberToHex, pad, parseAbi, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { loadConfig } from "../config.js";
 import { closeContext, createContext } from "../context.js";
@@ -25,6 +25,10 @@ import { externalInputs } from "../engine/search.js";
 import { revertReason, simulateRoute, type SimStep } from "../engine/simulate.js";
 import { ACCOUNT_SALT, sessionCalldata, type SessionSpec } from "../agents/onchain.js";
 import { MORPHO_MARKETS } from "../engine/venues/morphoBlue.js";
+import { proveAggregator } from "./proveAggregator.js";
+import { buildBatch } from "../devflows/batch.js";
+import { invoiceFence } from "../devflows/invoices.js";
+import { findBalanceSlot } from "../engine/simulate.js";
 
 const OWNER = (process.env.PROVE_OWNER ?? "0xada5bb90d0de0bd1b6f3938708f49295a8d1f7cb") as Address;
 const PAYEE = "0x2222222222222222222222222222222222222222" as Address;
@@ -155,6 +159,88 @@ async function proveTag(): Promise<void> {
   }
 }
 
+
+/** State overrides that give the owner `units` of each token (native USDC through the balance, others through their balance slot). */
+async function fundOwner(needs: { symbol: string; units: bigint }[]): Promise<{ address: Address; balance?: bigint; stateDiff?: { slot: Hex; value: Hex }[] }[]> {
+  const out: { address: Address; balance?: bigint; stateDiff?: { slot: Hex; value: Hex }[] }[] = [];
+  const native = await client.getBalance({ address: OWNER });
+  let extra = 10n ** 18n;
+  for (const need of needs) {
+    if (need.symbol === "USDC") {
+      extra += need.units * 10n ** 12n;
+      continue;
+    }
+    const token = tokenAddress(getToken(need.symbol)!, "mainnet") as Address;
+    const slot = await findBalanceSlot(ctx.chains, "mainnet", token, OWNER);
+    if (!slot) throw new Error(`no balance slot for ${need.symbol}`);
+    const a = pad(OWNER, { size: 32 });
+    const sl = pad(numberToHex(slot.slot), { size: 32 });
+    const key = keccak256(slot.vyper ? (`${sl}${a.slice(2)}` as Hex) : (`${a}${sl.slice(2)}` as Hex));
+    const current = (await client.readContract({ address: token, abi: erc20Abi, functionName: "balanceOf", args: [OWNER] })) as bigint;
+    out.push({ address: token, stateDiff: [{ slot: key, value: pad(numberToHex(current + need.units), { size: 32 }) }] });
+  }
+  out.push({ address: OWNER, balance: native + extra });
+  return out;
+}
+
+/** Payouts: three recipients, two tokens, one Multicall3From transaction exactly as POST /v1/payouts builds it (allowFailure false). */
+async function provePayoutBatch(): Promise<void> {
+  const flow = "Payout batch: 3 recipients (USDC, USDC, EURC) in one Multicall3From transaction, an Arc Memo per row";
+  const payees = [PAYEE, "0x3333333333333333333333333333333333333333", "0x4444444444444444444444444444444444444444"] as Address[];
+  const rows = [
+    { to: payees[0]!, token: "USDC", amount: "40", reference: "INV-1001" },
+    { to: payees[1]!, token: "USDC", amount: "25", reference: "INV-1002" },
+    { to: payees[2]!, token: "EURC", amount: "15", reference: "INV-1003" },
+  ];
+  try {
+    const fence: Fence = { ...DEFAULT_FENCE, recipients: { mode: "allowlist", allow: payees }, confirm: { when: [] } };
+    const actions: PlanAction[] = rows.map((r) => ({ verb: "send", token: r.token, amount: { exact: r.amount }, to: r.to, memo: payoutNote("po_prove000001", { reference: r.reference }) }));
+    const planned = await s.planner.plan({ id: `out_prove${(n++).toString().padStart(4, "0")}`, environment: "mainnet", owner: OWNER, signer: "wallet", actions, fence, source: flow, now: Date.now(), spent: { dayUsd: "0", weekUsd: "0" }, dryRun: true });
+    const verdict = planned.graph.verdict;
+    if (verdict.decision === "deny") {
+      record({ flow, result: "FAIL", detail: `Fence deny: ${verdict.reasons.filter((r) => r.decision === "deny").map((r) => r.message).join("; ")}` });
+      return;
+    }
+    const steps = planned.graph.steps.map((st) => ({ id: st.id, plan: planned.plans[st.id]! }));
+    const built = await buildBatch(ctx.chains, "mainnet", OWNER, planned.graph.id, verdict.digest, steps);
+    const fees = planned.graph.steps.map((st) => (st.fee ? BigInt(st.fee.amount) : 0n));
+    const usdcUnits = BigInt(Math.round((40 + 25) * 1e6)) + fees[0]! + fees[1]!;
+    const eurcUnits = 15_000_000n + fees[2]!;
+    const block = await client.getBlockNumber();
+    await client.call({ account: OWNER, to: built.transaction.to, data: built.transaction.data, blockNumber: block, stateOverride: await fundOwner([{ symbol: "USDC", units: usdcUnits }, { symbol: "EURC", units: eurcUnits }]) });
+    const memos = planned.graph.steps.map((st) => memoData({ intentId: planned.graph.id, stepId: st.id, verdict: verdictTag(verdict.digest), ...(planned.plans[st.id]!.params.note ? { note: planned.plans[st.id]!.params.note } : {}) }));
+    const notes = memos.map((m) => decodeMemo(m)?.note ?? "");
+    record({ flow, result: notes.every((t, i) => t.includes(rows[i]!.reference)) ? "PASS" : "FAIL", detail: `1 transaction, ${built.calls} inner calls (3 fee transfers + 3 memo-wrapped transfers) ok at block ${block}. ${planned.graph.steps.map((st) => `${st.summary} [fee ${st.fee?.amount ?? 0} units]`).join(" + ")}. Fence ${verdict.decision}. Memo notes: ${notes.join(" / ")}. Funded: USDC (native balance override), EURC (storage override).` });
+  } catch (error) {
+    record({ flow, result: "FAIL", detail: error instanceof Error ? error.message.split("\n")[0]! : String(error) });
+  }
+}
+
+/** Invoices: the payer's transfer as the hosted page plans it (invoice Fence, memo "invoice inv_…"), then reconciliation reads the memo. */
+async function proveInvoicePayment(): Promise<void> {
+  const id = "inv_prove0000001";
+  const invoice = { payee: PAYEE, token: "USDC" };
+  for (const [flow, amount] of [["Invoice payment: pay 120 USDC invoice in full through the pay page's plan", "120"], ["Invoice payment: partial payment of 50 USDC on the same invoice", "50"]] as const) {
+    try {
+      const actions: PlanAction[] = [{ verb: "send", token: "USDC", amount: { exact: amount }, to: PAYEE, memo: invoiceNote(id, "INV-77") }];
+      const planned = await s.planner.plan({ id: `out_prove${(n++).toString().padStart(4, "0")}`, environment: "mainnet", owner: OWNER, signer: "wallet", actions, fence: invoiceFence(invoice), source: flow, now: Date.now(), spent: { dayUsd: "0", weekUsd: "0" }, dryRun: true });
+      const verdict = planned.graph.verdict;
+      if (verdict.decision === "deny") {
+        record({ flow, result: "FAIL", detail: `Fence deny: ${verdict.reasons.filter((r) => r.decision === "deny").map((r) => r.message).join("; ")}` });
+        continue;
+      }
+      const steps: SimStep[] = planned.graph.steps.map((st) => ({ id: st.id, plan: planned.plans[st.id]! }));
+      const sim = await simulateRoute(ctx.chains, "mainnet", OWNER, { intentId: planned.graph.id, verdictDigest: verdict.digest, steps, fund: externalInputs(planned.graph.steps) });
+      const st = planned.graph.steps[0]!;
+      const memo = decodeMemo(memoData({ intentId: planned.graph.id, stepId: st.id, verdict: verdictTag(verdict.digest), note: planned.plans[st.id]!.params.note ?? "" }));
+      const reconciles = invoiceIdFromNote(memo?.note) === id;
+      record({ flow, result: sim.ok && reconciles ? "PASS" : "FAIL", detail: `${sim.ok ? `${sim.calls.length} calls ok at block ${sim.block}` : sim.reason}. ${st.summary} [fee ${st.fee?.amount ?? 0} USDC units]. Fence ${verdict.decision} (invoice Fence: this payee and token only). Memo note "${memo?.note ?? ""}" reconciles to ${reconciles ? id : "nothing"}.` });
+    } catch (error) {
+      record({ flow, result: "FAIL", detail: error instanceof Error ? error.message.split("\n")[0]! : String(error) });
+    }
+  }
+}
+
 const usdcUnits = (v: string) => BigInt(Math.round(Number(v) * 1e6));
 const market = MORPHO_MARKETS.mainnet![0]!;
 const cirbtc = tokenAddress(getToken("cirBTC")!, "mainnet") as Address;
@@ -195,7 +281,10 @@ await provePlan("Convert 500 USDC to EURC, then pay 200 EURC for invoice 7", [{ 
 await provePlan("Beta cap: send 1500 USDC under a loose Fence", [{ verb: "send", token: "USDC", amount: { exact: "1500" }, to: PAYEE }], { fence: { ...PAYEE_FENCE, caps: { perStepUsd: "1000000", perIntentUsd: "1000000", dailyUsd: "1000000", weeklyUsd: "1000000" }, confirm: { aboveUsd: "1000000", when: [] } }, expectRefusal: /beta|cap/iu });
 await provePlan("Fence: Shepherd refuses a stranger", [{ verb: "send", token: "USDC", amount: { exact: "10" }, to: PAYEE }], { expectRefusal: /not the owner|recipient/iu });
 await proveTag();
+await proveAggregator(ctx, OWNER, record);
 await proveAgent();
+await provePayoutBatch();
+await proveInvoicePayment();
 const orders = lykiaContracts.deployedAddress("mainnet", "LykiaOrders");
 record({ flow: "LykiaOrders (limit, stop-loss, DCA, TWAP)", result: orders ? "PASS" : "GATED", detail: orders ? `deployed at ${orders}` : "Not deployed on mainnet: the Orders page shows “deploy from the owner console”." });
 

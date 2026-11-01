@@ -176,7 +176,7 @@ function kindsOf(actions: readonly PlanAction[]): StepKind[] {
 }
 
 /** What the static checks say about a candidate before anything is quoted. */
-export function staticPrune(candidate: Candidate, fence: Fence, environment: ArcEnvironment): string | null {
+export function staticPrune(candidate: Candidate, fence: Fence, environment: ArcEnvironment, adapterVenues: ReadonlySet<string> = new Set()): string | null {
   const allowKinds = fence.kinds?.allow;
   if (allowKinds && allowKinds.length > 0) {
     for (const kind of kindsOf(candidate.actions)) {
@@ -189,7 +189,7 @@ export function staticPrune(candidate: Candidate, fence: Fence, environment: Arc
     if (venue) {
       const denied = venueAllowedByFence(fence, venue);
       if (denied) return denied;
-      if (!EXECUTABLE_VENUES[environment].has(venue)) return `Lykia cannot execute ${venue} on Arc ${environment}`;
+      if (!EXECUTABLE_VENUES[environment].has(venue) && !adapterVenues.has(venue)) return `Lykia cannot execute ${venue} on Arc ${environment}`;
     }
     const acquired = action.verb === "swap" || action.verb === "fx" ? action.to : null;
     const allowTokens = fence.tokens?.allow;
@@ -267,13 +267,15 @@ export class RouteSearch {
     const max = Math.max(1, Math.min(24, input.maxCandidates ?? SEARCH_DEFAULTS.maxCandidates));
     const { list, pruned } = await this.candidates(input, appetite);
 
+    // Routable adapter manifests are executable venues too (integrations/registry.ts).
+    const adapterVenues = new Set((await (this.deps.router.adapterManifests?.(env) ?? Promise.resolve([]))).map((m) => m.protocol.id));
     const seen = new Set<string>();
     const queue: Candidate[] = [];
     for (const c of list) {
       const key = JSON.stringify(c.actions);
       if (seen.has(key)) continue;
       seen.add(key);
-      const reason = staticPrune(c, fence, env);
+      const reason = staticPrune(c, fence, env, adapterVenues);
       if (reason) pruned.push({ label: c.label, reason });
       else if (queue.length < max) queue.push(c);
       else pruned.push({ label: c.label, reason: `search bound: only ${max} candidates are planned` });
