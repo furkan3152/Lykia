@@ -1,0 +1,22 @@
+{
+  "name": "@lykia/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lykia on-chain layer for Arc: LykiaAccount (the Fence on chain), sub-agent sessions, LykiaRouter. Not audited.",
+  "license": "MIT",
+  "scripts": {
+    "build": "hardhat compile",
+    "test": "hardhat test",
+    "test:fork": "LYKIA_FORK=1 hardhat test test/fork.test.cjs",
+    "export": "hardhat compile --quiet && node scripts/export.cjs"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "2.1.2",
+    "@nomicfoundation/hardhat-ethers": "3.1.3",
+    "@nomicfoundation/hardhat-network-helpers": "1.1.2",
+    "@openzeppelin/contracts": "5.6.1",
+    "chai": "4.5.0",
+    "ethers": "6.17.0",
+    "hardhat": "2.29.1"
+  }
+}
