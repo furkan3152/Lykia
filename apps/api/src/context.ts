@@ -30,7 +30,7 @@ export interface AppContext {
   /** Outbound HTTP (Circle APIs, card fetches); a seam for tests. */
   readonly fetch: FetchLike;
   /**
-   * Outbound HTTP to URLs a user chose (Künye cards, webhooks, x402
+   * Outbound HTTP to URLs a user chose (Tag cards, webhooks, x402
    * resources): DNS pinned at connect time and non-public addresses refused.
    * Tests that inject `fetch` get that fetch here too.
    */

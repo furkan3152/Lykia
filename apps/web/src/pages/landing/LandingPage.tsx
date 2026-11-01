@@ -116,7 +116,7 @@ export default function LandingPage() {
             ))}
           </Card>
           <Card title="The Pack" kicker={"SUB-AGENTS · THEIR OWN FENCES"} footer={<Link to="/app/pack" className="m-btn m-btn--sea">{"SPAWN A PUP"}</Link>}>
-            {([["treasurer", "Treasurer", "Künye on Arc · daily cap"], ["payroll", "Payroll", "Fridays · named payees"], ["fx-hedger", "FX hedger", "EURC band ±25 bps"], ["sentinel", "Sentinel", "Scent + health · blows the whistle"]] as const).map(([role, name, line]) => (
+            {([["treasurer", "Treasurer", "Tag on Arc · daily cap"], ["payroll", "Payroll", "Fridays · named payees"], ["fx-hedger", "FX hedger", "EURC band ±25 bps"], ["sentinel", "Sentinel", "Scent + health · blows the whistle"]] as const).map(([role, name, line]) => (
               <div key={role} className="m-row" style={{ alignItems: "center" }}>
                 <PupIcon role={role} scale={3} />
                 <div>
@@ -150,7 +150,7 @@ export default function LandingPage() {
           {[
             { rows: LYKO_SNIFF, title: "Scent", line: "What can be proven about a token before anyone touches it. Never says \"safe\".", href: "/app/scent" },
             { rows: SHEEP, palette: { ...PAL, W: WOOL.USDC! }, title: "Flock", line: "Mainnet and testnet, wallet, Gateway and venues in one pasture.", href: "/app/flock" },
-            { face: true, title: "Künye", line: "An ERC-8004 identity that pins the hash of the Fence it obeys.", href: "/app/kunye" },
+            { face: true, title: "Tag", line: "An ERC-8004 identity that pins the hash of the Fence it obeys.", href: "/app/tag" },
             { rows: SHEEP, palette: { ...PAL, W: WOOL.EURC! }, title: "Pastures", line: "Live yields: grass height is the rate, with risk and source.", href: "/app/pastures" },
           ].map((p) => (
             <Link key={p.title} to={p.href} className="m-frame m-card m-center" style={{ textDecoration: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>

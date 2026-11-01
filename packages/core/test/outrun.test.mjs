@@ -22,7 +22,7 @@ test("outrun names waypoints along the Lycian Way and finds the fold", () => {
   assert.deepEqual(validateIntentGraph(g), []);
   assert.deepEqual(unlockSteps(g), ["s2"]);
   const o = outrunOf(g);
-  assert.deepEqual(o.waypoints.map((w) => w.name), ["Ölüdeniz", "Faralya"]);
+  assert.deepEqual(o.waypoints.map((w) => w.name), ["Telmessos", "Pinara"]);
   assert.equal(o.current, 1);
   assert.equal(o.waypoints[1].turn, "signer");
   assert.deepEqual(o.fold, ["99 vUSDC"]);
@@ -40,5 +40,5 @@ test("lore: commands, eggs, moods", () => {
   assert.equal(commandOf("send 5 usdc"), null);
   assert.equal(easterEggOf("Lykaion"), "lykaion");
   assert.equal(lykoMood({ whistle: false, threats: 3, running: 0, settledJustNow: false, idleMinutes: 0 }), "growling");
-  assert.equal(waypointName(12), "Ölüdeniz");
+  assert.equal(waypointName(12), "Telmessos");
 });

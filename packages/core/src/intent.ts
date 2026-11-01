@@ -45,7 +45,7 @@ export const STEP_KINDS = Object.freeze([
  * - swap: AMM swap; fx: StableFX RFQ trade USDC <-> EURC settled by FxEscrow;
  * - deposit / withdraw: ERC-4626 vaults; supply / borrow / repay: lending markets;
  * - bridge: CCTP V2 burn on Arc for a native mint elsewhere; gateway-deposit: into the unified Gateway balance;
- * - register-agent: ERC-8004 identity (a Künye); attest: a Fence verdict filed to the ValidationRegistry.
+ * - register-agent: ERC-8004 identity (a Tag); attest: a Fence verdict filed to the ValidationRegistry.
  */
 export type StepKind = (typeof STEP_KINDS)[number];
 

@@ -1,6 +1,6 @@
 /**
- * Lykia's sprite library: Lyko (a Kangal-like shepherd dog: cream coat, black
- * mask, curled tail, spiked collar with a gold Künye tag), his pups (the
+ * Lykia's sprite library: Lyko (a big Anatolian shepherd dog: cream coat, black
+ * mask, curled tail, spiked collar with a gold Tag tag), his pups (the
  * Pack's sub-agents), the flock and the wolves. Text art, one character per
  * tessera; `.` is empty. Every character must exist in the palette (tests
  * enforce it).

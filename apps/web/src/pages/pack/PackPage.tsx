@@ -171,7 +171,7 @@ export default function PackPage() {
                       {selected.capabilities.includes("spawn") || selected.depth < 3 ? <Button tone="sea" size="sm" onClick={() => setWizard({ parent: selected })}>{"SPAWN A PUP"}</Button> : null}
                       <Button tone="ghost" size="sm" onClick={() => void act(`/v1/pack/${selected.id}/${selected.status === "paused" ? "resume" : "pause"}`, selected.status === "paused" ? "Resumed" : "Paused")}>{selected.status === "paused" ? ("RESUME") : "PAUSE"}</Button>
                       <Button tone="navy" size="sm" onClick={() => { if (window.confirm("Revoke this agent and every pup under it?")) void act(`/v1/pack/${selected.id}/revoke`, "Revoked, with its pups"); }}>{"REVOKE"}</Button>
-                      <Button tone="ochre" size="sm" onClick={() => navigate(`/app/kunye${selected.agentId ? `/${selected.agentId}` : ""}`)}>KÜNYE</Button>
+                      <Button tone="ochre" size="sm" onClick={() => navigate(`/app/tag${selected.agentId ? `/${selected.agentId}` : ""}`)}>TAG</Button>
                       <Button tone="sea" size="sm" onClick={() => void provision(selected.id)}>{"CIRCLE WALLET"}</Button>
                     </div>
                   ) : null}

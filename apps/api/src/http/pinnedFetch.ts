@@ -1,5 +1,5 @@
 /**
- * Fetch for URLs a user can influence (Künye cards, webhooks, x402
+ * Fetch for URLs a user can influence (Tag cards, webhooks, x402
  * resources). The hostname is resolved exactly once, at connect time, by
  * the guarded lookup; the socket connects to that checked address and the
  * request keeps the original Host header and TLS server name. There is no

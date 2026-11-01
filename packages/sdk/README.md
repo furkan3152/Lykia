@@ -51,7 +51,7 @@ for (const step of intent.steps) {
 ## Protocol fee
 
 Every value-moving step pays Lykia's protocol fee (1% by default) inside its own
-transaction; repay, withdrawals home, approvals and Künye steps are free. Each
+transaction; repay, withdrawals home, approvals and Tag steps are free. Each
 step carries `fee` and the outrun carries `fees` totals, so you can show it
 before the owner signs.
 

@@ -6,7 +6,7 @@ The Fence decides whether a particular DeFi move makes sense at all.
 
 It is a small typed JSON document with no expressions or code, so it can be
 validated, hashed and pinned on-chain. Its canonical `sha256:` hash is what a
-Künye (ERC-8004 identity) points to.
+Tag (ERC-8004 identity) points to.
 
 ## Principles
 
@@ -64,7 +64,7 @@ inside its Fence.
 
 | Key | Name | Use |
 |---|---|---|
-| `lamb` | Kuzu | Watching and learning. Dry-run only, wallet signer only, verified tokens only. |
-| `shepherd` | Çoban | The default. Careful caps, agents allowed, strangers refused. |
-| `treasury` | Hazine | A business treasury. USDC and EURC only, named payees, office hours, a tight FX band. |
-| `caravan` | Kervan | An autonomous agent that pays for services. Small caps, no lending, no bridges, agent signer only. |
+| `lamb` | Lamb | Watching and learning. Dry-run only, wallet signer only, verified tokens only. |
+| `shepherd` | Shepherd | The default. Careful caps, agents allowed, strangers refused. |
+| `treasury` | Treasury | A business treasury. USDC and EURC only, named payees, office hours, a tight FX band. |
+| `caravan` | Caravan | An autonomous agent that pays for services. Small caps, no lending, no bridges, agent signer only. |

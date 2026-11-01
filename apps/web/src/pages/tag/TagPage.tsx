@@ -1,4 +1,4 @@
-/** Künye: an agent's ERC-8004 identity on Arc, pinning the hash of the Fence it obeys. */
+/** Tag: an agent's ERC-8004 identity on Arc, pinning the hash of the Fence it obeys. */
 import { useLykiaWallet } from "../../features/wallet/useLykiaWallet";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -13,7 +13,7 @@ import { Button, Card, EmptyState, Field, Input, Medallion, PageHead, Skeleton, 
 interface KunyeView { readonly agentId: string; readonly owner: string; readonly agentWallet: string | null; readonly agentURI?: string | null; readonly card?: unknown; readonly cardNote?: string; readonly fenceInCard?: string | null; readonly fenceMatches?: boolean | null; readonly validations: { count: number; averageResponse: number | null }; readonly erc8354?: { count: number; averageResponse: number | null; tag: string; guard: string | null }; readonly reputation: { clients: number; count: number | null; value: string | null } }
 interface Draft { readonly card: unknown; readonly cardDigest: string; readonly fenceHash: string; readonly agentURI: string; readonly transaction: { chainId: number; to: `0x${string}`; data: `0x${string}`; value: string; label: string } }
 
-export default function KunyePage() {
+export default function TagPage() {
   const environment = useEnvironment();
   const agentId = useRouteParam("agentId") ?? null;
   const wallet = useLykiaWallet();
@@ -23,11 +23,11 @@ export default function KunyePage() {
   const [name, setName] = useState("Treasurer");
   const [description, setDescription] = useState("Pays suppliers and keeps idle USDC working inside its Fence.");
   const [draft, setDraft] = useState<Draft | null>(null);
-  const view = useQuery({ queryKey: ["kunye", agentId, environment], enabled: Boolean(agentId), queryFn: ({ signal }) => apiGet<KunyeView>(`/v1/kunye/${agentId}`, { query: { environment }, signal, timeoutMs: 20_000 }) });
+  const view = useQuery({ queryKey: ["tag", agentId, environment], enabled: Boolean(agentId), queryFn: ({ signal }) => apiGet<KunyeView>(`/v1/tags/${agentId}`, { query: { environment }, signal, timeoutMs: 20_000 }) });
   const makeDraft = async () => {
     if (!address) return toast.warning("Connect a wallet first", { from: "LYKO" });
     try {
-      setDraft(await apiPost<Draft>("/v1/kunye/draft", { environment, owner: address, name, description, fence }));
+      setDraft(await apiPost<Draft>("/v1/tags/draft", { environment, owner: address, name, description, fence }));
     } catch (e) {
       toast.error(describeError(e), { from: "LYKO" });
     }
@@ -36,7 +36,7 @@ export default function KunyePage() {
     if (!draft) return;
     try {
       const [hash] = await wallet.send([draft.transaction]);
-      toast.success("Künye registration sent", { description: hash, from: "LYKO" });
+      toast.success("Tag registration sent", { description: hash, from: "LYKO" });
     } catch (e) {
       toast.error(describeError(e), { from: "LYKO" });
     }
@@ -44,17 +44,17 @@ export default function KunyePage() {
   const v = view.data;
   return (
     <div>
-      <PageHead kicker={"KÜNYE · ON ERC-8004"} title={<>Every agent wears a <em>tag.</em></>} sub={"A Künye is an ERC-8004 identity on Arc that pins the hash of the Fence the agent obeys, so anyone can check which rules it follows."} medal={false}>
-        <div style={{ marginTop: 8 }}><Medallion size={180} spin title={v ? `Künye #${v.agentId}` : "Künye"} /></div>
-        <form className="flex gap-2 justify-center" style={{ marginTop: 16, maxWidth: 420, marginInline: "auto" }} onSubmit={(e) => { e.preventDefault(); if (/^\d{1,30}$/u.test(id)) navigate(`/app/kunye/${id}`); }}>
+      <PageHead kicker={"TAG · ON ERC-8004"} title={<>Every agent wears a <em>tag.</em></>} sub={"A Tag is an ERC-8004 identity on Arc that pins the hash of the Fence the agent obeys, so anyone can check which rules it follows."} medal={false}>
+        <div style={{ marginTop: 8 }}><Medallion size={180} spin title={v ? `Tag #${v.agentId}` : "Tag"} /></div>
+        <form className="flex gap-2 justify-center" style={{ marginTop: 16, maxWidth: 420, marginInline: "auto" }} onSubmit={(e) => { e.preventDefault(); if (/^\d{1,30}$/u.test(id)) navigate(`/app/tag/${id}`); }}>
           <Input placeholder={"Agent id, e.g. 1"} value={id} onChange={(e) => setId(e.target.value)} />
           <Button type="submit" tone="sea">{"READ"}</Button>
         </form>
       </PageHead>
       <section className="m-wrap" style={{ marginTop: 28 }}>
         <div className="m-grid-2">
-          <Card title={agentId ? `Künye #${agentId}` : "Read a tag"} kicker={`ARC ${environment.toUpperCase()} · IDENTITY REGISTRY`}>
-            {!agentId ? <EmptyState title={"Type an id"} example="1" onExample={(x) => navigate(`/app/kunye/${x}`)} /> : view.isLoading ? <Skeleton h={180} /> : view.isError ? <p className="m-note m-note--bad">{describeError(view.error)}</p> : v ? (
+          <Card title={agentId ? `Tag #${agentId}` : "Read a tag"} kicker={`ARC ${environment.toUpperCase()} · IDENTITY REGISTRY`}>
+            {!agentId ? <EmptyState title={"Type an id"} example="1" onExample={(x) => navigate(`/app/tag/${x}`)} /> : view.isLoading ? <Skeleton h={180} /> : view.isError ? <p className="m-note m-note--bad">{describeError(view.error)}</p> : v ? (
               <div style={{ display: "grid", gap: 10 }}>
                 <dl className="m-kv">
                   <dt>Owner</dt><dd>{v.owner}</dd>

@@ -66,7 +66,7 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     id: "erc8004",
     name: "ERC-8004 Trustless Agents",
     category: "agent",
-    summary: "Agent identity, reputation and validation registries. Lykia's Künye lives here.",
+    summary: "Agent identity, reputation and validation registries. Lykia's Tag lives here.",
     docs: "https://eips.ethereum.org/EIPS/eip-8004",
     deployments: {
       mainnet: { status: "live", contracts: { identityRegistry: C.identityRegistry.addresses.mainnet!, reputationRegistry: C.reputationRegistry.addresses.mainnet!, validationRegistry: C.validationRegistry.addresses.mainnet! }, evidence: CHECKED },

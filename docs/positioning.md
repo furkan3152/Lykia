@@ -32,12 +32,12 @@ Network. It does not compete with them.
   Lykia picks a route among every capable Arc venue and refuses to sign any
   route the Fence denies.
 - **ERC-8004 identity providers (ArcID).** These provide identity and
-  reputation. Lykia writes into the same registries: a Künye pins the Fence
+  reputation. Lykia writes into the same registries: a Tag pins the Fence
   hash, and verdicts are filed as ERC-8354 attestations.
 - **ERC-8354.** Lykia is an early implementer of the attestation layer. It
   uses the draft's envelope, action commitment, policy kinds and attestation
   struct, and labels its verdicts as mediated rather than zero-knowledge (see
-  [kunye.md](kunye.md)).
+  [tag.md](tag.md)).
 
 ## What only Lykia combines
 

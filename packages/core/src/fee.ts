@@ -9,7 +9,7 @@
  *  - charged: send, swap, fx, deposit, supply, borrow (on the borrowed
  *    amount), bridge, Gateway deposits;
  *  - exempt: repay, withdraw (value coming home to the owner), approvals,
- *    revokes, Künye registration and attestations;
+ *    revokes, Tag registration and attestations;
  *  - taken from the step's input token before the action, so quotes and
  *    minimum outputs are computed on what the venue actually receives;
  *    a send with an exact amount pays the fee on top, so the recipient
@@ -36,7 +36,7 @@ export const DEFAULT_FEE_POLICY: FeePolicy = Object.freeze({ bps: DEFAULT_FEE_BP
 export const FEE_EXEMPT_KINDS: ReadonlySet<StepKind> = new Set<StepKind>(["repay", "withdraw", "approve", "register-agent", "attest"]);
 
 export const FEE_POLICY_TEXT =
-  "Lykia takes a protocol fee on every value-moving step (send, swap, FX, deposit, supply, borrow, bridge, Gateway deposit), paid on chain in the same transaction. Repay, withdrawals home, approvals, revokes and Künye steps are free.";
+  "Lykia takes a protocol fee on every value-moving step (send, swap, FX, deposit, supply, borrow, bridge, Gateway deposit), paid on chain in the same transaction. Repay, withdrawals home, approvals, revokes and Tag steps are free.";
 
 export function isFeeBearing(kind: StepKind): boolean {
   return !FEE_EXEMPT_KINDS.has(kind);

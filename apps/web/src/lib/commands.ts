@@ -5,7 +5,7 @@
  */
 import { COMMANDS, EASTER_EGGS, commandOf, easterEggOf, type CommandAction, type CommandWord, type EasterEggWord } from "@lykia/core";
 
-export type Destination = "ask" | "flock" | "pastures" | "pack" | "fence" | "scent" | "kunye" | "build" | "landing";
+export type Destination = "ask" | "flock" | "pastures" | "pack" | "fence" | "scent" | "tag" | "build" | "landing";
 
 export type Resolution =
   | { readonly kind: "empty" }
@@ -23,7 +23,7 @@ const PAGE_WORDS: ReadonlyArray<readonly [Destination, readonly string[]]> = [
   ["pack", ["pack", "agents", "agentlar", "pups", "yavrular", "sub-agents", "alt agent"]],
   ["fence", ["fence", "çit", "cit", "rules", "kurallar", "rule book", "whistle", "düdük", "duduk"]],
   ["scent", ["scent", "koku", "sniff", "shield", "token check"]],
-  ["kunye", ["künye", "kunye", "licence", "license", "agent id", "erc-8004", "erc8004"]],
+  ["tag", ["tag", "kunye", "licence", "license", "agent id", "erc-8004", "erc8004"]],
   ["build", ["build", "developers", "geliştiriciler", "gelistiriciler", "api", "mcp", "x402", "docs", "keys"]],
   ["landing", ["valley", "vadi", "about", "hakkında"]],
 ];
@@ -42,7 +42,7 @@ export function resolveInput(raw: string): Resolution {
     return { kind: "egg", word: egg, scene: entry.scene, line: entry.line, href: ARCADIA_EGGS.has(egg) ? "/lykaion" : null };
   }
   if (/^0x[0-9a-fA-F]{40}$/u.test(text)) return { kind: "token", address: text };
-  const agent = /^(?:agent|künye|kunye)\s*#?\s*(\d{1,12})$/iu.exec(text);
+  const agent = /^(?:agent|tag|kunye)\s*#?\s*(\d{1,12})$/iu.exec(text);
   if (agent) return { kind: "agent", agentId: agent[1]! };
   const lower = text.toLowerCase();
   for (const [destination, words] of PAGE_WORDS) if (words.includes(lower)) return { kind: "page", destination };

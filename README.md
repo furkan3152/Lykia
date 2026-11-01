@@ -6,12 +6,12 @@ Lykia is the agent and stablecoin desk of the Kletia family, built on Arc
 Network. Say an outcome, in English or Turkish, and Lykia does four things:
 
 1. Plans it across the venues that are live on Arc.
-2. Checks the plan against your **Fence** (Çit), a typed rule book around an
+2. Checks the plan against your **Fence**, a typed rule book around an
    agent or around yourself.
 3. Hands each step to your own wallet, or to an agent wallet, to sign.
 4. Tracks every step until it is final, which on Arc takes under a second.
 
-Lyko is a shepherd dog that looks like a Kangal. He keeps the flock (your
+Lyko is a big Anatolian shepherd dog. He keeps the flock (your
 agents and assets) inside the Fence and the wolves (scam tokens, rug pulls,
 exploits) outside it.
 
@@ -28,7 +28,7 @@ exploits) outside it.
 | USDC as gas, deterministic finality | A step on Arc is settled once its receipt exists, so the Outrun follows the money live. Lykia handles both forms of USDC: native (18 decimals) and ERC-20 (6 decimals). |
 | Arc Memo | Every value-moving call carries a memo with the outrun id, the step and the Fence verdict digest, or an invoice reference for payments. |
 | Multicall3From (CallFrom) | The approve, the action and the memo go out as one final transaction while the user stays `msg.sender`. |
-| ERC-8004 | A **Künye** is an agent identity whose card pins the hash of the Fence it follows. Fence verdicts can be filed to the ValidationRegistry. |
+| ERC-8004 | A **Tag** is an agent identity whose card pins the hash of the Fence it follows. Fence verdicts can be filed to the ValidationRegistry. |
 | CCTP V2, Gateway | Bridging USDC out of Arc with attestation tracking, and deposits into the unified Gateway balance. |
 | StableFX, Chainlink | USDC/EURC conversion, checked against the Chainlink EURC/USD reference rate (the Fence's FX band). |
 | x402 | Paid routes priced per call in USDC on Arc. |
@@ -64,7 +64,7 @@ What sets Lykia apart:
 - **Public verdicts.** Each verdict can be filed to the ERC-8004 Validation
   Registry as an [ERC-8354](https://eips.ethereum.org/EIPS/eip-8354) policy
   attestation. The attestation commits to the Fence without revealing it.
-  See [docs/kunye.md](docs/kunye.md) and
+  See [docs/tag.md](docs/tag.md) and
   [docs/positioning.md](docs/positioning.md).
 
 ## Pillars
@@ -73,7 +73,7 @@ What sets Lykia apart:
   factor, FX band, Scent level, hours and signers. If a fact it needs is
   missing, it denies. The **Whistle** stops all new risk but still lets value
   come home. See [docs/fence.md](docs/fence.md).
-- **Künye**: an on-chain licence for agents (ERC-8004 plus the Fence hash),
+- **Tag**: an on-chain licence for agents (ERC-8004 plus the Fence hash),
   so anyone can check which rules an agent follows.
 - **Outrun**: a plan drawn as an arc from the start to the **Fold**. Each
   waypoint is named after a stop on the Lycian Way.
@@ -90,10 +90,10 @@ What sets Lykia apart:
 
 ```
 packages/core/   @lykia/core — zero-I/O spec: networks, contracts, tokens, venues,
-                 intent graph, Fence, verdicts, Künye, memos, Outrun, lore
+                 intent graph, Fence, verdicts, Tag, memos, Outrun, lore
 apps/api/        @lykia/api  — Express 5 service on Arc (see its README)
 apps/web/        @lykia/web  — the pixel deck: Lyko, the valley, Deck, Flock, Fence,
-                 Scent, Künye, developers (see its README)
+                 Scent, Tag, developers (see its README)
 docs/            the Fence spec and brand notes
 ```
 

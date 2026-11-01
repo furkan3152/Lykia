@@ -27,7 +27,7 @@ describe("route artifact model", () => {
     assert.equal(v.settled, 1);
     assert.equal(v.next, "s2");
     assert.equal(v.ferry, true);
-    assert.equal(v.stops[0]!.name, "Ölüdeniz");
+    assert.equal(v.stops[0]!.name, "Telmessos");
     assert.equal(v.decision, "allow");
     assert.deepEqual(v.warnings, ["w"]);
   });

@@ -50,7 +50,7 @@ describe("the Pack", () => {
 
   it("spawns sub-agents inside the parent's Fence and refuses looser ones", async () => {
     const pack = agentServices(ctx).pack;
-    const treasurer = await pack.create({ owner: OWNER, environment: "mainnet", name: "Hazine", role: "treasurer" });
+    const treasurer = await pack.create({ owner: OWNER, environment: "mainnet", name: "Treasury desk", role: "treasurer" });
     assert.equal(treasurer.capabilities.includes("spawn"), true);
     const payroll = await pack.spawn(treasurer.id, { name: "Bordro", role: "payroll" });
     assert.equal(payroll.depth, 1);
@@ -189,7 +189,7 @@ describe("Lyko orchestration", () => {
     const anonymous = await fetch(`${served.url}/v1/pack`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ owner: OWNER, name: "Sentinel", role: "sentinel", environment: "mainnet" }) });
     assert.equal(anonymous.status, 401);
     const { token } = issueToken(ctx, OWNER);
-    const created = await fetch(`${served.url}/v1/pack`, { method: "POST", headers: { "content-type": "application/json", "lykia-session": token }, body: JSON.stringify({ owner: OWNER, name: "Hazine", role: "treasurer", environment: "mainnet", signer: "0x4444444444444444444444444444444444444444" }) });
+    const created = await fetch(`${served.url}/v1/pack`, { method: "POST", headers: { "content-type": "application/json", "lykia-session": token }, body: JSON.stringify({ owner: OWNER, name: "Treasury desk", role: "treasurer", environment: "mainnet", signer: "0x4444444444444444444444444444444444444444" }) });
     assert.equal(created.status, 201);
     const root = (await created.json()) as { id: string; budget: { free: { dailyUsd: string } } };
     assert.equal(root.budget.free.dailyUsd, "100000.00");

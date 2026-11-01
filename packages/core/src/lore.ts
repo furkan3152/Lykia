@@ -1,5 +1,5 @@
 /**
- * Lykia's lore, as data the UI and the agent share. Lyko is a Kangal-like
+ * Lykia's lore, as data the UI and the agent share. Lyko is a big Anatolian
  * shepherd dog (Greek lykos, "wolf") who keeps the flock (agents and the
  * owner's assets) inside the Fence and the wolves (scam tokens, rug pulls,
  * exploits) outside. The valley is the Lycian coast; the hidden mountain is
@@ -28,26 +28,26 @@ export function commandOf(text: string): CommandWord | null {
 }
 
 /**
- * Stops of the Lycian Way, Fethiye to Antalya. Outrun waypoints take their
- * names in order, so a three-step plan walks Ölüdeniz, Faralya, Kabak.
+ * Ancient cities along the Lycian Way, Telmessos to Phaselis. Outrun waypoints take their
+ * names in order, so a three-step plan walks Telmessos, Pinara, Sidyma.
  */
 export const LYCIAN_WAY = Object.freeze([
-  { name: "Ölüdeniz", note: "The trail starts above the blue lagoon." },
-  { name: "Faralya", note: "Butterfly Valley below the cliff." },
-  { name: "Kabak", note: "Pines down to a hidden bay." },
-  { name: "Alınca", note: "The highest village on the way." },
-  { name: "Patara", note: "Eighteen kilometres of sand and an old lighthouse." },
-  { name: "Kalkan", note: "White houses over the harbour." },
-  { name: "Kaş", note: "The theatre faces the sea." },
-  { name: "Üçağız", note: "Sunken Kekova close by." },
+  { name: "Telmessos", note: "The rock tombs above the harbour where the coast begins." },
+  { name: "Pinara", note: "A city carved into a cliff face full of tombs." },
+  { name: "Sidyma", note: "A quiet hill town above the sea." },
+  { name: "Xanthos", note: "The capital of the Lycian League." },
+  { name: "Letoon", note: "The sanctuary of Leto, where the league met." },
+  { name: "Patara", note: "Eighteen kilometres of sand and one of the oldest lighthouses in the world." },
+  { name: "Antiphellos", note: "A theatre that faces the open sea." },
+  { name: "Kyaneai", note: "Sarcophagi scattered through the olive groves." },
   { name: "Myra", note: "Rock tombs cut into the hill." },
-  { name: "Olympos", note: "Ruins under the plane trees." },
-  { name: "Yanartaş", note: "The flames of the Chimaera never go out." },
-  { name: "Tahtalı", note: "The last summit before Antalya." },
+  { name: "Limyra", note: "A river city at the foot of the mountains." },
+  { name: "Olympos", note: "Ruins under the plane trees, below the Chimaera's eternal flames." },
+  { name: "Phaselis", note: "Three harbours and the last stop of the way." },
 ] as const);
 
 export function waypointName(index: number): string {
-  return LYCIAN_WAY[((index % LYCIAN_WAY.length) + LYCIAN_WAY.length) % LYCIAN_WAY.length]?.name ?? "Ölüdeniz";
+  return LYCIAN_WAY[((index % LYCIAN_WAY.length) + LYCIAN_WAY.length) % LYCIAN_WAY.length]?.name ?? "Telmessos";
 }
 
 /** Kinds of wolves Scent can catch. */
@@ -94,8 +94,8 @@ export const LYKO_LINES: Readonly<Record<LykoMood, { readonly en: string; readon
 export const EASTER_EGGS = Object.freeze({
   lykaion: { scene: "arcadia-night", line: "Mount Lykaion, Arcadia. Shepherds kept their flocks here long before any chain." },
   arcadia: { scene: "arcadia-night", line: "Et in Arcadia ego. The pasture remembers." },
-  chimaera: { scene: "yanartas", line: "The fires of Yanartaş have burned for thousands of years. So does a good Fence." },
-  kangal: { scene: "lyko-pose", line: "Kangal shepherd dogs wear spiked collars against wolves. Lyko wears a Künye." },
+  chimaera: { scene: "chimaera", line: "The eternal flames of the Chimaera on Mount Olympos have burned for thousands of years. So does a good Fence." },
+  guardian: { scene: "lyko-pose", line: "Anatolian shepherd dogs wear spiked collars against wolves. Lyko wears a Tag." },
   patara: { scene: "lighthouse", line: "The Patara lighthouse is one of the oldest in the world. Memos are our lighthouse." },
   "et in arcadia ego": { scene: "arcadia-night", line: "Even in Arcadia, there is risk. That is why there is a dog." },
 } as const);
@@ -109,11 +109,11 @@ export function easterEggOf(text: string): EasterEggWord | null {
 
 /** The product vocabulary, so every surface uses the same words. */
 export const GLOSSARY = Object.freeze({
-  fence: { en: "Fence", tr: "Çit", what: "The rules around an agent or an owner." },
-  kunye: { en: "Künye", tr: "Künye", what: "An agent's on-chain identity tag: ERC-8004 identity + the Fence hash it obeys." },
-  whistle: { en: "Whistle", tr: "Düdük", what: "Stops every new risk; homeward moves still pass." },
-  flock: { en: "Flock", tr: "Sürü", what: "Everything the owner holds on Arc, in one balance sheet." },
-  scent: { en: "Scent", tr: "Koku", what: "What can be proven about a token before anyone touches it." },
-  outrun: { en: "Outrun", tr: "Outrun", what: "A plan's path, drawn as an arc from start to fold." },
-  fold: { en: "Fold", tr: "Ağıl", what: "Where the money ends up when the outrun is done." },
+  fence: { en: "Fence", what: "The rules around an agent or an owner." },
+  tag: { en: "Tag", what: "An agent's on-chain identity: its ERC-8004 identity plus the hash of the Fence it obeys." },
+  whistle: { en: "Whistle", what: "Stops every new risk; homeward moves still pass." },
+  flock: { en: "Flock", what: "Everything the owner holds on Arc, in one balance sheet." },
+  scent: { en: "Scent", what: "What can be proven about a token before anyone touches it." },
+  outrun: { en: "Outrun", what: "A plan's path, drawn as an arc from start to fold." },
+  fold: { en: "Fold", what: "Where the money ends up when the outrun is done." },
 } as const);

@@ -26,7 +26,7 @@ test("attest8354 builds the envelope, attestation and both registry calls", asyn
   assert.equal(r.attestation.artifactHash, r.verdict.actionCommitment);
   assert.equal(r.requestHash, keccak256(r.encoded.verdict));
   assert.equal(r.responseHash, keccak256(r.encoded.attestation));
-  assert.equal(r.requestURI, `https://api.example/v1/kunye/verdicts/${r.requestHash}`);
+  assert.equal(r.requestURI, `https://api.example/v1/tags/verdicts/${r.requestHash}`);
   const req = decodeFunctionData({ abi: VALIDATION_REGISTRY_ABI, data: r.requestTransaction!.data });
   assert.equal(req.functionName, "validationRequest");
   assert.deepEqual(req.args, [GUARD, 412n, r.requestURI, r.requestHash]);

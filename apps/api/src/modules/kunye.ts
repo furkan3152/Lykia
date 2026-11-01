@@ -1,4 +1,4 @@
-/** Künye (ERC-8004): read an agent, draft a card + register call, file a Fence verdict, serve cards. */
+/** Tag (ERC-8004): read an agent, draft a card + register call, file a Fence verdict, serve cards. */
 import type { Address, FenceVerdict } from "@lykia/core";
 import { z } from "zod";
 import type { ApiModule } from "../http/router.js";
@@ -23,7 +23,7 @@ const verdictSchema = z.object({
 export const kunyeModule: ApiModule = {
   name: "kunye",
   register(router, ctx) {
-    router.get("/kunye/cards/:digest", async (req, res) => {
+    router.get(["/tags/cards/:digest", "/kunye/cards/:digest"], async (req, res) => {
       const { digest } = parseParams(req, z.object({ digest: z.string().regex(/^[0-9a-f]{64}$/u) }));
       const stored = await services(ctx).kunye.card(digest);
       if (!stored) throw new LykiaHttpError("NOT_FOUND", 404, "No such card.");
@@ -32,7 +32,7 @@ export const kunyeModule: ApiModule = {
     });
 
     // ERC-8354 request/response documents named by their ValidationRegistry hashes.
-    router.get("/kunye/verdicts/:hash", async (req, res) => {
+    router.get(["/tags/verdicts/:hash", "/kunye/verdicts/:hash"], async (req, res) => {
       const { hash } = parseParams(req, z.object({ hash: z.string().regex(/^0x[0-9a-f]{64}$/u) }));
       const doc = await services(ctx).kunye.verdictDoc(hash);
       if (!doc) throw new LykiaHttpError("NOT_FOUND", 404, "No such verdict document.");
@@ -41,7 +41,7 @@ export const kunyeModule: ApiModule = {
     });
 
     // The salt padding an agent's policy commitment: only for the agent's owner, so they can disclose it to an auditor.
-    router.get("/kunye/:agentId/policy-salt", async (req, res) => {
+    router.get(["/tags/:agentId/policy-salt", "/kunye/:agentId/policy-salt"], async (req, res) => {
       const { agentId } = parseParams(req, z.object({ agentId: z.string().regex(/^\d{1,30}$/u) }));
       const environment = environmentOf(ctx, parseQuery(req, environmentQuery).environment);
       const session = await sessionOf(ctx, req);
@@ -52,13 +52,13 @@ export const kunyeModule: ApiModule = {
       res.json({ agentId, environment, salt: await services(ctx).kunye.policySalt(environment, agentId), note: "policyRoot = keccak256(abi.encode(fenceHash, salt)). Share (Fence, salt) only with auditors." });
     });
 
-    router.get("/kunye/:agentId", ctx.limits.heavy, async (req, res) => {
+    router.get(["/tags/:agentId", "/kunye/:agentId"], ctx.limits.heavy, async (req, res) => {
       const { agentId } = parseParams(req, z.object({ agentId: z.string().regex(/^\d{1,30}$/u) }));
       const environment = environmentOf(ctx, parseQuery(req, environmentQuery).environment);
       res.json(await services(ctx).kunye.view(environment, agentId));
     });
 
-    router.post("/kunye/draft", async (req, res) => {
+    router.post(["/tags/draft", "/kunye/draft"], async (req, res) => {
       const body = parseBody(
         req,
         z.object({
@@ -74,7 +74,7 @@ export const kunyeModule: ApiModule = {
         }),
       );
       const fence = fenceFrom(body.fence);
-      if (!fence) throw new LykiaHttpError("INVALID_FENCE", 400, "A Künye pins a Fence: send one.");
+      if (!fence) throw new LykiaHttpError("INVALID_FENCE", 400, "A Tag pins a Fence: send one.");
       res.json(
         await services(ctx).kunye.draft({
           environment: environmentOf(ctx, body.environment),
@@ -90,7 +90,7 @@ export const kunyeModule: ApiModule = {
       );
     });
 
-    router.post("/kunye/attest", async (req, res) => {
+    router.post(["/tags/attest", "/kunye/attest"], async (req, res) => {
       const body = parseBody(
         req,
         z.object({

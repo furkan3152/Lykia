@@ -1,5 +1,5 @@
 /**
- * Künye service: draft and serve ERC-8004 registration cards that pin a
+ * Tag service: draft and serve ERC-8004 registration cards that pin a
  * Fence hash, build the unsigned register / validation calls, and read an
  * agent's identity, card and standing from the registries.
  */
@@ -55,7 +55,7 @@ export interface DraftInput {
   readonly image?: string;
   readonly fence: Fence;
   readonly endpoints?: readonly KunyeEndpoint[];
-  /** Public base URL of this API, so the card can be served from /v1/kunye/cards/:digest. */
+  /** Public base URL of this API, so the card can be served from /v1/tags/cards/:digest. */
   readonly publicBaseUrl?: string;
 }
 
@@ -173,7 +173,7 @@ export class KunyeService {
     await this.docs().put(requestHash, requestDoc as unknown as JsonValue);
     await this.docs().put(responseHash, responseDoc as unknown as JsonValue);
     const base = input.publicBaseUrl?.replace(/\/$/u, "");
-    const uri = (hash: Hex, doc: unknown) => (base ? `${base}/v1/kunye/verdicts/${hash}` : `data:application/json;base64,${Buffer.from(JSON.stringify(doc)).toString("base64")}`);
+    const uri = (hash: Hex, doc: unknown) => (base ? `${base}/v1/tags/verdicts/${hash}` : `data:application/json;base64,${Buffer.from(JSON.stringify(doc)).toString("base64")}`);
     const requestURI = uri(requestHash, requestDoc);
     const responseURI = uri(responseHash, responseDoc);
     const network = networkFor(input.environment);
@@ -223,7 +223,7 @@ export class KunyeService {
     });
     const digest = kunyeCardDigest(card);
     await this.cards().put(digest.slice("sha256:".length), { card, fence: input.fence } as unknown as JsonValue);
-    const agentURI = input.publicBaseUrl ? `${input.publicBaseUrl.replace(/\/$/u, "")}/v1/kunye/cards/${digest.slice("sha256:".length)}` : `data:application/json;base64,${Buffer.from(JSON.stringify(card)).toString("base64")}`;
+    const agentURI = input.publicBaseUrl ? `${input.publicBaseUrl.replace(/\/$/u, "")}/v1/tags/cards/${digest.slice("sha256:".length)}` : `data:application/json;base64,${Buffer.from(JSON.stringify(card)).toString("base64")}`;
     const network = networkFor(input.environment);
     const registry = contractAddress("identityRegistry", input.environment) as Address;
     const data = encodeFunctionData({
@@ -236,7 +236,7 @@ export class KunyeService {
       cardDigest: digest,
       fenceHash: hash,
       agentURI,
-      transaction: { chainId: network.chainId, from: input.owner, to: registry, data, value: "0", label: `Register Künye “${card.name}” (ERC-8004) pinning Fence ${hash.slice(7, 19)}…` },
+      transaction: { chainId: network.chainId, from: input.owner, to: registry, data, value: "0", label: `Register Tag “${card.name}” (ERC-8004) pinning Fence ${hash.slice(7, 19)}…` },
     };
   }
 

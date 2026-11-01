@@ -1,6 +1,6 @@
-# Künye and ERC-8354 policy verdicts
+# Tag and ERC-8354 policy verdicts
 
-A Künye is an agent's ERC-8004 identity on Arc. Its card pins the hash of the
+A Tag is an agent's ERC-8004 identity on Arc. Its card pins the hash of the
 Fence the agent follows, under the `lykia.fence` metadata key. Each time the
 Fence judges an action, the verdict can also be filed to the ERC-8004
 Validation Registry in the shape that
@@ -35,12 +35,12 @@ already decode.
 ## How a verdict is filed
 
 1. The planner evaluates the Fence and the step is prepared.
-2. `POST /v1/kunye/attest` with `erc8354: { executor, stepId }` (or a raw
+2. `POST /v1/tags/attest` with `erc8354: { executor, stepId }` (or a raw
    `action`) returns:
    - the encoded `Verdict` and `VerdictAttestation`;
    - `requestHash = keccak256(abi.encode(Verdict))` and
      `responseHash = keccak256(abi.encode(VerdictAttestation))`;
-   - request and response documents at `/v1/kunye/verdicts/<hash>`.
+   - request and response documents at `/v1/tags/verdicts/<hash>`.
 3. **The owner** signs
    `ValidationRegistry.validationRequest(guard, agentId, requestURI, requestHash)`.
 4. **The guard** signs
@@ -49,8 +49,8 @@ already decode.
    - The guard is the address in `LYKIA_GUARD_ADDRESS`. It signs with its own
      key. The Lykia server never holds or uses that key, and without the
      variable only the documents and hashes are produced.
-5. `GET /v1/kunye/:agentId` reads the count and average score for the
-   `erc-8354` tag. The Künye page shows them as "ERC-8354 policy verdicts".
+5. `GET /v1/tags/:agentId` reads the count and average score for the
+   `erc-8354` tag. The Tag page shows them as "ERC-8354 policy verdicts".
 
 The older `lykia.verdict/v1` record is still produced (the `lykia-fence` tag)
 and included in the request document, so existing readers keep working.
@@ -58,7 +58,7 @@ and included in the request document, so existing readers keep working.
 ## Disclosure to auditors
 
 The owner can read their agent's salt with
-`GET /v1/kunye/:agentId/policy-salt`. It needs a SIWE session from the
+`GET /v1/tags/:agentId/policy-salt`. It needs a SIWE session from the
 agent's owner, and the response is never cached. Giving an auditor the Fence
 document and the salt lets them recompute `policyRoot` and confirm which
 Fence was in force. No one else learns the rules.

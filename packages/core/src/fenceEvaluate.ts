@@ -3,7 +3,7 @@
  * (`lykia.verdict/v1`): allow, confirm or deny, every reason with the rule
  * it came from, and a digest binding the Fence hash, the facts and the
  * decision. That digest rides in each step's Arc Memo and is what a
- * Künye files to the ERC-8004 ValidationRegistry.
+ * Tag files to the ERC-8004 ValidationRegistry.
  */
 import { canonicalDigest, type Sha256Digest } from "./canonical.js";
 import { sameAddress, type Address } from "./contracts.js";

@@ -66,7 +66,7 @@ export interface PackAgent {
   readonly capabilities: readonly PackCapability[];
   readonly fence: Fence;
   readonly fenceHash: Sha256Digest;
-  /** ERC-8004 agent id when the agent has a Künye. */
+  /** ERC-8004 agent id when the agent has a Tag. */
   readonly agentId?: string;
   /** The address that signs for the agent (an agent wallet or a LykiaAccount session key). */
   readonly signer?: Address;
@@ -82,7 +82,7 @@ export interface PackAgent {
 
 export interface RoleTemplate {
   readonly role: PackRole;
-  readonly title: { readonly en: string; readonly tr: string };
+  readonly title: { readonly en: string };
   readonly summary: string;
   readonly capabilities: readonly PackCapability[];
   readonly fence: Fence;
@@ -94,21 +94,21 @@ const base = (label: string, extra: Omit<Fence, "schema" | "label">): Fence => O
 export const ROLE_TEMPLATES: Readonly<Record<Exclude<PackRole, "custom">, RoleTemplate>> = Object.freeze({
   orchestrator: {
     role: "orchestrator",
-    title: { en: "Lyko (orchestrator)", tr: "Lyko (orkestra şefi)" },
+    title: { en: "Lyko (orchestrator)" },
     summary: "Breaks a goal into tasks, hands them to specialists and merges their proposals. Never signs.",
     capabilities: ["read", "propose", "spawn"],
     fence: DEFAULT_FENCE,
   },
   treasurer: {
     role: "treasurer",
-    title: { en: "Treasurer", tr: "Hazinedar" },
+    title: { en: "Treasurer" },
     summary: "Keeps the stablecoin treasury: payees, FX, vaults and bridges inside office hours.",
     capabilities: ["read", "propose", "spawn"],
     fence: FENCE_TEMPLATES.treasury,
   },
   payroll: {
     role: "payroll",
-    title: { en: "Payroll", tr: "Bordro" },
+    title: { en: "Payroll" },
     summary: "Pays named people in USDC or EURC with an invoice memo. Nothing else.",
     capabilities: ["read", "propose"],
     fence: base("Payroll", {
@@ -127,7 +127,7 @@ export const ROLE_TEMPLATES: Readonly<Record<Exclude<PackRole, "custom">, RoleTe
   },
   "fx-hedger": {
     role: "fx-hedger",
-    title: { en: "FX hedger", tr: "Kur korumacısı" },
+    title: { en: "FX hedger" },
     summary: "Keeps the USDC/EURC mix on target with a tight band around the Chainlink reference rate.",
     capabilities: ["read", "propose"],
     fence: base("FX hedger", {
@@ -145,7 +145,7 @@ export const ROLE_TEMPLATES: Readonly<Record<Exclude<PackRole, "custom">, RoleTe
   },
   "yield-keeper": {
     role: "yield-keeper",
-    title: { en: "Yield keeper", tr: "Getiri bekçisi" },
+    title: { en: "Yield keeper" },
     summary: "Moves idle stablecoins into vaults and back, never below the liquid floor the owner sets.",
     capabilities: ["read", "propose"],
     fence: base("Yield keeper", {
@@ -162,7 +162,7 @@ export const ROLE_TEMPLATES: Readonly<Record<Exclude<PackRole, "custom">, RoleTe
   },
   "bill-payer": {
     role: "bill-payer",
-    title: { en: "Bill payer", tr: "Fatura ödeyici" },
+    title: { en: "Bill payer" },
     summary: "Pays recurring bills to known payees. Small caps, no FX, no bridges.",
     capabilities: ["read", "propose"],
     fence: base("Bill payer", {
@@ -179,14 +179,14 @@ export const ROLE_TEMPLATES: Readonly<Record<Exclude<PackRole, "custom">, RoleTe
   },
   sentinel: {
     role: "sentinel",
-    title: { en: "Sentinel", tr: "Nöbetçi" },
+    title: { en: "Sentinel" },
     summary: "Watches Scent, health factors and the pulse. Can blow the whistle; cannot move value.",
     capabilities: ["read", "whistle"],
     fence: base("Sentinel", { mode: "dry-run", kinds: { allow: [] }, tokens: { allow: [], unlisted: "deny" }, recipients: { mode: "own" }, scent: { require: "verified" }, signers: ["agent"] }),
   },
   researcher: {
     role: "researcher",
-    title: { en: "Researcher", tr: "Araştırmacı" },
+    title: { en: "Researcher" },
     summary: "Reads venues, quotes, prices and Scent; drafts dry-run plans for the others.",
     capabilities: ["read", "propose"],
     fence: base("Researcher", { mode: "dry-run", tokens: { unlisted: "deny" }, recipients: { mode: "own" }, scent: { require: "verified" }, signers: ["agent"] }),

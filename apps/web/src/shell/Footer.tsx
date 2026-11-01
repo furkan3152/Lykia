@@ -16,7 +16,7 @@ export function Footer() {
         <span>·</span>
         <Link to="/app/pastures">PASTURES</Link>
         <Link to="/app/scent">SCENT</Link>
-        <Link to="/app/kunye">KÜNYE</Link>
+        <Link to="/app/tag">TAG</Link>
         <Link to="/owner">OWNER</Link>
       </div>
     </footer>

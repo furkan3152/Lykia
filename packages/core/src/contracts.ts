@@ -123,7 +123,7 @@ export const ARC_CONTRACTS: Readonly<Record<ArcContractKey, ArcContract>> = {
   identityRegistry: {
     key: "identityRegistry",
     name: "ERC-8004 IdentityRegistry",
-    role: "Agent identities. A Künye is an ERC-8004 identity whose card pins a Fence hash.",
+    role: "Agent identities. A Tag is an ERC-8004 identity whose card pins a Fence hash.",
     standard: "ERC-8004",
     addresses: { mainnet: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432", testnet: "0x8004A818BFB912233c491871b3d84c89A494BD9e" },
     docs: "https://docs.arc.io/arc/tutorials/register-your-first-ai-agent",
@@ -131,7 +131,7 @@ export const ARC_CONTRACTS: Readonly<Record<ArcContractKey, ArcContract>> = {
   reputationRegistry: {
     key: "reputationRegistry",
     name: "ERC-8004 ReputationRegistry",
-    role: "Feedback on agents; Lykia reads it into the Künye's standing.",
+    role: "Feedback on agents; Lykia reads it into the Tag's standing.",
     standard: "ERC-8004",
     addresses: { mainnet: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63", testnet: "0x8004B663056A597Dffe9eCcC1965A193B7388713" },
     docs: "https://eips.ethereum.org/EIPS/eip-8004",

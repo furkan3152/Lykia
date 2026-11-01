@@ -1,5 +1,5 @@
 /**
- * The Künye: an agent's tag. On Arc it is an ERC-8004 identity (an NFT in
+ * The Tag: an agent's tag. On Arc it is an ERC-8004 identity (an NFT in
  * the IdentityRegistry) whose registration card and on-chain metadata pin
  * the hash of the Fence the agent obeys. Every plan the agent runs carries
  * a Fence verdict; the owner can file that verdict to the ERC-8004
@@ -14,6 +14,9 @@ import { FENCE_SCHEMA } from "./fence.js";
 import { VERDICT_SCHEMA, type FenceVerdict } from "./fenceEvaluate.js";
 import { networkFor, type ArcEnvironment } from "./networks.js";
 
+/** Schema of a Lykia agent Tag card. */
+export const TAG_SCHEMA = "lykia.tag/v1" as const;
+/** @deprecated Cards written before the Tag rename; still readable. */
 export const KUNYE_SCHEMA = "lykia.kunye/v1" as const;
 export const VALIDATION_SCHEMA = "lykia.validation/v1" as const;
 export const ERC8004_REGISTRATION_TYPE = "https://eips.ethereum.org/EIPS/eip-8004#registration-v1" as const;
@@ -37,7 +40,7 @@ export interface KunyeCard {
   readonly registrations: readonly { readonly agentId: number; readonly agentRegistry: string }[];
   readonly supportedTrust: readonly string[];
   readonly lykia: {
-    readonly schema: typeof KUNYE_SCHEMA;
+    readonly schema: typeof TAG_SCHEMA | typeof KUNYE_SCHEMA;
     readonly owner: Address;
     readonly fenceHash: Sha256Digest;
     readonly fenceSchema: typeof FENCE_SCHEMA;
@@ -79,7 +82,7 @@ export function buildKunyeCard(input: KunyeDraftInput): KunyeCard {
     registrations: input.agentId === undefined ? [] : [{ agentId: input.agentId, agentRegistry: `${network.caip2}:${registry}` }],
     supportedTrust: ["reputation", "validation"],
     lykia: {
-      schema: KUNYE_SCHEMA,
+      schema: TAG_SCHEMA,
       owner: input.owner,
       fenceHash: input.fenceHash,
       fenceSchema: FENCE_SCHEMA,
@@ -137,3 +140,10 @@ export function validationRequestHash(record: ValidationRecord): `0x${string}` {
 export function validationScore(verdict: FenceVerdict): number {
   return verdict.decision === "deny" ? 0 : verdict.decision === "confirm" ? 80 : 100;
 }
+
+/* Tag names: the agent Tag is the product name; the Kunye* names stay as aliases for existing callers. */
+export type TagEndpoint = KunyeEndpoint;
+export type TagCard = KunyeCard;
+export type TagDraftInput = KunyeDraftInput;
+export const buildTagCard = buildKunyeCard;
+export const tagCardDigest = kunyeCardDigest;

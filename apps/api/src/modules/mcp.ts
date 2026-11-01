@@ -117,7 +117,7 @@ export function buildMcpServer(ctx: AppContext): McpServer {
     const profile = await getProfile(ctx, await ownerFromToken(t));
     return text({ profile, effects: profileEffects(profile) });
   });
-  server.registerTool("lykia_fees", { description: "Lykia's protocol fee: bps, recipient and policy. The fee is a transfer inside each value-moving step's own transaction; repay, withdrawals home, approvals and Künye steps are free.", inputSchema: toolSchema(z.object({}), objectJson({}, [])) }, async () =>
+  server.registerTool("lykia_fees", { description: "Lykia's protocol fee: bps, recipient and policy. The fee is a transfer inside each value-moving step's own transaction; repay, withdrawals home, approvals and Tag steps are free.", inputSchema: toolSchema(z.object({}), objectJson({}, [])) }, async () =>
     text({ bps: ctx.config.fee.bps, percent: feePercent(ctx.config.fee.bps), recipient: ctx.config.fee.recipient, maxBps: MAX_FEE_BPS, policy: FEE_POLICY_TEXT, exempt: [...FEE_EXEMPT_KINDS] }),
   );
   server.registerTool("lykia_circle_status", { description: "Which official Circle products Lykia uses on Arc (CCTP, Gateway, Nanopayments, Marketplace, Wallets, Gas Station, Compliance, StableFX) and what each needs.", inputSchema: toolSchema(z.object({}), objectJson({}, [])) }, async () => text(circleStatus(ctx.config, ctx.clock.now())));

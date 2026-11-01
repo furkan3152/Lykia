@@ -2,9 +2,9 @@
 
 ## Name
 
-**Lykia** comes from Likya (Lycia), the ancient region on the coast of
-Antalya. The Lycian Way, Turkey's best-known long-distance trail, runs
-through it. The name sits next to its sister product Elyia, and both belong
+**Lykia** comes from Lycia, the ancient league of cities on the south-west
+coast of Anatolia. The Lycian Way, a long-distance trail between its ruined
+cities, runs through it. The name sits next to its sister product Elyia, and both belong
 to the Kletia family:
 
 | Product | Focus |
@@ -20,9 +20,8 @@ Lykia's interface does not mention the other mascots.
 
 ## Mascot
 
-**Lyko** is a shepherd dog that looks like a Kangal: a cream or fawn coat, a
-black mask, a curled tail and a spiked collar with a small metal tag (the
-Künye). The name comes from the Greek *lykos*, "wolf". He is a wolf-looking
+**Lyko** is a big Anatolian shepherd dog: a cream or fawn coat, a black
+mask, a curled tail and a spiked collar with a small metal Tag. The name comes from the Greek *lykos*, "wolf". He is a wolf-looking
 dog whose job is to keep the wolves away.
 
 The flock is the agents and the owner's assets. The wolves are scam tokens,
@@ -31,15 +30,20 @@ outside it. That one sentence covers both Scent and the Fence.
 
 ## Vocabulary
 
-| English | Turkish | Meaning |
-|---|---|---|
-| Fence | Çit | The rules around an agent or an owner. |
-| Künye | Künye | An agent's on-chain tag: its ERC-8004 identity plus the hash of the Fence it follows. |
-| Whistle | Düdük | Stops every new risk. Moves that bring value home still pass. |
-| Flock | Sürü | Everything the owner holds on Arc, in one balance sheet. |
-| Scent | Koku | What can be proven about a token before anyone touches it. |
-| Outrun | Outrun | The path of a plan, drawn as an arc. |
-| Fold | Ağıl | Where the money ends up when the plan is done. |
+The product language is English. Every surface uses these words:
+
+| Word | Meaning |
+|---|---|
+| Fence | The rules around an agent or an owner. |
+| Tag | An agent's on-chain identity: its ERC-8004 identity plus the hash of the Fence it follows. |
+| Whistle | Stops every new risk. Moves that bring value home still pass. |
+| Flock | Everything the owner holds on Arc, in one balance sheet. |
+| Scent | What can be proven about a token before anyone touches it. |
+| Outrun | The path of a plan, drawn as an arc. |
+| Fold | Where the money ends up when the plan is done. |
+
+Lyko understands sentences in English and Turkish and can reply in the language
+the user writes in, but the interface itself is English only.
 
 ## Easter eggs
 
@@ -47,10 +51,10 @@ outside it. That one sentence covers both Scent and the Fence.
   "walk up", "lie down", "that'll do" and "look back".
 - **Hidden words.** *lykaion* and *arcadia* open the Arcadia night scene
   (Mount Lykaion is the sacred mountain of Arcadia). *chimaera* shows the
-  Yanartaş flames, *kangal* shows Lyko's pose and *patara* shows the
-  lighthouse.
-- **Waypoints.** Outrun waypoints are named after stops on the Lycian Way, in
-  order: Ölüdeniz, Faralya, Kabak and so on.
+  eternal flames of the Chimaera on Mount Olympos, *guardian* shows Lyko's
+  pose and *patara* shows the lighthouse.
+- **Waypoints.** Outrun waypoints are named after the ancient cities of
+  Lycia, in order: Telmessos, Pinara, Sidyma, Xanthos and so on.
 
 ## Arc Network brand rules
 

@@ -23,7 +23,7 @@ export const usePalette = create<PaletteState>()((set, get) => ({
   wagTail: () => set({ wag: get().wag + 1 }),
 }));
 
-const DEST: Record<Destination, string> = { ask: "/app", flock: "/app/flock", pastures: "/app/pastures", pack: "/app/pack", fence: "/app/fence", scent: "/app/scent", kunye: "/app/kunye", build: "/build", landing: "/" };
+const DEST: Record<Destination, string> = { ask: "/app", flock: "/app/flock", pastures: "/app/pastures", pack: "/app/pack", fence: "/app/fence", scent: "/app/scent", tag: "/app/tag", build: "/build", landing: "/" };
 
 /** Handles one submitted line from any composer. Returns true when it was not a question (already handled). */
 export function handleLine(text: string): boolean {
@@ -45,7 +45,7 @@ export function handleLine(text: string): boolean {
       navigate(`/app/scent/${r.address}`);
       return true;
     case "agent":
-      navigate(`/app/kunye/${r.agentId}`);
+      navigate(`/app/tag/${r.agentId}`);
       return true;
     case "sentence":
       useAsk.getState().begin(r.text);

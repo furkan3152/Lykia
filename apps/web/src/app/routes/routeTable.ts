@@ -23,7 +23,8 @@ export type RouteId =
   | "pack"
   | "fence"
   | "scent"
-  | "kunye"
+  | "tag"
+  | "kunyeRedirect"
   | "outrun"
   | "build"
   | "you"
@@ -73,7 +74,8 @@ export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze(
   pack: page("pack", "/app/pack/:id?", "app", "Pack", "Your agents and their pups: spawn sub-agents whose Fence stays inside yours, carve budgets, bind sessions on chain.", () => import("../../pages/pack/PackPage")),
   fence: page("fence", "/app/fence", "app", "Fence", "The rules around your agents: caps, recipients, venues, tokens, slippage, health factor, FX band, Scent and the Whistle.", () => import("../../pages/fence/FencePage")),
   scent: page("scent", "/app/scent/:token?", "app", "Scent", "What can be proven about a token on Arc before anyone touches it. Never \"safe\".", () => import("../../pages/scent/ScentPage")),
-  kunye: page("kunye", "/app/kunye/:agentId?", "app", "Künye", "Agent licences on Arc: an ERC-8004 identity that pins the Fence it obeys.", () => import("../../pages/kunye/KunyePage")),
+  tag: page("tag", "/app/tag/:agentId?", "app", "Tag", "Agent Tags on Arc: an ERC-8004 identity that pins the Fence it obeys.", () => import("../../pages/tag/TagPage")),
+  kunyeRedirect: page("kunyeRedirect", "/app/kunye/:agentId?", "app", "Tag", "Agent Tags on Arc: an ERC-8004 identity that pins the Fence it obeys.", () => import("../../pages/redirect/TagRedirectPage"), { robots: PRIVATE_ROBOTS }),
   outrun: page("outrun", "/app/outrun/:id", "app", "Outrun", "Where the money is, step by step, from start to the Fold.", () => import("../../pages/outrun/OutrunPage"), { robots: PRIVATE_ROBOTS }),
   you: page("you", "/app/you", "app", "You", "Your Lykia: language, currency, risk, venues, Lyko's persona and look, quiet hours and notifications.", () => import("../../pages/you/YouPage"), { robots: PRIVATE_ROBOTS }),
   memory: page("memory", "/app/memory", "app", "Lyko remembers", "Intent history, learned preferences, named contacts and recurring patterns, all editable and forgettable.", () => import("../../pages/memory/MemoryPage"), { robots: PRIVATE_ROBOTS }),
@@ -94,7 +96,7 @@ export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze(
 });
 
 /** Matching order: specific routes first, the catch-alls last. `/app` itself is Ask Lyko. */
-const ORDER: readonly RouteId[] = ["landing", "ask", "flock", "pastures", "pack", "fence", "scent", "kunye", "outrun", "you", "memory", "circle", "orders", "markets", "discover", "alerts", "activity", "whatif", "build", "owner", "kit", "lykaion", "developers", "appNotFound", "notFound"];
+const ORDER: readonly RouteId[] = ["landing", "ask", "flock", "pastures", "pack", "fence", "scent", "tag", "outrun", "you", "memory", "circle", "orders", "markets", "discover", "alerts", "activity", "whatif", "build", "owner", "kit", "lykaion", "developers", "kunyeRedirect", "appNotFound", "notFound"];
 
 let compiled: ReadonlyArray<readonly [RouteDefinition, CompiledPattern]> | null = null;
 

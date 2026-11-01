@@ -59,7 +59,7 @@ Data becomes landscape:
 | `/app/pastures` | Live yields as pens, with risk tier and source. |
 | `/app/pack/:id?` | The kennel, the agent tree, spawn-a-pup with per-field Fence violations, bones for budgets, cascading revoke, the on-chain session and a Circle agent wallet. |
 | `/app/fence` | The fence editor: posts are caps and gates are allowed venues. It shows loosening warnings, and the Whistle turns the scene to night. |
-| `/app/scent/:token?`, `/app/kunye/:id?`, `/app/outrun/:id` | Scent (with Circle compliance), Künye, and a full outrun. |
+| `/app/scent/:token?`, `/app/tag/:id?`, `/app/outrun/:id` | Scent (with Circle compliance), Tag, and a full outrun. |
 | `/app/you` | Personalization, including Lyko's look with a live preview that repaints the whole app. |
 | `/app/memory` | Lyko remembers: timeline, learned preferences, contacts, patterns, export and forget. |
 | `/app/circle` | The harbor market of Circle products and the Gateway transfer flow. |

@@ -1,6 +1,6 @@
 # @lykia/api
 
-The Lykia API: one Express 5 service for Arc Network. It reads the chain (pulse, the Flock, Scent), plans intents with live quotes and evaluates them against the owner's Fence, hands out unsigned transactions carrying Arc Memos, verifies submitted hashes against Arc receipts, drafts Künye (ERC-8004) identities, and serves Lyko, an MCP endpoint and x402 paid routes.
+The Lykia API: one Express 5 service for Arc Network. It reads the chain (pulse, the Flock, Scent), plans intents with live quotes and evaluates them against the owner's Fence, hands out unsigned transactions carrying Arc Memos, verifies submitted hashes against Arc receipts, drafts Tag (ERC-8004) identities, and serves Lyko, an MCP endpoint and x402 paid routes.
 
 The server never signs. Every value-moving transaction is signed in the owner's (or the agent's) own wallet.
 
@@ -30,7 +30,7 @@ All variables are optional; see [`.env.example`](./.env.example).
 | `PORT`, `HOST` | `3002`, `0.0.0.0` | listen address |
 | `LYKIA_MODE` | `testnet` | default Arc environment when a request does not name one |
 | `LYKIA_WEB_ORIGIN` | (none) | extra CORS origins; localhost dev origins are allowed outside production |
-| `LYKIA_DATABASE_URL` | (none) | Postgres for intents, hash claims, Künye cards, spend counters and x402 nonces; in-memory without it |
+| `LYKIA_DATABASE_URL` | (none) | Postgres for intents, hash claims, Tag cards, spend counters and x402 nonces; in-memory without it |
 | `ARC_MAINNET_RPC_URL`, `ARC_TESTNET_RPC_URL` | (none) | extra RPC endpoints, tried before `rpc.mainnet.arc.io` / `rpc.testnet.arc.io` |
 | `ANTHROPIC_API_KEY`, `LYKIA_AGENT_MODEL` | (none), `claude-sonnet-5-5` | Lyko and the specialists run on Claude with Lykia's tools; without a key the deterministic path answers |
 | `LYKIA_AGENT_MAX_STEPS`, `LYKIA_AGENT_MAX_TOKENS` | `6`, `4096` | model rounds per agent per turn, output tokens per call |
@@ -42,7 +42,7 @@ All variables are optional; see [`.env.example`](./.env.example).
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` | (none) | the Lyko bot: `/start <code>` links a chat to a signed-in address and alerts arrive there; the token is never logged. Point the bot at the API once with `POST /v1/telegram/setup` (admin) |
 | `LYKIA_KEEPER_PRIVATE_KEY` | (none) | optional keeper wallet that executes due conditional orders (it earns the tip and holds only gas). Without it anyone can run orders via `/v1/orders/:hash/execute-tx` |
 | `CRON_SECRET` | (none) | Bearer secret for `/cron/orders` and `/cron/alerts` on serverless hosts, and for the keeper and alert-check routes |
-| `LYKIA_GUARD_ADDRESS` | (none) | ERC-8354 guard that answers validation requests for Fence verdicts (own key; see docs/kunye.md) |
+| `LYKIA_GUARD_ADDRESS` | (none) | ERC-8354 guard that answers validation requests for Fence verdicts (own key; see docs/tag.md) |
 | `LYKIA_X402_PAY_TO`, `LYKIA_X402_PRICE_USDC`, `LYKIA_X402_FACILITATOR_URL` | (none), `0.01`, (none) | x402 paid routes; off unless `PAY_TO` is set; settlement only with a facilitator |
 | `LYKIA_RATE_LIMIT_DEFAULT`, `_HEAVY`, `_AUTH` | `600`, `60`, `20` | requests per minute per IP |
 | `LYKIA_FEE_BPS`, `LYKIA_FEE_RECIPIENT` | `100`, `0x8c52…ca1e` | Lykia protocol fee per value-moving step (100 = 1%, at most 300) and the address that receives it; see Protocol fee below |
@@ -134,14 +134,16 @@ Rules the engine keeps:
 
 Arc's public RPC does not offer `eth_simulateV1` or `debug_traceCall`, so Scent simulates with `eth_call` state overrides. The best verdict for a token outside the registry is `no-red-flags`; Scent never says "safe".
 
-### Künye (ERC-8004)
+### Tag (ERC-8004)
+
+Agent Tag routes live under `/v1/tags`. The older `/v1/kunye/...` paths still answer as aliases so existing clients keep working.
 
 | route | answer |
 |---|---|
-| `POST /v1/kunye/draft` | `{ owner, name, description, fence, endpoints?, agentWallet? }` -> registration card, card digest, Fence hash, agent URI and the unsigned `register(agentURI, [{ "lykia.fence": fenceHash }])` call |
-| `GET /v1/kunye/cards/:digest` | the stored card, so the agent URI can point at this API |
-| `GET /v1/kunye/:agentId?environment=` | owner, agent wallet, agent URI and card (data URIs, Lykia cards, or public https URLs behind the SSRF guard), the Fence hash on-chain and in the card, Lykia-tagged validations, reputation summary |
-| `POST /v1/kunye/attest` | `{ agentId, intentId, owner, validator, verdict? }` -> the validation record and the unsigned `ValidationRegistry.validationRequest` call |
+| `POST /v1/tags/draft` | `{ owner, name, description, fence, endpoints?, agentWallet? }` -> registration card, card digest, Fence hash, agent URI and the unsigned `register(agentURI, [{ "lykia.fence": fenceHash }])` call |
+| `GET /v1/tags/cards/:digest` | the stored card, so the agent URI can point at this API |
+| `GET /v1/tags/:agentId?environment=` | owner, agent wallet, agent URI and card (data URIs, Lykia cards, or public https URLs behind the SSRF guard), the Fence hash on-chain and in the card, Lykia-tagged validations, reputation summary |
+| `POST /v1/tags/attest` | `{ agentId, intentId, owner, validator, verdict? }` -> the validation record and the unsigned `ValidationRegistry.validationRequest` call |
 
 ### Lyko and the Pack
 
@@ -337,7 +339,7 @@ passes with an 890 EURC minimum (quote 895.97) and reverts with 897.
 
 ## Hardening
 
-- **Pinned outbound fetches.** Künye card fetches, webhook deliveries and
+- **Pinned outbound fetches.** Tag card fetches, webhook deliveries and
   x402 relays use `ctx.publicFetch`: the hostname is resolved once at
   connect time by the guarded lookup, non-public addresses are refused and
   the socket connects to the checked address with the original Host and TLS
@@ -366,7 +368,7 @@ no fresh second feed it makes no claim.
 
 Every value-moving step (send, swap, FX, deposit, supply, borrow, bridge,
 Gateway deposit) pays `LYKIA_FEE_BPS` (default 100 = 1%) to
-`LYKIA_FEE_RECIPIENT`. Repay, withdrawals home, approvals, revokes and Künye
+`LYKIA_FEE_RECIPIENT`. Repay, withdrawals home, approvals, revokes and Tag
 steps are free. `GET /v1/fees` (and the MCP tool `lykia_fees`) reports the
 live policy.
 

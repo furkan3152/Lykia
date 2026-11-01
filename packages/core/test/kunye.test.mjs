@@ -16,7 +16,7 @@ test("memo strings round-trip through bytes and keep notes single-line", () => {
   assert.equal(verdictTag("sha256:abcdef0123456789ffff"), "abcdef0123456789");
 });
 
-test("a Künye card pins the Fence hash and the agent wallet", () => {
+test("a Tag card pins the Fence hash and the agent wallet", () => {
   const hash = fenceHash(DEFAULT_FENCE);
   const card = buildKunyeCard({ environment: "mainnet", owner: OWNER, name: "Payroll Shepherd", description: "Pays the team", fenceHash: hash });
   assert.equal(card.type, "https://eips.ethereum.org/EIPS/eip-8004#registration-v1");

@@ -89,8 +89,15 @@ describe("Lykia API", () => {
     assert.equal(response.status, 422);
   });
 
-  it("drafts a Künye that pins the Fence hash on-chain", async () => {
-    const body = (await (await post("/v1/kunye/draft", { environment: "testnet", owner: OWNER, name: "Payroll Shepherd", description: "Pays the team", fence: DEFAULT_FENCE })).json()) as { card: never; cardDigest: string; fenceHash: string; agentURI: string; transaction: { data: `0x${string}` } };
+  it("keeps the old /v1/kunye routes as aliases of /v1/tags", async () => {
+    const res = await post("/v1/kunye/draft", { environment: "testnet", owner: OWNER, name: "Alias check", description: "Old route", fence: DEFAULT_FENCE });
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as { card: { lykia: { schema: string } } };
+    assert.equal(body.card.lykia.schema, "lykia.tag/v1");
+  });
+
+  it("drafts a Tag that pins the Fence hash on-chain", async () => {
+    const body = (await (await post("/v1/tags/draft", { environment: "testnet", owner: OWNER, name: "Payroll Shepherd", description: "Pays the team", fence: DEFAULT_FENCE })).json()) as { card: never; cardDigest: string; fenceHash: string; agentURI: string; transaction: { data: `0x${string}` } };
     assert.equal(body.cardDigest, kunyeCardDigest(body.card));
     const decoded = decodeFunctionData({ abi: IDENTITY_REGISTRY_ABI, data: body.transaction.data });
     assert.equal(decoded.functionName, "register");

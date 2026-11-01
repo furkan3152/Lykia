@@ -1,5 +1,5 @@
 /**
- * The Fence (`lykia.fence/v1`), Turkish "Çit": the hard limits an owner
+ * The Fence (`lykia.fence/v1`): the hard limits an owner
  * puts around an agent, or around themselves. Circle's agent wallets cap
  * how much an agent may spend; the Fence decides whether a DeFi move is
  * sane at all: which venues and tokens, how much slippage, which health
@@ -15,7 +15,7 @@
  *  - Agents never move value to a stranger unless the recipient is on the
  *    Fence's allowlist.
  *  - The document is plain typed JSON: no expressions, no code. Its
- *    canonical `sha256:` hash is what a Künye pins on-chain.
+ *    canonical `sha256:` hash is what a Tag pins on-chain.
  *
  * Pure: no I/O.
  */
@@ -315,11 +315,11 @@ export const DEFAULT_FENCE: Fence = frozen({
 export type FenceTemplateKey = "lamb" | "shepherd" | "treasury" | "caravan";
 
 export const FENCE_TEMPLATES: Readonly<Record<FenceTemplateKey, Fence>> = frozen({
-  /** Kuzu: watch and learn. Plans everything, signs nothing. */
+  /** Lamb: watch and learn. Plans everything, signs nothing. */
   lamb: frozen({ schema: FENCE_SCHEMA, label: "Lamb", mode: "dry-run", tokens: { unlisted: "deny" }, recipients: { mode: "own" }, scent: { require: "verified" }, signers: ["wallet"] } satisfies Fence),
-  /** Çoban: the default. */
+  /** Shepherd: the default. */
   shepherd: DEFAULT_FENCE,
-  /** Hazine: a business treasury. Stablecoins only, named payees, office hours, tight FX band. */
+  /** Treasury: a business treasury. Stablecoins only, named payees, office hours, tight FX band. */
   treasury: frozen({
     schema: FENCE_SCHEMA,
     label: "Treasury",
@@ -335,7 +335,7 @@ export const FENCE_TEMPLATES: Readonly<Record<FenceTemplateKey, Fence>> = frozen
     schedule: { timezone: "Europe/Istanbul", windows: [{ days: ["mon", "tue", "wed", "thu", "fri"], from: "09:00", to: "18:00" }] },
     signers: ["wallet", "agent"],
   } satisfies Fence),
-  /** Kervan: an autonomous agent paying for services. Small caps, no lending, no bridges. */
+  /** Caravan: an autonomous agent paying for services. Small caps, no lending, no bridges. */
   caravan: frozen({
     schema: FENCE_SCHEMA,
     label: "Caravan",
