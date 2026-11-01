@@ -36,6 +36,37 @@ exploits) outside it.
 Every Circle and protocol address in the registry was checked on-chain with
 `eth_getCode` on Arc mainnet (5042) and testnet (5042002).
 
+## Why Lykia
+
+Circle's products are the rails: USDC, CCTP, Gateway, StableFX and the App
+Kits move value on Arc. A spending box is a limit: it caps how much an agent
+pays and to whom. Lykia is the judgment layer above both, and it runs on
+those rails rather than replacing them.
+
+| Layer | Answers | Example |
+|---|---|---|
+| Rails | Can value move? | Circle App Kit, CCTP, Gateway |
+| Limits | How much, to whom? | Per-payment and daily caps (LykiaAccount enforces these too) |
+| Judgment (Lykia) | Should this DeFi move happen at all, and where? | The Fence, the Pack, policy-checked routing, memory |
+
+What sets Lykia apart:
+
+- **A DeFi-aware Fence.** It checks health factor, FX band, slippage, Scent
+  results, venues, hours, recipients and caps. If a fact it needs is
+  missing, it denies.
+- **The Pack.** A sub-agent's Fence and budget must sit inside its parent's.
+  This is checked by the API and enforced on chain by LykiaAccount
+  sub-sessions.
+- **Policy-checked routing.** Every capable Arc venue is compared, and the
+  chosen route must pass the Fence before anything can be signed.
+- **Memory.** Lyko remembers venues, payees and habits, and asks before
+  trusting anything new.
+- **Public verdicts.** Each verdict can be filed to the ERC-8004 Validation
+  Registry as an [ERC-8354](https://eips.ethereum.org/EIPS/eip-8354) policy
+  attestation. The attestation commits to the Fence without revealing it.
+  See [docs/kunye.md](docs/kunye.md) and
+  [docs/positioning.md](docs/positioning.md).
+
 ## Pillars
 
 - **Fence**: limits on caps, recipients, venues, tokens, slippage, health

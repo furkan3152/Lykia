@@ -5,6 +5,7 @@
  * ends up. Waypoints carry Lycian Way names for the UI (lore.ts).
  */
 import { fromBaseUnits } from "./amounts.js";
+import { feeLine, feeTotals } from "./fee.js";
 import type { IntentGraph, IntentStep, StepStatus } from "./intent.js";
 import { deriveIntentStatus, type IntentStatus } from "./intent.js";
 import { topologicalOrder } from "./lifecycle.js";
@@ -25,6 +26,8 @@ export interface OutrunWaypoint {
   /** Whose move it is: the wallet/agent signs, the network settles, or nothing to do. */
   readonly turn: "signer" | "network" | "none";
   readonly leavesArc: string | null;
+  /** "Lykia fee 1% · 2 USDC", or null on fee-free steps. */
+  readonly fee: string | null;
 }
 
 export interface Outrun {
@@ -38,6 +41,8 @@ export interface Outrun {
   /** 0..1 along the arc, for the drawing. */
   readonly progress: number;
   readonly verdictDigest: string;
+  /** Lykia fees across the plan, summed per token ("3.5 USDC"). */
+  readonly fees: readonly string[];
 }
 
 function amountText(amount: { readonly amount: string; readonly decimals: number; readonly symbol: string }): string {
@@ -67,6 +72,7 @@ export function outrunOf(graph: IntentGraph): Outrun {
     explorer: (step.references ?? []).map((hash) => explorerTx(network, hash)),
     turn: turnOf(step.status),
     leavesArc: step.settlement.kind === "receipt" ? null : step.settlement.destination,
+    fee: step.fee ? feeLine(step.fee) : null,
   }));
   const currentIndex = waypoints.findIndex((w) => w.status !== "settled");
   // The fold: everything the plan produces, minus what later steps spend again (per symbol, in order).
@@ -91,6 +97,7 @@ export function outrunOf(graph: IntentGraph): Outrun {
     current: currentIndex < 0 ? null : currentIndex,
     fold: [...totals.entries()].map(([symbol, t]) => `${fromBaseUnits(t.amount, t.decimals)} ${symbol}`),
     progress: waypoints.length === 0 ? 0 : settled / waypoints.length,
+    fees: feeTotals(steps.map((s) => s.fee)),
     verdictDigest: graph.verdict.digest,
   };
 }

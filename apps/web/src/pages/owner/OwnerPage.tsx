@@ -13,6 +13,7 @@ import { usePublicClient, useSendTransaction } from "wagmi";
 import { allDeployed, creationBlocker, deployedFromRecords, nextAddress, stepStates } from "../../features/deploy/model";
 
 import { CircleSetupCard } from "../../features/circle/CircleSetupCard";
+import { RouterVenuesCard } from "../../features/deploy/RouterVenuesCard";
 import { useSiwe } from "../../features/session/useSiwe";
 import { apiGet, apiPost, apiPut, describeError } from "../../lib/api";
 import { useEnvironment } from "../../lib/environment";
@@ -144,6 +145,7 @@ export default function OwnerPage() {
             <Card title={"Recorded"} kicker="RECEIPT + BYTECODE CHECKED">
               {records.length === 0 ? <p className="m-muted m-center m-small">{"Nothing recorded yet."}</p> : records.map((d) => <div key={d.id} className="m-row"><Tag tone={d.verified ? "ok" : "bad"}>{d.verified ? "OK" : "CODE?"}</Tag><div style={{ minWidth: 0 }}><b>{d.name ?? d.contract}</b><p className="m-small num" style={{ overflowWrap: "anywhere" }}>{d.address}</p>{d.creator ? <p className="m-small m-muted">{"Creator "}<span className="num">{d.creator.slice(0, 8)}…</span></p> : null}</div></div>)}
             </Card>
+            <RouterVenuesCard admin={admin} environment={environment} />
             <Card title={"Flags"} kicker="ADMIN">
               {!admin ? <p className="m-muted m-small m-center">{"Admins only."}</p> : Object.entries(flags.data ?? {}).map(([k, v]) => (
                 <label key={k} className="m-row" style={{ justifyContent: "space-between" }}><span className="num m-small">{k}</span><input type="checkbox" checked={v} onChange={async (e) => { try { await apiPut("/v1/admin/flags", { [k]: e.target.checked }); void qc.invalidateQueries({ queryKey: ["flags"] }); } catch (err) { toast.error(describeError(err), { from: "LYKO" }); } }} /></label>

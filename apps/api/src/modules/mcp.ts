@@ -3,7 +3,7 @@
  * here signs; lykia_plan returns unsigned plans the owner executes.
  */
 import { createMcpHandler, McpServer, type StandardSchemaWithJSON } from "@modelcontextprotocol/server";
-import { DEFAULT_FENCE, evaluateFence, protocolsFor, validateFence, type Address, type ArcEnvironment, type FenceFacts } from "@lykia/core";
+import { DEFAULT_FENCE, DEV_TOOLS, evaluateFence, FEE_EXEMPT_KINDS, FEE_POLICY_TEXT, feePercent, MAX_FEE_BPS, protocolsFor, validateFence, type Address, type ArcEnvironment, type FenceFacts } from "@lykia/core";
 import express, { type Request, type Response } from "express";
 import { z, type ZodType } from "zod";
 import type { AppContext } from "../context.js";
@@ -19,6 +19,8 @@ import { getProfile, profileEffects } from "../personal/profile.js";
 import { verifyToken } from "../platform/session.js";
 import { circleStatus } from "../circle/status.js";
 import { ARC_NETWORKS, discoverServices } from "../circle/discovery.js";
+import { discoverService } from "../discover/service.js";
+import { ordersService } from "../orders/service.js";
 import { DEFAULT_FENCE as OWNER_DEFAULT_FENCE } from "@lykia/core";
 
 const env = z.enum(["mainnet", "testnet"]).optional();
@@ -115,11 +117,25 @@ export function buildMcpServer(ctx: AppContext): McpServer {
     const profile = await getProfile(ctx, await ownerFromToken(t));
     return text({ profile, effects: profileEffects(profile) });
   });
+  server.registerTool("lykia_fees", { description: "Lykia's protocol fee: bps, recipient and policy. The fee is a transfer inside each value-moving step's own transaction; repay, withdrawals home, approvals and Künye steps are free.", inputSchema: toolSchema(z.object({}), objectJson({}, [])) }, async () =>
+    text({ bps: ctx.config.fee.bps, percent: feePercent(ctx.config.fee.bps), recipient: ctx.config.fee.recipient, maxBps: MAX_FEE_BPS, policy: FEE_POLICY_TEXT, exempt: [...FEE_EXEMPT_KINDS] }),
+  );
   server.registerTool("lykia_circle_status", { description: "Which official Circle products Lykia uses on Arc (CCTP, Gateway, Nanopayments, Marketplace, Wallets, Gas Station, Compliance, StableFX) and what each needs.", inputSchema: toolSchema(z.object({}), objectJson({}, [])) }, async () => text(circleStatus(ctx.config, ctx.clock.now())));
   server.registerTool("lykia_circle_services", { description: "x402 services from Circle's Agent Marketplace that accept USDC on Arc (price, payee, provider).", inputSchema: toolSchema(z.object({ environment: env, query: z.string().max(80).optional() }), objectJson({ environment: ENV_JSON, query: { type: "string" } }, [])) }, async ({ environment, query }) => {
     const e = environmentOf(environment);
     return text(await discoverServices(ctx.fetch, { network: ARC_NETWORKS[e], ...(query ? { query } : {}) }, ctx.clock.now()));
   });
+  server.registerTool("lykia_launches", { description: "Launch radar: new pools on Arc AMMs (Uniswap, Aerodrome, Synthra, SushiSwap, Archery) with each token's trust verdict, plus the launchpads on Arc.", inputSchema: toolSchema(z.object({ environment: env }), objectJson({ environment: ENV_JSON }, [])) }, async ({ environment }) => text(await discoverService(ctx).launches(environmentOf(environment))));
+  server.registerTool("lykia_perps_markets", { description: "Perpetuals markets on Extended (USDC collateral on Arc), read-only: mark, 24h change, funding, open interest. Trading happens on Extended's engine.", inputSchema: toolSchema(z.object({ query: z.string().max(16).optional() }), objectJson({ query: { type: "string" } }, [])) }, async ({ query }) => {
+    const all = await discoverService(ctx).perpsMarkets();
+    const q = query?.toUpperCase();
+    return text({ ...all, markets: all.markets.filter((m) => !q || String((m as { market: string }).market).includes(q)).slice(0, 30) });
+  });
+  server.registerTool("lykia_orders", { description: "Conditional orders (limit, stop-loss, take-profit, DCA, TWAP) for an owner with live status, and the LykiaOrders config (fee, feeds, deployment).", inputSchema: toolSchema(z.object({ owner: address, environment: env }), objectJson({ owner: ADDRESS_JSON, environment: ENV_JSON }, ["owner"])) }, async ({ owner, environment }) => {
+    const e = environmentOf(environment);
+    return text({ config: await ordersService(ctx).config(e), orders: await ordersService(ctx).list(e, owner as Address) });
+  });
+  server.registerTool("lykia_dev_tools", { description: "Circle and Arc developer tools (App Kits, Circle Skills, Arc docs MCP, Arc Foundry, references) and how each relates to Lykia.", inputSchema: toolSchema(z.object({}), objectJson({}, [])) }, async () => text(DEV_TOOLS));
   return server;
 }
 

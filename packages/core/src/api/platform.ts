@@ -47,8 +47,8 @@ export interface CreatedApiKey extends ApiKeyView {
   readonly secret: string;
 }
 
-export type WebhookEvent = "intent.step.settled" | "intent.settled" | "pack.agent.spawned" | "pack.agent.revoked" | "whistle.blown" | "standing_order.fired";
-export const WEBHOOK_EVENTS: readonly WebhookEvent[] = ["intent.step.settled", "intent.settled", "pack.agent.spawned", "pack.agent.revoked", "whistle.blown", "standing_order.fired"];
+export type WebhookEvent = "intent.step.settled" | "intent.settled" | "pack.agent.spawned" | "pack.agent.revoked" | "whistle.blown" | "standing_order.fired" | "alert.fired" | "order.executed";
+export const WEBHOOK_EVENTS: readonly WebhookEvent[] = ["intent.step.settled", "intent.settled", "pack.agent.spawned", "pack.agent.revoked", "whistle.blown", "standing_order.fired", "alert.fired", "order.executed"];
 
 export interface WebhookEndpointView {
   readonly id: string;

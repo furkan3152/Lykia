@@ -48,6 +48,20 @@ for (const step of intent.steps) {
 
 `lykia.intents.follow(id)` streams live updates for an intent as an async iterator.
 
+## Protocol fee
+
+Every value-moving step pays Lykia's protocol fee (1% by default) inside its own
+transaction; repay, withdrawals home, approvals and Künye steps are free. Each
+step carries `fee` and the outrun carries `fees` totals, so you can show it
+before the owner signs.
+
+```ts
+const { percent, recipient, policy } = await lykia.fees();
+const { intent, outrun } = await lykia.intents.create({ owner, text: "swap 100 USDC to EURC" });
+intent.steps[0]?.fee; // { amount: "1000000", symbol: "USDC", basis: "input", ... }
+outrun.fees;          // ["1 USDC"]
+```
+
 ## Lyko and the Pack
 
 To talk to Lyko, stream a turn with `agent.chat`. The stream contains these events: `thread`, `reading`, `task` (one per specialist), `tool`, `thinking-summary`, `proposal`, `clarify`, `text`, `error` and `done`.

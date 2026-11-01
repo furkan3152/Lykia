@@ -39,9 +39,13 @@ All variables are optional; see [`.env.example`](./.env.example).
 | `CIRCLE_API_KEY` | (none) | Circle platform key: Compliance Engine screening, developer-controlled wallets, StableFX (when the key has access) |
 | `CIRCLE_ENTITY_SECRET`, `CIRCLE_WALLET_SET_ID` | (none) | entity secret (32 bytes hex, registered with Circle) for developer-controlled wallets; an existing wallet set to reuse |
 | `STABLEFX_API_KEY` | (none) | a separate StableFX key, if StableFX access sits on its own key |
-| `TELEGRAM_BOT_TOKEN` | (none) | lets profiles name a Telegram chat for notifications |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` | (none) | the Lyko bot: `/start <code>` links a chat to a signed-in address and alerts arrive there; the token is never logged. Point the bot at the API once with `POST /v1/telegram/setup` (admin) |
+| `LYKIA_KEEPER_PRIVATE_KEY` | (none) | optional keeper wallet that executes due conditional orders (it earns the tip and holds only gas). Without it anyone can run orders via `/v1/orders/:hash/execute-tx` |
+| `CRON_SECRET` | (none) | Bearer secret for `/cron/orders` and `/cron/alerts` on serverless hosts, and for the keeper and alert-check routes |
+| `LYKIA_GUARD_ADDRESS` | (none) | ERC-8354 guard that answers validation requests for Fence verdicts (own key; see docs/kunye.md) |
 | `LYKIA_X402_PAY_TO`, `LYKIA_X402_PRICE_USDC`, `LYKIA_X402_FACILITATOR_URL` | (none), `0.01`, (none) | x402 paid routes; off unless `PAY_TO` is set; settlement only with a facilitator |
 | `LYKIA_RATE_LIMIT_DEFAULT`, `_HEAVY`, `_AUTH` | `600`, `60`, `20` | requests per minute per IP |
+| `LYKIA_FEE_BPS`, `LYKIA_FEE_RECIPIENT` | `100`, `0x8c52…ca1e` | Lykia protocol fee per value-moving step (100 = 1%, at most 300) and the address that receives it; see Protocol fee below |
 
 ## Routes
 
@@ -223,6 +227,27 @@ See [docs/circle.md](../../docs/circle.md). `GET /v1/circle/status` lists every 
 | `GET /v1/oracles` | Chainlink against Pyth (read on chain on Arc), and display rates |
 | `GET /v1/jobs/:id`, `POST /v1/jobs/draft`, `/:id/fund`, `/:id/complete`, `/:id/reject`, `/:id/refund` | ERC-8183 agent jobs on Arc testnet: unsigned escrow calls |
 
+### Desk: orders, alerts, discover, markets, activity
+
+| route | what |
+|---|---|
+| `GET /v1/orders/config` | LykiaOrders address, fee, EIP-712 domain and types, Chainlink feeds |
+| `POST /v1/orders/draft` | typed data to sign, the allowance still needed, per-execution fee, tip and minimum |
+| `POST /v1/orders` | stores a signed order (signature checked, nonce and state read on chain) |
+| `GET /v1/orders?owner=` | orders with live status (`open`, `waiting`, `filled`, `cancelled`, `expired`, `invalid`) |
+| `GET /v1/orders/:hash/cancel-tx`, `/execute-tx?keeper=` | unsigned transactions for the maker / any keeper |
+| `POST /v1/orders/keeper/tick` | one keeper pass (admin or `CRON_SECRET`); also every 30 s in-process and on `/cron/orders` |
+| `GET/POST /v1/alerts`, `PATCH/DELETE /v1/alerts/:id` | rules: `price-above/below` (Chainlink), `health-below`, `transfer-in/out`, `scent-warning`, `order-filled` |
+| `GET /v1/alerts/inbox`, `POST /v1/alerts/inbox/read` | the in-app inbox; firings also go to webhooks (`alert.fired`) and Telegram |
+| `POST /v1/telegram/link-code`, `GET /v1/telegram/status`, `DELETE /v1/telegram/link`, `POST /v1/telegram/webhook` | Telegram linking |
+| `GET /v1/discover/launches` | new pools from Uniswap v3/v2, Aerodrome Slipstream, Synthra, SushiSwap V3 and Archery factory events, with token trust; launchpads from the registry |
+| `GET /v1/perps/markets`, `/v1/perps/markets/:market` | Extended perpetuals data (read-only; trading is on Extended's engine) |
+| `GET /v1/activity` | the session owner's intents, orders and alerts in one feed |
+| `GET /v1/track/:hash` | any Arc transaction with each log's emitter labelled from the registry |
+| `GET/POST /v1/watch`, `DELETE /v1/watch/:address` | watched addresses (50 per owner) |
+
+MCP adds `lykia_launches`, `lykia_perps_markets`, `lykia_orders` and `lykia_dev_tools`.
+
 ### x402
 
 Paid routes answer `402` with `{ x402Version: 2, accepts: [requirements] }` (also base64 in `PAYMENT-REQUIRED`): scheme `exact`, network `eip155:5042` or `eip155:5042002`, asset USDC, EIP-712 domain `USDC` version `2`. The client retries with the signed EIP-3009 authorization in `X-PAYMENT` (or `PAYMENT-SIGNATURE`). The server verifies the signer, recipient, amount, validity window and nonce locally. It settles through `LYKIA_X402_FACILITATOR_URL` (for example Circle's facilitator) when set; otherwise it runs verify-only and says so in `PAYMENT-RESPONSE`.
@@ -336,6 +361,41 @@ cached six hours), labelled `ecb-reference` and not tradable. The ECB EUR rate
 is also compared with Chainlink EURC/USD (`reference.eurcVsEcbBps`) for
 display. The Fence's oracle-gap fact only compares fresh on-chain feeds; with
 no fresh second feed it makes no claim.
+
+## Protocol fee
+
+Every value-moving step (send, swap, FX, deposit, supply, borrow, bridge,
+Gateway deposit) pays `LYKIA_FEE_BPS` (default 100 = 1%) to
+`LYKIA_FEE_RECIPIENT`. Repay, withdrawals home, approvals, revokes and Künye
+steps are free. `GET /v1/fees` (and the MCP tool `lykia_fees`) reports the
+live policy.
+
+- **Where it is taken.** From the step's input before the action, so venue
+  quotes and minimum outputs use what the venue actually receives. A send with
+  an exact amount pays it on top, so the recipient gets exactly what was asked.
+  A borrow pays it from the borrowed amount, after the borrow call. The fee is
+  rounded up, at most one base unit above the exact share.
+- **How it is enforced.** The fee is an ERC-20 `transfer` inside the step's own
+  transaction: a call in the Multicall3From batch (the sender stays the owner)
+  or a call in the same user operation for smart accounts. The prepared
+  transaction's binding covers the fee call, so a submitted transaction
+  without it fails with `BINDING_MISMATCH`. Pack session keys get the fee
+  recipient in their allowed recipients.
+- **What the owner sees.** Each step carries `fee` (amount, token, USD, basis);
+  the Fence counts it in the day/week/per-step caps and lists a `fee` reason;
+  the outrun has a fee line per stop and `fees` totals per token. Dry runs show
+  the same numbers.
+- **LykiaRouter.** The router's own integrator fee is capped at 0.5% on chain,
+  so Lykia's fee is not taken there. Split swaps run as one `LykiaRouter.run`
+  when both venues are allowlisted (`GET /v1/admin/router` lists the owner's
+  unsigned `setVenue` calls otherwise); the fee transfer sits in the same batch.
+
+## Hosting
+
+See [docs/hosting.md](../../docs/hosting.md) for Vercel versus Render. The
+Blueprint is [`render.yaml`](../../render.yaml): a persistent Node service that
+starts the schedulers (standing orders every 30 s, the intent poller, alerts,
+the order keeper) right after `listen`.
 
 ## Serverless
 

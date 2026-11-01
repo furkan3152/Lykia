@@ -18,6 +18,8 @@ import { createContext, type AppContext } from "./context.js";
 import { MODULES } from "./modules/index.js";
 import { startModules } from "./server.js";
 import { services } from "./services.js";
+import { ordersService } from "./orders/service.js";
+import { alertsService } from "./alerts/service.js";
 
 interface Instance {
   readonly ctx: AppContext;
@@ -43,7 +45,20 @@ function authorizedCron(req: IncomingMessage): boolean {
 
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const { ctx, app } = current();
-  if (req.url?.split("?")[0] === "/cron/standing") {
+  const path = req.url?.split("?")[0];
+  if (path === "/cron/orders" || path === "/cron/alerts") {
+    res.setHeader("content-type", "application/json");
+    if (!authorizedCron(req)) {
+      res.statusCode = 401;
+      res.end(JSON.stringify({ error: { code: "UNAUTHORIZED", message: "Set CRON_SECRET and send it as a Bearer token." } }));
+      return;
+    }
+    const out: Record<string, unknown> = {};
+    for (const env of ["mainnet", "testnet"] as const) out[env] = path === "/cron/orders" ? await ordersService(ctx).tick(env) : await alertsService(ctx).tick(env);
+    res.end(JSON.stringify(out));
+    return;
+  }
+  if (path === "/cron/standing") {
     if (!authorizedCron(req)) {
       res.statusCode = 401;
       res.setHeader("content-type", "application/json");

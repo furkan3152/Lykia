@@ -47,7 +47,10 @@ describe("planner + fence", () => {
         { verb: "earn", token: "USDC", amount: { all: true } },
       ],
     });
-    assert.equal(graph.steps[1]?.inputs[0]?.amount, "200000000");
+    // The exact send pays its 1% fee on top (101 USDC out); earn takes the rest (199) and pays 1.99 from it.
+    assert.equal(graph.steps[0]?.fee?.amount, "1000000");
+    assert.equal(graph.steps[1]?.inputs[0]?.amount, "199000000");
+    assert.equal(graph.steps[1]?.fee?.amount, "1990000");
     assert.deepEqual(graph.steps[1]?.dependsOn, ["s1"]);
     assert.equal(graph.verdict.decision, "confirm");
   });
@@ -69,7 +72,7 @@ describe("planner + fence", () => {
     await assert.rejects(planner(arc).plan({ ...base, environment: "testnet", actions: [{ verb: "earn", token: "USDC", amount: { exact: "1" } }] }), /testnet/u);
     await assert.rejects(planner(arc).plan({ ...base, environment: "mainnet", actions: [{ verb: "borrow", token: "USDC", amount: { exact: "1" } }] }), /health factor at 1.5/u);
     await assert.rejects(planner(arc).plan({ ...base, environment: "testnet", actions: [{ verb: "borrow", token: "USDC", amount: { exact: "1" } }] }), /Practice Lending is not deployed/u);
-    await assert.rejects(planner(arc).plan({ ...base, environment: "mainnet", actions: [{ verb: "send", token: "USDC", amount: { exact: "5" }, to: OWNER }] }), /needs 5 USDC/u);
+    await assert.rejects(planner(arc).plan({ ...base, environment: "mainnet", actions: [{ verb: "send", token: "USDC", amount: { exact: "5" }, to: OWNER }] }), /needs 5\.05 USDC/u);
   });
 
   it("the caravan Fence keeps agents on a short leash", async () => {

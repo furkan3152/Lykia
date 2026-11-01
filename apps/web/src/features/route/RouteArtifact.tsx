@@ -88,6 +88,7 @@ export function RouteArtifact({ proposal, intentId, onClose }: { proposal?: Agen
                   </div>
                   <Tag tone={s.status === "settled" ? "ok" : s.status === "failed" ? "bad" : "ghost"}>{s.status}</Tag>
                 </div>
+                {s.fee ? <div style={{ marginTop: 6 }}><Tag tone="ghost">{s.fee.toUpperCase()} · PAID IN THIS TRANSACTION</Tag></div> : null}
                 {s.memory.length > 0 ? <div className="flex gap-1 flex-wrap" style={{ marginTop: 6 }}>{s.memory.map((m) => <Tag key={m} tone="sea">FROM MEMORY · {m}</Tag>)}</div> : null}
                 {s.route ? (
                   <details style={{ marginTop: 8 }}>
@@ -136,6 +137,7 @@ export function RouteArtifact({ proposal, intentId, onClose }: { proposal?: Agen
             </label>
           ) : null}
           {view.fold.length > 0 ? <p className="m-kick" style={{ marginTop: 14, textAlign: "center" }}>FOLD · {view.fold.join(" · ")}</p> : null}
+          {view.fees.length > 0 ? <p className="m-small m-muted" style={{ marginTop: 6, textAlign: "center" }}>Lykia fee for this plan · {view.fees.join(" · ")} · repay and withdrawals home are free</p> : null}
           {view.warnings.map((w) => (
             <p key={w} className="m-note" style={{ marginTop: 8 }}>
               {w}

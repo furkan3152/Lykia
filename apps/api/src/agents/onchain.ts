@@ -10,9 +10,9 @@
  * only when priced), a lifetime budget, the payee allowlist, an expiry and
  * the Fence hash. The server only builds the unsigned call.
  */
-import { getToken, tokenAddress, usdMicros, type Address, type ArcEnvironment, type PackAgent } from "@lykia/core";
+import { contractAddress, getToken, lykiaContracts, tokenAddress, usdMicros, type Address, type ArcEnvironment, type PackAgent } from "@lykia/core";
 import type { UnsignedTransaction } from "@lykia/core";
-import { encodeFunctionData, toFunctionSelector, type Hex } from "viem";
+import { encodeFunctionData, keccak256, toBytes, toFunctionSelector, zeroAddress, type Hex } from "viem";
 import { morphoVaults } from "../flock/flock.js";
 import { aaveSpokes } from "../engine/venues/aave.js";
 import { v3Contracts } from "../engine/venues/uniswap.js";
@@ -159,7 +159,10 @@ export async function buildSessionTx(ctx: AppContext, input: SessionTxInput, env
   const usdPerUnit: Record<string, number | null> = {};
   for (const [symbol, quote] of Object.entries(prices)) usdPerUnit[symbol] = quote?.usd ? Number(quote.usd) : null;
   const calls = input.calls ?? callRulesFor(input.agent, environment);
-  const spec = sessionSpecOf({ agent: input.agent, key: input.key, validDays: input.validDays, maxCalls: input.maxCalls, calls, usdPerUnit, now: ctx.clock.now() });
+  const base = sessionSpecOf({ agent: input.agent, key: input.key, validDays: input.validDays, maxCalls: input.maxCalls, calls, usdPerUnit, now: ctx.clock.now() });
+  // Lykia's fee is an agentTransfer to the fee recipient: it must be an allowed payee of the session.
+  const feeTo = ctx.config.fee.bps > 0 ? ctx.config.fee.recipient : null;
+  const spec: SessionSpec = feeTo && !base.recipients.some((r) => r.toLowerCase() === feeTo) ? { ...base, recipients: [...base.recipients, feeTo] } : base;
   const parentSession = input.parent?.session?.sessionId as Hex | undefined;
   const sub = Boolean(input.parent && parentSession);
   const from = (sub ? input.parent?.signer : input.agent.owner) as Address | undefined;
@@ -179,4 +182,48 @@ export async function buildSessionTx(ctx: AppContext, input: SessionTxInput, env
     spec.calls.length === 0 ? "No contract call rules: the session can make agentTransfer payments only, until call rules are added." : input.calls ? "" : `${spec.calls.length} call rule(s) derived from the Fence's venues, each pinning its output argument to the account. Routers that hide the recipient inside bytes (Uniswap v4, Aerodrome) are not included.`,
   ].filter(Boolean).join(" ");
   return { spec, transaction, note };
+}
+
+/** One account per owner and environment: the salt is fixed, the guardian is optional. */
+export const ACCOUNT_SALT: Hex = keccak256(toBytes("lykia.account/v1"));
+
+export interface LykiaAccountInfo {
+  readonly factory: Address;
+  readonly address: Address;
+  readonly deployed: boolean;
+  readonly guardian: Address;
+  /** The unsigned createAccount call, when the account does not exist yet (anyone may send it; the owner is baked in). */
+  readonly transaction: UnsignedTransaction | null;
+}
+
+/**
+ * The owner's LykiaAccount on the deployed factory: its CREATE2 address (read
+ * from the factory's predictAccount) and, until it exists, the createAccount
+ * call to send. Native USDC spends are charged to the USDC face.
+ */
+export async function lykiaAccountFor(ctx: AppContext, owner: Address, environment: ArcEnvironment, guardian: Address = zeroAddress): Promise<LykiaAccountInfo | null> {
+  const factory = lykiaContracts.deployedAddress(environment, "LykiaAccountFactory");
+  if (!factory) return null;
+  const abi = lykiaContracts.lykiaAccountFactoryArtifact.abi;
+  const usdc = contractAddress("usdc", environment) as Address;
+  const client = ctx.chains.client(environment);
+  const address = (await client.readContract({ address: factory, abi, functionName: "predictAccount", args: [owner, ACCOUNT_SALT, guardian, usdc] })) as Address;
+  const code = await client.getCode({ address });
+  const deployed = code !== undefined && code !== "0x";
+  return {
+    factory,
+    address,
+    deployed,
+    guardian,
+    transaction: deployed
+      ? null
+      : {
+          chainId: environment === "mainnet" ? 5042 : 5042002,
+          from: owner,
+          to: factory,
+          data: encodeFunctionData({ abi, functionName: "createAccount", args: [owner, ACCOUNT_SALT, guardian, usdc] }),
+          value: "0",
+          label: `Create your LykiaAccount at ${address}`,
+        },
+  };
 }

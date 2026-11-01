@@ -40,7 +40,8 @@ import { aaveCalls } from "./venues/aave.js";
 import { MORPHO_BLUE, morphoCalls, morphoMarkets, readMorphoPosition } from "./venues/morphoBlue.js";
 import { quoteV3Single, quoteV4, uniswapCalls, v3Contracts, v4Contracts } from "./venues/uniswap.js";
 import { aerodromeCalls, quoteCl } from "./venues/aerodrome.js";
-import { approveCall, type RawCall } from "./calls.js";
+import { approveCall, feeCall, type RawCall } from "./calls.js";
+import { lykiaRouterAddress, routerRunCall, type RouterLeg } from "./lykiaRouter.js";
 
 export type AdapterId =
   | "transfer"
@@ -62,11 +63,12 @@ export type AdapterId =
   | "practice-vault-withdraw"
   | "practice-swap"
   | "practice-borrow"
-  | "practice-repay";
+  | "practice-repay"
+  | "router-split";
 
 /** Venues the engine executes per environment (practice venues once deployed, see venues/practice.ts). */
 export const EXECUTABLE_VENUES: Readonly<Record<ArcEnvironment, ReadonlySet<string>>> = {
-  mainnet: new Set(["arc-transfer", "cctp", "gateway", "morpho-vaults", "morpho-blue", "aave-v4", "uniswap-v3", "uniswap-v4", "aerodrome-slipstream"]),
+  mainnet: new Set(["arc-transfer", "cctp", "gateway", "morpho-vaults", "morpho-blue", "aave-v4", "uniswap-v3", "uniswap-v4", "aerodrome-slipstream", "lykia-router"]),
   testnet: new Set(["arc-transfer", "cctp", "gateway", "lykia-practice"]),
 };
 
@@ -114,8 +116,20 @@ export interface BuiltCalls {
 
 const PERMIT2_EXPIRY_SECONDS = 30 * 60;
 
-/** The calls a step needs, built fresh at prepare time (allowances and quotes re-read). */
+/**
+ * The calls a step needs, built fresh at prepare time, with Lykia's fee
+ * transfer placed in the same batch: before the action when the fee comes
+ * out of the input, after it when it comes out of a borrowed amount.
+ */
 export async function buildCalls(plan: StepPlan, ctx: BuildContext): Promise<BuiltCalls> {
+  const built = await buildVenueCalls(plan, ctx);
+  const p = plan.params;
+  if (!p.feeAmount || BigInt(p.feeAmount) === 0n) return built;
+  const fee = feeCall(p.feeToken as Address, p.feeRecipient as Address, BigInt(p.feeAmount), p.feeLabel ?? "Lykia fee");
+  return p.feeAt === "after" ? { approvals: built.approvals, calls: [...built.calls, fee] } : { approvals: built.approvals, calls: [fee, ...built.calls] };
+}
+
+async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<BuiltCalls> {
   const p = plan.params;
   const client = ctx.chains.client(ctx.environment);
   const big = (key: string) => BigInt(p[key] as string);
@@ -221,6 +235,25 @@ export async function buildCalls(plan: StepPlan, ctx: BuildContext): Promise<Bui
       return {
         approvals: await needApproval(p.tokenIn as Address, p.router as Address, amountIn, p.symbolIn as string, "Aerodrome"),
         calls: [aerodromeCalls.swapExactIn(p.router as Address, p.pool as Address, p.tokenIn as Address, amountIn, big("minOut"), ctx.account, deadline, `Swap ${p.display} on Aerodrome Slipstream`)],
+      };
+    }
+    case "router-split": {
+      const router = lykiaRouterAddress(ctx.environment);
+      if (!router) throw noRoute("LykiaRouter is not deployed on this environment.");
+      const legs = JSON.parse(p.legs as string) as RouterLeg[];
+      for (const leg of legs) {
+        const amountIn = BigInt(leg.amountIn);
+        const fresh =
+          leg.adapter === "swap"
+            ? (await quoteV3Single(ctx.chains, ctx.environment, leg.tokenIn, leg.tokenOut, amountIn)).find((q) => q.fee === Number(leg.fee))?.amountOut ?? null
+            : (await quoteCl(ctx.chains, ctx.environment, leg.pool as Address, leg.tokenIn, amountIn))?.amountOut ?? null;
+        if (fresh === null || fresh < BigInt(leg.minOut)) throw new LykiaHttpError("NO_ROUTE", 422, "The price moved past a leg's planned minimum; plan again.");
+      }
+      const total = legs.reduce((sum, l) => sum + BigInt(l.amountIn), 0n);
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + PERMIT2_EXPIRY_SECONDS);
+      return {
+        approvals: await needApproval(legs[0]!.tokenIn, router, total, p.symbolIn as string, "LykiaRouter"),
+        calls: [routerRunCall(ctx.environment, p.intentId as string, ctx.account, legs, deadline, `Swap ${p.display} through LykiaRouter (both legs or neither)`)],
       };
     }
     case "practice-swap": {
@@ -335,6 +368,7 @@ export const ADAPTER_VENUE: Readonly<Record<AdapterId, string>> = {
   "practice-swap": "lykia-practice",
   "practice-borrow": "lykia-practice",
   "practice-repay": "lykia-practice",
+  "router-split": "lykia-router",
 };
 
 export function stepKindOf(adapter: AdapterId, fx: boolean): StepKind {
@@ -359,6 +393,7 @@ export function stepKindOf(adapter: AdapterId, fx: boolean): StepKind {
     case "swap-v4":
     case "swap-aerodrome":
     case "practice-swap":
+    case "router-split":
       return fx ? "fx" : "swap";
     case "aave-borrow":
     case "morpho-borrow":

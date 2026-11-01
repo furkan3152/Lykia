@@ -42,6 +42,8 @@ export interface StepFact {
   readonly healthFactorAfter?: string | null;
   /** StableFX: quote deviation from the reference rate; null = no reference. */
   readonly fxDeviationBps?: number | null;
+  /** Lykia's fee on this step; already included in `usd` (caps count it). */
+  readonly fee?: { readonly line: string; readonly usd: string | null };
 }
 
 export interface FenceFacts {
@@ -59,6 +61,7 @@ export interface FenceFacts {
 export type FenceRule =
   | "mode.whistle"
   | "mode.dry-run"
+  | "fee"
   | "environment"
   | "signer"
   | "kinds"
@@ -234,6 +237,7 @@ export function evaluateFence(input: Fence, facts: FenceFacts): FenceVerdict {
   if (schedule && !schedule.open) deny("schedule", `Outside the Fence's hours (${schedule.weekday} ${String(Math.floor(schedule.minutes / 60)).padStart(2, "0")}:${String(schedule.minutes % 60).padStart(2, "0")} ${fence.schedule?.timezone}).`);
 
   const decision: Decision = reasons.some((r) => r.decision === "deny") ? "deny" : reasons.some((r) => r.decision === "confirm") ? "confirm" : "allow";
+  for (const step of facts.steps) if (step.fee) reasons.push({ rule: "fee", decision: "allow", message: `${step.fee.line}${step.fee.usd !== null ? ` ($${step.fee.usd})` : ""}, counted in the caps.`, step: step.id });
   if (fence.mode === "dry-run") reasons.push({ rule: "mode.dry-run", decision: "allow", message: "Dry run: Lyko walks the route but nothing is signed." });
   const hash = fenceHash(input);
   const factsDigest = canonicalDigest(facts);

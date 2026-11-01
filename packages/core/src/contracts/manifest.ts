@@ -17,11 +17,13 @@ import { ARC_CONTRACTS, type Address } from "../contracts.js";
 import { networkFor, type ArcEnvironment } from "../networks.js";
 import { lykiaAccountFactoryArtifact } from "./LykiaAccountFactory.js";
 import { lykiaRouterArtifact } from "./LykiaRouter.js";
+import { lykiaOrdersArtifact } from "./LykiaOrders.js";
+import { DEFAULT_FEE_BPS, DEFAULT_FEE_RECIPIENT } from "../fee.js";
 import { practiceVaultArtifact } from "./PracticeVault.js";
 import { practiceSwapArtifact } from "./PracticeSwap.js";
 import { practiceLendingArtifact } from "./PracticeLending.js";
 
-export type LykiaDeployable = "LykiaAccountFactory" | "LykiaRouter" | "PracticeVaultUSDC" | "PracticeVaultEURC" | "PracticeSwap" | "PracticeLending";
+export type LykiaDeployable = "LykiaAccountFactory" | "LykiaRouter" | "LykiaOrders" | "PracticeVaultUSDC" | "PracticeVaultEURC" | "PracticeSwap" | "PracticeLending";
 
 export type AbiArgType = "address" | "address[]" | "uint256" | "uint16" | "bytes32" | "string" | "bool";
 
@@ -252,6 +254,7 @@ interface DeployableArtifact {
 export const DEPLOYABLE_ARTIFACTS: Readonly<Record<string, DeployableArtifact>> = {
   LykiaAccountFactory: lykiaAccountFactoryArtifact,
   LykiaRouter: lykiaRouterArtifact,
+  LykiaOrders: lykiaOrdersArtifact,
   PracticeVault: practiceVaultArtifact,
   PracticeSwap: practiceSwapArtifact,
   PracticeLending: practiceLendingArtifact,
@@ -366,13 +369,27 @@ export function deployPlan(environment: ArcEnvironment, owner: Address, options:
     }
     notes.push("Practice venues are Arc testnet stand-ins for Morpho, Uniswap/StableFX and Aave V4; they are not products.");
   } else {
-    notes.push("On mainnet, add router venues from the registry (Morpho vaults, Uniswap SwapRouter02) with setVenue after review.");
+    // Swap venues the router (and therefore LykiaOrders) may call on mainnet; both were simulated through the engine.
+    for (const [name, address] of [["Uniswap v3 SwapRouter02", "0x53bf6b0684ec7ef91e1387da3d1a1769bc5a6f77"], ["Aerodrome Slipstream Metarouter", "0x0fef9e88a7b76bcdbf451780c6774fe32965ee98"]] as const) {
+      const call: PlanCall = { target: "LykiaRouter", address: router.predictedAddress, signature: "setVenue(address,bool)", args: [{ name: "venue", type: "address", value: address as Address }, { name: "allowed", type: "bool", value: true }], tx: null, note: `Allowlist ${name} on the router so conditional orders can swap there.` };
+      initCalls.push(router.predictedAddress !== null ? { ...call, tx: resolveCall(call) } : call);
+    }
+    notes.push("On mainnet the router allowlist starts with Uniswap v3 SwapRouter02 and the Aerodrome Metarouter; add more venues with setVenue after review.");
   }
+
+  // Conditional orders: keepers execute signed orders through the router; the protocol fee goes to the fee recipient.
+  add(deployStep(steps.length + 1, "LykiaOrders", "LykiaOrders", lykiaOrdersArtifact, [
+    { name: "initialOwner", type: "address", value: owner },
+    { name: "router", type: "address", value: router.predictedAddress ?? { ref: "LykiaRouter" } },
+    { name: "feeBps", type: "uint16", value: String(DEFAULT_FEE_BPS) },
+    { name: "feeRecipient", type: "address", value: DEFAULT_FEE_RECIPIENT },
+  ], nextNonce(), "Signed limit, stop-loss, take-profit, DCA and TWAP orders; keepers execute them through LykiaRouter. Takes the protocol fee on each execution."));
 
   const postDeployChecks: PostDeployCheck[] = [
     { target: "LykiaAccountFactory", call: "implementation()", expect: "nonzero" },
     { target: "LykiaRouter", call: "owner()", expect: owner },
     { target: "LykiaRouter", call: "paused()", expect: "false" },
+    { target: "LykiaOrders", call: "feeBps()", expect: String(DEFAULT_FEE_BPS) },
     ...steps.filter((s) => s.name.startsWith("Practice")).map((s) => ({ target: s.name, call: "owner()", expect: owner })),
   ];
   return { environment, chainId: network.chainId, owner, deployer: owner, steps, initCalls, postDeployChecks, notes };

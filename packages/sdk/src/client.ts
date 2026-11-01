@@ -20,6 +20,26 @@ import type { ProfileResponse } from "@lykia/core/api/profile";
 import { errorFrom, LykiaError } from "./errors.js";
 import { readSse, type SseMessage } from "./sse.js";
 
+/** GET /v1/fees. */
+export interface FeesResponse {
+  readonly bps: number;
+  readonly percent: string;
+  readonly recipient: Address;
+  readonly maxBps: number;
+  readonly policy: string;
+  readonly exempt: readonly string[];
+}
+
+/** GET /v1/pack/account. */
+export interface PackAccountResponse {
+  readonly factory: Address;
+  readonly address: Address;
+  readonly deployed: boolean;
+  readonly guardian: Address;
+  /** The unsigned createAccount call while the account does not exist yet. */
+  readonly transaction: UnsignedTransaction | null;
+}
+
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 export interface LykiaOptions {
@@ -141,6 +161,11 @@ export class Lykia {
 
   /* ------------------------------------------------------------- fence */
 
+  /** Lykia's protocol fee: bps, recipient, policy and the exempt step kinds. */
+  fees(): Promise<FeesResponse> {
+    return this.request<FeesResponse>("GET", "/v1/fees");
+  }
+
   readonly fence = {
     validate: (fence: Fence, previous?: Fence) => this.request<{ ok: boolean; issues?: unknown[]; hash?: string; loosened?: string[] }>("POST", "/v1/fence/validate", { fence, ...(previous ? { previous } : {}) }),
     evaluate: (facts: Omit<FenceFacts, "now"> & { now?: number }, fence?: Fence) => this.request<FenceVerdict>("POST", "/v1/fence/evaluate", { facts, ...(fence ? { fence } : {}) }),
@@ -191,7 +216,9 @@ export class Lykia {
     spawn: (parentId: string, input: { name: string; role: PackRole; fence?: Fence; mission?: string; signer?: Address }) => this.request<PackAgentView>("POST", `/v1/pack/${encodeURIComponent(parentId)}/spawn`, input),
     revoke: (id: string) => this.request<{ revoked: string[] }>("POST", `/v1/pack/${encodeURIComponent(id)}/revoke`, {}),
     budget: (id: string) => this.request<PackAgentView["budget"]>("GET", `/v1/pack/${encodeURIComponent(id)}/budget`),
-    sessionTx: (id: string, input: { account: Address; key?: Address; validDays?: number; maxCalls?: number }) => this.request<SessionTxResponse & { transaction: UnsignedTransaction }>("POST", `/v1/pack/${encodeURIComponent(id)}/session-tx`, input),
+    /** The owner's LykiaAccount (factory-predicted address) and, if it is not deployed yet, the createAccount transaction. */
+    account: (owner: Address, environment?: ArcEnvironment) => this.request<PackAccountResponse>("GET", `/v1/pack/account${q({ owner, environment: this.env(environment) })}`),
+    sessionTx: (id: string, input: { account?: Address; key?: Address; validDays?: number; maxCalls?: number }) => this.request<SessionTxResponse & { transaction: UnsignedTransaction; account?: PackAccountResponse; accountTransaction?: UnsignedTransaction | null }>("POST", `/v1/pack/${encodeURIComponent(id)}/session-tx`, input),
     bindSession: (id: string, input: { account: Address; sessionId: `0x${string}`; txHash?: `0x${string}` }) => this.request<PackAgentView>("POST", `/v1/pack/${encodeURIComponent(id)}/session`, input),
   };
 

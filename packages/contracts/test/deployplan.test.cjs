@@ -41,7 +41,7 @@ describe("deployPlan (core): direct CREATE from the owner's wallet", function ()
     const plan = core.deployPlan("testnet", owner.address, { nonce });
     expect(plan.chainId).to.equal(5042002);
     expect(plan.deployer).to.equal(owner.address);
-    expect(plan.steps.map((s) => s.name)).to.deep.equal(["LykiaAccountFactory", "LykiaRouter", "PracticeVaultUSDC", "PracticeVaultEURC", "PracticeSwap", "PracticeLending"]);
+    expect(plan.steps.map((s) => s.name)).to.deep.equal(["LykiaAccountFactory", "LykiaRouter", "PracticeVaultUSDC", "PracticeVaultEURC", "PracticeSwap", "PracticeLending", "LykiaOrders"]);
     const deployed = {};
     for (const step of plan.steps) {
       expect(step.tx.to).to.equal(null);
@@ -69,13 +69,19 @@ describe("deployPlan (core): direct CREATE from the owner's wallet", function ()
     expect(await factory.implementation()).to.not.equal(ethers.ZeroAddress);
     expect((await ethers.getContractAt("PracticeSwap", deployed.PracticeSwap)).rate).to.exist;
     expect(await (await ethers.getContractAt("PracticeLending", deployed.PracticeLending)).ltvBps()).to.equal(7000);
+    const orders = await ethers.getContractAt("LykiaOrders", deployed.LykiaOrders);
+    expect(await orders.router()).to.equal(deployed.LykiaRouter);
+    expect(await orders.feeBps()).to.equal(100);
+    expect(await orders.owner()).to.equal(owner.address);
     // Code from a different contract never matches.
     expect(core.codeMatchesArtifact("LykiaRouter", await ethers.provider.getCode(deployed.PracticeSwap))).to.equal(false);
   });
 
   it("without a nonce: no predictions, init calls resolve from receipts", async function () {
     const plan = core.deployPlan("testnet", owner.address);
-    expect(plan.steps.every((s) => s.predictedAddress === null && s.nonce === null && s.tx !== null)).to.equal(true);
+    expect(plan.steps.every((s) => s.predictedAddress === null && s.nonce === null)).to.equal(true);
+    // Only steps that reference an earlier contract wait for its receipt.
+    expect(plan.steps.filter((s) => s.tx === null).map((s) => s.name)).to.deep.equal(["LykiaOrders"]);
     expect(plan.initCalls.every((c) => c.tx === null && c.address === null)).to.equal(true);
     const deployed = {};
     for (const step of plan.steps) {
@@ -85,15 +91,18 @@ describe("deployPlan (core): direct CREATE from the owner's wallet", function ()
     for (const call of plan.initCalls) await (await owner.sendTransaction(core.resolveCall(call, deployed))).wait();
     const router = await ethers.getContractAt("LykiaRouter", deployed.LykiaRouter);
     expect(await router.venueAllowed(deployed.PracticeLending)).to.equal(true);
+    expect(await (await ethers.getContractAt("LykiaOrders", deployed.LykiaOrders)).router()).to.equal(deployed.LykiaRouter);
   });
 
-  it("mainnet: factory and router only, addresses follow the owner's nonce", async function () {
+  it("mainnet: factory, router and orders, addresses follow the owner's nonce", async function () {
     const plan = core.deployPlan("mainnet", owner.address, { nonce: 7 });
-    expect(plan.steps.map((s) => s.name)).to.deep.equal(["LykiaAccountFactory", "LykiaRouter"]);
-    expect(plan.initCalls).to.have.length(0);
+    expect(plan.steps.map((s) => s.name)).to.deep.equal(["LykiaAccountFactory", "LykiaRouter", "LykiaOrders"]);
+    expect(plan.initCalls.map((c) => c.args[0].value)).to.deep.equal(["0x53bf6b0684ec7ef91e1387da3d1a1769bc5a6f77", "0x0fef9e88a7b76bcdbf451780c6774fe32965ee98"]);
+    expect(plan.steps[2].predictedAddress).to.equal(ethers.getCreateAddress({ from: owner.address, nonce: 9 }));
     expect(plan.steps[0].predictedAddress).to.equal(ethers.getCreateAddress({ from: owner.address, nonce: 7 }));
     expect(plan.steps[1].predictedAddress).to.equal(ethers.getCreateAddress({ from: owner.address, nonce: 8 }));
     expect(plan.notes.join(" ")).to.match(/creator/);
-    expect(core.deployedAddress("mainnet", "LykiaRouter")).to.equal(null);
+    expect(core.deployedAddress("mainnet", "LykiaRouter")).to.equal("0xc9c0ea4d22ddbef4504a634759fb78334efc5d18");
+    expect(core.deployedAddress("mainnet", "LykiaOrders")).to.equal(null);
   });
 });

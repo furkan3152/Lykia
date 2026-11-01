@@ -14,6 +14,13 @@ export interface RawCall {
   readonly to: Address;
   readonly data: Hex;
   readonly label: string;
+  /** "fee": Lykia's fee transfer; never the call that carries the memo. */
+  readonly role?: "fee";
+}
+
+/** Lykia's protocol fee: a plain ERC-20 transfer from the signer to the fee recipient, inside the step's batch. */
+export function feeCall(token: Address, recipient: Address, amount: bigint, label: string): RawCall {
+  return { to: token, data: encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [recipient, amount] }), label, role: "fee" };
 }
 
 export interface ShapeOptions {
@@ -60,7 +67,10 @@ export function shape(main: RawCall | readonly RawCall[], approval: RawCall | re
   if (calls.length === 0) throw new Error("A step needs at least one call.");
   const tx = (call: RawCall): UnsignedTransaction => ({ chainId: options.chainId, from: options.from, to: call.to, data: call.data, value: "0", label: call.label });
   if (options.account === "smart") return [...approvals, ...calls].map(tx);
-  const last = calls[calls.length - 1] as RawCall;
-  if (approvals.length === 0 && calls.length === 1) return [tx(withMemo(last, options))];
-  return [tx(batched([...approvals, ...calls.slice(0, -1), withMemo(last, options)], options.environment))];
+  if (approvals.length === 0 && calls.length === 1) return [tx(withMemo(calls[0] as RawCall, options))];
+  // The memo rides on the last value-moving call; a fee transfer after it (borrow) stays a plain call.
+  let target = calls.length - 1;
+  while (target > 0 && calls[target]?.role === "fee") target -= 1;
+  const inner = calls.map((c, i) => (i === target ? withMemo(c, options) : c));
+  return [tx(batched([...approvals, ...inner], options.environment))];
 }

@@ -8,7 +8,9 @@ const OWNER = "0x8c5281055b197443ff01dbbdfbf29fd63946ca1e" as const;
 test("plan steps are contract creations from the owner's wallet", () => {
   const plan = lykiaContracts.deployPlan("testnet", OWNER);
   assert.equal(plan.deployer, OWNER);
-  for (const s of plan.steps) assert.equal(s.tx?.to, null);
+  for (const s of plan.steps) if (s.tx) assert.equal(s.tx.to, null);
+  // LykiaOrders points at the router, so its creation waits for the router address.
+  assert.equal(plan.steps.find((s) => s.name === "LykiaOrders")?.tx, null);
   assert.ok(plan.notes.some((n) => /creator/u.test(n)));
 });
 
@@ -25,7 +27,7 @@ test("resume: recorded steps are done, the first missing one is next, references
   assert.equal(states.PracticeLending, "waiting");
   assert.equal(allDeployed(plan, deployed), false);
   assert.throws(() => lykiaContracts.resolveCall(plan.initCalls[0]!, deployed), /not deployed yet/u);
-  const full = { ...deployed, PracticeVaultUSDC: "0x4444444444444444444444444444444444444444", PracticeVaultEURC: "0x5555555555555555555555555555555555555555", PracticeSwap: "0x6666666666666666666666666666666666666666", PracticeLending: "0x7777777777777777777777777777777777777777" } as const;
+  const full = { ...deployed, PracticeVaultUSDC: "0x4444444444444444444444444444444444444444", PracticeVaultEURC: "0x5555555555555555555555555555555555555555", PracticeSwap: "0x6666666666666666666666666666666666666666", PracticeLending: "0x7777777777777777777777777777777777777777", LykiaOrders: "0x8888888888888888888888888888888888888888" } as const;
   assert.equal(allDeployed(plan, full), true);
   const call = lykiaContracts.resolveCall(plan.initCalls[0]!, full);
   assert.equal(call.to, "0x2222222222222222222222222222222222222222");

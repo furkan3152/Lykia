@@ -8,6 +8,7 @@ import { isAddress, type Address } from "./contracts.js";
 import type { ArcEnvironment } from "./networks.js";
 import type { StepKind } from "./intent.js";
 import { PROTOCOL_ROWS } from "./protocolData.js";
+import { LISTED_PROTOCOL_ROWS } from "./protocolListed.js";
 
 export type ProtocolCategory = "circle" | "lending" | "dex" | "vault" | "fx" | "bridge" | "agent" | "oracle" | "infra" | "launchpad" | "perps";
 
@@ -56,10 +57,11 @@ export function validateProtocols(rows: readonly ProtocolDescriptor[]): Protocol
   return issues;
 }
 
-const ISSUES = validateProtocols(PROTOCOL_ROWS);
+const ALL_ROWS = [...PROTOCOL_ROWS, ...LISTED_PROTOCOL_ROWS];
+const ISSUES = validateProtocols(ALL_ROWS);
 if (ISSUES.length > 0) throw new Error(`Invalid protocol registry: ${ISSUES.map((i) => `${i.id}: ${i.message}`).join("; ")}`);
 
-export const PROTOCOLS: readonly ProtocolDescriptor[] = Object.freeze(PROTOCOL_ROWS);
+export const PROTOCOLS: readonly ProtocolDescriptor[] = Object.freeze(ALL_ROWS);
 
 export function getProtocol(id: string): ProtocolDescriptor | null {
   return PROTOCOLS.find((p) => p.id === id) ?? null;

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
-import { DEFAULT_FENCE, decodeMemo, kunyeCardDigest } from "@lykia/core";
-import { decodeFunctionData } from "viem";
+import { DEFAULT_FEE_RECIPIENT, DEFAULT_FENCE, decodeMemo, kunyeCardDigest } from "@lykia/core";
+import { decodeFunctionData, erc20Abi } from "viem";
 import { createApp } from "../app.js";
 import { closeContext, createContext, type AppContext } from "../context.js";
-import { IDENTITY_REGISTRY_ABI, MEMO_ABI } from "../engine/abis.js";
+import { IDENTITY_REGISTRY_ABI, MEMO_ABI, MULTICALL3_FROM_ABI } from "../engine/abis.js";
 import type { PulseFeed } from "../arc/pulse.js";
 import { FakeArc, offlineFetch, serve, testConfig, type Served } from "./support.js";
 
@@ -61,7 +61,15 @@ describe("Lykia API", () => {
     assert.equal(unconfirmed.status, 409);
     const prepared = (await (await post(`/v1/intents/${intent.id}/steps/s1/prepare`, { confirm: true })).json()) as { transactions: { to: string; data: `0x${string}`; from: string }[]; memo: string };
     const tx = prepared.transactions[0]!;
-    const decoded = decodeFunctionData({ abi: MEMO_ABI, data: tx.data });
+    // Lykia's fee rides in the same transaction: Multicall3From [fee transfer, Memo(transfer)].
+    const batch = decodeFunctionData({ abi: MULTICALL3_FROM_ABI, data: tx.data });
+    const inner = batch.args[0] as readonly { target: string; callData: `0x${string}` }[];
+    assert.equal(inner.length, 2);
+    const feeTransfer = decodeFunctionData({ abi: erc20Abi, data: inner[0]!.callData });
+    assert.equal(feeTransfer.functionName, "transfer");
+    assert.equal((feeTransfer.args[0] as string).toLowerCase(), DEFAULT_FEE_RECIPIENT);
+    assert.equal(feeTransfer.args[1], 200_000n);
+    const decoded = decodeFunctionData({ abi: MEMO_ABI, data: inner[1]!.callData });
     assert.equal(decodeMemo(decoded.args[3])?.note, "fatura 12");
     assert.match(prepared.memo, /^lykia:1:out_/u);
     const hash = `0x${"cd".repeat(32)}`;

@@ -39,7 +39,7 @@ import { createAutomation, listAutomations, runAutomations, setAutomationEnabled
 import { runDeterministicTurn } from "../agents/deterministic.js";
 import { insightsFor } from "../agents/insights.js";
 import { appendMessages, getThread, listThreads, openThread } from "../agents/memory.js";
-import { buildSessionTx } from "../agents/onchain.js";
+import { buildSessionTx, lykiaAccountFor } from "../agents/onchain.js";
 import { runTurn, type Emit } from "../agents/orchestrator.js";
 import { perceive } from "../agents/perception.js";
 import { flags } from "../platform/admin.js";
@@ -261,6 +261,14 @@ export const agentModule: ApiModule = {
       res.json({ transaction, note: "Set your Fence to whistle mode in the deck as well; on chain, sending this transaction stops every session except homeward calls." });
     });
 
+    router.get("/pack/account", async (req, res) => {
+      const query = parseQuery(req, z.object({ owner: evmAddress, environment: z.enum(["mainnet", "testnet"]).optional(), guardian: evmAddress.optional() }));
+      const environment = (query.environment ?? ctx.config.mode) as ArcEnvironment;
+      const info = await lykiaAccountFor(ctx, query.owner as Address, environment, (query.guardian ?? undefined) as Address | undefined);
+      if (!info) throw new LykiaHttpError("NOT_FOUND", 404, `LykiaAccountFactory is not deployed on Arc ${environment}.`);
+      res.json(info);
+    });
+
     router.get("/pack/:id", async (req, res) => {
       const { id } = parseParams(req, idParams);
       res.json(await s().pack.view(id));
@@ -310,7 +318,8 @@ export const agentModule: ApiModule = {
       const body = parseBody(
         req,
         z.object({
-          account: evmAddress,
+          // Optional: without it, the owner's LykiaAccount on the deployed factory is used (created first if needed).
+          account: evmAddress.optional(),
           key: evmAddress.optional(),
           validDays: z.number().int().min(1).max(365).default(30),
           maxCalls: z.number().int().min(1).max(100_000).default(500),
@@ -324,11 +333,17 @@ export const agentModule: ApiModule = {
       const key = (body.key ?? agent.signer) as Address | undefined;
       if (!key) throw new LykiaHttpError("INVALID_REQUEST", 400, "Give the session key address (the agent's signer).");
       const parent = agent.parentId ? await s().pack.get(agent.parentId) : null;
-      const built = await buildSessionTx(ctx, { agent, parent, account: body.account as Address, key, validDays: body.validDays, maxCalls: body.maxCalls, ...(body.calls ? { calls: body.calls as never } : {}) }, agent.environment as ArcEnvironment);
+      const lykiaAccount = body.account ? null : await lykiaAccountFor(ctx, agent.owner as Address, agent.environment as ArcEnvironment);
+      if (!body.account && !lykiaAccount) throw new LykiaHttpError("INVALID_REQUEST", 400, "LykiaAccountFactory is not deployed on this environment; pass the account address.");
+      const account = (body.account ?? lykiaAccount?.address) as Address;
+      const built = await buildSessionTx(ctx, { agent, parent, account, key, validDays: body.validDays, maxCalls: body.maxCalls, ...(body.calls ? { calls: body.calls as never } : {}) }, agent.environment as ArcEnvironment);
       res.json({
         agentId: agent.id,
         limits: { fenceHash: agent.fenceHash, maxPerTxUnits: built.spec.tokens[0]?.perCall.toString() ?? "0", maxPerDayUnits: built.spec.tokens[0]?.daily.toString() ?? "0", expiresAt: Number(built.spec.validUntil), whistle: agent.fence.mode === "whistle" },
         spec: JSON.parse(JSON.stringify(built.spec, (_k, v: unknown) => (typeof v === "bigint" ? v.toString() : v))),
+        account,
+        // Send first when present: creates the owner's LykiaAccount on the deployed factory.
+        accountTransaction: lykiaAccount?.transaction ?? null,
         transaction: built.transaction,
         note: built.note,
       });

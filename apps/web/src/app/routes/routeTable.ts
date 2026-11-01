@@ -33,6 +33,12 @@ export type RouteId =
   | "kit"
   | "lykaion"
   | "developers"
+  | "orders"
+  | "markets"
+  | "discover"
+  | "alerts"
+  | "activity"
+  | "whatif"
   | "appNotFound"
   | "notFound";
 
@@ -72,6 +78,12 @@ export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze(
   you: page("you", "/app/you", "app", "You", "Your Lykia: language, currency, risk, venues, Lyko's persona and look, quiet hours and notifications.", () => import("../../pages/you/YouPage"), { robots: PRIVATE_ROBOTS }),
   memory: page("memory", "/app/memory", "app", "Lyko remembers", "Intent history, learned preferences, named contacts and recurring patterns, all editable and forgettable.", () => import("../../pages/memory/MemoryPage"), { robots: PRIVATE_ROBOTS }),
   circle: page("circle", "/app/circle", "app", "Circle", "Circle's products on Arc: Gateway unified balance, CCTP, StableFX, agent wallets, compliance, nanopayments and USYC.", () => import("../../pages/circle/CirclePage")),
+  orders: page("orders", "/app/orders", "app", "Orders", "Conditional orders on Arc: limit, stop-loss, take-profit, DCA and TWAP, signed once and executed by keepers.", () => import("../../pages/orders/OrdersPage")),
+  markets: page("markets", "/app/markets", "app", "Perps markets", "Live perpetuals data from Extended, whose collateral sits on Arc: price, funding, open interest, candles and the book.", () => import("../../pages/markets/MarketsPage")),
+  discover: page("discover", "/app/discover", "app", "Launch radar", "New pools on Arc's AMMs with each token's trust verdict, and the launchpads building on Arc.", () => import("../../pages/discover/DiscoverPage")),
+  alerts: page("alerts", "/app/alerts", "app", "Alerts", "Price, health factor, transfer, Scent and fill alerts, delivered to the inbox, webhooks and Telegram.", () => import("../../pages/alerts/AlertsPage"), { robots: PRIVATE_ROBOTS }),
+  activity: page("activity", "/app/activity", "app", "Activity", "Every intent, order and alert in one trail.", () => import("../../pages/activity/ActivityPage"), { robots: PRIVATE_ROBOTS }),
+  whatif: page("whatif", "/app/whatif", "app", "What-if", "Shock cirBTC and EURC and see your flock's value and health factors move, with the PnL explained.", () => import("../../pages/whatif/WhatIfPage"), { robots: PRIVATE_ROBOTS }),
   build: page("build", "/build", "app", "Build", "Keys, usage, webhooks, your fee, the playground, MCP and the SDK.", () => import("../../pages/build/BuildPage")),
   owner: page("owner", "/owner", "app", "Owner console", "Deploy Lykia's contracts step by step with your wallet, record them and manage flags.", () => import("../../pages/owner/OwnerPage"), { robots: PRIVATE_ROBOTS }),
   kit: page("kit", "/kit", "site", "Mosaic kit", "Every Mosaic component and scene.", () => import("../../pages/kit/KitPage"), { robots: PRIVATE_ROBOTS }),
@@ -82,7 +94,7 @@ export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze(
 });
 
 /** Matching order: specific routes first, the catch-alls last. `/app` itself is Ask Lyko. */
-const ORDER: readonly RouteId[] = ["landing", "ask", "flock", "pastures", "pack", "fence", "scent", "kunye", "outrun", "you", "memory", "circle", "build", "owner", "kit", "lykaion", "developers", "appNotFound", "notFound"];
+const ORDER: readonly RouteId[] = ["landing", "ask", "flock", "pastures", "pack", "fence", "scent", "kunye", "outrun", "you", "memory", "circle", "orders", "markets", "discover", "alerts", "activity", "whatif", "build", "owner", "kit", "lykaion", "developers", "appNotFound", "notFound"];
 
 let compiled: ReadonlyArray<readonly [RouteDefinition, CompiledPattern]> | null = null;
 

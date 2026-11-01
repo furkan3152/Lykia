@@ -19,6 +19,7 @@ import type { Address } from "./contracts.js";
 import type { ArcEnvironment } from "./networks.js";
 import type { FenceVerdict } from "./fenceEvaluate.js";
 import type { RouteChoice } from "./routes.js";
+import type { StepFee } from "./fee.js";
 
 export const INTENT_SPEC_VERSION = "lykia.intent/v1" as const;
 
@@ -107,6 +108,8 @@ export interface IntentStep {
   readonly settlement: { readonly kind: "receipt" } | { readonly kind: "cctp" | "gateway"; readonly destination: string; readonly expectedSeconds: number };
   /** Why this venue: the chosen option, the alternatives it beat and one sentence of reasoning. */
   readonly route?: RouteChoice;
+  /** Lykia's protocol fee for this step, paid on chain in the same transaction (see fee.ts). */
+  readonly fee?: StepFee;
   status: StepStatus;
   /** Once prepared: the unsigned calls (one when batched through Multicall3From). */
   transactions?: readonly UnsignedTransaction[];

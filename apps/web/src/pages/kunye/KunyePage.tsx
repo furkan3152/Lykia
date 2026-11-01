@@ -10,7 +10,7 @@ import { useEnvironment } from "../../lib/environment";
 import { useLykiaStore } from "../../lib/lykiaStore";
 import { Button, Card, EmptyState, Field, Input, Medallion, PageHead, Skeleton, Tag, toast } from "../../mosaic";
 
-interface KunyeView { readonly agentId: string; readonly owner: string; readonly agentWallet: string | null; readonly agentURI?: string | null; readonly card?: unknown; readonly cardNote?: string; readonly fenceInCard?: string | null; readonly fenceMatches?: boolean | null; readonly validations: { count: number; averageResponse: number | null }; readonly reputation: { clients: number; count: number | null; value: string | null } }
+interface KunyeView { readonly agentId: string; readonly owner: string; readonly agentWallet: string | null; readonly agentURI?: string | null; readonly card?: unknown; readonly cardNote?: string; readonly fenceInCard?: string | null; readonly fenceMatches?: boolean | null; readonly validations: { count: number; averageResponse: number | null }; readonly erc8354?: { count: number; averageResponse: number | null; tag: string; guard: string | null }; readonly reputation: { clients: number; count: number | null; value: string | null } }
 interface Draft { readonly card: unknown; readonly cardDigest: string; readonly fenceHash: string; readonly agentURI: string; readonly transaction: { chainId: number; to: `0x${string}`; data: `0x${string}`; value: string; label: string } }
 
 export default function KunyePage() {
@@ -61,10 +61,12 @@ export default function KunyePage() {
                   <dt>Agent wallet</dt><dd>{v.agentWallet ?? "—"}</dd>
                   <dt>Card</dt><dd>{v.agentURI ? `${v.agentURI.slice(0, 40)}…` : "—"}</dd>
                   <dt>Validations</dt><dd>{v.validations.count}</dd>
+                  <dt>ERC-8354 policy verdicts</dt><dd>{v.erc8354 ? `${v.erc8354.count}${v.erc8354.averageResponse !== null ? ` · avg ${v.erc8354.averageResponse}/100` : ""}` : "—"}</dd>
                   <dt>Reputation</dt><dd>{v.reputation.count ?? 0} from {v.reputation.clients} clients</dd>
                 </dl>
                 {v.fenceInCard ? <Tag tone={v.fenceMatches === false ? "bad" : "ok"}>FENCE {v.fenceInCard.slice(0, 20)}… {v.fenceMatches === null ? "" : v.fenceMatches ? "· MATCHES CHAIN" : "· MISMATCH"}</Tag> : <Tag tone="ghost">{"NO FENCE IN THE CARD"}</Tag>}
                 {v.cardNote ? <p className="m-note">{v.cardNote}</p> : null}
+                <p className="m-small m-muted">{"Policy verdicts follow ERC-8354: each judged action is filed to the ERC-8004 Validation Registry with a commitment to the Fence, never the Fence itself. Lykia's verdicts are marked “independent mediator”, not zero-knowledge."}</p>
                 {v.card ? <pre className="m-code" style={{ maxHeight: 220 }}>{JSON.stringify(v.card, null, 2)}</pre> : null}
               </div>
             ) : null}

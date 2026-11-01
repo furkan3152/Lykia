@@ -211,7 +211,7 @@ html[data-night="on"] .m-strip, html[data-night="on"] .m-strip b { color: #c9d3e
   .m-header__in { grid-template-columns: auto 1fr auto; }
   .m-nav { display: none; }
   .m-askbtn span { display: none; }
-  .m-tabsbar { position: fixed; z-index: 45; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(5, 1fr); background: var(--navy); padding-bottom: env(safe-area-inset-bottom); }
+  .m-tabsbar { position: fixed; z-index: 45; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(6, 1fr); background: var(--navy); padding-bottom: env(safe-area-inset-bottom); }
   .m-tabsbar a { padding: 10px 2px 12px; text-align: center; text-decoration: none; font-family: Silkscreen, monospace; font-size: 10px; letter-spacing: 0.06em; color: #a9bdd2; }
   .m-tabsbar a[aria-current="page"] { color: #fff; box-shadow: inset 0 3px 0 var(--ochre); }
   body { padding-bottom: 56px; }
@@ -392,3 +392,15 @@ html[data-night="on"] .m-footer__in { color: #c9d3e6; }
 .m-starter b { font-family: "Pixelify Sans", monospace; font-size: 16px; }
 .m-starter span { overflow-wrap: anywhere; }
 @media (max-width: 560px) { .m-starters { grid-template-columns: 1fr; } }
+
+/* desk sub-navigation (links styled like tabs) */
+.m-tabs a.m-desk-tab { padding: 8px 14px; color: #a9bdd2; font-family: Silkscreen, monospace; font-size: 11px; letter-spacing: 0.08em; text-decoration: none; }
+.m-tabs a.m-desk-tab.is-on { background: var(--cream); color: var(--navy); }
+.m-chart { display: block; width: 100%; height: 300px; background: var(--navy); image-rendering: pixelated; }
+.m-book { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; font-size: 12.5px; }
+.m-book div { display: flex; justify-content: space-between; padding: 2px 4px; }
+.m-scroll-x { overflow-x: auto; }
+@media (max-width: 640px) { .m-tabs a.m-desk-tab { padding: 7px 9px; font-size: 10px; } .m-chart { height: 220px; } }
+@media (max-width: 860px) { .m-tabsbar { grid-template-columns: repeat(6, auto); justify-content: space-between; padding-inline: 6px; } .m-tabsbar a { white-space: nowrap; letter-spacing: 0.02em; padding-inline: 4px; } }
+@media (max-width: 380px) { .m-tabsbar a { font-size: 9px; } }
+@media (max-width: 640px) { .m-grid-4.m-stats4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

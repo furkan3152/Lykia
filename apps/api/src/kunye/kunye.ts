@@ -4,6 +4,16 @@
  * agent's identity, card and standing from the registries.
  */
 import {
+  attestationFor,
+  attestationJson,
+  buildVerdict,
+  encodeAttestation,
+  encodeVerdict,
+  ERC8354_EIP,
+  ERC8354_TAG,
+  registryHashes,
+  responseScore,
+  verdictJson,
   buildKunyeCard,
   contractAddress,
   digestToBytes32,
@@ -23,7 +33,9 @@ import {
   type KunyeEndpoint,
   type UnsignedTransaction,
   type ValidationRecord,
+  type Mechanism,
 } from "@lykia/core";
+import { randomBytes } from "node:crypto";
 import { encodeFunctionData, type Hex } from "viem";
 import type { ArcChains } from "../chains/arc.js";
 import type { FetchLike } from "../health/dependencies.js";
@@ -69,11 +81,129 @@ export interface KunyeView {
   readonly fenceInCard: string | null;
   readonly fenceMatches: boolean | null;
   readonly validations: { readonly count: number; readonly averageResponse: number | null; readonly lykiaTag: string };
+  /** ERC-8354 policy verdicts filed under the `erc-8354` tag (any validator). */
+  readonly erc8354: { readonly count: number; readonly averageResponse: number | null; readonly tag: string; readonly guard: Address | null };
   readonly reputation: { readonly clients: number; readonly count: number | null; readonly value: string | null };
 }
 
+export interface Erc8354Input {
+  readonly environment: ArcEnvironment;
+  readonly agentId: string;
+  readonly intentId: string;
+  readonly verdict: FenceVerdict;
+  /** The owner confirmed a `confirm` verdict before signing. */
+  readonly confirmed?: boolean;
+  readonly owner: Address;
+  /** The address that executes the action (the agent wallet or the owner). */
+  readonly executor: Address;
+  /** The judged action: the prepared call's target, value and calldata. */
+  readonly action: { readonly to: Address; readonly data: Hex; readonly value: string };
+  readonly mechanism?: Mechanism;
+  readonly expirySeconds?: number;
+  readonly publicBaseUrl?: string;
+}
+
+export interface Erc8354Result {
+  readonly eip: string;
+  readonly mechanism: Mechanism;
+  readonly verdict: Record<string, string | number>;
+  readonly attestation: Record<string, string | number>;
+  readonly encoded: { readonly verdict: Hex; readonly attestation: Hex };
+  readonly requestHash: Hex;
+  readonly responseHash: Hex;
+  readonly requestURI: string;
+  readonly responseURI: string;
+  readonly actionNonce: string;
+  /** Owner files the request naming the guard as validator. */
+  readonly requestTransaction: UnsignedTransaction | null;
+  /** The guard answers with the attestation; signed by the guard's own key, never by this server. */
+  readonly responseTransaction: UnsignedTransaction | null;
+  readonly notes: readonly string[];
+}
+
 export class KunyeService {
-  constructor(private readonly deps: { readonly chains: ArcChains; readonly store: Store; readonly fetch: FetchLike }) {}
+  constructor(private readonly deps: { readonly chains: ArcChains; readonly store: Store; readonly fetch: FetchLike; readonly guard?: Address | null }) {}
+
+  private docs() {
+    return this.deps.store.collection<JsonValue>("erc8354_docs");
+  }
+
+  /** Per-agent salt padding the Fence commitment (the draft's rule for low-entropy rulesets). Never returned by attest. */
+  async policySalt(environment: ArcEnvironment, agentId: string): Promise<Hex> {
+    const salts = this.deps.store.collection<JsonValue>("erc8354_salts");
+    const key = `${environment}:${agentId}`;
+    const found = await salts.get(key);
+    if (found && typeof found.value === "string") return found.value as Hex;
+    const salt = `0x${randomBytes(32).toString("hex")}` as Hex;
+    await salts.compareAndSet(key, null, salt);
+    const settled = await salts.get(key);
+    return (settled?.value as Hex | undefined) ?? salt;
+  }
+
+  async verdictDoc(hash: string): Promise<JsonValue | null> {
+    if (!/^0x[0-9a-f]{64}$/u.test(hash)) return null;
+    return (await this.docs().get(hash))?.value ?? null;
+  }
+
+  /** An ERC-8354 verdict envelope + VerdictAttestation for one judged action, and the ValidationRegistry calls that file it. */
+  async attest8354(input: Erc8354Input): Promise<Erc8354Result> {
+    const mechanism: Mechanism = input.mechanism ?? "independent-mediator";
+    if (mechanism === "zk-secret-policy") throw new LykiaHttpError("INVALID_REQUEST", 400, "Lykia verdicts are not zero-knowledge proofs; zk-secret-policy is reserved for ZK Guards.");
+    const salt = await this.policySalt(input.environment, input.agentId);
+    const nonce = BigInt(await this.deps.store.counters("erc8354_nonce").increment(`${input.environment}:${input.agentId}`));
+    const expiry = BigInt(Math.floor(Date.now() / 1000) + (input.expirySeconds ?? 3_600));
+    const verdict = buildVerdict({
+      environment: input.environment,
+      agentId: input.agentId,
+      verdict: input.verdict,
+      ...(input.confirmed ? { confirmed: true } : {}),
+      salt,
+      executor: input.executor,
+      target: input.action.to,
+      value: BigInt(input.action.value),
+      callData: input.action.data,
+      actionNonce: nonce,
+      expiry,
+    });
+    const attestation = attestationFor(verdict, mechanism);
+    const { requestHash, responseHash } = registryHashes(verdict, attestation);
+    const legacy = validationRecord({ environment: input.environment, agentId: input.agentId, intentId: input.intentId, verdict: input.verdict });
+    const requestDoc = { schema: "erc-8354/verdict", eip: ERC8354_EIP, verdict: verdictJson(verdict), encoded: encodeVerdict(verdict), lykia: legacy };
+    const responseDoc = { schema: "erc-8354/attestation", eip: ERC8354_EIP, mechanism, attestation: attestationJson(attestation), encoded: encodeAttestation(attestation) };
+    await this.docs().put(requestHash, requestDoc as unknown as JsonValue);
+    await this.docs().put(responseHash, responseDoc as unknown as JsonValue);
+    const base = input.publicBaseUrl?.replace(/\/$/u, "");
+    const uri = (hash: Hex, doc: unknown) => (base ? `${base}/v1/kunye/verdicts/${hash}` : `data:application/json;base64,${Buffer.from(JSON.stringify(doc)).toString("base64")}`);
+    const requestURI = uri(requestHash, requestDoc);
+    const responseURI = uri(responseHash, responseDoc);
+    const network = networkFor(input.environment);
+    const registry = contractAddress("validationRegistry", input.environment) as Address;
+    const guard = this.deps.guard ?? null;
+    const notes: string[] = [
+      `mechanism ${mechanism}: the Fence is evaluated by Lykia's policy engine; this is not a zero-knowledge proof.`,
+      "policyRoot commits to the Fence hash padded with a per-agent salt; the owner can disclose (Fence, salt) to an auditor to recompute it.",
+    ];
+    if (!guard) notes.push("Set LYKIA_GUARD_ADDRESS to name a guard; until then only the documents and hashes are produced.");
+    return {
+      eip: ERC8354_EIP,
+      mechanism,
+      verdict: verdictJson(verdict),
+      attestation: attestationJson(attestation),
+      encoded: { verdict: encodeVerdict(verdict), attestation: encodeAttestation(attestation) },
+      requestHash,
+      responseHash,
+      requestURI,
+      responseURI,
+      actionNonce: nonce.toString(),
+      requestTransaction: guard
+        ? { chainId: network.chainId, from: input.owner, to: registry, data: encodeFunctionData({ abi: VALIDATION_REGISTRY_ABI, functionName: "validationRequest", args: [guard, BigInt(input.agentId), requestURI, requestHash] }), value: "0", label: `Request an ERC-8354 policy verdict for agent #${input.agentId}` }
+        : null,
+      responseTransaction: guard
+        ? { chainId: network.chainId, from: guard, to: registry, data: encodeFunctionData({ abi: VALIDATION_REGISTRY_ABI, functionName: "validationResponse", args: [requestHash, responseScore(verdict), responseURI, responseHash, ERC8354_TAG] }), value: "0", label: `Guard answers: ${verdict.decision === 1 ? "ALLOWED" : "not allowed"} (${ERC8354_TAG})` }
+        : null,
+      notes,
+    };
+  }
 
   private cards() {
     return this.deps.store.collection<JsonValue>("kunye_cards");
@@ -153,14 +283,16 @@ export class KunyeService {
     const inCard = typeof fenceInCard === "string" ? fenceInCard : null;
     const validationRegistry = contractAddress("validationRegistry", environment) as Address;
     const reputationRegistry = contractAddress("reputationRegistry", environment) as Address;
-    const [validations, lykiaSummary, clients] = await client.multicall({
+    const [validations, lykiaSummary, clients, ercSummary] = await client.multicall({
       contracts: [
         { address: validationRegistry, abi: VALIDATION_REGISTRY_ABI, functionName: "getAgentValidations", args: [id] },
         { address: validationRegistry, abi: VALIDATION_REGISTRY_ABI, functionName: "getSummary", args: [id, [], VALIDATION_TAG] },
         { address: reputationRegistry, abi: REPUTATION_REGISTRY_ABI, functionName: "getClients", args: [id] },
+        { address: validationRegistry, abi: VALIDATION_REGISTRY_ABI, functionName: "getSummary", args: [id, [], ERC8354_TAG] },
       ],
       allowFailure: true,
     });
+    const erc = ercSummary?.status === "success" ? (ercSummary.result as readonly [bigint, number]) : null;
     const clientList = clients?.status === "success" ? (clients.result as readonly Address[]) : [];
     let reputation: KunyeView["reputation"] = { clients: clientList.length, count: null, value: null };
     if (clientList.length > 0) {
@@ -180,6 +312,7 @@ export class KunyeService {
       fenceInCard: inCard,
       fenceMatches: fenceOnChain && inCard ? fenceOnChain === inCard : null,
       validations: { count: validations?.status === "success" ? (validations.result as readonly Hex[]).length : 0, averageResponse: summary && summary[0] > 0n ? summary[1] : null, lykiaTag: VALIDATION_TAG },
+      erc8354: { count: erc ? Number(erc[0]) : 0, averageResponse: erc && erc[0] > 0n ? erc[1] : null, tag: ERC8354_TAG, guard: this.deps.guard ?? null },
       reputation,
     };
   }

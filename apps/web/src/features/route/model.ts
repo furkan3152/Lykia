@@ -19,6 +19,8 @@ export interface StopView {
   readonly leavesArc: string | null;
   /** Parts resolved from Lyko's memory (contacts, "again"). */
   readonly memory: readonly string[];
+  /** "Lykia fee 1% · 2 USDC", or null on fee-free steps. */
+  readonly fee: string | null;
 }
 
 export interface ArtifactView {
@@ -29,6 +31,8 @@ export interface ArtifactView {
   readonly waived: readonly VerdictReason[];
   readonly stops: readonly StopView[];
   readonly fold: readonly string[];
+  /** Lykia fees across the plan, per token. */
+  readonly fees: readonly string[];
   readonly settled: number;
   readonly ferry: boolean;
   readonly progress: number;
@@ -51,6 +55,7 @@ export function artifactView(graph: IntentGraph, outrun: Outrun): ArtifactView {
     route: byId.get(w.stepId)?.route ?? null,
     leavesArc: w.leavesArc,
     memory: memoryBadges(byId.get(w.stepId)),
+    fee: w.fee ?? null,
   }));
   const next = stops.find((s) => s.turn === "signer")?.id ?? null;
   return {
@@ -61,6 +66,7 @@ export function artifactView(graph: IntentGraph, outrun: Outrun): ArtifactView {
     waived: graph.verdict.waived ?? [],
     stops,
     fold: outrun.fold ?? [],
+    fees: outrun.fees ?? [],
     settled: stops.filter((s) => s.status === "settled").length,
     ferry: stops.some((s) => s.leavesArc !== null),
     progress: outrun.progress,

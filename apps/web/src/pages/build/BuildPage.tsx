@@ -1,14 +1,16 @@
-/** Build: the developer portal. SIWE sign-in, keys, usage, webhooks, fee, playground, MCP and SDK. */
+/** Build: the developer portal. SIWE sign-in, keys, usage, webhooks, fee, playground, MCP, SDK and the Circle/Arc tools. */
 import type { ApiKeyView, CreatedApiKey, UsageView, WebhookEndpointView } from "@lykia/core/api/platform";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { FeesCard } from "../../features/fees/FeesCard";
 import { CircleMarket } from "../../features/circle/Circle";
+import { DevToolsCard } from "../../features/desk/DevTools";
 import { useSiwe } from "../../features/session/useSiwe";
 import { apiGet, apiPost, apiPut, apiUrl, describeError } from "../../lib/api";
 import { Button, Card, EmptyState, Field, Input, PageHead, Select, Skeleton, Tabs, Tag, toast } from "../../mosaic";
 
-type Tab = "keys" | "webhooks" | "fee" | "playground" | "mcp" | "sdk" | "circle";
+type Tab = "keys" | "webhooks" | "fee" | "playground" | "mcp" | "sdk" | "circle" | "arc";
 
 const SDK = `import { Lykia } from "@lykia/sdk";
 
@@ -17,6 +19,7 @@ const plan = await lykia.intents.create({
   text: "put half my USDC on the greenest pasture",
   owner, environment: "mainnet",
 });
+console.log(plan.outrun.fees); // Lykia fee totals, e.g. ["1 USDC"]
 for (const step of plan.intent.steps) {
   const { transactions } = await lykia.intents.prepare(plan.intent.id, step.id);
   // sign with viem, then:
@@ -67,8 +70,12 @@ export default function BuildPage() {
             <div key={t} className="m-frame m-card m-center"><h3 style={{ fontSize: 20 }}>{t}</h3><p className="m-small m-muted">{d}</p></div>
           ))}
         </div>
+        <div className="m-frame m-card" style={{ marginTop: 20 }}>
+          <span className="m-kick">{"WHERE LYKIA SITS"}</span>
+          <p className="m-small" style={{ marginTop: 6 }}>{"Circle's kits are the rails (move, bridge, swap, earn). A spending box is a limit (how much, to whom). Lykia is the judgment layer above both: a DeFi-aware Fence, a sub-agent tree with strict-subset Fences on and off chain, policy-checked routing across Arc venues, and memory. Every verdict can be filed as an ERC-8354 policy attestation in the ERC-8004 Validation Registry."}</p>
+        </div>
         <div style={{ marginTop: 24 }}>
-          <Tabs label="Portal" value={tab} onChange={setTab} tabs={[{ id: "keys", label: "KEYS" }, { id: "webhooks", label: "WEBHOOKS" }, { id: "fee", label: "FEE" }, { id: "playground", label: "PLAYGROUND" }, { id: "mcp", label: "MCP" }, { id: "sdk", label: "SDK" }, { id: "circle", label: "CIRCLE" }]} />
+          <Tabs label="Portal" value={tab} onChange={setTab} tabs={[{ id: "keys", label: "KEYS" }, { id: "webhooks", label: "WEBHOOKS" }, { id: "fee", label: "FEE" }, { id: "playground", label: "PLAYGROUND" }, { id: "mcp", label: "MCP" }, { id: "sdk", label: "SDK" }, { id: "circle", label: "CIRCLE" }, { id: "arc", label: "ARC TOOLS" }]} />
         </div>
         <div style={{ marginTop: 20 }}>
           {tab === "keys" ? (
@@ -97,9 +104,13 @@ export default function BuildPage() {
               <div style={{ marginTop: 10 }}>{(hooks.data?.endpoints ?? []).map((w) => <div key={w.id} className="m-row"><span className="num m-small">{w.url}</span></div>)}</div>
             </Card>
           ) : tab === "fee" ? (
+            <div style={{ display: "grid", gap: 16 }}>
+            <FeesCard />
             <Card title={"Integrator fee"} kicker="MAX 50 BPS" footer={<Button disabled={!enabled} onClick={async () => { try { await apiPut("/v1/developers/settings", { integratorFeeBps: Number(fee), feeRecipient: feeTo || null }); toast.success("Saved", { from: "LYKO" }); } catch (e) { toast.error(describeError(e), { from: "LYKO" }); } }}>SAVE</Button>}>
               <div className="m-grid-2" style={{ gap: 10 }}><Field label="bps"><Input value={fee} onChange={(e) => setFee(e.target.value)} /></Field><Field label="Recipient"><Input value={feeTo} placeholder="0x…" onChange={(e) => setFeeTo(e.target.value)} /></Field></div>
+              <p className="m-small m-muted" style={{ marginTop: 8 }}>{"Your integrator fee is on top of Lykia's protocol fee above."}</p>
             </Card>
+            </div>
           ) : tab === "playground" ? (
             <Card title="Playground" kicker="POST /v1/language/parse" footer={<Button onClick={() => void runPlay()}>RUN</Button>}>
               <Field label="Sentence (EN or TR)"><Input value={play} onChange={(e) => setPlay(e.target.value)} /></Field>
@@ -108,10 +119,13 @@ export default function BuildPage() {
           ) : tab === "mcp" ? (
             <Card title="MCP" kicker="STREAMABLE HTTP · READ + PROPOSE">
               <pre className="m-code">{JSON.stringify({ mcpServers: { lykia: { url: apiUrl("/v1/mcp"), headers: { "Lykia-Key": "lk_live_…" } } } }, null, 2)}</pre>
-              <p className="m-small m-muted" style={{ marginTop: 8 }}>Tools: lykia_plan, lykia_scent, lykia_flock, lykia_fence_evaluate, lykia_venues, lykia_outrun, lykia_pack, lykia_insights, lykia_pack_plan.</p>
+              <p className="m-small m-muted" style={{ marginTop: 8 }}>Tools: lykia_plan, lykia_scent, lykia_flock, lykia_fence_evaluate, lykia_venues, lykia_outrun, lykia_pack, lykia_insights, lykia_pack_plan, lykia_fees, lykia_circle_status, lykia_circle_services, lykia_launches, lykia_perps_markets, lykia_orders, lykia_dev_tools.</p>
+              <p className="m-small m-muted">{"Plans returned by lykia_plan carry each step's Lykia fee (fee on the step, fees on the outrun); the fee is paid inside the step's own transaction."}</p>
             </Card>
           ) : tab === "circle" ? (
             <CircleMarket compact />
+          ) : tab === "arc" ? (
+            <DevToolsCard />
           ) : (
             <Card title="@lykia/sdk" kicker="TYPED · RETRIES · SSE · WEBHOOK VERIFY"><pre className="m-code">{SDK}</pre></Card>
           )}

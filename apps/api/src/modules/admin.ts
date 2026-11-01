@@ -6,6 +6,8 @@
  *   GET  /admin/overview                    store, agents, flags, health of the RPCs
  *   POST /admin/circle/entity-secret        generate + register a Circle entity secret (returned once)
  *   GET  /deployments[?environment]         public: verified addresses for clients
+ *   GET  /admin/router[?environment]        LykiaRouter: owner, paused, venue allowlist + unsigned setVenue calls
+ *   GET  /fees                              public: Lykia's fee policy
  */
 import { FEATURE_FLAGS, type FeatureFlag } from "@lykia/core/api/platform";
 import { z } from "zod";
@@ -16,6 +18,8 @@ import { mustSession } from "../platform/session.js";
 import { EntitySecretError, registerEntitySecret } from "../circle/entitySecret.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { environmentSchema } from "./common.js";
+import { FEE_POLICY_TEXT, feePercent, MAX_FEE_BPS } from "@lykia/core";
+import { routerStatus } from "../engine/lykiaRouter.js";
 
 const hex = (len: number) => z.string().regex(new RegExp(`^0x[0-9a-fA-F]{${len}}$`, "u"));
 
@@ -35,6 +39,15 @@ export const adminModule: ApiModule = {
       const session = await mustSession(ctx, req, "admin");
       const body = parseBody(req, z.object({ environment: environmentSchema, contract: z.string().regex(/^[A-Za-z][A-Za-z0-9]{1,63}$/u), name: z.string().regex(/^[A-Za-z][A-Za-z0-9]{1,63}$/u).optional(), address: hex(40), txHash: hex(64) }));
       res.status(201).json(await recordDeployment(ctx, { environment: body.environment, contract: body.contract, ...(body.name ? { name: body.name } : {}), address: body.address as `0x${string}`, txHash: body.txHash as `0x${string}`, recordedBy: session.address }));
+    });
+    router.get("/fees", (_req, res) => {
+      const { bps, recipient } = ctx.config.fee;
+      res.json({ bps, percent: feePercent(bps), recipient, maxBps: MAX_FEE_BPS, policy: FEE_POLICY_TEXT, exempt: ["repay", "withdraw", "approve", "revoke", "register-agent", "attest"] });
+    });
+    router.get("/admin/router", async (req, res) => {
+      await mustSession(ctx, req, "admin");
+      const { environment } = parseQuery(req, z.object({ environment: environmentSchema.optional() }));
+      res.json(await routerStatus(ctx.chains, environment ?? ctx.config.mode));
     });
     router.get("/admin/flags", async (req, res) => {
       await mustSession(ctx, req, "admin");

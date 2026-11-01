@@ -9,7 +9,7 @@
  * as fallbacks.
  */
 import { createRequire } from "node:module";
-import { NETWORKS, type ArcEnvironment, type ArcNetwork, type ArcNetworkKey } from "@lykia/core";
+import { DEFAULT_FEE_BPS, DEFAULT_FEE_RECIPIENT, MAX_FEE_BPS, NETWORKS, type ArcEnvironment, type ArcNetwork, type ArcNetworkKey } from "@lykia/core";
 import { z } from "zod";
 import { LOG_LEVELS, type LogLevel } from "./log.js";
 
@@ -69,7 +69,11 @@ export interface Config {
     readonly walletSetId: string | null;
   };
   readonly telegramBotToken: string | null;
+  /** Lykia's protocol fee, paid on chain in every value-moving step. */
+  readonly fee: { readonly bps: number; readonly recipient: `0x${string}` };
   /** x402: paid routes are disabled unless payTo is set. */
+  /** ERC-8354 attestations: the address that answers validation requests as Lykia's guard (it signs on its own; the server never does). */
+  readonly guardAddress: `0x${string}` | null;
   readonly x402: {
     readonly payTo: `0x${string}` | null;
     /** Price per call in USDC base units (6 decimals). */
@@ -200,7 +204,10 @@ const EnvSchema = z.object({
   CIRCLE_WALLET_SET_ID: optionalString,
   TELEGRAM_BOT_TOKEN: optionalString,
   LYKIA_X402_PAY_TO: optionalString,
+  LYKIA_GUARD_ADDRESS: optionalString,
   LYKIA_X402_PRICE_USDC: optionalString,
+  LYKIA_FEE_BPS: optionalString,
+  LYKIA_FEE_RECIPIENT: optionalString,
   LYKIA_X402_FACILITATOR_URL: optionalString,
   LYKIA_LOG_LEVEL: z.preprocess(
     (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
@@ -280,6 +287,9 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
     issues.push("LYKIA_SESSION_SECRET: must be at least 32 characters");
   }
   if (env.LYKIA_X402_PAY_TO && !/^0x[0-9a-fA-F]{40}$/u.test(env.LYKIA_X402_PAY_TO)) issues.push("LYKIA_X402_PAY_TO: must be a 0x address");
+  if (env.LYKIA_GUARD_ADDRESS && !/^0x[0-9a-fA-F]{40}$/u.test(env.LYKIA_GUARD_ADDRESS)) issues.push("LYKIA_GUARD_ADDRESS: must be a 0x address");
+  if (env.LYKIA_FEE_BPS !== undefined && !(/^\d{1,3}$/u.test(env.LYKIA_FEE_BPS) && Number(env.LYKIA_FEE_BPS) <= MAX_FEE_BPS)) issues.push(`LYKIA_FEE_BPS: an integer from 0 to ${MAX_FEE_BPS} (100 = 1%)`);
+  if (env.LYKIA_FEE_RECIPIENT && !/^0x[0-9a-fA-F]{40}$/u.test(env.LYKIA_FEE_RECIPIENT)) issues.push("LYKIA_FEE_RECIPIENT: must be a 0x address");
   if (env.LYKIA_X402_PRICE_USDC && !/^\d{1,6}(?:\.\d{1,6})?$/u.test(env.LYKIA_X402_PRICE_USDC)) issues.push("LYKIA_X402_PRICE_USDC: a USDC amount such as 0.01");
   if (env.LYKIA_X402_FACILITATOR_URL && !/^https:\/\//u.test(env.LYKIA_X402_FACILITATOR_URL)) issues.push("LYKIA_X402_FACILITATOR_URL: must be an https URL");
   const adminAddresses = splitList(env.LYKIA_ADMIN_ADDRESSES).map((a) => a.toLowerCase());
@@ -307,6 +317,8 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
     stablefxApiKey: env.STABLEFX_API_KEY ?? env.CIRCLE_API_KEY ?? null,
     circle: Object.freeze({ apiKey: env.CIRCLE_API_KEY ?? null, entitySecret: env.CIRCLE_ENTITY_SECRET ?? null, walletSetId: env.CIRCLE_WALLET_SET_ID ?? null }),
     telegramBotToken: env.TELEGRAM_BOT_TOKEN ?? null,
+    fee: Object.freeze({ bps: env.LYKIA_FEE_BPS !== undefined ? Number(env.LYKIA_FEE_BPS) : DEFAULT_FEE_BPS, recipient: (env.LYKIA_FEE_RECIPIENT ?? DEFAULT_FEE_RECIPIENT).toLowerCase() as `0x${string}` }),
+    guardAddress: (env.LYKIA_GUARD_ADDRESS as `0x${string}` | undefined) ?? null,
     x402: Object.freeze({
       payTo: (env.LYKIA_X402_PAY_TO as `0x${string}` | undefined) ?? null,
       priceUnits: usdcUnits(env.LYKIA_X402_PRICE_USDC ?? "0.01"),

@@ -1,4 +1,4 @@
-export { Lykia, type LykiaOptions, type RequestOptions, type FetchLike } from "./client.js";
+export { Lykia, type LykiaOptions, type RequestOptions, type FetchLike, type FeesResponse, type PackAccountResponse } from "./client.js";
 export { LykiaError } from "./errors.js";
 export { readSse, parseFrame, type SseMessage } from "./sse.js";
 export { verifyWebhook, signWebhook, WEBHOOK_TOLERANCE_SECONDS, type VerifyOptions } from "./webhooks.js";
