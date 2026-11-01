@@ -13,6 +13,7 @@ import { useLykiaStore } from "../../lib/lykiaStore";
 import { useLamp } from "../../lib/pulseStore";
 import { Button, Seal, Skeleton, Tag, cx } from "../../mosaic";
 import { harbor, HARBOR_H, HARBOR_W } from "../../mosaic/scenes";
+import { BetaRibbon } from "../ecosystem/BetaRibbon";
 import { SceneFrame } from "../scenes/SceneFrame";
 import { artifactView, pct } from "./model";
 import { useIntent } from "./useIntent";
@@ -58,6 +59,7 @@ export function RouteArtifact({ proposal, intentId, onClose }: { proposal?: Agen
         <div style={{ marginTop: 10 }}>
           <Seal decision={decision} />
         </div>
+        <BetaRibbon inline />
       </div>
       {proposal?.rationale ? <p className="m-small m-muted m-center" style={{ marginBottom: 10 }}>{proposal.rationale}</p> : null}
       {view ? (

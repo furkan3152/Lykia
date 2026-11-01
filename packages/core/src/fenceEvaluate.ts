@@ -85,6 +85,7 @@ export type FenceRule =
   | "confirm.cross-chain"
   | "confirm.agent"
   | "confirm.unlisted"
+  | "beta.cap"
   | "facts.unavailable";
 
 export type Decision = "allow" | "confirm" | "deny";
@@ -136,7 +137,15 @@ export function scheduleState(schedule: Fence["schedule"], now: number): Schedul
   return { open, weekday, minutes };
 }
 
-export function evaluateFence(input: Fence, facts: FenceFacts): FenceVerdict {
+/**
+ * Server-side limits that sit above every Fence and that no owner can loosen,
+ * such as the mainnet beta cap while the contracts are unaudited.
+ */
+export interface FenceOptions {
+  readonly beta?: { readonly perStepUsd: string; readonly perDayUsd: string };
+}
+
+export function evaluateFence(input: Fence, facts: FenceFacts, options: FenceOptions = {}): FenceVerdict {
   const fence = normalizeFence(input);
   const reasons: VerdictReason[] = [];
   const waived: VerdictReason[] = [];
@@ -231,6 +240,29 @@ export function evaluateFence(input: Fence, facts: FenceFacts): FenceVerdict {
     };
     window("caps.daily", "Daily", fence.caps?.dailyUsd, facts.spent ? facts.spent.dayUsd : fence.caps?.dailyUsd ? null : undefined);
     window("caps.weekly", "Weekly", fence.caps?.weeklyUsd, facts.spent ? facts.spent.weekUsd : fence.caps?.weeklyUsd ? null : undefined);
+  }
+
+  // Mainnet beta cap: a hard ceiling while the contracts are unaudited. Homeward moves are waived like every limit.
+  if (options.beta && facts.environment === "mainnet") {
+    const stepCap = usdMicros(options.beta.perStepUsd);
+    let betaMicros = 0n;
+    let betaUnpriced = false;
+    for (const step of facts.steps) {
+      if (step.kind === "approve") continue;
+      if (step.usd === null) {
+        betaUnpriced = true;
+        deny("facts.unavailable", "This step has no USD price; the beta cap cannot be checked.", step.id);
+        continue;
+      }
+      const micros = usdMicros(step.usd);
+      if (!isHomeward(step, facts.owner)) betaMicros += micros;
+      if (micros > stepCap) deny("beta.cap", `Beta: $${step.usd} is above the $${options.beta.perStepUsd} per-step cap that applies to everyone while Lykia's contracts are unaudited.`, step.id);
+    }
+    if (!betaUnpriced && betaMicros > 0n) {
+      const spentDay = facts.spent ? facts.spent.dayUsd : null;
+      if (spentDay === null) deny("facts.unavailable", "Today's spend is unknown; the beta daily cap cannot be checked.");
+      else if (usdMicros(spentDay) + betaMicros > usdMicros(options.beta.perDayUsd)) deny("beta.cap", `Beta: today's spend would reach $${formatUsdMicros(usdMicros(spentDay) + betaMicros)}; the beta daily cap is $${options.beta.perDayUsd}.`);
+    }
   }
 
   const schedule = scheduleState(fence.schedule, facts.now);

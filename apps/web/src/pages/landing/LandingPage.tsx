@@ -7,6 +7,8 @@ import { useMemo } from "react";
 import { Link } from "../../app/routes/Link";
 import { warmRoute } from "../../app/routes/loader";
 import { Composer } from "../../features/ask/Composer";
+import { CircleQuay, EcosystemLink, EcosystemStats, PartnerStalls } from "../../features/ecosystem/Harbour";
+import { useEcosystem } from "../../features/ecosystem/useEcosystem";
 import { FeesCard } from "../../features/fees/FeesCard";
 import { SAMPLE_PENS, topYields, useRates } from "../../features/data/hooks";
 import { SceneFrame } from "../../features/scenes/SceneFrame";
@@ -22,6 +24,7 @@ const CHIPS = {
 
 export default function LandingPage() {
   const rates = useRates("mainnet");
+  const eco = useEcosystem("mainnet");
   const lit = usePulse((s) => s.lit);
   const pulse = usePulse((s) => s.pulse);
   const live = useMemo(() => topYields(rates.data, "USDC", 3), [rates.data]);
@@ -46,7 +49,7 @@ export default function LandingPage() {
           )}
         </h1>
         <p className="m-sub">
-          {"Say it once. Lyko herds your stablecoins across Arc, keeps every agent inside its Fence and every wolf outside it. Built on Arc Network."}
+          {"Built on Circle's rails, routing value to every Arc protocol, keeping every agent inside its Fence. Say it once; Lyko herds your stablecoins and keeps the wolves outside."}
         </p>
       </header>
 
@@ -162,35 +165,23 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="why-lykia">
+      <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="eco-together">
         <div className="m-center">
-          <span className="m-kick">{"WHY LYKIA"}</span>
-          <h2 id="why-lykia" className="m-h2" style={{ marginTop: 8 }}>{"Rails move money. Limits cap it. Lyko judges it."}</h2>
+          <span className="m-kick">{"BUILT ON ARC NETWORK · POWERED BY CIRCLE"}</span>
+          <h2 id="eco-together" className="m-h2" style={{ marginTop: 8 }}>{"Lykia brings the Arc ecosystem together"}</h2>
+          <p className="m-sub" style={{ marginTop: 8 }}>{"Circle's products are the quay. Every Arc protocol is a stall along it. Lykia walks every user and agent to the right one, inside their Fence."}</p>
         </div>
-        <div className="m-grid-3" style={{ marginTop: 24 }}>
-          <Card title={"Rails"} kicker={"CIRCLE · BUILT IN"}>
-            <p className="m-small">{"USDC, CCTP, Gateway, StableFX and the App Kits move value on Arc. Lykia runs on them; it does not replace them."}</p>
-          </Card>
-          <Card title={"Limits"} kicker={"HOW MUCH, TO WHOM"}>
-            <p className="m-small">{"A spending box caps an agent per payment and per day. Useful, and part of Lykia too: LykiaAccount enforces caps on chain."}</p>
-          </Card>
-          <Card title={"Judgment"} kicker={"WHAT LYKIA ADDS"}>
-            {[
-              ["DeFi-aware Fence", "Health factor, FX band, slippage, Scent, venues, hours. Missing facts deny."],
-              ["The Pack", "Sub-agents whose Fences and budgets stay inside their parent's, on and off chain."],
-              ["Policy-checked routing", "Every Arc venue compared; every route passes the Fence before it can be signed."],
-              ["Memory", "Lyko learns your venues, payees and habits, and asks before trusting anything new."],
-            ].map(([t, d]) => (
-              <div key={t} className="m-row">
-                <div>
-                  <b>{t}</b>
-                  <p className="m-small m-muted">{d}</p>
-                </div>
-              </div>
-            ))}
-          </Card>
+        <div style={{ marginTop: 24 }}>
+          <CircleQuay data={eco.data} compact />
         </div>
-        <p className="m-kick m-center" style={{ marginTop: 14 }}>{"VERDICTS FILED AS ERC-8354 POLICY ATTESTATIONS · BUILT ON ARC NETWORK"}</p>
+        <EcosystemStats data={eco.data} />
+        <div style={{ marginTop: 20 }}>
+          <PartnerStalls data={eco.data} limit={6} filter="verified" />
+        </div>
+        <div className="m-center" style={{ marginTop: 18 }}>
+          <EcosystemLink />
+        </div>
+        <p className="m-kick m-center" style={{ marginTop: 14 }}>{"VERDICTS FILED AS ERC-8354 POLICY ATTESTATIONS · BUILT ON ARC NETWORK · POWERED BY CIRCLE"}</p>
       </section>
 
       <section className="m-wrap" style={{ marginTop: 48 }}>

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Lykia API: Arc data, the Flock, intents and Outruns, the Fence, K\u00fcnye, Scent, the Lyko agent, MCP and x402.",
+  "description": "Lykia API: Arc data, the Flock, intents and Outruns, the Fence, Tags, Scent, the Lyko agent, MCP and x402.",
   "license": "MIT",
   "main": "dist/index.js",
   "engines": {
@@ -15,7 +15,8 @@
     "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --import tsx --test \"src/**/__tests__/*.test.ts\"",
-    "smoke": "tsx src/scripts/smoke.ts"
+    "smoke": "tsx src/scripts/smoke.ts",
+    "smoke:e2e": "tsx src/scripts/e2e.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.134.0",

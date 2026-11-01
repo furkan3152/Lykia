@@ -105,3 +105,22 @@ test("loosened rules are reported", () => {
   assert.ok(lines.some((l) => l.includes("Scent requirement relaxed")));
   assert.deepEqual(loosenedRules(DEFAULT_FENCE, DEFAULT_FENCE), []);
 });
+
+test("the beta cap sits above every Fence on mainnet, and homeward moves pass", () => {
+  const beta = { beta: { perStepUsd: "1000", perDayUsd: "5000" } };
+  const loose = { ...DEFAULT_FENCE, caps: { perStepUsd: "1000000", perIntentUsd: "1000000", dailyUsd: "1000000", weeklyUsd: "1000000" }, confirm: { aboveUsd: "1000000", when: [] } };
+  const big = evaluateFence(loose, facts([{ id: "s1", kind: "deposit", venue: "vault", usd: "1500", tokens: [usdcIn] }], { environment: "mainnet" }), beta);
+  assert.equal(big.decision, "deny");
+  assert.ok(big.reasons.some((r) => r.rule === "beta.cap"));
+  const day = evaluateFence(loose, facts([{ id: "s1", kind: "deposit", venue: "vault", usd: "900", tokens: [usdcIn] }], { environment: "mainnet", spent: { dayUsd: "4500", weekUsd: "4500" } }), beta);
+  assert.ok(day.reasons.some((r) => r.rule === "beta.cap"));
+  const small = evaluateFence(loose, facts([{ id: "s1", kind: "deposit", venue: "vault", usd: "900", tokens: [usdcIn] }], { environment: "mainnet" }), beta);
+  assert.equal(small.decision, "allow");
+  const testnet = evaluateFence(loose, facts([{ id: "s1", kind: "deposit", venue: "vault", usd: "1500", tokens: [usdcIn] }]), beta);
+  assert.ok(!testnet.reasons.some((r) => r.rule === "beta.cap"));
+});
+
+test("the beta cap never holds back a move that brings value home", () => {
+  const home = evaluateFence(DEFAULT_FENCE, facts([{ id: "s1", kind: "transfer", venue: "arc-transfer", usd: "25000", tokens: [usdcIn], recipient: OWNER }], { environment: "mainnet" }), { beta: { perStepUsd: "1000", perDayUsd: "5000" } });
+  assert.ok(!home.reasons.some((r) => r.rule === "beta.cap"));
+});

@@ -71,6 +71,8 @@ export interface Config {
   readonly telegramBotToken: string | null;
   /** Lykia's protocol fee, paid on chain in every value-moving step. */
   readonly fee: { readonly bps: number; readonly recipient: `0x${string}` };
+  /** Mainnet beta cap (USD) that sits above every Fence while the contracts are unaudited; null when switched off. */
+  readonly beta: { readonly perStepUsd: string; readonly perDayUsd: string } | null;
   /** x402: paid routes are disabled unless payTo is set. */
   /** ERC-8354 attestations: the address that answers validation requests as Lykia's guard (it signs on its own; the server never does). */
   readonly guardAddress: `0x${string}` | null;
@@ -207,6 +209,7 @@ const EnvSchema = z.object({
   LYKIA_GUARD_ADDRESS: optionalString,
   LYKIA_X402_PRICE_USDC: optionalString,
   LYKIA_FEE_BPS: optionalString,
+  LYKIA_BETA_CAP_USD: optionalString,
   LYKIA_FEE_RECIPIENT: optionalString,
   LYKIA_X402_FACILITATOR_URL: optionalString,
   LYKIA_LOG_LEVEL: z.preprocess(
@@ -286,12 +289,13 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
   if (env.LYKIA_SESSION_SECRET && env.LYKIA_SESSION_SECRET.length < 32) {
     issues.push("LYKIA_SESSION_SECRET: must be at least 32 characters");
   }
-  if (env.LYKIA_X402_PAY_TO && !/^0x[0-9a-fA-F]{40}$/u.test(env.LYKIA_X402_PAY_TO)) issues.push("LYKIA_X402_PAY_TO: must be a 0x address");
+  if (env.LYKIA_X402_PAY_TO && env.LYKIA_X402_PAY_TO !== "off" && !/^0x[0-9a-fA-F]{40}$/u.test(env.LYKIA_X402_PAY_TO)) issues.push("LYKIA_X402_PAY_TO: must be a 0x address or off");
   if (env.LYKIA_GUARD_ADDRESS && !/^0x[0-9a-fA-F]{40}$/u.test(env.LYKIA_GUARD_ADDRESS)) issues.push("LYKIA_GUARD_ADDRESS: must be a 0x address");
+  if (env.LYKIA_BETA_CAP_USD !== undefined && !/^(?:off|\d{1,9}(?:\/\d{1,9})?)$/u.test(env.LYKIA_BETA_CAP_USD)) issues.push("LYKIA_BETA_CAP_USD: 'off', a per-step USD cap such as 1000, or per-step/per-day such as 1000/5000");
   if (env.LYKIA_FEE_BPS !== undefined && !(/^\d{1,3}$/u.test(env.LYKIA_FEE_BPS) && Number(env.LYKIA_FEE_BPS) <= MAX_FEE_BPS)) issues.push(`LYKIA_FEE_BPS: an integer from 0 to ${MAX_FEE_BPS} (100 = 1%)`);
   if (env.LYKIA_FEE_RECIPIENT && !/^0x[0-9a-fA-F]{40}$/u.test(env.LYKIA_FEE_RECIPIENT)) issues.push("LYKIA_FEE_RECIPIENT: must be a 0x address");
   if (env.LYKIA_X402_PRICE_USDC && !/^\d{1,6}(?:\.\d{1,6})?$/u.test(env.LYKIA_X402_PRICE_USDC)) issues.push("LYKIA_X402_PRICE_USDC: a USDC amount such as 0.01");
-  if (env.LYKIA_X402_FACILITATOR_URL && !/^https:\/\//u.test(env.LYKIA_X402_FACILITATOR_URL)) issues.push("LYKIA_X402_FACILITATOR_URL: must be an https URL");
+  if (env.LYKIA_X402_FACILITATOR_URL && env.LYKIA_X402_FACILITATOR_URL !== "off" && !/^https:\/\//u.test(env.LYKIA_X402_FACILITATOR_URL)) issues.push("LYKIA_X402_FACILITATOR_URL: must be an https URL or off");
   const adminAddresses = splitList(env.LYKIA_ADMIN_ADDRESSES).map((a) => a.toLowerCase());
   if (adminAddresses.some((a) => !/^0x[0-9a-f]{40}$/u.test(a))) issues.push("LYKIA_ADMIN_ADDRESSES: comma-separated 0x addresses");
   const siweDomains = splitList(env.LYKIA_SIWE_DOMAINS).map((d) => d.toLowerCase());
@@ -317,12 +321,13 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
     stablefxApiKey: env.STABLEFX_API_KEY ?? env.CIRCLE_API_KEY ?? null,
     circle: Object.freeze({ apiKey: env.CIRCLE_API_KEY ?? null, entitySecret: env.CIRCLE_ENTITY_SECRET ?? null, walletSetId: env.CIRCLE_WALLET_SET_ID ?? null }),
     telegramBotToken: env.TELEGRAM_BOT_TOKEN ?? null,
+    beta: betaCap(env.LYKIA_BETA_CAP_USD),
     fee: Object.freeze({ bps: env.LYKIA_FEE_BPS !== undefined ? Number(env.LYKIA_FEE_BPS) : DEFAULT_FEE_BPS, recipient: (env.LYKIA_FEE_RECIPIENT ?? DEFAULT_FEE_RECIPIENT).toLowerCase() as `0x${string}` }),
     guardAddress: (env.LYKIA_GUARD_ADDRESS as `0x${string}` | undefined) ?? null,
     x402: Object.freeze({
-      payTo: (env.LYKIA_X402_PAY_TO as `0x${string}` | undefined) ?? null,
+      payTo: x402PayTo(env.LYKIA_X402_PAY_TO, env.LYKIA_FEE_RECIPIENT ?? DEFAULT_FEE_RECIPIENT),
       priceUnits: usdcUnits(env.LYKIA_X402_PRICE_USDC ?? "0.01"),
-      facilitatorUrl: env.LYKIA_X402_FACILITATOR_URL ?? null,
+      facilitatorUrl: env.LYKIA_X402_FACILITATOR_URL === "off" ? null : (env.LYKIA_X402_FACILITATOR_URL ?? CIRCLE_X402_FACILITATOR),
     }),
     networks: withRpcOverrides(rpcOverrides),
     rpcOverrides: Object.freeze(rpcOverrides),
@@ -346,4 +351,20 @@ export function arcNetworkFor(mode: ArcEnvironment): ArcNetworkKey {
 function usdcUnits(amount: string): string {
   const [whole = "0", fraction = ""] = amount.split(".");
   return (BigInt(whole) * 1_000_000n + BigInt(fraction.padEnd(6, "0").slice(0, 6) || "0")).toString();
+}
+
+/** "1000/5000" = per-step/per-day USD; "1000" = per step with a 5x daily cap; "off" disables. Default 1000/5000. */
+export function betaCap(raw: string | undefined): Config["beta"] {
+  if (raw === "off") return null;
+  const [step = "1000", day] = (raw ?? "1000/5000").split("/");
+  return Object.freeze({ perStepUsd: step, perDayUsd: day ?? String(Number(step) * 5) });
+}
+
+/** Circle's x402 facilitator (verify, settle, supported). Settlement needs CIRCLE_API_KEY. */
+export const CIRCLE_X402_FACILITATOR = "https://api.circle.com/v1/facilitator/x402";
+
+/** Paid routes pay the fee recipient unless LYKIA_X402_PAY_TO names another wallet or is "off". */
+export function x402PayTo(raw: string | undefined, feeRecipient: string): `0x${string}` | null {
+  if (raw === "off") return null;
+  return (raw ?? feeRecipient).toLowerCase() as `0x${string}`;
 }

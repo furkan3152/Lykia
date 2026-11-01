@@ -15,6 +15,7 @@ import { MESSAGE_TRANSMITTER_V2_ABI } from "../engine/abis.js";
 import { IRIS_API } from "../engine/adapters.js";
 import { quoteVenues, type QuoteRequest } from "../engine/api.js";
 import { services } from "../services.js";
+import { paid } from "../x402/x402.js";
 import { environmentOf, environmentQuery, environmentSchema } from "./common.js";
 
 const amount = z.string().regex(/^\d{1,18}(?:\.\d{1,18})?$/u);
@@ -34,6 +35,21 @@ export const routesModule: ApiModule = {
       const request = { ...body, environment: environmentOf(ctx, body.environment) } as QuoteRequest;
       res.json(await quoteVenues(services(ctx).router, request));
     });
+
+    // Route quotes across every executable Arc venue, sold per call over x402 (USDC on Arc).
+    router.post(
+      "/x402/quote",
+      ctx.limits.heavy,
+      (req, _res, next) => {
+        parseBody(req, quoteSchema);
+        next();
+      },
+      paid(ctx, "Route quote: the best executable venue on Arc for a swap, deposit or borrow, with every alternative"),
+      async (req, res) => {
+        const body = parseBody(req, quoteSchema);
+        res.json(await quoteVenues(services(ctx).router, { ...body, environment: environmentOf(ctx, body.environment) } as QuoteRequest));
+      },
+    );
 
     router.get("/rates", ctx.limits.heavy, async (req, res) => {
       const environment = environmentOf(ctx, parseQuery(req, environmentQuery).environment);

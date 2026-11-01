@@ -123,6 +123,23 @@ export async function verifyPayment(payment: PaymentPayload, req: PaymentRequire
   }
 }
 
+/** Circle's facilitator takes the account's API key as a bearer token; other facilitators get none. */
+export function facilitatorHeaders(facilitatorUrl: string, circleApiKey: string | null): Record<string, string> {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (circleApiKey && /^https:\/\/api(?:-sandbox)?\.circle\.com\//u.test(facilitatorUrl)) headers.authorization = `Bearer ${circleApiKey}`;
+  return headers;
+}
+
+/** How paid routes settle on this server, in words a client can trust. */
+export function settlementMode(ctx: AppContext): { readonly mode: "settled" | "verify-only" | "off"; readonly facilitator: string | null; readonly note: string } {
+  const { payTo, facilitatorUrl } = ctx.config.x402;
+  if (!payTo) return { mode: "off", facilitator: null, note: "Paid routes are disabled on this server." };
+  if (!facilitatorUrl) return { mode: "verify-only", facilitator: null, note: "Payments are verified locally and not settled on-chain; no USDC moves." };
+  const circle = /circle\.com/u.test(facilitatorUrl);
+  if (circle && !ctx.config.circle.apiKey) return { mode: "settled", facilitator: facilitatorUrl, note: "Circle's facilitator settles payments; this server has no Circle API key, so settlement is refused and the route keeps answering 402." };
+  return { mode: "settled", facilitator: facilitatorUrl, note: circle ? "Circle's facilitator settles every payment on Arc before the answer is sent." : "The configured facilitator settles every payment before the answer is sent." };
+}
+
 /** Express middleware: free when x402 is not configured, otherwise 402 until a valid payment arrives. */
 export function paid(ctx: AppContext, description: string): RequestHandler {
   return async (req, res, next) => {
@@ -131,7 +148,8 @@ export function paid(ctx: AppContext, description: string): RequestHandler {
       sendError(req, res, new LykiaHttpError("NOT_FOUND", 404, "Paid routes are not enabled on this server (LYKIA_X402_PAY_TO is unset)."));
       return;
     }
-    const environment: ArcEnvironment = req.query.environment === "mainnet" ? "mainnet" : req.query.environment === "testnet" ? "testnet" : ctx.config.mode;
+    const asked = req.query.environment ?? (req.body as { environment?: unknown } | undefined)?.environment;
+    const environment: ArcEnvironment = asked === "mainnet" ? "mainnet" : asked === "testnet" ? "testnet" : ctx.config.mode;
     const requirements = requirementsFor(environment, payTo, priceUnits, `${req.baseUrl}${req.path}`, description);
     const header = req.get("x-payment") ?? req.get("payment-signature");
     const challenge = (error: string) => {
@@ -151,7 +169,7 @@ export function paid(ctx: AppContext, description: string): RequestHandler {
       try {
         const response = await ctx.fetch(`${facilitatorUrl.replace(/\/$/u, "")}/settle`, {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: facilitatorHeaders(facilitatorUrl, ctx.config.circle.apiKey),
           body: JSON.stringify({ x402Version: X402_VERSION, paymentPayload: payment, paymentRequirements: requirements }),
           signal: AbortSignal.timeout(10_000),
         });

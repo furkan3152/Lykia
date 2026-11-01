@@ -1,11 +1,12 @@
 /** Build: the developer portal. SIWE sign-in, keys, usage, webhooks, fee, playground, MCP, SDK and the Circle/Arc tools. */
 import type { ApiKeyView, CreatedApiKey, UsageView, WebhookEndpointView } from "@lykia/core/api/platform";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { FeesCard } from "../../features/fees/FeesCard";
 import { CircleMarket } from "../../features/circle/Circle";
 import { DevToolsCard } from "../../features/desk/DevTools";
+import { useEcosystem } from "../../features/ecosystem/useEcosystem";
 import { useSiwe } from "../../features/session/useSiwe";
 import { apiGet, apiPost, apiPut, apiUrl, describeError } from "../../lib/api";
 import { Button, Card, EmptyState, Field, Input, PageHead, Select, Skeleton, Tabs, Tag, toast } from "../../mosaic";
@@ -71,9 +72,10 @@ export default function BuildPage() {
           ))}
         </div>
         <div className="m-frame m-card" style={{ marginTop: 20 }}>
-          <span className="m-kick">{"WHERE LYKIA SITS"}</span>
-          <p className="m-small" style={{ marginTop: 6 }}>{"Circle's kits are the rails (move, bridge, swap, earn). A spending box is a limit (how much, to whom). Lykia is the judgment layer above both: a DeFi-aware Fence, a sub-agent tree with strict-subset Fences on and off chain, policy-checked routing across Arc venues, and memory. Every verdict can be filed as an ERC-8354 policy attestation in the ERC-8004 Validation Registry."}</p>
+          <span className="m-kick">{"BUILT ON ARC NETWORK · POWERED BY CIRCLE"}</span>
+          <p className="m-small" style={{ marginTop: 6 }}>{"Built on Circle's rails, routing value to every Arc protocol, keeping every agent inside its Fence. Circle moves the value: USDC, CCTP, Gateway, StableFX and the agent stack. Lykia brings every Arc protocol within one route of every user and agent, checks each move against a DeFi-aware Fence and files every verdict as an ERC-8354 policy attestation in the ERC-8004 Validation Registry."}</p>
         </div>
+        <IntegrateSection />
         <div style={{ marginTop: 24 }}>
           <Tabs label="Portal" value={tab} onChange={setTab} tabs={[{ id: "keys", label: "KEYS" }, { id: "webhooks", label: "WEBHOOKS" }, { id: "fee", label: "FEE" }, { id: "playground", label: "PLAYGROUND" }, { id: "mcp", label: "MCP" }, { id: "sdk", label: "SDK" }, { id: "circle", label: "CIRCLE" }, { id: "arc", label: "ARC TOOLS" }]} />
         </div>
@@ -132,5 +134,58 @@ export default function BuildPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+const ADAPTER = `// apps/api/src/engine/venues/yourprotocol.ts
+export const yourProtocol: VenueAdapter = {
+  id: "your-protocol",              // the registry id
+  verbs: ["deposit", "withdraw"],   // what Lykia may route to you
+  async quote(request, deps) { /* read your contracts */ },
+  calls(step, deps) { /* approve + act, returned unsigned */ },
+};`;
+
+/** The integration program for Arc protocols (anchor #integrate). */
+function IntegrateSection() {
+  const eco = useEcosystem("mainnet");
+  useEffect(() => {
+    if (window.location.hash === "#integrate") document.getElementById("integrate")?.scrollIntoView();
+  }, []);
+  const free = eco.data?.builders.freeTier ?? { perMinute: 120, perDay: 20000 };
+  return (
+    <section id="integrate" className="m-frame m-card" style={{ marginTop: 20, scrollMarginTop: 96 }} aria-labelledby="integrate-title">
+      <span className="m-kick">{"INTEGRATE YOUR PROTOCOL"}</span>
+      <h2 id="integrate-title" className="m-h2" style={{ marginTop: 6, fontSize: 26 }}>{"Reach every Lykia user and agent"}</h2>
+      <p className="m-small" style={{ marginTop: 6 }}>{`${eco.data ? `${eco.data.totals.protocols} Arc protocols are in the registry and ${eco.data.totals.routable} are routed today. ` : ""}Listing is free and open to every team building on Arc.`}</p>
+      <div className="m-grid-3" style={{ marginTop: 14 }}>
+        <div>
+          <b>{"1. Registry entry"}</b>
+          <ul className="m-small" style={{ margin: "6px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>
+            <li>{"Contract addresses per network, from your docs"}</li>
+            <li>{"eth_getCode is non-empty for every address"}</li>
+            <li>{"An eth_call simulation of your main action"}</li>
+            <li>{"Category, summary and website"}</li>
+          </ul>
+        </div>
+        <div>
+          <b>{"2. One typed adapter"}</b>
+          <pre className="m-code" style={{ marginTop: 6, fontSize: 11 }}>{ADAPTER}</pre>
+        </div>
+        <div>
+          <b>{"3. What you get"}</b>
+          <ul className="m-small" style={{ margin: "6px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>
+            <li>{"Routing from Ask Lyko, the SDK, MCP and x402"}</li>
+            <li>{"A stall on /ecosystem with TVL and value routed"}</li>
+            <li>{`Free developer keys: ${free.perMinute}/min, ${free.perDay.toLocaleString("en-US")}/day`}</li>
+            <li>{"Every move checked by the user's Fence first"}</li>
+          </ul>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2" style={{ marginTop: 14 }}>
+        <a className="m-btn m-btn--sea" href="https://github.com/furkan3152/lykia/blob/main/docs/integrate-your-protocol.md" target="_blank" rel="noopener noreferrer">{"READ THE GUIDE"}</a>
+        <a className="m-btn m-btn--ghost" href={apiUrl("/.well-known/x402")} target="_blank" rel="noopener noreferrer">{"x402 MANIFEST"}</a>
+        <a className="m-btn m-btn--ghost" href={apiUrl("/v1/openapi.json")} target="_blank" rel="noopener noreferrer">{"OPENAPI"}</a>
+      </div>
+    </section>
   );
 }

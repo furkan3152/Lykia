@@ -3,6 +3,7 @@ import { DEFAULT_FENCE, evaluateFence, FENCE_TEMPLATES, fenceHash, loosenedRules
 import { z } from "zod";
 import type { ApiModule } from "../http/router.js";
 import { parseBody } from "../http/validate.js";
+import { paid } from "../x402/x402.js";
 import { fenceFrom } from "./common.js";
 
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/u);
@@ -58,5 +59,22 @@ export const fenceModule: ApiModule = {
       const facts = { ...body.facts, now: body.facts.now ?? ctx.clock.now() } as FenceFacts;
       res.json(evaluateFence(fence, facts));
     });
+
+    // The same check, sold per call over x402 (USDC on Arc) for agents listed on Circle's Agent Marketplace.
+    // The body is validated before payment, so a malformed request never costs anything.
+    const paidSchema = z.object({ fence: z.unknown().optional(), facts: factsSchema });
+    router.post(
+      "/x402/fence/evaluate",
+      (req, _res, next) => {
+        parseBody(req, paidSchema);
+        next();
+      },
+      paid(ctx, "Fence check: allow, confirm or deny a planned DeFi move against an owner's Fence, with a verdict digest"),
+      (req, res) => {
+        const body = parseBody(req, paidSchema);
+        const fence = fenceFrom(body.fence) ?? DEFAULT_FENCE;
+        res.json(evaluateFence(fence, { ...body.facts, now: body.facts.now ?? ctx.clock.now() } as FenceFacts));
+      },
+    );
   },
 };

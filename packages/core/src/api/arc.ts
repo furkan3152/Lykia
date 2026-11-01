@@ -29,5 +29,7 @@ export interface HealthResponse {
   readonly runtime?: "serverless" | "server";
   /** "memory" means state does not survive restarts or cold starts. */
   readonly persistence?: "memory" | "postgres";
+  /** Mainnet beta cap above every Fence while the contracts are unaudited; null when off. */
+  readonly beta?: { readonly perStepUsd: string; readonly perDayUsd: string; readonly audited: false } | null;
   readonly features: { readonly agent: boolean; readonly stablefx: boolean; readonly x402: boolean; readonly x402Settlement: boolean };
 }

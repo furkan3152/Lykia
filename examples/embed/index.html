@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Routed by Lykia: embed example</title>
+    <style>
+      body { margin: 0 auto; max-width: 880px; padding: 24px 16px; font-family: system-ui, sans-serif; color: #1d1a16; background: #fbf6ea; }
+      code { background: #efe4cc; padding: 1px 4px; }
+    </style>
+  </head>
+  <body>
+    <h1>Your protocol's page</h1>
+    <p>Everything below comes live from <code>GET /v1/ecosystem</code>. Change <code>data-limit</code>, or set <code>data-protocol="morpho-blue"</code> to show one stall.</p>
+
+    <div data-lykia-ecosystem data-limit="6"></div>
+
+    <script async src="https://lykia-akdogan1.vercel.app/embed/routed-by-lykia.js" data-api="https://lykia-api-akdogan1.vercel.app"></script>
+  </body>
+</html>

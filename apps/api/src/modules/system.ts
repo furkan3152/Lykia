@@ -30,7 +30,8 @@ export const systemModule: ApiModule = {
         store: { kind: report.store.kind, ok: report.store.ok },
         runtime: RUNTIME,
         persistence: ctx.store.kind === "postgres" ? "postgres" : "memory",
-        features: { agent: ctx.config.agent.anthropicApiKey !== null, stablefx: ctx.config.stablefxApiKey !== null, x402: ctx.config.x402.payTo !== null, x402Settlement: ctx.config.x402.facilitatorUrl !== null },
+        beta: ctx.config.beta ? { ...ctx.config.beta, audited: false } : null,
+        features: { agent: ctx.config.agent.anthropicApiKey !== null, stablefx: ctx.config.stablefxApiKey !== null, x402: ctx.config.x402.payTo !== null, x402Settlement: ctx.config.x402.facilitatorUrl !== null && (ctx.config.circle.apiKey !== null || !/circle\.com/u.test(ctx.config.x402.facilitatorUrl)) },
       };
       res.status(body.status === "down" ? 503 : 200).json(body);
     });

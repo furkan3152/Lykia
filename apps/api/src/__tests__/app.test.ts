@@ -116,6 +116,31 @@ describe("Lykia API", () => {
     assert.ok(response.headers.get("payment-required"));
   });
 
+  it("publishes the ecosystem, open to every origin", async () => {
+    const response = await fetch(`${served.url}/v1/ecosystem?environment=mainnet`, { headers: { origin: "https://someone-elses.app" } });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("access-control-allow-origin"), "*");
+    const body = (await response.json()) as { protocols: { lykia: string }[]; circle: unknown[]; totals: { routable: number } };
+    assert.ok(body.protocols.length > 20);
+    assert.ok(body.totals.routable > 0);
+    assert.ok(body.circle.length > 5);
+  });
+
+  it("serves the x402 manifest and OpenAPI with the configured price", async () => {
+    const manifest = (await (await fetch(`${served.url}/.well-known/x402`)).json()) as { payTo: string; services: { resource: string }[] };
+    assert.equal(manifest.payTo, "0x2222222222222222222222222222222222222222");
+    assert.equal(manifest.services.length, 3);
+    const spec = (await (await fetch(`${served.url}/v1/openapi.json`)).json()) as { openapi: string; paths: Record<string, unknown> };
+    assert.equal(spec.openapi, "3.1.0");
+    assert.ok(spec.paths["/v1/x402/fence/evaluate"]);
+  });
+
+  it("validates a paid request before asking for payment", async () => {
+    assert.equal((await post("/v1/x402/fence/evaluate", { facts: {} })).status, 400);
+    const ok = await post("/v1/x402/fence/evaluate", { facts: { environment: "testnet", owner: "0x1111111111111111111111111111111111111111", signer: "wallet", steps: [] } });
+    assert.equal(ok.status, 402);
+  });
+
   it("answers in Lyko's voice without an agent key", async () => {
     const body = (await (await post("/v1/agent/chat", { messages: [{ role: "user", content: "come bye" }], environment: "testnet" })).json()) as { mode: string; command: string };
     assert.equal(body.mode, "reader");

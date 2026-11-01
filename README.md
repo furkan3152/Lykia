@@ -2,6 +2,9 @@
 
 **Arc gives agents money. Lyko keeps them in line.**
 
+> Built on Circle's rails, routing value to every Arc protocol, keeping every
+> agent inside its Fence.
+
 Lykia is the agent and stablecoin desk of the Kletia family, built on Arc
 Network. Say an outcome, in English or Turkish, and Lykia does four things:
 
@@ -38,16 +41,20 @@ Every Circle and protocol address in the registry was checked on-chain with
 
 ## Why Lykia
 
-Circle's products are the rails: USDC, CCTP, Gateway, StableFX and the App
-Kits move value on Arc. A spending box is a limit: it caps how much an agent
-pays and to whom. Lykia is the judgment layer above both, and it runs on
-those rails rather than replacing them.
+Lykia brings the Arc ecosystem together. It is built on Circle's rails, it
+routes value to every Arc protocol, and it keeps every agent inside its
+Fence.
 
-| Layer | Answers | Example |
+| Part | What it means | Where to see it |
 |---|---|---|
-| Rails | Can value move? | Circle App Kit, CCTP, Gateway |
-| Limits | How much, to whom? | Per-payment and daily caps (LykiaAccount enforces these too) |
-| Judgment (Lykia) | Should this DeFi move happen at all, and where? | The Fence, the Pack, policy-checked routing, memory |
+| Built on Circle's rails | USDC, CCTP, Gateway, StableFX, Circle Wallets, Compliance screening, the x402 facilitator and the Agent Marketplace move the value. Lykia uses every Circle product that is live on Arc and sends more traffic their way. | `GET /v1/circle/status` |
+| Routing value to every Arc protocol | Every Arc protocol is in the registry. For each move Lykia compares the routable ones and records why it chose one. Any team can integrate (`docs/integrate-your-protocol.md`). | `/ecosystem`, `GET /v1/ecosystem` |
+| Keeping every agent inside its Fence | Every step is checked before it can be signed, and each verdict is filed as an ERC-8354 policy attestation. | `docs/fence.md` |
+
+**Mainnet beta.** Lykia's contracts are not audited yet. Until they are,
+every mainnet move is capped at $1,000 per step and $5,000 per day per owner,
+above every Fence (`LYKIA_BETA_CAP_USD`). Moves that bring value home are
+never capped.
 
 What sets Lykia apart:
 
@@ -94,7 +101,8 @@ packages/core/   @lykia/core — zero-I/O spec: networks, contracts, tokens, ven
 apps/api/        @lykia/api  — Express 5 service on Arc (see its README)
 apps/web/        @lykia/web  — the pixel deck: Lyko, the valley, Deck, Flock, Fence,
                  Scent, Tag, developers (see its README)
-docs/            the Fence spec and brand notes
+docs/            the Fence spec, brand notes, positioning and the integration guide
+examples/        agent over MCP, SDK in Node (plan -> prepare -> simulate -> sign), embed
 ```
 
 ## Quick start
@@ -109,6 +117,9 @@ npm run dev:web        # http://localhost:5176
 
 `npm run verify` runs the whole gate: package build and tests, lint,
 typecheck, the API and web test suites, and both app builds.
+`npm run smoke:e2e -w @lykia/api` runs a mainnet dry run end to end: plan with
+the fee, Fence verdict, prepared calldata and an `eth_call` simulation of
+every call, plus the beta cap and the x402 challenge. It signs nothing.
 
 ## Status
 

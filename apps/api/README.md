@@ -43,7 +43,8 @@ All variables are optional; see [`.env.example`](./.env.example).
 | `LYKIA_KEEPER_PRIVATE_KEY` | (none) | optional keeper wallet that executes due conditional orders (it earns the tip and holds only gas). Without it anyone can run orders via `/v1/orders/:hash/execute-tx` |
 | `CRON_SECRET` | (none) | Bearer secret for `/cron/orders` and `/cron/alerts` on serverless hosts, and for the keeper and alert-check routes |
 | `LYKIA_GUARD_ADDRESS` | (none) | ERC-8354 guard that answers validation requests for Fence verdicts (own key; see docs/tag.md) |
-| `LYKIA_X402_PAY_TO`, `LYKIA_X402_PRICE_USDC`, `LYKIA_X402_FACILITATOR_URL` | (none), `0.01`, (none) | x402 paid routes; off unless `PAY_TO` is set; settlement only with a facilitator |
+| `LYKIA_X402_PAY_TO`, `LYKIA_X402_PRICE_USDC`, `LYKIA_X402_FACILITATOR_URL` | the fee recipient, `0.01`, Circle's facilitator | x402 paid routes; `PAY_TO=off` disables them. Circle's facilitator settles with `CIRCLE_API_KEY`; without the key the routes keep answering 402. `FACILITATOR_URL=off` runs verify-only |
+| `LYKIA_BETA_CAP_USD` | `1000/5000` | Mainnet beta cap per step / per day per owner, above every Fence while the contracts are unaudited; `off` removes it |
 | `LYKIA_RATE_LIMIT_DEFAULT`, `_HEAVY`, `_AUTH` | `600`, `60`, `20` | requests per minute per IP |
 | `LYKIA_FEE_BPS`, `LYKIA_FEE_RECIPIENT` | `100`, `0x8c52…ca1e` | Lykia protocol fee per value-moving step (100 = 1%, at most 300) and the address that receives it; see Protocol fee below |
 
@@ -131,6 +132,10 @@ Rules the engine keeps:
 |---|---|
 | `GET /v1/scent/:token?environment=` | registry and look-alike check, bytecode, EIP-1167 / EIP-1967 proxies, privileged selectors, owner, and a holder transfer simulated with `eth_call` plus a balance-slot state override |
 | `GET /v1/x402/scent/:token` | the same report with a wider balance-slot search, paid per call over x402 |
+| `POST /v1/x402/fence/evaluate` | the Fence check, paid per call over x402 (validated before payment) |
+| `POST /v1/x402/quote` | the route quote across every executable Arc venue, paid per call over x402 |
+| `GET /v1/ecosystem` | every Arc protocol, Circle product, TVL on Arc (DefiLlama, cached) and the value Lykia routed; public, CORS-open, cached 60 s |
+| `GET /v1/openapi.json`, `GET /.well-known/x402` | OpenAPI 3.1 and the x402 service manifest for marketplaces and agents |
 
 Arc's public RPC does not offer `eth_simulateV1` or `debug_traceCall`, so Scent simulates with `eth_call` state overrides. The best verdict for a token outside the registry is `no-red-flags`; Scent never says "safe".
 
@@ -252,7 +257,7 @@ MCP adds `lykia_launches`, `lykia_perps_markets`, `lykia_orders` and `lykia_dev_
 
 ### x402
 
-Paid routes answer `402` with `{ x402Version: 2, accepts: [requirements] }` (also base64 in `PAYMENT-REQUIRED`): scheme `exact`, network `eip155:5042` or `eip155:5042002`, asset USDC, EIP-712 domain `USDC` version `2`. The client retries with the signed EIP-3009 authorization in `X-PAYMENT` (or `PAYMENT-SIGNATURE`). The server verifies the signer, recipient, amount, validity window and nonce locally. It settles through `LYKIA_X402_FACILITATOR_URL` (for example Circle's facilitator) when set; otherwise it runs verify-only and says so in `PAYMENT-RESPONSE`.
+Paid routes answer `402` with `{ x402Version: 2, accepts: [requirements] }` (also base64 in `PAYMENT-REQUIRED`): scheme `exact`, network `eip155:5042` or `eip155:5042002`, asset USDC, EIP-712 domain `USDC` version `2`. The client retries with the signed EIP-3009 authorization in `X-PAYMENT` (or `PAYMENT-SIGNATURE`). The server verifies the signer, recipient, amount, validity window and nonce locally. It then settles through Circle's x402 facilitator (`LYKIA_X402_FACILITATOR_URL`, bearer `CIRCLE_API_KEY`) before answering; a failed settlement answers `402`, never a free response. With `LYKIA_X402_FACILITATOR_URL=off` it runs verify-only and says so in `PAYMENT-RESPONSE`.
 
 ## What is live
 

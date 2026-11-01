@@ -69,6 +69,8 @@ export interface PlannerDeps {
   readonly router?: VenueRouter;
   /** Lykia's protocol fee (LYKIA_FEE_BPS / LYKIA_FEE_RECIPIENT); defaults to 1% to the admin. */
   readonly fee?: FeePolicy;
+  /** Mainnet beta cap above every Fence (LYKIA_BETA_CAP_USD); absent = none. */
+  readonly beta?: { readonly perStepUsd: string; readonly perDayUsd: string } | null;
 }
 
 export interface PlanInput {
@@ -269,7 +271,7 @@ export class Planner {
       spent: input.spent,
       now: input.now,
     };
-    const verdict = evaluateFence(fence, facts);
+    const verdict = evaluateFence(fence, facts, this.deps.beta ? { beta: this.deps.beta } : {});
     const graph: IntentGraph = {
       spec: INTENT_SPEC_VERSION,
       id: input.id,

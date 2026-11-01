@@ -37,6 +37,7 @@ describe("route table", () => {
       ["/app/scent/0xabc", "scent"],
       ["/app/outrun/out_1", "outrun"],
       ["/build", "build"],
+      ["/ecosystem", "ecosystem"],
       ["/app/you", "you"],
       ["/app/memory", "memory"],
       ["/app/circle", "circle"],

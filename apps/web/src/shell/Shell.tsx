@@ -3,6 +3,7 @@ import React, { Suspense, useEffect } from "react";
 import type { RouteId, RouteKind } from "../app/routes/routeTable";
 import { useLykiaStore, whistleOn } from "../lib/lykiaStore";
 import { useProfile } from "../lib/profile";
+import { BetaRibbon } from "../features/ecosystem/BetaRibbon";
 import { Footer } from "./Footer";
 import { Header } from "./Header";
 import { MobileTabs } from "./MobileTabs";
@@ -29,6 +30,7 @@ export function Shell({ kind, routeId, children }: { readonly kind: RouteKind; r
       <PulseDriver />
       <Header kind={kind} routeId={routeId} />
       {!full ? <PulseStrip /> : null}
+      {kind === "app" && !full ? <BetaRibbon /> : null}
       <main id="main" style={{ minHeight: full ? undefined : "60vh" }}>
         <Suspense fallback={null}>{children}</Suspense>
       </main>

@@ -42,7 +42,7 @@ export const adminModule: ApiModule = {
     });
     router.get("/fees", (_req, res) => {
       const { bps, recipient } = ctx.config.fee;
-      res.json({ bps, percent: feePercent(bps), recipient, maxBps: MAX_FEE_BPS, policy: FEE_POLICY_TEXT, exempt: ["repay", "withdraw", "approve", "revoke", "register-agent", "attest"] });
+      res.json({ bps, percent: feePercent(bps), recipient, maxBps: MAX_FEE_BPS, policy: FEE_POLICY_TEXT, exempt: ["repay", "withdraw", "approve", "revoke", "register-agent", "attest"], beta: ctx.config.beta ? { ...ctx.config.beta, environment: "mainnet", note: "A hard cap above every Fence while Lykia's contracts are unaudited. Moves that bring value home are never capped." } : null });
     });
     router.get("/admin/router", async (req, res) => {
       await mustSession(ctx, req, "admin");
