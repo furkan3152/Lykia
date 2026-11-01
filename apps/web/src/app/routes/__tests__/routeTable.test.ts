@@ -47,6 +47,7 @@ describe("route table", () => {
       ["/app/alerts", "alerts"],
       ["/app/activity", "activity"],
       ["/app/whatif", "whatif"],
+      ["/app/security", "security"],
       ["/owner", "owner"],
       ["/kit", "kit"],
       ["/lykaion", "lykaion"],

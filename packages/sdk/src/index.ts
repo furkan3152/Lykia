@@ -1,6 +1,14 @@
 export { Lykia, type LykiaOptions, type RequestOptions, type FetchLike, type FeesResponse, type PackAccountResponse } from "./client.js";
+export { LykiaTransport, createTransport, type HttpMethod, type LykiaEventMap, type LykiaEventName, type LykiaEventHandler } from "./transport.js";
 export { LykiaError } from "./errors.js";
 export { readSse, parseFrame, type SseMessage } from "./sse.js";
 export { verifyWebhook, signWebhook, WEBHOOK_TOLERANCE_SECONDS, type VerifyOptions } from "./webhooks.js";
+export { intentsApi, type IntentsApi, type CreateIntentInput } from "./intents.js";
+export { fenceApi, type FenceApi, type FenceValidation } from "./fence.js";
+export { agentApi, packApi, standingApi, ordersApi, type AgentApi, type PackApi, type ChatInput, type AskResult } from "./agents.js";
+export { circleApi, type CircleApi } from "./circle.js";
+export { ecosystemApi, type EcosystemApi } from "./ecosystem.js";
+export { projectsApi, type ProjectsApi, type OriginChallenge, type ProjectUsage } from "./projects.js";
 export type { AgentProposal, ChatEvent, PackAgentView, InsightsResponse, ThreadView, Automation, SessionTxResponse } from "@lykia/core/api/agents";
 export type { WebhookEvent, ApiKeyView, CreatedApiKey, SessionView } from "@lykia/core/api/platform";
+export type { Project, ProjectInput, ProjectPublicView, ProjectModule, ProjectBrand } from "@lykia/core";

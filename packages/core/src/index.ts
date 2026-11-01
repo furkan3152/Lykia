@@ -28,3 +28,6 @@ export * from "./fee.js";
 export * from "./orders.js";
 export * from "./alerts.js";
 export * from "./devtools.js";
+export * from "./knowledge.js";
+export * from "./knowledgeData.js";
+export * from "./project.js";

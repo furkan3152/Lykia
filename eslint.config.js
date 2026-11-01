@@ -30,6 +30,15 @@ export default defineConfig([
     languageOptions: { globals: { ...globals.browser } },
   },
   {
+    files: ["packages/widget/**/*.{ts,tsx}", "examples/**/*.{ts,tsx}"],
+    extends: [reactHooks.configs.flat.recommended],
+    languageOptions: { globals: { ...globals.browser } },
+  },
+  {
+    files: ["packages/embed/**/*.ts"],
+    languageOptions: { globals: { ...globals.browser } },
+  },
+  {
     files: ["**/*.{mjs,js}"],
     languageOptions: { ecmaVersion: 2022, sourceType: "module", globals: { ...globals.node } },
   },

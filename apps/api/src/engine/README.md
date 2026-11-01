@@ -123,6 +123,59 @@ Calls are shaped by `calls.ts`. An EOA signs one Multicall3From transaction
 accounts get plain calls. Every adapter's batch was simulated with `eth_call`
 on Arc mainnet on 2026-11-01.
 
+## Knowledge and route search
+
+The engine knows what every venue is for, not only how to call it.
+`@lykia/core` `knowledgeData.ts` describes each executable venue: its
+contracts, every function Lykia may call (the exact ABI fragment, tokens in
+and out, who receives the output, approvals, preconditions, failure modes,
+gas, fees, settlement), how its state is read, its risk facts (oracle,
+curator, admin, upgradeability, TVL source, audits) and its capabilities:
+`verb from -> to` edges such as `deposit USDC -> USDC@morpho-vaults` or
+`borrow cirBTC -> USDC`. The rows are validated when the module loads, and a
+test checks every fragment's selector against the ABIs in `abis.ts`.
+
+`search.ts` (`RouteSearch`) walks that graph for a goal:
+
+1. **Candidates.** The plan as asked; the top three earn venues pinned one
+   at a time; convert-then-earn when another asset yields more; a
+   conversion as two hops through an intermediate token; every borrow venue.
+   One change at a time, so the search stays small (`maxCandidates`, 10 by
+   default) and deterministic.
+2. **Early pruning.** Fence kinds, venues and tokens, venues not executable
+   on the environment, venue risk above the owner's appetite, conversions
+   that cannot win (the target yields no more than the source).
+3. **Planning.** Every survivor goes through the real planner as a dry run,
+   with live quotes, rates, fees and the Fence verdict (the beta cap
+   included). Denied plans are dropped with the Fence's reasons. Quotes are
+   cached for 15 seconds (`QUOTE_CACHE_MS`); prepare always re-quotes.
+4. **Objective.** Net USD over the horizon (90 days by default) = yield −
+   borrow cost − Lykia fee − gas − slippage − risk penalty − async delay.
+   The risk penalty is `RISK_PENALTY_BPS` (low 0, medium 50, high 200 bps a
+   year) times the appetite multiplier (low 3×, medium 1×, high 0.25×).
+   Ties go to fewer steps, then fewer signatures. Unpriced routes rank last.
+5. **Self-check.** `simulate.ts` flattens the winner's prepared calls into
+   one `Multicall3From.aggregate3` eth_call from the account. Arc has no
+   `eth_simulateV1`, but CallFrom keeps msg.sender, so the steps run in order
+   against the same state. Dry runs are funded with state overrides: native
+   USDC through the balance, other tokens through their balance slot. A
+   failing route is reported with the failing call and its revert reason,
+   and the next route is checked.
+
+The result has the best route, up to six alternatives, the pruned
+candidates with their reasons, the failed checks, and an explanation: why
+this route, each step, what could fail (from the knowledge rows) and how the
+Fence judged it.
+
+HTTP: `GET /v1/knowledge`, `GET /v1/knowledge/venues/:venue`,
+`GET /v1/knowledge/contracts/:address`, `GET /v1/knowledge/paths?from&to`,
+`POST /v1/routes/search` (`plan: true` stores the winner as an intent).
+Lyko's tools: `knowledge` and `search_routes`. See `docs/knowledge.md`.
+
+Amounts gained `{ previous: true }`: exactly what the step before produced.
+"Borrow 1000 USDC and put it to work" deposits the borrowed amount after the
+fee, never the rest of the wallet.
+
 ## Standing orders
 
 `standing.ts` (`StandingService`) stores orders and checks them every 30

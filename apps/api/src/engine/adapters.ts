@@ -124,9 +124,12 @@ const PERMIT2_EXPIRY_SECONDS = 30 * 60;
 export async function buildCalls(plan: StepPlan, ctx: BuildContext): Promise<BuiltCalls> {
   const built = await buildVenueCalls(plan, ctx);
   const p = plan.params;
-  if (!p.feeAmount || BigInt(p.feeAmount) === 0n) return built;
-  const fee = feeCall(p.feeToken as Address, p.feeRecipient as Address, BigInt(p.feeAmount), p.feeLabel ?? "Lykia fee");
-  return p.feeAt === "after" ? { approvals: built.approvals, calls: [...built.calls, fee] } : { approvals: built.approvals, calls: [fee, ...built.calls] };
+  const fees: RawCall[] = [];
+  if (p.feeAmount && BigInt(p.feeAmount) > 0n) fees.push(feeCall(p.feeToken as Address, p.feeRecipient as Address, BigInt(p.feeAmount), p.feeLabel ?? "Lykia fee"));
+  // The embedding app's fee: a second transfer in the same batch, to the project's address.
+  if (p.appFeeAmount && p.appFeeRecipient && BigInt(p.appFeeAmount) > 0n) fees.push(feeCall(p.feeToken as Address, p.appFeeRecipient as Address, BigInt(p.appFeeAmount), "App fee"));
+  if (fees.length === 0) return built;
+  return p.feeAt === "after" ? { approvals: built.approvals, calls: [...built.calls, ...fees] } : { approvals: built.approvals, calls: [...fees, ...built.calls] };
 }
 
 async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<BuiltCalls> {

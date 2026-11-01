@@ -32,6 +32,8 @@ export interface StoredKey {
   readonly createdAt: string;
   readonly revokedAt: string | null;
   readonly lastUsedAt: string | null;
+  /** Set for project keys: the gate checks the project's verified origins and counts usage per project. */
+  readonly projectId?: string;
 }
 
 export function hashSecret(ctx: AppContext, secret: string): string {
@@ -39,7 +41,7 @@ export function hashSecret(ctx: AppContext, secret: string): string {
 }
 
 export function viewOf(key: StoredKey): ApiKeyView {
-  return { id: key.id, label: key.label, prefix: `lk_${key.kind === "secret" ? "sk" : "pk"}_${key.id}_…`, kind: key.kind, scopes: key.scopes, allowedOrigins: key.allowedOrigins, perMinute: key.perMinute, perDay: key.perDay, createdAt: key.createdAt, revokedAt: key.revokedAt, lastUsedAt: key.lastUsedAt };
+  return { id: key.id, label: key.label, prefix: `lk_${key.kind === "secret" ? "sk" : "pk"}_${key.id}_…`, kind: key.kind, scopes: key.scopes, allowedOrigins: key.allowedOrigins, perMinute: key.perMinute, perDay: key.perDay, createdAt: key.createdAt, revokedAt: key.revokedAt, lastUsedAt: key.lastUsedAt, ...(key.projectId ? { projectId: key.projectId } : {}) };
 }
 
 const keys = (ctx: AppContext) => typedCollection<StoredKey>(ctx, "api_keys");
@@ -52,6 +54,7 @@ export interface CreateKeyInput {
   readonly allowedOrigins?: readonly string[];
   readonly perMinute?: number;
   readonly perDay?: number;
+  readonly projectId?: string;
 }
 
 export async function createKey(ctx: AppContext, input: CreateKeyInput): Promise<CreatedApiKey> {
@@ -59,7 +62,7 @@ export async function createKey(ctx: AppContext, input: CreateKeyInput): Promise
   const mine = (await keys(ctx).list({ limit: 1000 })).filter((d) => d.value.owner === owner && !d.value.revokedAt);
   if (mine.length >= MAX_KEYS_PER_DEVELOPER) throw new LykiaHttpError("KEY_LIMIT", 409, `At most ${MAX_KEYS_PER_DEVELOPER} active keys per developer.`);
   const scopes = input.kind === "publishable" ? (input.scopes ?? ["read", "plan"]).filter((s) => s === "read" || s === "plan") : (input.scopes ?? API_KEY_SCOPES);
-  if (input.kind === "publishable" && (input.allowedOrigins ?? []).length === 0) throw new LykiaHttpError("INVALID_REQUEST", 400, "A publishable key needs at least one allowed origin.");
+  if (input.kind === "publishable" && !input.projectId && (input.allowedOrigins ?? []).length === 0) throw new LykiaHttpError("INVALID_REQUEST", 400, "A publishable key needs at least one allowed origin.");
   const id = randomHex(6);
   const secret = randomToken(24);
   const full = `lk_${input.kind === "secret" ? "sk" : "pk"}_${id}_${secret}`;
@@ -76,6 +79,7 @@ export async function createKey(ctx: AppContext, input: CreateKeyInput): Promise
     createdAt: new Date(ctx.clock.now()).toISOString(),
     revokedAt: null,
     lastUsedAt: null,
+    ...(input.projectId ? { projectId: input.projectId } : {}),
   };
   await keys(ctx).put(id, stored);
   return { ...viewOf(stored), secret: full };

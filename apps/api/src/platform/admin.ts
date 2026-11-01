@@ -84,7 +84,7 @@ export async function deployedAddress(ctx: AppContext, environment: ArcEnvironme
   return ((await typedCollection<DeploymentRecord>(ctx, "deployments").get(`${environment}:${name}`))?.value.address as Address | undefined) ?? null;
 }
 
-const DEFAULT_FLAGS: Readonly<Record<FeatureFlag, boolean>> = { "agents.llm": true, "agents.keeper": false, "pack.onchain": true, x402: true, "developer.signup": true };
+const DEFAULT_FLAGS: Readonly<Record<FeatureFlag, boolean>> = { "agents.llm": true, "agents.keeper": false, "pack.onchain": true, x402: true, "developer.signup": true, "routing.halt": false };
 
 export async function flags(ctx: AppContext): Promise<Record<FeatureFlag, boolean>> {
   const stored = (await typedCollection<Record<string, boolean>>(ctx, "flags").get("global"))?.value ?? {};

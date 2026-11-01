@@ -12,6 +12,7 @@ import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { sendError } from "../http/request.js";
 import { lookupKey, touchKey, type StoredKey } from "./keys.js";
+import { attachProject, countProject, getProject, verifiedOrigins } from "./projects.js";
 
 const KEYS = new WeakMap<Request, StoredKey>();
 
@@ -41,9 +42,16 @@ export function developerGate(ctx: AppContext) {
     (async () => {
       const key = await lookupKey(ctx, presented);
       if (!key) throw new LykiaHttpError("UNAUTHORIZED", 401, "This API key is unknown or revoked.");
+      // A project key follows its project's verified origins; a plain publishable key its own list.
+      const project = key.projectId ? await getProject(ctx, key.projectId) : null;
+      if (key.projectId && !project) throw new LykiaHttpError("UNAUTHORIZED", 401, "This key's project no longer exists.");
       if (key.kind === "publishable") {
         const origin = req.get("origin");
-        if (!origin || !key.allowedOrigins.includes(origin)) throw new LykiaHttpError("FORBIDDEN", 403, "This publishable key is not allowed from this origin.");
+        const allowed = project ? verifiedOrigins(project) : key.allowedOrigins;
+        // Lykia's own /embed pages run on Lykia's origin inside the project's site: the parent must be a verified origin.
+        const parent = req.get("lykia-embed-parent");
+        const embedded = project !== null && origin !== undefined && ctx.config.webOrigins.includes(origin) && parent !== undefined && allowed.includes(parent);
+        if (!embedded && (!origin || !allowed.includes(origin))) throw new LykiaHttpError("FORBIDDEN", 403, "This publishable key is not allowed from this origin.");
       }
       const now = ctx.clock.now();
       const perMinute = await minute.increment(`${key.id}:${Math.floor(now / 60_000)}`, 1, { ttlMs: 120_000 });
@@ -52,6 +60,10 @@ export function developerGate(ctx: AppContext) {
       const perDay = await daily.increment(`${key.id}:${day}`, 1, { ttlMs: 2 * 86_400_000 });
       if (perDay > key.perDay) throw new LykiaHttpError("RATE_LIMITED", 429, `This key's daily quota (${key.perDay}) is used up.`);
       await usage.increment(`${key.owner}:${day}`, 1, { ttlMs: 8 * 86_400_000 });
+      if (project) {
+        await countProject(ctx, project.id, "requests");
+        attachProject(req, project);
+      }
       // Scope is checked after counting: refused requests still use the quota.
       const scope = scopeFor(req.method, req.path);
       if (!key.scopes.includes(scope)) throw new LykiaHttpError("FORBIDDEN", 403, `This key lacks the ${scope} scope.`);

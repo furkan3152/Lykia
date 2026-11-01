@@ -18,7 +18,9 @@ import { LykiaHttpError } from "../http/errors.js";
 import type { ApiModule } from "../http/router.js";
 import { openSse } from "../http/sse.js";
 import { evmAddress, parseBody, parseParams, txHash } from "../http/validate.js";
-import { fenceForProfile } from "@lykia/core";
+import { fenceForProfile, projectFence, tightenFence } from "@lykia/core";
+import { countProject, integratorFeeOf, projectOf } from "../platform/projects.js";
+import { agentServices } from "../agents/index.js";
 import { memoryService } from "../personal/memory.js";
 import { screenAddress } from "../circle/compliance.js";
 import { deviationBps, pythPrices } from "../oracles/pyth.js";
@@ -27,6 +29,7 @@ const ORACLE_GAP_BPS = 50;
 import { getProfile } from "../personal/profile.js";
 import { readWithMemory } from "../personal/reader.js";
 import { services } from "../services.js";
+import { securityPostflight, securityPreflight } from "../security/index.js";
 import { actionsFrom, environmentOf, environmentSchema, fenceFrom } from "./common.js";
 
 export const POLL_INTERVAL_MS = 15_000;
@@ -77,9 +80,12 @@ export const intentsModule: ApiModule = {
         source = JSON.stringify(actions).slice(0, 500);
       }
       // The request's Fence wins; without one the owner's profile shapes the default. A profile never loosens a Fence.
-      let fence = fenceFrom(body.fence) ?? fenceForProfile(profile);
+      // Through a project key: the project's Fence is the default, and its caps and modules tighten any Fence.
+      const project = projectOf(req);
+      let fence = fenceFrom(body.fence) ?? (project ? projectFence(project) : fenceForProfile(profile));
+      if (project) fence = tightenFence(fence, project);
       if (confirmContacts.length > 0) fence = { ...fence, confirm: { ...fence.confirm, when: [...new Set([...(fence.confirm?.when ?? []), "external-recipient" as const])] } };
-      const environment = body.environment ? environmentOf(ctx, body.environment) : profile.updatedAt ? profile.defaultNetwork : environmentOf(ctx, undefined);
+      const environment = body.environment ? environmentOf(ctx, body.environment) : project ? environmentOf(ctx, project.network) : profile.updatedAt ? profile.defaultNetwork : environmentOf(ctx, undefined);
       const notes: string[] = [];
       // Circle Compliance Engine (when configured): a DENIED recipient joins the Fence's deny list, so the Fence refuses it with a reason.
       const apiKey = ctx.config.circle.apiKey;
@@ -113,7 +119,12 @@ export const intentsModule: ApiModule = {
         ...(body.dryRun ? { dryRun: true } : {}),
         ...(body.proposedByAgent ? { proposedByAgent: true } : {}),
         preferences: { favorites: profile.venues.favorites, blocked: profile.venues.blocked, maxRisk: profile.risk },
+        ...(integratorFeeOf(project) ? { integrator: integratorFeeOf(project) } : {}),
       });
+      if (project) {
+        await countProject(ctx, project.id, "plans").catch(() => undefined);
+        if (project.webhookId) await agentServices(ctx).webhooks.addOwner(project.owner, project.webhookId, owner).catch(() => false);
+      }
       if (result.stored) await memoryService(ctx).record(owner, result.intent, { source, lang, actions }).catch(() => null);
       const contactNotes = confirmContacts.map((c) => (lang === "tr" ? `${c.name} (${c.address}) hafızadan geldi ve henüz onaylanmış bir gönderimi yok: ilk ödemeyi sen onayla.` : `${c.name} (${c.address}) comes from memory and has no confirmed send yet: confirm the first payment yourself.`));
       const extra = { ...(memoryNote ? { memory: memoryNote } : {}), ...(confirmContacts.length > 0 ? { confirmContacts } : {}), ...(notes.length + contactNotes.length > 0 ? { notes: [...notes, ...contactNotes] } : {}) };
@@ -133,13 +144,16 @@ export const intentsModule: ApiModule = {
     router.post("/intents/:id/steps/:sid/prepare", ctx.limits.heavy, async (req, res) => {
       const { id, sid } = parseParams(req, StepParams);
       const body = parseBody(req, z.object({ confirm: z.boolean().optional() }).default({}));
-      res.json(await services(ctx).intents.prepare(id, sid, body.confirm ? { confirm: true } : {}));
+      const prepared = await services(ctx).intents.prepare(id, sid, body.confirm ? { confirm: true } : {});
+      res.json({ ...prepared, security: await securityPreflight(ctx, { intentId: id, stepId: sid, prepared }) });
     });
 
     router.post("/intents/:id/steps/:sid/submit", ctx.limits.heavy, async (req, res) => {
       const { id, sid } = parseParams(req, StepParams);
       const body = parseBody(req, z.union([z.object({ hashes: z.array(txHash).min(1).max(4) }), z.object({ userOpHash: txHash })]));
-      res.json("userOpHash" in body ? await services(ctx).intents.submitUserOp(id, sid, body.userOpHash) : await services(ctx).intents.submit(id, sid, body.hashes));
+      const submitted = "userOpHash" in body ? await services(ctx).intents.submitUserOp(id, sid, body.userOpHash) : await services(ctx).intents.submit(id, sid, body.hashes);
+      await securityPostflight(ctx, { intentId: id, stepId: sid, result: submitted, references: "userOpHash" in body ? [body.userOpHash] : body.hashes });
+      res.json(submitted);
     });
 
     router.get("/intents/:id/steps/:sid/attestation", async (req, res) => {

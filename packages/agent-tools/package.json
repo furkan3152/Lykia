@@ -1,0 +1,71 @@
+{
+  "name": "@lykia/agent-tools",
+  "version": "0.1.0",
+  "description": "Lykia tools for AI agents on Arc Network: plan intents, check the Fence, Scent tokens, quote routes, spawn agents, standing orders and x402 purchases. JSON Schema plus adapters for the Vercel AI SDK, LangChainJS, OpenAI and Anthropic. No dependencies.",
+  "keywords": [
+    "lykia",
+    "arc",
+    "circle",
+    "usdc",
+    "ai",
+    "agents",
+    "tools",
+    "function-calling",
+    "mcp",
+    "langchain",
+    "vercel-ai-sdk",
+    "openai",
+    "anthropic"
+  ],
+  "license": "MIT",
+  "homepage": "https://lykia-akdogan1.vercel.app/build",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/furkan3152/lykia.git",
+    "directory": "packages/agent-tools"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./tools": {
+      "types": "./dist/tools.d.ts",
+      "import": "./dist/tools.js"
+    },
+    "./executor": {
+      "types": "./dist/executor.d.ts",
+      "import": "./dist/executor.js"
+    },
+    "./adapters": {
+      "types": "./dist/adapters.d.ts",
+      "import": "./dist/adapters.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.map",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "npm run build",
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

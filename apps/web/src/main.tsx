@@ -18,10 +18,23 @@ installTextures();
 const root = document.getElementById("root");
 if (!root) throw new Error("Lykia needs a #root element");
 
-ReactDOM.createRoot(root).render(
-  <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AppRouter />
-    </QueryClientProvider>
-  </React.StrictMode>,
-);
+// /embed/* runs inside a <lykia-*> element on another site: no shell, no router, its own small chunk.
+if (window.location.pathname.startsWith("/embed/")) {
+  const EmbedApp = React.lazy(() => import("./embed/EmbedApp"));
+  document.documentElement.dataset.embed = "true";
+  ReactDOM.createRoot(root).render(
+    <React.StrictMode>
+      <React.Suspense fallback={null}>
+        <EmbedApp />
+      </React.Suspense>
+    </React.StrictMode>,
+  );
+} else {
+  ReactDOM.createRoot(root).render(
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <AppRouter />
+      </QueryClientProvider>
+    </React.StrictMode>,
+  );
+}

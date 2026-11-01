@@ -13,6 +13,9 @@ export type ArcContractKey =
   | "eurc"
   | "usyc"
   | "cirbtc"
+  | "weth"
+  | "usycTeller"
+  | "usycEntitlements"
   | "fxEscrow"
   | "permit2"
   | "tokenMessengerV2"
@@ -69,6 +72,28 @@ export const ARC_CONTRACTS: Readonly<Record<ArcContractKey, ArcContract>> = {
     role: "Circle Wrapped Bitcoin; collateral for App Kit Borrow.",
     standard: "ERC-20",
     addresses: { mainnet: "0x171A4217b86A807A64eB94757Db6849fb4bDbAA0", testnet: "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF" },
+    docs: "https://docs.arc.io/arc/references/contract-addresses",
+  },
+  weth: {
+    key: "weth",
+    name: "WETH",
+    role: "Bridged WETH (lock on Ethereum, mint on Arc); App Kit Bridge asset.",
+    standard: "ERC-20",
+    addresses: { mainnet: "0x128cC466B61f542da60c70e3aA11c10e19B84EDB", testnet: "0x2c4047028a72803939b6fb674D01bC059B5C4961" },
+    docs: "https://docs.arc.io/arc/references/contract-addresses",
+  },
+  usycTeller: {
+    key: "usycTeller",
+    name: "USYC Teller",
+    role: "Mints and redeems USYC from USDC for allowlisted wallets.",
+    addresses: { mainnet: "0x51A8CE47dC08ba5CD19c7aa84EA6fD6664f60f9b", testnet: "0x9fdF14c5B14173D74C08Af27AebFf39240dC105A" },
+    docs: "https://docs.arc.io/arc/references/contract-addresses",
+  },
+  usycEntitlements: {
+    key: "usycEntitlements",
+    name: "USYC Entitlements",
+    role: "Allowlist for USYC; Lykia reads it before offering a USYC move.",
+    addresses: { mainnet: "0xb69ecb156Dc0028198028c501340d5367845ca72", testnet: "0xcc205224862c7641930c87679e98999d23c26113" },
     docs: "https://docs.arc.io/arc/references/contract-addresses",
   },
   fxEscrow: {

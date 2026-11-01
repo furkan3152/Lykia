@@ -98,11 +98,19 @@ What sets Lykia apart:
 ```
 packages/core/   @lykia/core — zero-I/O spec: networks, contracts, tokens, venues,
                  intent graph, Fence, verdicts, Tag, memos, Outrun, lore
+packages/sdk/    @lykia/sdk  — typed client; modular subpaths (/intents, /fence, /agents,
+                 /circle, /ecosystem, /projects) and typed events
+packages/widget/ @lykia/widget — React components + headless hooks, in the host's brand
+packages/embed/  @lykia/embed — <lykia-assistant>, <lykia-swap>…: one script tag
+packages/agent-tools/ @lykia/agent-tools — JSON Schema tools + AI SDK, LangChain,
+                 OpenAI and Anthropic adapters; MCP as the zero-code path
 apps/api/        @lykia/api  — Express 5 service on Arc (see its README)
 apps/web/        @lykia/web  — the pixel deck: Lyko, the valley, Deck, Flock, Fence,
                  Scent, Tag, developers (see its README)
-docs/            the Fence spec, brand notes, positioning and the integration guide
-examples/        agent over MCP, SDK in Node (plan -> prepare -> simulate -> sign), embed
+docs/            the Fence spec, brand notes, positioning, the integration guide and
+                 docs/platform (projects, embeds, agents: building on Lykia)
+examples/        agent over MCP, SDK in Node, embed, nextjs-widget, html-embed,
+                 headless-hooks, ai-sdk-agent
 ```
 
 ## Quick start

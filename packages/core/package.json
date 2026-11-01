@@ -1,8 +1,23 @@
 {
   "name": "@lykia/core",
   "version": "0.1.0",
-  "description": "Lykia core: Arc networks, verified contracts and tokens, venue registry, intent graph, the Fence, K\u00fcnye and the Outrun.",
+  "description": "Lykia core: Arc networks, verified contracts and tokens, the venue registry, the intent graph, the Fence, Tags, white-label projects and the Outrun. Pure TypeScript, no I/O.",
+  "keywords": [
+    "lykia",
+    "arc",
+    "circle",
+    "usdc",
+    "fence",
+    "intents",
+    "agents"
+  ],
   "license": "MIT",
+  "homepage": "https://lykia-akdogan1.vercel.app/build",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/furkan3152/lykia.git",
+    "directory": "packages/core"
+  },
   "type": "module",
   "sideEffects": false,
   "main": "./dist/index.js",
@@ -21,10 +36,14 @@
   "files": [
     "dist",
     "!dist/**/*.map",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

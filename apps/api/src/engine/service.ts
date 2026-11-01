@@ -24,6 +24,7 @@ import {
   type Outrun,
   type PlanAction,
   type UnsignedTransaction,
+  type IntegratorFeePolicy,
 } from "@lykia/core";
 import type { CreateIntentResponse, PrepareStepResponse, SubmitStepResponse } from "@lykia/core/api/intents";
 import type { VenuePrefs } from "./router.js";
@@ -68,6 +69,8 @@ export interface CreateInput {
   readonly proposedByAgent?: boolean;
   /** Owner venue preferences: favourites win near-ties, blocked venues are never chosen. */
   readonly preferences?: VenuePrefs;
+  /** The embedding project's fee, paid on chain beside Lykia's fee. */
+  readonly integrator?: IntegratorFeePolicy;
 }
 
 export const INTENT_TTL_MS = 30 * 24 * 3600_000;
@@ -158,6 +161,7 @@ export class IntentService {
       spent: await this.spent(input.environment, input.owner),
       ...(input.proposedByAgent ? { proposedByAgent: true } : {}),
       ...(input.preferences ? { preferences: input.preferences } : {}),
+      ...(input.integrator ? { integrator: input.integrator } : {}),
     });
     const stored: StoredIntent = { ...result, account: input.account ?? "eoa", confirmed: false };
     if (!input.dryRun) await this.intents().put(result.graph.id, stored as unknown as JsonValue, { ttlMs: INTENT_TTL_MS });

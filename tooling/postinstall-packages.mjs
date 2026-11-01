@@ -11,7 +11,7 @@ if (!existsSync(join(root, "node_modules", "typescript"))) {
   console.log("[lykia] typescript not installed; skipping package build");
   process.exit(0);
 }
-for (const pkg of ["packages/core"]) {
+for (const pkg of ["packages/core", "packages/sdk", "packages/widget", "packages/embed", "packages/agent-tools"]) {
   if (!existsSync(join(root, pkg, "package.json"))) continue;
   console.log(`[lykia] building ${pkg}`);
   execSync("npm run build", { cwd: join(root, pkg), stdio: "inherit" });

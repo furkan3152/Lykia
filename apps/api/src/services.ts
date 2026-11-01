@@ -5,6 +5,7 @@ import { IntentService } from "./engine/service.js";
 import { Planner } from "./engine/planner.js";
 import { VenueRouter } from "./engine/router.js";
 import { StandingService } from "./engine/standing.js";
+import { RouteSearch } from "./engine/search.js";
 import { YieldService } from "./engine/venues/yields.js";
 import { FlockService } from "./flock/flock.js";
 import { KunyeService } from "./kunye/kunye.js";
@@ -20,6 +21,7 @@ export interface Services {
   readonly yields: YieldService;
   readonly router: VenueRouter;
   readonly standing: StandingService;
+  readonly search: RouteSearch;
 }
 
 const SERVICES = new WeakMap<AppContext, Services>();
@@ -36,7 +38,8 @@ export function services(ctx: AppContext): Services {
   const intents = new IntentService({ planner, chains: ctx.chains, store: ctx.store, clock: ctx.clock, bus: ctx.bus, fetch: ctx.fetch, log: ctx.log.child({ component: "intents" }) });
   const kunye = new KunyeService({ chains: ctx.chains, store: ctx.store, fetch: ctx.publicFetch, guard: ctx.config.guardAddress });
   const standing = new StandingService({ chains: ctx.chains, store: ctx.store, clock: ctx.clock, bus: ctx.bus, log: ctx.log.child({ component: "standing" }), intents: () => intents });
-  const built = { prices, flock, scent, planner, intents, kunye, yields, router, standing };
+  const search = new RouteSearch({ planner, router, chains: ctx.chains, now: () => ctx.clock.now() });
+  const built = { prices, flock, scent, planner, intents, kunye, yields, router, standing, search };
   SERVICES.set(ctx, built);
   return built;
 }

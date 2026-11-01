@@ -1,4 +1,5 @@
 /** Contract types: intents and outruns. */
+import type { SecurityReport } from "../security/types.js";
 import type { IntentGraph, UnsignedTransaction, IntentStep } from "../intent.js";
 import type { Outrun } from "../outrun.js";
 import type { ProtocolDescriptor } from "../protocols.js";
@@ -16,6 +17,8 @@ export interface PrepareStepResponse {
   readonly binding: string;
   /** The memo string each value-moving call carries. */
   readonly memo: string;
+  /** What the security layer checked before returning these calls ("What you will sign"). */
+  readonly security?: SecurityReport;
 }
 
 export interface SubmitStepResponse {

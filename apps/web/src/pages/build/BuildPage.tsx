@@ -1,7 +1,9 @@
-/** Build: the developer portal. SIWE sign-in, keys, usage, webhooks, fee, playground, MCP, SDK and the Circle/Arc tools. */
+/** Build: the developer portal. Quickstarts for every integration path, the live playground, projects (white-label), keys, usage, webhooks, fee, MCP, SDK and the Circle/Arc tools. */
 import type { ApiKeyView, CreatedApiKey, UsageView, WebhookEndpointView } from "@lykia/core/api/platform";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+
+import type { Project } from "@lykia/core";
 
 import { FeesCard } from "../../features/fees/FeesCard";
 import { CircleMarket } from "../../features/circle/Circle";
@@ -10,8 +12,12 @@ import { useEcosystem } from "../../features/ecosystem/useEcosystem";
 import { useSiwe } from "../../features/session/useSiwe";
 import { apiGet, apiPost, apiPut, apiUrl, describeError } from "../../lib/api";
 import { Button, Card, EmptyState, Field, Input, PageHead, Select, Skeleton, Tabs, Tag, toast } from "../../mosaic";
+import { Projects } from "./Projects";
+import { Quickstarts } from "./Quickstarts";
+import { Studio } from "./Studio";
+import type { StudioConfig } from "./snippets";
 
-type Tab = "keys" | "webhooks" | "fee" | "playground" | "mcp" | "sdk" | "circle" | "arc";
+type Tab = "start" | "studio" | "projects" | "keys" | "webhooks" | "fee" | "playground" | "mcp" | "sdk" | "circle" | "arc";
 
 const SDK = `import { Lykia } from "@lykia/sdk";
 
@@ -30,7 +36,12 @@ for (const step of plan.intent.steps) {
 export default function BuildPage() {
   const siwe = useSiwe();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<Tab>("keys");
+  const [tab, setTab] = useState<Tab>("start");
+  const [studio, setStudio] = useState<Partial<StudioConfig> | undefined>(undefined);
+  const preview = (p: Project) => {
+    setStudio({ projectId: p.id, assistantName: p.brand.assistant?.name ?? "Lyko", modules: p.modules, ...(p.brand.colors?.primary ? { primary: p.brand.colors.primary } : {}), ...(p.brand.colors?.accent ? { accent: p.brand.colors.accent } : {}), ...(p.brand.scheme ? { scheme: p.brand.scheme } : {}), ...(p.brand.radius !== undefined ? { radius: p.brand.radius } : {}), mosaic: p.brand.mosaic ?? true });
+    setTab("studio");
+  };
   const [label, setLabel] = useState("server");
   const [kind, setKind] = useState<"secret" | "publishable">("secret");
   const [created, setCreated] = useState<CreatedApiKey | null>(null);
@@ -59,7 +70,7 @@ export default function BuildPage() {
   };
   return (
     <div>
-      <PageHead kicker={"BUILD · API · MCP · SDK"} title={<>Put Lyko in <em>your product.</em></>} sub={"Get a key and plug the same planning, Fence and Scent layer into your app or agent. The server never signs."} mood="happy">
+      <PageHead kicker={"BUILD · API · MCP · SDK"} title={<>Put Lyko in <em>your product.</em></>} sub={"Add AI to your Arc app in three steps: a React widget, one script tag, headless hooks, agent tools or MCP. Your brand, your modules, your fee. The server never signs."} mood="happy">
         <div className="flex justify-center gap-2" style={{ marginTop: 18 }}>
           {siwe.signedIn ? <Tag tone="ok">SIGNED IN · {siwe.session?.roles.join(", ").toUpperCase()}</Tag> : <Button onClick={() => void siwe.signIn()} disabled={siwe.busy}>{"SIGN IN ON ARC (SIWE)"}</Button>}
           {siwe.signedIn && !siwe.session?.roles.includes("developer") ? <Button tone="sea" onClick={() => register.mutate()}>{"BECOME A DEVELOPER"}</Button> : null}
@@ -67,7 +78,7 @@ export default function BuildPage() {
       </PageHead>
       <section className="m-wrap" style={{ marginTop: 28 }}>
         <div className="m-grid-4">
-          {[["REST + SSE", "/v1 · plan, prepare, submit, follow"], ["MCP", "/v1/mcp · read & propose tools"], ["x402", "pay per call in USDC on Arc"], ["Webhooks", "signed · retried · 6 events"]].map(([t, d]) => (
+          {[["Widget", "@lykia/widget · React components + hooks"], ["Embed", "@lykia/embed · one script tag"], ["Agent tools", "@lykia/agent-tools · AI SDK, LangChain, OpenAI, Claude"], ["MCP + REST", "/v1/mcp · /v1 · x402 · webhooks"]].map(([t, d]) => (
             <div key={t} className="m-frame m-card m-center"><h3 style={{ fontSize: 20 }}>{t}</h3><p className="m-small m-muted">{d}</p></div>
           ))}
         </div>
@@ -77,10 +88,16 @@ export default function BuildPage() {
         </div>
         <IntegrateSection />
         <div style={{ marginTop: 24 }}>
-          <Tabs label="Portal" value={tab} onChange={setTab} tabs={[{ id: "keys", label: "KEYS" }, { id: "webhooks", label: "WEBHOOKS" }, { id: "fee", label: "FEE" }, { id: "playground", label: "PLAYGROUND" }, { id: "mcp", label: "MCP" }, { id: "sdk", label: "SDK" }, { id: "circle", label: "CIRCLE" }, { id: "arc", label: "ARC TOOLS" }]} />
+          <Tabs label="Portal" value={tab} onChange={setTab} tabs={[{ id: "start", label: "QUICKSTART" }, { id: "studio", label: "PLAYGROUND" }, { id: "projects", label: "PROJECTS" }, { id: "keys", label: "KEYS" }, { id: "webhooks", label: "WEBHOOKS" }, { id: "fee", label: "FEE" }, { id: "playground", label: "PARSER" }, { id: "mcp", label: "MCP" }, { id: "sdk", label: "SDK" }, { id: "circle", label: "CIRCLE" }, { id: "arc", label: "ARC TOOLS" }]} />
         </div>
         <div style={{ marginTop: 20 }}>
-          {tab === "keys" ? (
+          {tab === "start" ? (
+            <Quickstarts />
+          ) : tab === "studio" ? (
+            <Studio key={studio?.projectId ?? "default"} {...(studio ? { initial: studio } : {})} />
+          ) : tab === "projects" ? (
+            <Projects enabled={enabled} onPreview={preview} />
+          ) : tab === "keys" ? (
             <div className="m-grid-2">
               <Card title={"Keys"} kicker={"ONLY AN HMAC IS STORED"}>
                 {!enabled ? <EmptyState title={"Sign in first"}>{"Keys belong to your wallet."}</EmptyState> : keys.isLoading ? <Skeleton h={120} /> : (
@@ -114,7 +131,7 @@ export default function BuildPage() {
             </Card>
             </div>
           ) : tab === "playground" ? (
-            <Card title="Playground" kicker="POST /v1/language/parse" footer={<Button onClick={() => void runPlay()}>RUN</Button>}>
+            <Card title="Sentence parser" kicker="POST /v1/language/parse" footer={<Button onClick={() => void runPlay()}>RUN</Button>}>
               <Field label="Sentence (EN or TR)"><Input value={play} onChange={(e) => setPlay(e.target.value)} /></Field>
               {playOut ? <pre className="m-code" style={{ marginTop: 10, maxHeight: 320 }}>{playOut}</pre> : null}
             </Card>

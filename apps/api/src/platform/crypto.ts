@@ -12,7 +12,7 @@ import { LykiaHttpError } from "../http/errors.js";
 const EPHEMERAL = randomBytes(32).toString("hex");
 const CACHE = new WeakMap<AppContext, Map<string, Buffer>>();
 
-export type KeyPurpose = "session" | "api-key" | "webhook" | "card";
+export type KeyPurpose = "session" | "api-key" | "webhook" | "card" | "project";
 
 export function platformSecret(ctx: AppContext): string {
   if (ctx.config.sessionSecret) return ctx.config.sessionSecret;

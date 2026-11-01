@@ -40,6 +40,8 @@ export interface ApiKeyView {
   readonly createdAt: string;
   readonly revokedAt: string | null;
   readonly lastUsedAt: string | null;
+  /** The project a publishable key belongs to; its origins come from the project's verified origins. */
+  readonly projectId?: string;
 }
 
 export interface CreatedApiKey extends ApiKeyView {
@@ -77,7 +79,7 @@ export interface DeveloperSettings {
   readonly feeRecipient: string | null;
 }
 
-export const MAX_INTEGRATOR_FEE_BPS = 50;
+export { MAX_INTEGRATOR_FEE_BPS } from "../fee.js";
 
 export interface UsageView {
   readonly today: number;
@@ -106,5 +108,5 @@ export interface DeploymentRecord {
   readonly recordedAt: string;
 }
 
-export type FeatureFlag = "agents.llm" | "agents.keeper" | "pack.onchain" | "x402" | "developer.signup";
-export const FEATURE_FLAGS: readonly FeatureFlag[] = ["agents.llm", "agents.keeper", "pack.onchain", "x402", "developer.signup"];
+export type FeatureFlag = "agents.llm" | "agents.keeper" | "pack.onchain" | "x402" | "developer.signup" | "routing.halt";
+export const FEATURE_FLAGS: readonly FeatureFlag[] = ["agents.llm", "agents.keeper", "pack.onchain", "x402", "developer.signup", "routing.halt"];

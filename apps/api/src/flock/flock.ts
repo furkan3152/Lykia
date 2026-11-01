@@ -57,7 +57,7 @@ export class FlockService {
 
   async snapshot(environment: ArcEnvironment, address: Address): Promise<FlockSnapshot> {
     const notes: string[] = [];
-    const tokens = TOKENS.map((t) => ({ token: t, address: tokenAddress(t, environment) as Address }));
+    const tokens = TOKENS.map((t) => ({ token: t, address: tokenAddress(t, environment) })).filter((t): t is { token: (typeof TOKENS)[number]; address: Address } => t.address !== null);
     const vaults = morphoVaults(environment);
     const balances = await this.deps.chains.getBalances(environment, address, ["native", ...tokens.map((t) => t.address), ...vaults.map((v) => v.address)]);
     const [native, ...rest] = balances.balances;

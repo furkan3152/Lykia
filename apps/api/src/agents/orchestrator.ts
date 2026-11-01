@@ -90,6 +90,8 @@ export interface TurnInput {
   readonly message: string;
   readonly stateLine: string;
   readonly emit: Emit;
+  /** An embedding project's sanitised context block (projectPromptBlock); it follows Lyko's rules, never replaces them. */
+  readonly appContext?: string;
 }
 
 export interface TurnResult {
@@ -216,7 +218,7 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
     };
   };
 
-  const main = await runLoop({ client, system: LYKO_SYSTEM, messages, tc, extraTools: ORCHESTRATOR_TOOLS, onExtra, maxSteps, maxTokens, emit });
+  const main = await runLoop({ client, system: input.appContext ? `${LYKO_SYSTEM}\n\n${input.appContext}` : LYKO_SYSTEM, messages, tc, extraTools: ORCHESTRATOR_TOOLS, onExtra, maxSteps, maxTokens, emit });
   modelCalls += main.calls;
 
   const merged = await mergeProposals(input, planned, fence);

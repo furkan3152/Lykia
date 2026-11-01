@@ -21,6 +21,7 @@ import {
   ratioBps,
   toBaseUnitsBig,
   tokenAddress,
+  tokensFor,
   usdMicrosOf,
   type ActionAmount,
   type Address,
@@ -38,6 +39,9 @@ import {
   DEFAULT_FEE_POLICY,
   feeLine,
   feeOf,
+  feeUnits,
+  type IntegratorFeePolicy,
+  validIntegratorFee,
   type FeePolicy,
   type StepFee,
 } from "@lykia/core";
@@ -58,7 +62,13 @@ import { YieldService } from "./venues/yields.js";
 
 export const DEFAULT_SLIPPAGE_BPS = 50;
 export const DEFAULT_MIN_HEALTH = "1.5";
+/** The core tokens every plan reads first; `planTokens` adds every other registry token of the environment. */
 export const PLAN_TOKENS = ["USDC", "EURC", "cirBTC"] as const;
+
+export function planTokens(environment: ArcEnvironment): string[] {
+  const rest = tokensFor(environment).map((t) => t.symbol).filter((s) => !(PLAN_TOKENS as readonly string[]).includes(s));
+  return [...PLAN_TOKENS, ...rest];
+}
 
 export interface PlannerDeps {
   readonly chains: ArcChains;
@@ -89,6 +99,8 @@ export interface PlanInput {
   /** Dry runs plan past a short balance (with a warning) so a route can be previewed before funding. */
   readonly dryRun?: boolean;
   readonly preferences?: VenuePrefs;
+  /** The embedding project's fee, paid to its address beside Lykia's fee (capped at MAX_INTEGRATOR_FEE_BPS). */
+  readonly integrator?: IntegratorFeePolicy;
 }
 
 export interface PlanResult {
@@ -125,7 +137,10 @@ interface Ledger {
   readonly warnings: string[];
   readonly prefs?: VenuePrefs;
   readonly fee: FeePolicy;
+  readonly integrator?: IntegratorFeePolicy;
   readonly intentId: string;
+  /** What the last drafted step produced (symbol and units), for `{ previous: true }` amounts. */
+  last?: { readonly symbol: string; readonly units: bigint };
 }
 
 /** Turns amounts into base units against the ledger and records spends and receipts. */
@@ -140,6 +155,7 @@ class Book {
 
   resolve(amount: ActionAmount, symbol: string, decimals: number): bigint {
     if ("exact" in amount) return toBaseUnitsBig(amount.exact, decimals);
+    if ("previous" in amount) return this.previous(symbol);
     if ("percent" in amount) {
       const base = (this.l.start.get(symbol) ?? 0n) - (this.l.reserved.get(symbol) ?? 0n);
       return portionOf(base > 0n ? base : 0n, amount.percent * 100);
@@ -164,6 +180,15 @@ class Book {
 
   receive(symbol: string, units: bigint): void {
     this.l.balances.set(symbol, (this.l.balances.get(symbol) ?? 0n) + units);
+    this.l.last = { symbol, units };
+  }
+
+  /** What the previous step produced, in `symbol`; refuses when it produced something else. */
+  previous(symbol: string): bigint {
+    const last = this.l.last;
+    if (!last) throw new LykiaHttpError("INVALID_ACTIONS", 400, `"It" refers to the previous step's output, but no step before produced ${symbol}.`);
+    if (last.symbol !== symbol) throw new LykiaHttpError("INVALID_ACTIONS", 400, `The previous step produced ${last.symbol}, not ${symbol}.`);
+    return last.units;
   }
 
   amount(symbol: string, units: bigint, minimum?: bigint): StepAmount {
@@ -183,15 +208,25 @@ class Book {
   /** Lykia's fee on `units` of `symbol`, or undefined when the policy charges nothing. */
   fee(symbol: string, units: bigint, basis: StepFee["basis"]): StepFee | undefined {
     const amount = feeOf(units, this.l.fee.bps);
-    if (amount === 0n) return undefined;
+    const extra = this.l.integrator ? feeOf(units, this.l.integrator.bps) : 0n;
+    if (amount === 0n && extra === 0n) return undefined;
     const a = this.amount(symbol, amount);
-    return { bps: this.l.fee.bps, recipient: this.l.fee.recipient, symbol: a.symbol, token: a.token, decimals: a.decimals, amount: amount.toString(), usd: a.usd, basis };
+    const i = this.l.integrator && extra > 0n ? { integrator: { bps: this.l.integrator.bps, recipient: this.l.integrator.recipient, amount: extra.toString(), usd: this.amount(symbol, extra).usd, ...(this.l.integrator.projectId ? { projectId: this.l.integrator.projectId } : {}) } } : {};
+    return { bps: this.l.fee.bps, recipient: this.l.fee.recipient, symbol: a.symbol, token: a.token, decimals: a.decimals, amount: amount.toString(), usd: a.usd, basis, ...i };
   }
 }
 
 /** The plan params that make the adapter add the fee transfer to the step's batch. */
 function feeParams(fee: StepFee | undefined, at: "before" | "after" = "before"): Record<string, string> {
-  return fee ? { feeAmount: fee.amount, feeToken: fee.token, feeRecipient: fee.recipient, feeAt: at, feeLabel: feeLine(fee) } : {};
+  if (!fee) return {};
+  const app: Record<string, string> = fee.integrator ? { appFeeAmount: fee.integrator.amount, appFeeRecipient: fee.integrator.recipient } : {};
+  return { feeAmount: fee.amount, feeToken: fee.token, feeRecipient: fee.recipient, feeAt: at, feeLabel: feeLine(fee), ...app };
+}
+
+/** A valid integrator policy for the ledger, or nothing (zero bps, bad recipient or above the cap). */
+function integratorOf(policy: IntegratorFeePolicy | undefined): { integrator?: IntegratorFeePolicy } {
+  if (!policy || policy.bps <= 0 || !validIntegratorFee(policy)) return {};
+  return { integrator: policy };
 }
 
 /** The Fence fact for a fee; `usd` of the step already includes it. */
@@ -212,14 +247,16 @@ export class Planner {
     const account = input.agent?.address ?? input.owner;
     const client = this.deps.chains.client(env);
     const fence = input.fence ?? DEFAULT_FENCE;
+    // Every registry token in this environment, so any of them can be sent, swapped or kept.
+    const symbols = planTokens(env);
     const reads = await client.multicall({
-      contracts: PLAN_TOKENS.map((s) => ({ address: tokenAddress(getToken(s)!, env) as Address, abi: ERC4626_ABI, functionName: "balanceOf", args: [account] }) as const),
+      contracts: symbols.map((s) => ({ address: tokenAddress(getToken(s)!, env) as Address, abi: ERC4626_ABI, functionName: "balanceOf", args: [account] }) as const),
       allowFailure: true,
     });
     const start = new Map<string, bigint>();
-    PLAN_TOKENS.forEach((s, i) => start.set(s, reads[i]?.status === "success" ? (reads[i].result as bigint) : 0n));
-    const prices = await this.deps.prices.prices([...PLAN_TOKENS]);
-    const ledger: Ledger = { env, account, owner: input.owner, fence, dryRun: input.dryRun === true, start, balances: new Map(start), reserved: new Map(), prices, warnings: [], fee: this.deps.fee ?? DEFAULT_FEE_POLICY, intentId: input.id, ...(input.preferences ? { prefs: input.preferences } : {}) };
+    symbols.forEach((s, i) => start.set(s, reads[i]?.status === "success" ? (reads[i].result as bigint) : 0n));
+    const prices = await this.deps.prices.prices(symbols);
+    const ledger: Ledger = { env, account, owner: input.owner, fence, dryRun: input.dryRun === true, start, balances: new Map(start), reserved: new Map(), prices, warnings: [], fee: this.deps.fee ?? DEFAULT_FEE_POLICY, intentId: input.id, ...(input.preferences ? { prefs: input.preferences } : {}), ...integratorOf(input.integrator) };
     const book = new Book(ledger);
 
     // Reserves apply to the whole plan, wherever they appear in the sentence.
@@ -240,7 +277,12 @@ export class Planner {
     if (actions.length === 0) throw new LykiaHttpError("NO_ROUTE", 422, "Nothing to do: the flock is already where you want it.");
 
     const drafts: Draft[] = [];
-    for (const action of actions) drafts.push(...(await this.draft(action, book)));
+    for (const action of actions) {
+      const before = ledger.last;
+      drafts.push(...(await this.draft(action, book)));
+      // A step that produced nothing (a send, a bridge) leaves nothing for "it" to refer to.
+      if (ledger.last === before) delete ledger.last;
+    }
 
     const plans: Record<string, StepPlan> = {};
     const steps: IntentStep[] = drafts.map((d, i) => {
@@ -310,11 +352,11 @@ export class Planner {
         // An exact send reaches the recipient in full and pays the fee on top; a share or "all" pays it from the amount.
         const onTop = "exact" in action.amount;
         const fee = book.fee(token.symbol, resolved, onTop ? "on-top" : "input");
-        const feeUnits = fee ? BigInt(fee.amount) : 0n;
-        const units = onTop ? resolved : resolved - feeUnits;
-        book.spend(token.symbol, units + feeUnits, "send");
+        const feePaid = feeUnits(fee);
+        const units = onTop ? resolved : resolved - feePaid;
+        book.spend(token.symbol, units + feePaid, "send");
         const amount = book.amount(token.symbol, units);
-        const gross = book.amount(token.symbol, units + feeUnits);
+        const gross = book.amount(token.symbol, units + feePaid);
         const display = book.display(token.symbol, units);
         return [{
           adapter: "transfer",
@@ -338,7 +380,7 @@ export class Planner {
         const gross = book.resolve(action.amount, "USDC", 6);
         book.spend("USDC", gross, "bridge");
         const fee = book.fee("USDC", gross, "input");
-        const units = gross - (fee ? BigInt(fee.amount) : 0n);
+        const units = gross - feeUnits(fee);
         const feeBps = await cctpFeeBps(this.deps.fetch, env, dest.domain);
         const warnings: string[] = [];
         if (feeBps === null) warnings.push("The CCTP fee could not be read; the burn allows no fee (standard transfer).");
@@ -362,7 +404,7 @@ export class Planner {
         const gross = book.resolve(action.amount, "USDC", 6);
         book.spend("USDC", gross, "deposit into Gateway");
         const fee = book.fee("USDC", gross, "input");
-        const units = gross - (fee ? BigInt(fee.amount) : 0n);
+        const units = gross - feeUnits(fee);
         const amount = book.amount("USDC", units);
         const display = book.display("USDC", units);
         return [{
@@ -388,7 +430,7 @@ export class Planner {
         const gross = book.resolve(action.amount, token.symbol, token.decimals);
         book.spend(token.symbol, gross, "supply");
         const fee = book.fee(token.symbol, gross, "input");
-        const units = gross - (fee ? BigInt(fee.amount) : 0n);
+        const units = gross - feeUnits(fee);
         const amount = book.amount(token.symbol, units);
         const display = book.display(token.symbol, units);
         return [{
@@ -429,7 +471,7 @@ export class Planner {
     const gross = book.resolve(amountSpec, token.symbol, token.decimals);
     book.spend(token.symbol, gross, "deposit");
     const fee = book.fee(token.symbol, gross, "input");
-    const units = gross - (fee ? BigInt(fee.amount) : 0n);
+    const units = gross - feeUnits(fee);
     const amount = book.amount(token.symbol, units);
     const display = book.display(token.symbol, units);
     const c: Candidate = choice.candidate;
@@ -538,7 +580,7 @@ export class Planner {
     if (c.collateralUnits > 0n) book.spend(coll.symbol, c.collateralUnits, "post collateral");
     // The fee comes out of the borrowed amount, right after the borrow, in the same transaction.
     const fee = book.fee(loan.symbol, amountUnits, "output");
-    book.receive(loan.symbol, amountUnits - (fee ? BigInt(fee.amount) : 0n));
+    book.receive(loan.symbol, amountUnits - feeUnits(fee));
     const debt = book.amount(loan.symbol, amountUnits);
     const display = book.display(loan.symbol, amountUnits);
     const collText = c.collateralUnits > 0n ? `post ${book.display(coll.symbol, c.collateralUnits)} and ` : "";
@@ -548,7 +590,7 @@ export class Planner {
       summary: `On ${c.option.label}: ${collText}borrow ${display} (health factor ${c.healthFactor ?? "unknown"} after, floor ${minHealth})`,
       params: { ...c.params, amount: amountUnits.toString(), collateral: c.collateralUnits.toString(), display, minHealth, ...feeParams(fee, "after") },
       inputs: c.collateralUnits > 0n ? [book.amount(coll.symbol, c.collateralUnits)] : [],
-      outputs: [book.amount(loan.symbol, amountUnits - (fee ? BigInt(fee.amount) : 0n))],
+      outputs: [book.amount(loan.symbol, amountUnits - feeUnits(fee))],
       fee,
       fact: { usd: debt.usd, tokens: [book.fact(loan.symbol, true), ...(c.collateralUnits > 0n ? [book.fact(coll.symbol, false)] : [])], healthFactorAfter: c.healthFactor, ...feeFact(fee) },
       settlement: { kind: "receipt" },
@@ -612,7 +654,7 @@ export class Planner {
     if (gross <= 0n && !book.l.dryRun) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `Nothing to ${action.verb}: the spendable ${from.symbol} balance is 0.`);
     // The fee leaves the input first; every venue is quoted on the same net amount, so the comparison is fair.
     const fee = book.fee(from.symbol, gross, "input");
-    const units = gross - (fee ? BigInt(fee.amount) : 0n);
+    const units = gross - feeUnits(fee);
     const best = await this.router.bestSwap(env, from.symbol, to.symbol, units > 0n ? units : 10n ** BigInt(from.decimals), book.l.prefs);
     if (!best) throw noRoute(env === "testnet" ? `No ${isFx ? "FX" : "swap"} venue on Arc testnet yet: the Lykia practice swap is not deployed (Uniswap is mainnet only).` : `No venue on Arc quotes ${from.symbol} -> ${to.symbol}.`);
     book.spend(from.symbol, gross, action.verb);
@@ -645,7 +687,7 @@ export class Planner {
         const out = best.legs.reduce((sum, leg) => sum + scale(leg.candidate.amountOut, leg.amountIn, BigInt(leg.candidate.params.amountIn as string)), 0n);
         const minOut = legs.reduce((sum, l) => sum + BigInt(l.minOut), 0n);
         book.receive(to.symbol, minOut);
-        const input = book.amount(from.symbol, units + (fee ? BigInt(fee.amount) : 0n));
+        const input = book.amount(from.symbol, units + feeUnits(fee));
         const display = `${fromBaseUnits(units, from.decimals)} ${from.symbol} -> ${fromBaseUnits(out, to.decimals)} ${to.symbol}`;
         return [{
           adapter: "router-split",
@@ -663,12 +705,14 @@ export class Planner {
       }
       routerNote = `The split runs as separate steps: ${check.missing.join(" and ")} ${check.missing.length === 1 ? "is" : "are"} not allowlisted on LykiaRouter yet (owner console → Router venues).`;
     }
+    let legsOut = 0n;
     for (const [index, leg] of best.legs.entries()) {
       const quotedIn = BigInt(leg.candidate.params.amountIn as string);
       const legIn = best.legs.length === 1 ? units : leg.amountIn;
       const out = scale(leg.candidate.amountOut, legIn, quotedIn);
       const minOut = (out * BigInt(10_000 - slippageBps)) / 10_000n;
       book.receive(to.symbol, minOut);
+      legsOut += minOut;
       // The whole fee rides on the first leg (one transfer per plan action).
       const legFee = index === 0 ? fee : undefined;
       const input = book.amount(from.symbol, legIn + (legFee ? BigInt(legFee.amount) : 0n));
@@ -690,6 +734,8 @@ export class Planner {
         ...(index === 0 ? { route: best.route } : {}),
       });
     }
+    // "It" after a split swap means both legs' output.
+    book.l.last = { symbol: to.symbol, units: legsOut };
     return drafts;
   }
 }

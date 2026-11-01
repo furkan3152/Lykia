@@ -18,7 +18,14 @@ test("contracts are checksummed addresses; ERC-8183 is testnet only", () => {
 });
 
 test("tokens: registry, aliases, look-alikes", () => {
-  assert.equal(TOKENS.length, 4);
+  assert.equal(TOKENS.length, 19);
+  assert.ok(TOKENS.some((t) => t.symbol === "WETH" && t.decimals === 18));
+  assert.equal(findToken("mainnet", "gbpa")?.decimals, 6);
+  assert.equal(findToken("testnet", "gbpa"), null);
+  assert.equal(findToken("mainnet", "yen")?.symbol, "JPYC");
+  assert.equal(new Set(TOKENS.map((t) => t.symbol.toLowerCase())).size, TOKENS.length);
+  const aliases = TOKENS.flatMap((t) => t.aliases);
+  assert.equal(new Set(aliases).size, aliases.length, "aliases are unique across tokens");
   assert.equal(findToken("testnet", "euro")?.symbol, "EURC");
   assert.equal(findToken("mainnet", "0xbef5f6d51cb62b58e6a8f77868681825c6fe21c1")?.symbol, "EURC");
   assert.equal(assessToken({ environment: "mainnet", address: "0x3600000000000000000000000000000000000000" }).status, "verified");

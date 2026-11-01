@@ -1,0 +1,121 @@
+{
+  "name": "@lykia/widget",
+  "version": "0.1.0",
+  "description": "Drop-in React components and headless hooks for Lykia on Arc Network: chat, send, swap, earn, bridge, the Fence, Scent, the Flock, the Pack and the Outrun, themed to the host app.",
+  "keywords": [
+    "lykia",
+    "arc",
+    "circle",
+    "usdc",
+    "react",
+    "widget",
+    "agents",
+    "ai"
+  ],
+  "license": "MIT",
+  "homepage": "https://lykia-akdogan1.vercel.app/build",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/furkan3152/lykia.git",
+    "directory": "packages/widget"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./provider": {
+      "types": "./dist/provider.d.ts",
+      "import": "./dist/provider.js"
+    },
+    "./hooks": {
+      "types": "./dist/hooks.d.ts",
+      "import": "./dist/hooks.js"
+    },
+    "./theme": {
+      "types": "./dist/theme.d.ts",
+      "import": "./dist/theme.js"
+    },
+    "./wallet": {
+      "types": "./dist/wallet.d.ts",
+      "import": "./dist/wallet.js"
+    },
+    "./controllers": {
+      "types": "./dist/controllers.d.ts",
+      "import": "./dist/controllers.js"
+    },
+    "./chat": {
+      "types": "./dist/chat.d.ts",
+      "import": "./dist/chat.js"
+    },
+    "./send": {
+      "types": "./dist/send.d.ts",
+      "import": "./dist/send.js"
+    },
+    "./swap": {
+      "types": "./dist/swap.d.ts",
+      "import": "./dist/swap.js"
+    },
+    "./earn": {
+      "types": "./dist/earn.d.ts",
+      "import": "./dist/earn.js"
+    },
+    "./bridge": {
+      "types": "./dist/bridge.d.ts",
+      "import": "./dist/bridge.js"
+    },
+    "./fence": {
+      "types": "./dist/fence.d.ts",
+      "import": "./dist/fence.js"
+    },
+    "./scent": {
+      "types": "./dist/scent.d.ts",
+      "import": "./dist/scent.js"
+    },
+    "./flock": {
+      "types": "./dist/flock.d.ts",
+      "import": "./dist/flock.js"
+    },
+    "./pack": {
+      "types": "./dist/pack.d.ts",
+      "import": "./dist/pack.js"
+    },
+    "./outrun": {
+      "types": "./dist/outrun.d.ts",
+      "import": "./dist/outrun.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.map",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "npm run build",
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "dependencies": {
+    "@lykia/core": "0.1.0",
+    "@lykia/sdk": "0.1.0"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

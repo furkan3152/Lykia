@@ -131,6 +131,16 @@ export class WebhookService {
     return view(next);
   }
 
+  /** Subscribes an endpoint to one more owner's events (project webhooks follow the project's users). */
+  async addOwner(developer: string, id: string, owner: string): Promise<boolean> {
+    const doc = await this.endpoints().get(id);
+    if (!doc || doc.value.developer !== developer.toLowerCase() || doc.value.disabled) return false;
+    const who = owner.toLowerCase();
+    if (doc.value.owners.includes(who) || doc.value.owners.length >= 1_000) return false;
+    await this.endpoints().put(id, { ...doc.value, owners: [...doc.value.owners, who] });
+    return true;
+  }
+
   async recentDeliveries(developer: string, limit = 50): Promise<WebhookDelivery[]> {
     const mine = new Set((await this.endpoints().list({ limit: 1000 })).filter((d) => d.value.developer === developer.toLowerCase()).map((d) => d.id));
     return (await this.deliveries().list({ limit: 1000 }))

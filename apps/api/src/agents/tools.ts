@@ -7,13 +7,15 @@
  * Every tool result goes back to the model wrapped as untrusted data:
  * token names, memos and card text are written by strangers.
  */
-import { getProtocol, protocolsFor, type Address, type ArcEnvironment, type Fence, type PackCapability, type PackRole, type PlanAction } from "@lykia/core";
+import { getProtocol, KNOWLEDGE_ROWS, protocolsFor, tokensFor, venueBrief, venueKnowledge, type Address, type ArcEnvironment, type Fence, type PackCapability, type PackRole, type PlanAction } from "@lykia/core";
 import type { AgentProposal } from "@lykia/core/api/agents";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { EXECUTABLE_VENUES } from "../engine/adapters.js";
 import { services } from "../services.js";
 import { planSentence } from "./engine.js";
+import { knowledgePaths } from "../engine/search.js";
+import { readSentence } from "../language/reader.js";
 import type { LlmTool } from "./llm.js";
 
 export interface ActingAgent {
@@ -99,11 +101,53 @@ export const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
     },
   }),
   spec({
-    name: "prices",
-    description: "USD reference prices for Arc tokens from Chainlink feeds (USDC, EURC, cirBTC). Stale or missing prices come back as null.",
+    name: "knowledge",
+    description:
+      "Ask what Lykia knows about Arc venues before planning. topic 'venues' lists every venue (what it does, what it can convert into what, risk). topic 'venue' with venue=<id> gives one venue's functions, approvals, preconditions, failure modes, gas and risk facts. topic 'paths' with from/to (assets like USDC, EURC, cirBTC, WETH, or positions like USDC@morpho-vaults) lists the ways to get there. topic 'tokens' lists registry tokens with decimals and pegs.",
     capability: "read",
-    schema: z.object({ symbols: z.array(z.enum(["USDC", "EURC", "cirBTC", "USYC"])).min(1).max(4) }).strict(),
-    json: obj({ symbols: { type: "array", items: { type: "string", enum: ["USDC", "EURC", "cirBTC", "USYC"] }, minItems: 1, maxItems: 4 } }, ["symbols"]),
+    schema: z.object({ topic: z.enum(["venues", "venue", "paths", "tokens"]), venue: z.string().max(48).optional(), from: z.string().max(40).optional(), to: z.string().max(40).optional() }).strict(),
+    json: obj({ topic: { type: "string", enum: ["venues", "venue", "paths", "tokens"] }, venue: { type: "string" }, from: { type: "string" }, to: { type: "string" } }, ["topic"]),
+    async run(input: { topic: "venues" | "venue" | "paths" | "tokens"; venue?: string; from?: string; to?: string }, tc) {
+      if (input.topic === "venues") return { summary: `${KNOWLEDGE_ROWS.length} venues described`, data: KNOWLEDGE_ROWS.map(venueBrief) };
+      if (input.topic === "tokens") return { summary: "Registry tokens", data: tokensFor(tc.environment).map((t) => ({ symbol: t.symbol, decimals: t.decimals, peg: t.peg, issuer: t.issuer, tags: t.tags })) };
+      if (input.topic === "paths") {
+        if (!input.from || !input.to) throw new Error("paths needs from and to.");
+        const paths = knowledgePaths(input.from, input.to, 3);
+        return { summary: `${paths.length} paths from ${input.from} to ${input.to}`, data: paths };
+      }
+      const row = input.venue ? venueKnowledge(input.venue) : null;
+      if (!row) throw new Error(`No knowledge row for ${input.venue ?? "(missing venue)"}.`);
+      return {
+        summary: `Knowledge: ${row.venue}`,
+        data: { ...venueBrief(row), functions: row.functions.map((f) => ({ abi: f.abi, purpose: f.purpose, approvals: f.approvals, preconditions: f.preconditions, failures: f.failures, gas: f.gas, fee: f.feeModel, settlement: f.settlement })), risk: row.risk },
+      };
+    },
+  }),
+  spec({
+    name: "search_routes",
+    description:
+      "Find the best route for a goal sentence (English or Turkish), e.g. 'earn the best yield on 1000 USDC with medium risk' or 'borrow 1000 USDC on my cirBTC and put it to work with health ≥ 1.8'. Compares direct routes, other venues, convert-then-earn and multi-hop conversions, scores them by net value after fees, gas, slippage and risk, checks the winner's calldata with one eth_call, and explains why. Plans nothing for signing; use plan_intent with the winning sentence or ask the owner.",
+    capability: "read",
+    schema: z.object({ sentence: z.string().min(3).max(400), appetite: z.enum(["low", "medium", "high"]).optional(), horizonDays: z.number().int().min(1).max(3650).optional() }).strict(),
+    json: obj({ sentence: { type: "string", maxLength: 400 }, appetite: { type: "string", enum: ["low", "medium", "high"] }, horizonDays: { type: "integer", minimum: 1, maximum: 3650 } }, ["sentence"]),
+    async run(input: { sentence: string; appetite?: "low" | "medium" | "high"; horizonDays?: number }, tc) {
+      const owner = needOwner(tc);
+      const parsed = readSentence(input.sentence);
+      if (parsed.clarify.length > 0 || parsed.actions.length === 0) return { summary: "Needs a detail", data: { clarify: parsed.clarify.length > 0 ? parsed.clarify : [parsed.reply] } };
+      const result = await services(tc.ctx).search.search({ environment: tc.environment, owner, actions: parsed.actions, fence: tc.agent.fence, proposedByAgent: true, spent: await services(tc.ctx).intents.spent(tc.environment, owner), source: input.sentence, ...(input.appetite ? { appetite: input.appetite } : {}), ...(input.horizonDays ? { horizonDays: input.horizonDays } : {}) });
+      const brief = (r: NonNullable<typeof result.best>) => ({ label: r.label, steps: r.explanation.steps, net: r.score.totalUsd, why: r.explanation.why, couldFail: r.explanation.couldFail.slice(0, 4), fence: r.explanation.fence, checked: r.simulation ? (r.simulation.ok ? "simulation passed" : `simulation failed: ${r.simulation.reason}`) : "not simulated" });
+      return {
+        summary: result.best ? `Best route: ${result.best.label} (net ${result.best.score.totalUsd ?? "unpriced"} USD)` : "No route passed",
+        data: { best: result.best ? brief(result.best) : null, alternatives: result.alternatives.slice(0, 3).map(brief), pruned: result.pruned.slice(0, 8), failedChecks: result.failedChecks, objective: result.objective },
+      };
+    },
+  }),
+  spec({
+    name: "prices",
+    description: "USD reference prices for Arc registry tokens (Chainlink feeds; fiat stablecoins at their peg; USYC at its NAV). Stale or missing prices come back as null.",
+    capability: "read",
+    schema: z.object({ symbols: z.array(z.string().min(2).max(10)).min(1).max(8) }).strict(),
+    json: obj({ symbols: { type: "array", items: { type: "string", maxLength: 10 }, minItems: 1, maxItems: 8, description: "Registry symbols, e.g. USDC, EURC, cirBTC, WETH, USYC, JPYC" } }, ["symbols"]),
     async run(input: { symbols: string[] }, tc) {
       const prices = await services(tc.ctx).prices.prices(input.symbols);
       return { summary: `Prices for ${input.symbols.join(", ")}`, data: prices };

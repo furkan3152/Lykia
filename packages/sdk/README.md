@@ -115,3 +115,42 @@ export async function POST(request: Request) {
 ```
 
 Signatures older than five minutes are rejected.
+
+## Modular imports
+
+Import only what you use. Each module takes a transport, so bundlers drop
+the rest:
+
+```ts
+import { createTransport } from "@lykia/sdk/transport";
+import { intentsApi } from "@lykia/sdk/intents";
+import { projectsApi } from "@lykia/sdk/projects";
+
+const t = createTransport({ apiKey: process.env.LYKIA_KEY, project: "prj_…" });
+const plan = await intentsApi(t).create({ owner, text: "send 25 USDC to 0x…" });
+const brand = await projectsApi(t).public(); // the project's brand, modules and disclosed fee
+```
+
+| Subpath | What it covers |
+|---|---|
+| `@lykia/sdk/intents` | Parse, plan, prepare, submit, follow. |
+| `@lykia/sdk/fence` | Validate (with loosened-rule lines) and evaluate. |
+| `@lykia/sdk/agents` | Lyko's chat, threads, insights, automations, the Pack, standing orders, orders. |
+| `@lykia/sdk/circle` | CCTP, Gateway, x402 services, Compliance screening. |
+| `@lykia/sdk/ecosystem` | The ecosystem map, venues, the Flock, Scent. |
+| `@lykia/sdk/projects` | White-label projects: brand, origins, keys, usage, webhook. |
+| `@lykia/sdk/webhooks` | Verify `Lykia-Signature`. |
+
+`new Lykia()` still bundles every module (`lykia.intents`, `lykia.projects`,
+`lykia.ecosystem`, ...).
+
+## Typed events
+
+```ts
+lykia.on("plan-created", (e) => console.log(e.intentId, e.decision));
+lykia.on("step-signed", (e) => console.log(e.stepId, e.hashes));
+lykia.on("settled", (e) => console.log(e.stepId, e.status));
+lykia.on("error", (e) => console.error(e.path, e.error.code));
+```
+
+`request`, `response` and `retry` events help with logging and metrics.

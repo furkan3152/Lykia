@@ -1,24 +1,27 @@
 /**
  * The verified token registry. A token is "verified" only when it is listed
- * here; its name, symbol and decimals were read on-chain (2026-11-01) from
- * both Arc environments. A stranger reusing one of these names is a
+ * here; its name, symbol and decimals were read on-chain (2026-11-01) in
+ * every environment it is listed for. Circle tokens live in both
+ * environments; partner fiat stablecoins are mainnet-only. A stranger reusing one of these names is a
  * look-alike and Scent flags it.
  */
 import { ARC_CONTRACTS, sameAddress, type Address, type ArcContractKey } from "./contracts.js";
 import type { ArcEnvironment } from "./networks.js";
 
-export type Peg = "USD" | "EUR" | "BTC";
+export type Peg = "USD" | "EUR" | "BTC" | "ETH" | "AUD" | "BRL" | "CAD" | "CHF" | "GBP" | "JPY" | "KRW" | "MXN" | "SEK" | "TRY" | "ZAR";
 
 export interface TokenDescriptor {
   readonly symbol: string;
   readonly name: string;
   readonly decimals: number;
-  readonly contract: ArcContractKey;
+  /** Arc system / Circle contract key; tokens from other issuers carry `addresses` instead. */
+  readonly contract?: ArcContractKey;
+  readonly addresses?: Readonly<Partial<Record<ArcEnvironment, Address>>>;
   readonly peg: Peg;
   /** Stablecoins price at their peg; yield tokens and BTC need a price source. */
   readonly pricing: "peg" | "nav" | "market";
-  readonly issuer: "Circle";
-  readonly tags: readonly ("gas" | "stablecoin" | "fx" | "yield" | "restricted" | "collateral")[];
+  readonly issuer: string;
+  readonly tags: readonly ("gas" | "stablecoin" | "fx" | "yield" | "restricted" | "collateral" | "bridged")[];
   readonly aliases: readonly string[];
   readonly evidence: string;
 }
@@ -72,10 +75,196 @@ export const TOKENS: readonly TokenDescriptor[] = Object.freeze([
     aliases: ["btc", "bitcoin", "cirbtc", "wbtc"],
     evidence: "name() Circle Wrapped Bitcoin, symbol() cirBTC, decimals() 8 on both environments",
   },
+  {
+    symbol: "WETH",
+    name: "Wrapped Ether",
+    decimals: 18,
+    contract: "weth",
+    peg: "ETH",
+    pricing: "market",
+    issuer: "Arc canonical bridge",
+    tags: ["bridged", "collateral"],
+    aliases: ["eth", "ether", "weth", "wrapped ether"],
+    evidence: "name() Wrapped Ether, symbol() WETH, decimals() 18 on mainnet (2026-11-01); docs.arc.io contract-addresses",
+  },
+  {
+    symbol: "AUDD",
+    name: "AUDD",
+    decimals: 6,
+    addresses: { mainnet: "0xdec15d98d8c16d9ca2f8cc94ba4b88fe4f259393" },
+    peg: "AUD",
+    pricing: "peg",
+    issuer: "Novatti",
+    tags: ["stablecoin", "fx"],
+    aliases: ["australian dollar digital", "audd"],
+    evidence: "eth_getCode non-empty; name() AUDD, symbol() AUDD, decimals() 6 read on Arc mainnet (2026-11-01). Listed among Arc's launch stablecoins.",
+  },
+  {
+    symbol: "AUDF",
+    name: "Forte AUD",
+    decimals: 6,
+    addresses: { mainnet: "0xd2a530170d71a9cfe1651fb468e2b98f7ed7456b" },
+    peg: "AUD",
+    pricing: "peg",
+    issuer: "Forte Securities Australia",
+    tags: ["stablecoin", "fx"],
+    aliases: ["forte aud"],
+    evidence: "eth_getCode non-empty; name() Forte AUD, symbol() AUDF, decimals() 6 read on Arc mainnet (2026-11-01). Listed among Arc's launch stablecoins.",
+  },
+  {
+    symbol: "BRLA",
+    name: "BRLA Token",
+    decimals: 18,
+    addresses: { mainnet: "0x75700e137c05b2beb2b3a436ccb551652e3d8b11" },
+    peg: "BRL",
+    pricing: "peg",
+    issuer: "Avenia",
+    tags: ["stablecoin", "fx"],
+    aliases: ["brl", "brazilian real"],
+    evidence: "eth_getCode non-empty; name() BRLA Token, symbol() BRLA, decimals() 18 read on Arc mainnet (2026-11-01). Listed among Arc's launch stablecoins.",
+  },
+  {
+    symbol: "CADD",
+    name: "CAD Digital",
+    decimals: 18,
+    addresses: { mainnet: "0x24bf8ae7b8e073d766a3509c25b45a6ad30e9046" },
+    peg: "CAD",
+    pricing: "peg",
+    issuer: "CAD Digital",
+    tags: ["stablecoin", "fx"],
+    aliases: ["cad digital"],
+    evidence: "eth_getCode non-empty; name() CAD Digital, symbol() CADD, decimals() 18 read on Arc mainnet (2026-11-01). Listed among Arc's launch stablecoins.",
+  },
+  {
+    symbol: "CHFAU",
+    name: "AllUnity CHF",
+    decimals: 6,
+    addresses: { mainnet: "0xc6df1b92a6ae61a27059c41e541a91ce8dcb1605" },
+    peg: "CHF",
+    pricing: "peg",
+    issuer: "AllUnity",
+    tags: ["stablecoin", "fx"],
+    aliases: ["chf", "swiss franc", "franc"],
+    evidence: "eth_getCode non-empty; name() AllUnity CHF, symbol() CHFAU, decimals() 6 read on Arc mainnet (2026-11-01). Listed among Arc's launch stablecoins.",
+  },
+  {
+    symbol: "EURAU",
+    name: "AllUnity EUR",
+    decimals: 6,
+    addresses: { mainnet: "0x4933a85b5b5466fbaf179f72d3de273c287ec2c2" },
+    peg: "EUR",
+    pricing: "peg",
+    issuer: "AllUnity",
+    tags: ["stablecoin", "fx"],
+    aliases: ["allunity eur"],
+    evidence: "eth_getCode non-empty; name() AllUnity EUR, symbol() EURAU, decimals() 6 read on Arc mainnet (2026-11-01). Listed among Arc's launch stablecoins.",
+  },
+  {
+    symbol: "GBPA",
+    name: "Agant GBP",
+    decimals: 6,
+    addresses: { mainnet: "0xbbe6aab0ed76e90aea0d1cd978ec231c8adcdf8b" },
+    peg: "GBP",
+    pricing: "peg",
+    issuer: "Agant",
+    tags: ["stablecoin", "fx"],
+    aliases: ["gbp", "pound", "sterling", "british pound"],
+    evidence: "eth_getCode non-empty; name() Agant GBP, symbol() GBPA, decimals() 6 read on Arc mainnet (2026-11-01). Listed among Arc's launch stablecoins.",
+  },
+  {
+    symbol: "JPYC",
+    name: "JPY Coin",
+    decimals: 18,
+    addresses: { mainnet: "0xe7c3d8c9a439fede00d2600032d5db0be71c3c29" },
+    peg: "JPY",
+    pricing: "peg",
+    issuer: "JPYC",
+    tags: ["stablecoin", "fx"],
+    aliases: ["jpy", "yen", "japanese yen"],
+    evidence: "eth_getCode non-empty; name() JPY Coin, symbol() JPYC, decimals() 18 read on Arc mainnet (2026-11-01). Listed among Arc's launch stablecoins.",
+  },
+  {
+    symbol: "KRW1",
+    name: "KRW1",
+    decimals: 18,
+    addresses: { mainnet: "0x303dbb88ba14626c7a927e983b73267c575315f7" },
+    peg: "KRW",
+    pricing: "peg",
+    issuer: "BDACS",
+    tags: ["stablecoin", "fx"],
+    aliases: ["krw", "korean won"],
+    evidence: "eth_getCode non-empty; name() KRW1, symbol() KRW1, decimals() 18 read on Arc mainnet (2026-11-01). Listed among Arc's launch stablecoins.",
+  },
+  {
+    symbol: "MXNB",
+    name: "MXNB",
+    decimals: 6,
+    addresses: { mainnet: "0xf197ffc28c23e0309b5559e7a166f2c6164c80aa" },
+    peg: "MXN",
+    pricing: "peg",
+    issuer: "Juno (Bitso)",
+    tags: ["stablecoin", "fx"],
+    aliases: ["mxn", "peso", "mexican peso"],
+    evidence: "eth_getCode non-empty; name() MXNB, symbol() MXNB, decimals() 6 read on Arc mainnet (2026-11-01). Listed among Arc's launch stablecoins.",
+  },
+  {
+    symbol: "QCAD",
+    name: "QCAD",
+    decimals: 6,
+    addresses: { mainnet: "0xd70c2fa4232e054b373efaea98e4138511c2a309" },
+    peg: "CAD",
+    pricing: "peg",
+    issuer: "Stablecorp",
+    tags: ["stablecoin", "fx"],
+    aliases: ["cad", "canadian dollar"],
+    evidence: "eth_getCode non-empty; name() QCAD, symbol() QCAD, decimals() 6 read on Arc mainnet (2026-11-01). Listed among Arc's launch stablecoins.",
+  },
+  {
+    symbol: "SEKAU",
+    name: "AllUnity SEK",
+    decimals: 6,
+    addresses: { mainnet: "0xf8524b5ab17d5eca2f78abe8377ceffd323b1dc1" },
+    peg: "SEK",
+    pricing: "peg",
+    issuer: "AllUnity",
+    tags: ["stablecoin", "fx"],
+    aliases: ["sek", "krona", "swedish krona"],
+    evidence: "eth_getCode non-empty; name() AllUnity SEK, symbol() SEKAU, decimals() 6 read on Arc mainnet (2026-11-01). Listed among Arc's launch stablecoins.",
+  },
+  {
+    symbol: "TRYB",
+    name: "TRYB",
+    decimals: 18,
+    addresses: { mainnet: "0xfb0705023603dc86325b83d9ff6b0da7921fec17" },
+    peg: "TRY",
+    pricing: "peg",
+    issuer: "BiLira",
+    tags: ["stablecoin", "fx"],
+    aliases: ["lira", "turkish lira"],
+    evidence: "eth_getCode non-empty; name() TRYB, symbol() TRYB, decimals() 18 read on Arc mainnet (2026-11-01). Listed among Arc's launch stablecoins.",
+  },
+  {
+    symbol: "ZARU",
+    name: "ZAR Universal",
+    decimals: 18,
+    addresses: { mainnet: "0xe205b4e7ac03e3f7b2060c3edf2171aa7126c0d5" },
+    peg: "ZAR",
+    pricing: "peg",
+    issuer: "Luno",
+    tags: ["stablecoin", "fx"],
+    aliases: ["zar", "rand", "south african rand"],
+    evidence: "eth_getCode non-empty; name() ZAR Universal, symbol() ZARU, decimals() 18 read on Arc mainnet (2026-11-01). Listed among Arc's launch stablecoins.",
+  },
 ] satisfies TokenDescriptor[]);
 
 export function tokenAddress(token: TokenDescriptor, environment: ArcEnvironment): Address | null {
-  return ARC_CONTRACTS[token.contract].addresses[environment] ?? null;
+  if (token.addresses) return token.addresses[environment] ?? null;
+  return token.contract ? ARC_CONTRACTS[token.contract].addresses[environment] ?? null : null;
+}
+
+/** Registry tokens deployed in `environment`. */
+export function tokensFor(environment: ArcEnvironment): TokenDescriptor[] {
+  return TOKENS.filter((token) => tokenAddress(token, environment) !== null);
 }
 
 export function getToken(symbol: string): TokenDescriptor | null {
@@ -94,7 +283,7 @@ export function findToken(environment: ArcEnvironment, symbolOrAddress: string):
   const wanted = symbolOrAddress.trim();
   if (/^0x[0-9a-fA-F]{40}$/u.test(wanted)) return tokenByAddress(environment, wanted);
   const lower = wanted.toLowerCase();
-  return TOKENS.find((token) => token.symbol.toLowerCase() === lower || token.aliases.includes(lower)) ?? null;
+  return TOKENS.find((token) => (token.symbol.toLowerCase() === lower || token.aliases.includes(lower)) && tokenAddress(token, environment) !== null) ?? null;
 }
 
 /* ------------------------------------------------------------- look-alikes */

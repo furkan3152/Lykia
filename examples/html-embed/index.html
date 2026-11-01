@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Acme Pay: Lykia embed example</title>
+    <style>
+      body { margin: 0 auto; max-width: 960px; padding: 24px 16px; font-family: system-ui, sans-serif; color: #13233a; background: #f7f7f2; }
+      .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+      #log { font: 12px ui-monospace, monospace; white-space: pre-wrap; background: #fff; padding: 8px; min-height: 48px; overflow-wrap: anywhere; }
+    </style>
+    <!-- One script tag. Pin a version in production: https://unpkg.com/@lykia/embed@0.1.0 -->
+    <script type="module" src="https://unpkg.com/@lykia/embed"></script>
+  </head>
+  <body>
+    <h1>Acme Pay</h1>
+    <p>Replace <code>prj_yourproject1</code> and the key with your project's values from Lykia's <code>/build</code> page. This page's origin must be a verified origin of that project.</p>
+
+    <div class="grid">
+      <lykia-assistant project="prj_yourproject1" key="lk_pk_yourkeyid000_REPLACEwithYOURpublishableKEY00" primary="#0f766e" scheme="auto"></lykia-assistant>
+      <lykia-swap project="prj_yourproject1" key="lk_pk_yourkeyid000_REPLACEwithYOURpublishableKEY00" primary="#0f766e" radius="16" wallet="host"></lykia-swap>
+    </div>
+
+    <h2>Events</h2>
+    <div id="log" aria-live="polite"></div>
+
+    <script type="module">
+      const log = document.getElementById("log");
+      for (const name of ["ready", "plan-created", "step-signed", "settled", "error"]) {
+        document.addEventListener(`lykia:${name}`, (event) => {
+          log.textContent += `${name} ${JSON.stringify(event.detail)}\n`;
+        });
+      }
+      // wallet="host": the swap signs with this page's wallet.
+      const swap = document.querySelector("lykia-swap");
+      if (window.ethereum) swap.provider = window.ethereum;
+    </script>
+  </body>
+</html>

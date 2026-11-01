@@ -4,10 +4,12 @@
  * The server never signs; Arc finality makes the receipt the settlement.
  */
 import type { PrepareStepResponse, SubmitStepResponse } from "@lykia/core/api/intents";
+import type { SecurityReport } from "@lykia/core/security/index";
 import { useState } from "react";
 
 import { apiPost, describeError } from "../../lib/api";
 import { toast } from "../../mosaic";
+import { reportFromError } from "../security/model";
 import { useWallet } from "../wallet/store";
 import { useLykiaWallet } from "../wallet/useLykiaWallet";
 
@@ -19,6 +21,7 @@ export function useStepRunner(intentId: string | null, onSettled?: (r: SubmitSte
   const openModal = useWallet((s) => s.openModal);
   const [phase, setPhase] = useState<Record<string, RunPhase>>({});
   const [error, setError] = useState<string | null>(null);
+  const [security, setSecurity] = useState<Record<string, SecurityReport>>({});
 
   const run = async (stepId: string, confirmed: boolean) => {
     if (!intentId) return;
@@ -29,7 +32,8 @@ export function useStepRunner(intentId: string | null, onSettled?: (r: SubmitSte
     setError(null);
     try {
       setPhase((p) => ({ ...p, [stepId]: "preparing" }));
-      const prepared = await apiPost<PrepareStepResponse>(`/v1/intents/${encodeURIComponent(intentId)}/steps/${encodeURIComponent(stepId)}/prepare`, { confirmed });
+      const prepared = await apiPost<PrepareStepResponse>(`/v1/intents/${encodeURIComponent(intentId)}/steps/${encodeURIComponent(stepId)}/prepare`, { confirm: confirmed });
+      if (prepared.security) setSecurity((r) => ({ ...r, [stepId]: prepared.security as SecurityReport }));
       setPhase((p) => ({ ...p, [stepId]: "signing" }));
       // A browser wallet sends each call; a passkey account sends them as one user operation.
       const sent = await wallet.sendForSubmit(prepared.transactions);
@@ -39,11 +43,13 @@ export function useStepRunner(intentId: string | null, onSettled?: (r: SubmitSte
       toast.success("Step final on Arc", { description: result.step.summary, from: "LYKO" });
       onSettled?.(result);
     } catch (e) {
+      const blocked = reportFromError(e);
+      if (blocked) setSecurity((r) => ({ ...r, [stepId]: blocked }));
       const message = describeError(e);
       setError(message);
       setPhase((p) => ({ ...p, [stepId]: "error" }));
       toast.error("Step did not go through", { description: message, from: "LYKO" });
     }
   };
-  return { run, phase, error, connected: Boolean(address), walletKind: wallet.kind };
+  return { run, phase, error, security, connected: Boolean(address), walletKind: wallet.kind };
 }

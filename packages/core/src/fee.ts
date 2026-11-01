@@ -30,6 +30,25 @@ export interface FeePolicy {
   readonly recipient: Address;
 }
 
+/**
+ * The most an integrator (a project that embeds Lykia) may add on top of
+ * Lykia's fee, in basis points.
+ */
+export const MAX_INTEGRATOR_FEE_BPS = 50;
+
+/** An integrator's fee: paid to the project's address in the same batch as Lykia's fee. */
+export interface IntegratorFeePolicy {
+  readonly bps: number;
+  readonly recipient: Address;
+  /** The project that earns it, for receipts and usage. */
+  readonly projectId?: string;
+}
+
+export function validIntegratorFee(policy: IntegratorFeePolicy | null | undefined): boolean {
+  if (!policy) return true;
+  return Number.isInteger(policy.bps) && policy.bps >= 0 && policy.bps <= MAX_INTEGRATOR_FEE_BPS && /^0x[0-9a-fA-F]{40}$/u.test(policy.recipient);
+}
+
 export const DEFAULT_FEE_POLICY: FeePolicy = Object.freeze({ bps: DEFAULT_FEE_BPS, recipient: DEFAULT_FEE_RECIPIENT });
 
 /** Step kinds that never pay the fee. */
@@ -72,6 +91,14 @@ export interface StepFee {
   readonly usd: string | null;
   /** "input": taken from the input before the action; "on-top": paid besides an exact send; "output": taken from a borrowed amount. */
   readonly basis: "input" | "on-top" | "output";
+  /** The integrator's share, charged on the same basis and paid in the same batch. */
+  readonly integrator?: { readonly bps: number; readonly recipient: Address; readonly amount: string; readonly usd: string | null; readonly projectId?: string };
+}
+
+/** Everything a step pays in fees, in base units: Lykia's fee plus the integrator's, if any. */
+export function feeUnits(fee: StepFee | undefined): bigint {
+  if (!fee) return 0n;
+  return BigInt(fee.amount) + (fee.integrator ? BigInt(fee.integrator.amount) : 0n);
 }
 
 export function feePercent(bps: number): string {
@@ -81,7 +108,8 @@ export function feePercent(bps: number): string {
 
 /** "Lykia fee 1% · 2 USDC". */
 export function feeLine(fee: StepFee): string {
-  return `Lykia fee ${feePercent(fee.bps)} · ${fromBaseUnits(fee.amount, fee.decimals)} ${fee.symbol}`;
+  const base = `Lykia fee ${feePercent(fee.bps)} · ${fromBaseUnits(fee.amount, fee.decimals)} ${fee.symbol}`;
+  return fee.integrator ? `${base} + app fee ${feePercent(fee.integrator.bps)} · ${fromBaseUnits(fee.integrator.amount, fee.decimals)} ${fee.symbol}` : base;
 }
 
 /** Fees summed per token across steps: ["3.5 USDC", "0.0001 cirBTC"]. */
@@ -90,7 +118,7 @@ export function feeTotals(fees: readonly (StepFee | undefined)[]): string[] {
   for (const fee of fees) {
     if (!fee) continue;
     const prev = totals.get(fee.symbol);
-    totals.set(fee.symbol, { amount: (prev?.amount ?? 0n) + BigInt(fee.amount), decimals: fee.decimals });
+    totals.set(fee.symbol, { amount: (prev?.amount ?? 0n) + feeUnits(fee), decimals: fee.decimals });
   }
   return [...totals.entries()].filter(([, t]) => t.amount > 0n).map(([symbol, t]) => `${fromBaseUnits(t.amount, t.decimals)} ${symbol}`);
 }

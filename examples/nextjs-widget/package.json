@@ -1,0 +1,6 @@
+{
+  "name": "lykia-example-nextjs-widget",
+  "private": true,
+  "type": "module",
+  "dependencies": { "@lykia/widget": "0.1.0", "next": "^15", "react": "^18", "react-dom": "^18" }
+}

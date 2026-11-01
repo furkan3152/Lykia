@@ -178,7 +178,7 @@ export class OrdersService {
     const address = requireDeployed(env);
     const sell = findToken(env, input.sell);
     const buy = findToken(env, input.buy);
-    if (!sell || !buy) throw new LykiaHttpError("INVALID_REQUEST", 400, "Orders trade registry tokens: USDC, EURC, cirBTC.");
+    if (!sell || !buy) throw new LykiaHttpError("INVALID_REQUEST", 400, "Orders trade registry tokens (see /v1/tokens).");
     if (sell.symbol === buy.symbol) throw new LykiaHttpError("INVALID_REQUEST", 400, "Sell and buy tokens must differ.");
     const tokenIn = tokenAddress(sell, env) as Address;
     const tokenOut = tokenAddress(buy, env) as Address;

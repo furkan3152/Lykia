@@ -87,8 +87,27 @@ const Q192 = 2n ** 192n;
 
 /** Concentrated-liquidity pools outside Uniswap are listed in venues/aerodrome.ts (CL_POOLS). */
 
+/** Quotes and rate reads are reused for this long (route search plans many candidates over the same quotes); prepare always re-quotes. */
+export const QUOTE_CACHE_MS = 15_000;
+
 export class VenueRouter {
-  constructor(private readonly deps: { readonly chains: ArcChains; readonly prices: PriceService; readonly yields: YieldService }) {}
+  private readonly cache = new Map<string, { at: number; value: Promise<unknown> }>();
+
+  constructor(private readonly deps: { readonly chains: ArcChains; readonly prices: PriceService; readonly yields: YieldService; readonly now?: () => number }) {}
+
+  /** Memoises `load` under `key` for QUOTE_CACHE_MS; failures are not cached. */
+  private memo<T>(key: string, load: () => Promise<T>): Promise<T> {
+    const now = (this.deps.now ?? Date.now)();
+    const hit = this.cache.get(key);
+    if (hit && now - hit.at < QUOTE_CACHE_MS) return hit.value as Promise<T>;
+    if (this.cache.size > 500) for (const [k, v] of this.cache) if (now - v.at >= QUOTE_CACHE_MS) this.cache.delete(k);
+    const value = load().catch((error: unknown) => {
+      this.cache.delete(key);
+      throw error;
+    });
+    this.cache.set(key, { at: now, value });
+    return value;
+  }
 
   private async gasUsdMicros(environment: ArcEnvironment, gas: bigint): Promise<bigint> {
     let price = 20_000_000_000n; // Arc's 20 gwei floor, in native USDC wei (18 decimals)
@@ -103,7 +122,11 @@ export class VenueRouter {
 
   /* --------------------------------------------------------------- earn */
 
-  async earn(environment: ArcEnvironment, symbol: string): Promise<Candidate[]> {
+  earn(environment: ArcEnvironment, symbol: string): Promise<Candidate[]> {
+    return this.memo(`earn:${environment}:${symbol}`, () => this.earnUncached(environment, symbol));
+  }
+
+  private async earnUncached(environment: ArcEnvironment, symbol: string): Promise<Candidate[]> {
     const token = getToken(symbol);
     if (!token) return [];
     const address = tokenAddress(token, environment) as Address;
@@ -183,7 +206,11 @@ export class VenueRouter {
 
   /* --------------------------------------------------------------- swap */
 
-  async swap(environment: ArcEnvironment, fromSymbol: string, toSymbol: string, amountIn: bigint): Promise<{ candidates: SwapCandidate[]; readOnly: VenueOption[] }> {
+  swap(environment: ArcEnvironment, fromSymbol: string, toSymbol: string, amountIn: bigint): Promise<{ candidates: SwapCandidate[]; readOnly: VenueOption[] }> {
+    return this.memo(`swap:${environment}:${fromSymbol}:${toSymbol}:${amountIn}`, () => this.swapUncached(environment, fromSymbol, toSymbol, amountIn));
+  }
+
+  private async swapUncached(environment: ArcEnvironment, fromSymbol: string, toSymbol: string, amountIn: bigint): Promise<{ candidates: SwapCandidate[]; readOnly: VenueOption[] }> {
     const from = getToken(fromSymbol);
     const to = getToken(toSymbol);
     if (!from || !to || amountIn <= 0n) return { candidates: [], readOnly: [] };

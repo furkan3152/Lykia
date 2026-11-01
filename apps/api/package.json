@@ -16,7 +16,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --import tsx --test \"src/**/__tests__/*.test.ts\"",
     "smoke": "tsx src/scripts/smoke.ts",
-    "smoke:e2e": "tsx src/scripts/e2e.ts"
+    "smoke:e2e": "tsx src/scripts/e2e.ts",
+    "prove": "tsx src/scripts/prove.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.134.0",

@@ -15,15 +15,27 @@ export const CORS_ALLOWED_HEADERS = [
   "X-Request-Id",
   "Last-Event-ID",
   "Idempotency-Key",
+  "Lykia-Key",
+  "Lykia-Embed-Parent",
 ] as const;
 
 export const CORS_EXPOSED_HEADERS = ["X-Request-Id", "Retry-After", "RateLimit", "RateLimit-Policy"] as const;
 
-export function createCors(origins: readonly string[]): RequestHandler {
+/**
+ * `extra` admits origins outside the static list: the verified origins of
+ * white-label projects, so their browser keys work from their own sites.
+ */
+export function createCors(origins: readonly string[], extra?: (origin: string) => Promise<boolean>): RequestHandler {
   const allowed = new Set(origins);
   return cors({
     origin: (origin, callback) => {
-      callback(null, origin !== undefined && allowed.has(origin));
+      if (origin === undefined) return callback(null, false);
+      if (allowed.has(origin)) return callback(null, true);
+      if (!extra) return callback(null, false);
+      extra(origin).then(
+        (ok) => callback(null, ok),
+        () => callback(null, false),
+      );
     },
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"],
     allowedHeaders: [...CORS_ALLOWED_HEADERS],

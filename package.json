@@ -12,13 +12,16 @@
     "packages/core",
     "packages/contracts",
     "packages/sdk",
+    "packages/widget",
+    "packages/embed",
+    "packages/agent-tools",
     "apps/api",
     "apps/web"
   ],
   "scripts": {
     "postinstall": "node tooling/postinstall-packages.mjs",
-    "build:packages": "npm run build -w @lykia/core",
-    "test:packages": "npm test -w @lykia/core",
+    "build:packages": "npm run build -w @lykia/core && npm run build -w @lykia/sdk && npm run build -w @lykia/widget -w @lykia/embed -w @lykia/agent-tools",
+    "test:packages": "npm test -w @lykia/core -w @lykia/sdk -w @lykia/widget -w @lykia/embed -w @lykia/agent-tools",
     "lint": "eslint .",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "dev:api": "npm run dev -w @lykia/api",
@@ -27,7 +30,9 @@
     "build:web": "npm run build:packages && npm run build -w @lykia/web",
     "test:api": "npm test -w @lykia/api",
     "test:web": "npm test -w @lykia/web",
-    "verify": "npm run build:packages && npm run test:packages && npm run lint && npm run typecheck && npm run test:api && npm run test:web && npm run build:web && npm run build -w @lykia/api"
+    "verify": "npm run build:packages && npm run test:packages && npm run lint && npm run typecheck && npm run test:api && npm run test:web && npm run build:web && npm run build -w @lykia/api && npm run test:examples",
+    "pack:check": "node tooling/pack-check.mjs",
+    "test:examples": "node --test \"examples/*/test/*.test.mjs\""
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

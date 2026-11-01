@@ -16,7 +16,13 @@ import { findCctpDestination } from "./networks.js";
 import { RATIO_PATTERN } from "./fence.js";
 import { RISK_ORDER, type RiskTier } from "./routes.js";
 
-export type ActionAmount = { readonly exact: string } | { readonly percent: number } | { readonly all: true };
+/**
+ * exact: a decimal amount; percent: a share of the starting balance; all: everything spendable
+ * at that point; previous: exactly what the step before produced (the borrowed amount after
+ * the fee, a swap's guaranteed minimum), so "borrow 1000 USDC and put it to work" never sweeps
+ * the rest of the wallet.
+ */
+export type ActionAmount = { readonly exact: string } | { readonly percent: number } | { readonly all: true } | { readonly previous: true };
 
 export interface AllocationTarget {
   readonly token: string;
@@ -64,7 +70,8 @@ function amountProblem(amount: unknown): string | null {
   if ("exact" in a) return isDecimalAmount(a.exact) && a.exact !== "0" && !/^0(?:\.0+)?$/u.test(a.exact as string) ? null : "amount.exact must be a positive decimal string.";
   if ("percent" in a) return typeof a.percent === "number" && Number.isInteger(a.percent) && a.percent >= 1 && a.percent <= 100 ? null : "amount.percent must be 1 to 100.";
   if ("all" in a) return a.all === true ? null : "amount.all must be true.";
-  return "amount needs exact, percent or all.";
+  if ("previous" in a) return a.previous === true ? null : "amount.previous must be true.";
+  return "amount needs exact, percent, all or previous.";
 }
 
 export function validateActions(actions: unknown): ActionIssue[] {
@@ -79,9 +86,10 @@ export function validateActions(actions: unknown): ActionIssue[] {
     if (a.verb !== "rebalance") {
       const problem = amountProblem(a.amount);
       if (problem) add(problem);
+      else if (index === 0 && typeof a.amount === "object" && a.amount !== null && "previous" in a.amount) add("amount.previous needs a step before it.");
     }
     const token = (key: string, value: unknown = a[key]) => {
-      if (typeof value !== "string" || findToken("mainnet", value) === null) add(`${key} must be a registry token (USDC, EURC, USYC, cirBTC).`);
+      if (typeof value !== "string" || findToken("mainnet", value) === null) add(`${key} must be a registry token (see GET /v1/tokens).`);
     };
     switch (a.verb) {
       case "send":

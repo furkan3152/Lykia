@@ -60,3 +60,30 @@ test("verifies webhook signatures the server makes", async () => {
   assert.equal(await verifyWebhook(secret, body, null), false);
   assert.equal(await signWebhook(secret, body, t), server);
 });
+
+test("modular subpaths share one transport and emit typed events", async () => {
+  const { createTransport } = await import("../dist/transport.js");
+  const { intentsApi } = await import("../dist/intents.js");
+  const { projectsApi } = await import("../dist/projects.js");
+  const seen = [];
+  const t = createTransport({ baseUrl: "https://api.test", apiKey: "lk_pk_x", project: "prj_aaaaaaaaaaaa", environment: "testnet", fetch: async (url, init) => {
+    seen.push({ url, method: init.method });
+    if (url.endsWith("/public")) return json(200, { id: "prj_aaaaaaaaaaaa", assistantName: "Penny" });
+    if (url.endsWith("/submit")) return json(200, { step: { id: "s1", status: "settled" }, outrun: {} });
+    return json(201, { intent: { id: "out_abc123", steps: [{}], verdict: { decision: "allow" } }, outrun: {}, stored: true });
+  } });
+  const events = [];
+  const off = t.on("plan-created", (e) => events.push(["plan", e.intentId, e.decision]));
+  t.on("settled", (e) => events.push(["settled", e.stepId, e.status]));
+  t.on("step-signed", (e) => events.push(["signed", e.hashes.length]));
+  assert.equal((await projectsApi(t).public()).assistantName, "Penny");
+  assert.equal(seen[0].url, "https://api.test/v1/projects/prj_aaaaaaaaaaaa/public");
+  await intentsApi(t).create({ owner: "0x1111111111111111111111111111111111111111", text: "send 5 USDC to me" });
+  await intentsApi(t).submit("out_abc123", "s1", ["0x" + "a".repeat(64)]);
+  off();
+  await intentsApi(t).create({ owner: "0x1111111111111111111111111111111111111111", text: "again" });
+  assert.deepEqual(events, [["plan", "out_abc123", "allow"], ["signed", 1], ["settled", "s1", "settled"]]);
+  const lykia = new Lykia({ fetch: async () => json(200, { projects: [] }) });
+  assert.deepEqual(await lykia.projects.list(), { projects: [] });
+  assert.equal(typeof lykia.ecosystem.map, "function");
+});

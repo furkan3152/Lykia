@@ -44,7 +44,7 @@ export const systemModule: ApiModule = {
     router.get("/tokens", (req, res) => {
       const environment = environmentOf(ctx, parseQuery(req, environmentQuery).environment);
       cachePublicly(res, 300);
-      res.json({ environment, tokens: TOKENS.map((t) => ({ ...t, address: tokenAddress(t, environment) })) });
+      res.json({ environment, tokens: TOKENS.map((t) => ({ ...t, address: tokenAddress(t, environment) })).filter((t) => t.address !== null) });
     });
 
     router.get("/contracts", (_req, res) => {

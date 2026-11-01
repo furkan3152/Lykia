@@ -33,8 +33,9 @@ import { openSse } from "../http/sse.js";
 import { evmAddress, parseBody, parseParams, parseQuery } from "../http/validate.js";
 import { agentServices } from "../agents/index.js";
 import { readSentence } from "../language/reader.js";
-import { fenceForProfile } from "@lykia/core";
+import { fenceForProfile, projectFence, projectPromptBlock, tightenFence } from "@lykia/core";
 import { getProfile } from "../personal/profile.js";
+import { projectOf } from "../platform/projects.js";
 import { createAutomation, listAutomations, runAutomations, setAutomationEnabled } from "../agents/automations.js";
 import { runDeterministicTurn } from "../agents/deterministic.js";
 import { insightsFor } from "../agents/insights.js";
@@ -93,7 +94,10 @@ export const agentModule: ApiModule = {
       const realOwner = named && named.toLowerCase() === SAMPLE_OWNER.toLowerCase() ? null : named;
       const sample = realOwner === null;
       const owner = (realOwner ?? SAMPLE_OWNER) as Address;
-      const baseFence = fenceFrom(body.fence) ?? (realOwner ? fenceForProfile(await getProfile(ctx, realOwner)) : DEFAULT_FENCE);
+      // Through a project key: the project's Fence is the default, and its caps and modules tighten any Fence.
+      const project = projectOf(req);
+      const ownFence = fenceFrom(body.fence) ?? (project ? projectFence(project) : realOwner ? fenceForProfile(await getProfile(ctx, realOwner)) : DEFAULT_FENCE);
+      const baseFence = project ? tightenFence(ownFence, project) : ownFence;
       const fence = sample ? { ...baseFence, mode: "dry-run" as const } : baseFence;
       const pack = realOwner ? (await s().pack.ownedBy(realOwner, environment)).filter((a) => a.status === "active") : [];
       const thread = await openThread(ctx, realOwner, environment, body.threadId, message);
@@ -117,7 +121,8 @@ export const agentModule: ApiModule = {
       try {
         if (client) {
           const seen = await perceive(ctx, { environment, owner, fence, pack, emit });
-          const result = await runTurn({ ctx, client, environment, owner, fence, pack, history, message, stateLine: seen.line, emit });
+          const appContext = project ? projectPromptBlock(project) : "";
+          const result = await runTurn({ ctx, client, environment, owner, fence, pack, history, message, stateLine: seen.line, emit, ...(appContext ? { appContext } : {}) });
           text = result.text;
           proposals = result.proposals;
           stopReason = result.stopReason;

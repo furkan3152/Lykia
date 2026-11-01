@@ -18,6 +18,7 @@ import { buildPath, compilePattern, matchPattern, normalizePathname, type Compil
 export type RouteId =
   | "landing"
   | "ask"
+  | "move"
   | "flock"
   | "pastures"
   | "pack"
@@ -41,6 +42,7 @@ export type RouteId =
   | "alerts"
   | "activity"
   | "whatif"
+  | "security"
   | "appNotFound"
   | "notFound";
 
@@ -70,6 +72,7 @@ const page = (id: RouteId, pattern: string, kind: RouteKind, title: string, desc
 export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze({
   landing: page("landing", "/", "site", BRAND_TITLE, BRAND_DESCRIPTION, () => import("../../pages/landing/LandingPage")),
   ask: page("ask", "/app/ask/:threadId?", "app", "Ask Lyko", "Ask once in English or Turkish: Lyko and the Pack plan it across Arc, the Fence checks it, you sign once.", () => import("../../pages/ask/AskPage")),
+  move: page("move", "/app/move/:tab?", "app", "Move", "Send, receive, swap, earn, borrow and bridge: the best route, checked by your Fence and simulated before you sign.", () => import("../../pages/move/MovePage"), { robots: PRIVATE_ROBOTS }),
   flock: page("flock", "/app/flock/:address?", "app", "Flock", "Everything you hold on Arc mainnet and testnet in one pasture: wallet, Gateway and venues.", () => import("../../pages/flock/FlockPage"), { robots: PRIVATE_ROBOTS }),
   pastures: page("pastures", "/app/pastures", "app", "Greener pastures", "Live yields on Arc venues, grass height by rate, with risk tier and source.", () => import("../../pages/pastures/PasturesPage")),
   pack: page("pack", "/app/pack/:id?", "app", "Pack", "Your agents and their pups: spawn sub-agents whose Fence stays inside yours, carve budgets, bind sessions on chain.", () => import("../../pages/pack/PackPage")),
@@ -87,6 +90,7 @@ export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze(
   alerts: page("alerts", "/app/alerts", "app", "Alerts", "Price, health factor, transfer, Scent and fill alerts, delivered to the inbox, webhooks and Telegram.", () => import("../../pages/alerts/AlertsPage"), { robots: PRIVATE_ROBOTS }),
   activity: page("activity", "/app/activity", "app", "Activity", "Every intent, order and alert in one trail.", () => import("../../pages/activity/ActivityPage"), { robots: PRIVATE_ROBOTS }),
   whatif: page("whatif", "/app/whatif", "app", "What-if", "Shock cirBTC and EURC and see your flock's value and health factors move, with the PnL explained.", () => import("../../pages/whatif/WhatIfPage"), { robots: PRIVATE_ROBOTS }),
+  security: page("security", "/app/security", "app", "Security", "Six layers between the flock and the wolves: pre-sign simulation, address protection, approval hygiene, agent monitors, circuit breakers and the audit log.", () => import("../../pages/security/SecurityPage"), { robots: PRIVATE_ROBOTS }),
   build: page("build", "/build", "app", "Build", "Keys, usage, webhooks, your fee, the playground, MCP, the SDK and the integration program for Arc protocols.", () => import("../../pages/build/BuildPage")),
   ecosystem: page("ecosystem", "/ecosystem", "site", "Ecosystem", "Built on Circle's rails, routing value to every Arc protocol: every protocol on Arc Network, Circle's products, TVL and the value Lykia routes, live.", () => import("../../pages/ecosystem/EcosystemPage")),
   owner: page("owner", "/owner", "app", "Owner console", "Deploy Lykia's contracts step by step with your wallet, record them and manage flags.", () => import("../../pages/owner/OwnerPage"), { robots: PRIVATE_ROBOTS }),
@@ -98,7 +102,7 @@ export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze(
 });
 
 /** Matching order: specific routes first, the catch-alls last. `/app` itself is Ask Lyko. */
-const ORDER: readonly RouteId[] = ["landing", "ask", "flock", "pastures", "pack", "fence", "scent", "tag", "outrun", "you", "memory", "circle", "orders", "markets", "discover", "alerts", "activity", "whatif", "build", "ecosystem", "owner", "kit", "lykaion", "developers", "kunyeRedirect", "appNotFound", "notFound"];
+const ORDER: readonly RouteId[] = ["landing", "ask", "move", "flock", "pastures", "pack", "fence", "scent", "tag", "outrun", "you", "memory", "circle", "orders", "markets", "discover", "alerts", "activity", "whatif", "security", "build", "ecosystem", "owner", "kit", "lykaion", "developers", "kunyeRedirect", "appNotFound", "notFound"];
 
 let compiled: ReadonlyArray<readonly [RouteDefinition, CompiledPattern]> | null = null;
 

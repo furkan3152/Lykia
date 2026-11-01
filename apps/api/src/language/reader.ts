@@ -123,11 +123,11 @@ function verbOf(clause: string): Verb | null {
   return null;
 }
 
-const HEALTH_EN = /health(?:\s+factor)?\s*(?:stays?\s+|remains?\s+)?(?:above|over|>=?|at least|of|no lower than|not below)\s*(\d+(?:\.\d+)?)/iu;
+const HEALTH_EN = /health(?:\s+factor)?\s*(?:stays?\s+|remains?\s+)?(?:above|over|≥|>=?|=|at least|of|no lower than|not below|floor(?:\s+of)?)?\s*(\d+(?:\.\d+)?)/iu;
 const HEALTH_TR = /sağlık(?:\s+faktörü)?(?:nü|nu)?\s*(?:en az\s*)?(\d+(?:\.\d+)?)(?:['’]\p{L}+)?\s*(?:ve\s+)?(?:üstünde|üzerinde|altına (?:düşmesin|inmesin)|olsun|kalsın|tut)/iu;
 
 function isConstraintOnly(piece: string): boolean {
-  return (HEALTH_EN.test(piece) || HEALTH_TR.test(piece) || /slippage|kayma/iu.test(piece)) && !/(?:borrow|repay|send|swap|convert|bridge|deposit|withdraw|borç|gönder|çevir|köprü|yatır|çek)/iu.test(piece);
+  return (HEALTH_EN.test(piece) || HEALTH_TR.test(piece) || /slippage|kayma/iu.test(piece)) && !/(?:borrow|repay|send|swap|convert|bridge|deposit|withdraw|earn|invest|lend|put .*to work|borç|gönder|çevir|köprü|yatır|çek|çalıştır|değerlendir)/iu.test(piece);
 }
 
 /** Sequencers first, then commas / "and" / "ve" / "but" when the right side is its own action. */
@@ -243,6 +243,7 @@ function venueIn(clause: string, verb: Verb): string | undefined {
 function riskIn(clause: string): RiskTier | undefined {
   if (w("safest|safe|low[- ]risk|conservative|güvenli|en güvenli|düşük riskli|riski düşük").test(clause)) return "low";
   if (w("highest|max(?:imum)? yield|aggressive|riskiest|any risk|en yüksek|agresif|yüksek getiri|risk(?:li)? olsa da").test(clause)) return "high";
+  if (w("medium[- ]risk|moderate(?: risk)?|balanced|orta riskli?|orta risk").test(clause)) return "medium";
   return undefined;
 }
 
@@ -325,7 +326,9 @@ export function readClause(clause: string, previous: PlanAction | undefined, lan
   const produced = previous && "token" in previous ? previous.token : previous && "to" in previous && typeof previous.to === "string" && !previous.to.startsWith("0x") ? previous.to : undefined;
   const source = previous && "token" in previous ? previous.token : previous && "from" in previous ? previous.from : undefined;
   const inherited = restClause ? source ?? produced : produced;
-  const finalAmount: ActionAmount | null = amount ?? (previous && w("rest|kalan").test(clause) ? { all: true } : null);
+  // "it", "them", "the proceeds" after a step that produced something: exactly that output.
+  const pronoun = previous !== undefined && produced !== undefined && w("it|them|that|those|the proceeds|the loan|the money|onu|bunu|şunu|parayı").test(clause);
+  const finalAmount: ActionAmount | null = amount ?? (pronoun && !restClause ? { previous: true } : previous && w("rest|kalan").test(clause) ? { all: true } : null);
   if (!finalAmount && verb !== "unify" && !problem) ask("How much?", "Ne kadar?", ["25%", "50%", "all"]);
   const venue = venueIn(clause, verb);
 
@@ -469,6 +472,10 @@ function readActions(text: string, lang: "en" | "tr"): { actions: PlanAction[]; 
     clarify.push(...result.clarify);
     choices.push(...result.choices);
     if (result.action) actions.push(result.action);
+    // A health floor said in a later clause ("... and put it to work with health ≥ 1.8") belongs to the borrow.
+    const floor = minHealthIn(clause);
+    const borrow = actions.find((a) => a.verb === "borrow");
+    if (floor && borrow && borrow.verb === "borrow" && !borrow.minHealth && result.action?.verb !== "borrow") actions[actions.indexOf(borrow)] = { ...borrow, minHealth: floor };
   }
   return { actions, clarify, choices };
 }
