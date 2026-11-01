@@ -14,7 +14,7 @@ import { z } from "zod";
 import { LOG_LEVELS, type LogLevel } from "./log.js";
 
 export const DEFAULT_PORT = 3002;
-export const DEV_WEB_ORIGINS = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5176"] as const;
+export const DEV_WEB_ORIGINS = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5176", "http://localhost:4176"] as const;
 /** Default model for the Lyko agent. */
 export const DEFAULT_AGENT_MODEL = "claude-sonnet-5-5";
 

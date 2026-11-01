@@ -55,6 +55,8 @@ export interface PlanInput {
   /** USD spent today / this week (from the store); null when unknown. */
   readonly spent: { readonly dayUsd: string | null; readonly weekUsd: string | null };
   readonly proposedByAgent?: boolean;
+  /** Dry runs plan past a short balance (with a warning) so a route can be previewed before funding. */
+  readonly dryRun?: boolean;
 }
 
 export interface PlanResult {
@@ -104,8 +106,14 @@ export class Planner {
       return { symbol: token.symbol, token: tokenAddress(token, env) as Address, decimals: token.decimals, amount: units.toString(), ...(minimum !== undefined ? { minimum: minimum.toString() } : {}), usd: usdValue(whole, prices[token.symbol]?.usd ?? null) };
     };
     const tokenFact = (symbol: string, acquired: boolean): TokenFact => ({ symbol, address: tokenAddress(getToken(symbol)!, env) as Address, listed: true, acquired });
+    const planWarnings: string[] = [];
     const spend = (symbol: string, units: bigint, label: string) => {
       const have = balances.get(symbol) ?? 0n;
+      if (units > 0n && units > have && input.dryRun) {
+        planWarnings.push(`Dry run: ${label} needs ${fromBaseUnits(units, getToken(symbol)!.decimals)} ${symbol}; ${account} has ${fromBaseUnits(have, getToken(symbol)!.decimals)}. Fund the wallet before signing.`);
+        balances.set(symbol, 0n);
+        return;
+      }
       if (units <= 0n) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `Nothing to ${label}: the ${symbol} balance is 0.`);
       if (units > have) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `${label} needs ${fromBaseUnits(units, getToken(symbol)!.decimals)} ${symbol}; ${account} has ${fromBaseUnits(have, getToken(symbol)!.decimals)}.`);
       balances.set(symbol, have - units);
@@ -153,7 +161,7 @@ export class Planner {
       ...(input.agent ? { agent: input.agent } : {}),
       steps,
       verdict,
-      warnings: drafts.flatMap((d) => d.warnings),
+      warnings: [...planWarnings, ...drafts.flatMap((d) => d.warnings)],
     };
     return { graph, plans, facts, fence };
   }

@@ -149,6 +149,7 @@ export class IntentService {
       actions: input.actions,
       ...(input.fence ? { fence: input.fence } : {}),
       source: input.source,
+      ...(input.dryRun ? { dryRun: true } : {}),
       now,
       spent: await this.spent(input.environment, input.owner),
       ...(input.proposedByAgent ? { proposedByAgent: true } : {}),
