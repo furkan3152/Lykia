@@ -250,7 +250,7 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     id: "aerodrome-slipstream",
     name: "Aerodrome Slipstream",
     category: "dex",
-    summary: "Concentrated-liquidity pools from the Aerodrome family; the deepest USDC/EURC pool on Arc. Lykia reads its pools for price comparison; its Metarouter is not wired yet, so routes do not execute here.",
+    summary: "Concentrated-liquidity pools from the Aerodrome family; the deepest USDC/EURC pool on Arc. Lykia quotes its pools exactly and swaps through the Metarouter (CL_SWAP_EXACT_IN).",
     website: "https://aerodrome.finance",
     deployments: {
       mainnet: {
@@ -264,17 +264,17 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
           poolUsdcWethTs50: "0xAd5eea00214715cce97cdc4D0D13E9Ee2B57EacE",
           poolLiteUsdcEurcTs1: "0xbe080aC37ad1305DFCc9521F5e6F68CFDc41B7fa",
         },
-        evidence: "DefiLlama adapter projects/aero-lite (factories); pools from CLFactory.getPool; Metarouter source verified on Etherscan (chain 5042) and seen as the target of pool swaps; eth_getCode non-empty 2026-11-01",
+        evidence: "DefiLlama adapter projects/aero-lite (factories); pools from CLFactory.getPool; Metarouter source verified on Etherscan (chain 5042, V3/src/metarouter/Metarouter.sol); approve + Memo(Metarouter.execute CL_SWAP_EXACT_IN) through Multicall3From simulated on mainnet 2026-11-01; eth_getCode non-empty 2026-11-01",
       },
     },
-    verbs: [],
-    tags: ["concentrated-liquidity", "read-only"],
+    verbs: ["swap", "fx", "approve"],
+    tags: ["concentrated-liquidity"],
   },
   {
     id: "synthra",
     name: "Synthra",
     category: "dex",
-    summary: "Arc-native concentrated-liquidity DEX with a launchpad. Small USDC/EURC pools; listed for discovery.",
+    summary: "Arc-native concentrated-liquidity DEX with a launchpad. Small USDC/EURC pools; Lykia quotes them exactly, but there is no verified router to execute through.",
     deployments: {
       mainnet: {
         status: "live",
@@ -306,7 +306,7 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     id: "sushiswap-v3",
     name: "SushiSwap V3",
     category: "dex",
-    summary: "Concentrated-liquidity pools with little liquidity on Arc so far.",
+    summary: "Concentrated-liquidity pools with little liquidity on Arc so far. Quoted exactly; the router seen swapping here has no verified source, so Lykia does not execute.",
     website: "https://sushi.com",
     deployments: {
       mainnet: { status: "live", contracts: { v3Factory: "0x7282249282902e1f99c2CB0A04230091bd30FE3A", poolUsdcEurc1pct: "0xB50D2ed03F5922863Ae072A017d9583d6D9ED764" }, evidence: "DefiLlama adapter projects/sushiswap-v3; pool from getPool; eth_getCode non-empty 2026-11-01" },

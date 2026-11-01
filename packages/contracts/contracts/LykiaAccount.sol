@@ -23,6 +23,10 @@ contract LykiaAccount is EIP712, ReentrancyGuard, IERC1271 {
 
     // ---------------------------------------------------------------------------------------------
     // Constants
+
+    /// @notice Width of one rolling-window bucket and how many are summed (5 x 6 h covers any 24 h window).
+    uint256 public constant BUCKET_SECONDS = 6 hours;
+    uint256 public constant RING_BUCKETS = 5;
     // ---------------------------------------------------------------------------------------------
 
     /// @notice Token key for the native coin. On Arc the native coin is USDC with 18 decimals.
@@ -93,8 +97,17 @@ contract LykiaAccount is EIP712, ReentrancyGuard, IERC1271 {
         uint128 budget;
     }
 
+    /// @dev Daily caps are a rolling 24 h window: spends land in 6 h buckets kept in a ring of
+    ///      RING_BUCKETS. A charge passes only if the last RING_BUCKETS buckets (24 to 30 h of history)
+    ///      stay within the cap, so no 24 h window can ever exceed it, around midnight or otherwise.
     struct Usage {
-        uint64 day;
+        uint128 consumed;
+        uint64 bucket;
+        uint128[5] ring;
+    }
+
+    /// @notice What `getLimit` reports: the spend inside the rolling window and the lifetime total.
+    struct UsageView {
         uint128 dayAmount;
         uint128 consumed;
     }
@@ -396,8 +409,9 @@ contract LykiaAccount is EIP712, ReentrancyGuard, IERC1271 {
         return _sessions[id];
     }
 
-    function getLimit(bytes32 id, address token) external view returns (Limit memory limit, Usage memory usage) {
-        return (_limits[id][token], _usage[id][token]);
+    function getLimit(bytes32 id, address token) external view returns (Limit memory limit, UsageView memory usage) {
+        Usage storage u = _usage[id][token];
+        return (_limits[id][token], UsageView({ dayAmount: uint128(_windowUsed(u)), consumed: u.consumed }));
     }
 
     function getRule(bytes32 id, address target, bytes4 selector) external view returns (Rule memory) {
@@ -427,13 +441,13 @@ contract LykiaAccount is EIP712, ReentrancyGuard, IERC1271 {
     function spendable(bytes32 id, address token) external view returns (uint256 amount) {
         if (!isSessionValid(id)) return 0;
         amount = type(uint256).max;
-        uint64 day = uint64(block.timestamp / 1 days);
         bytes32 node = id;
         while (node != bytes32(0)) {
             Limit storage l = _limits[node][token];
             if (!l.allowed) return 0;
             Usage storage u = _usage[node][token];
-            uint256 dayUsed = u.day == day ? u.dayAmount : 0;
+            uint256 dayUsed = _windowUsed(u);
+            if (dayUsed >= l.daily) return 0;
             uint256 room = _min(l.perCall, _min(l.daily - dayUsed, l.budget - u.consumed));
             amount = _min(amount, room);
             node = _sessions[node].parent;
@@ -547,25 +561,45 @@ contract LykiaAccount is EIP712, ReentrancyGuard, IERC1271 {
         if (!isSessionValid(id)) revert SessionInvalid(id);
     }
 
-    /// @dev Charges `amount` of `token` to the session and every ancestor: per-call, daily and budget.
+    /// @dev Advances the ring to the current bucket, clearing buckets that fell out of the window,
+    ///      and returns the spend inside the window.
+    function _roll(Usage storage u) internal returns (uint256 used) {
+        uint64 b = uint64(block.timestamp / BUCKET_SECONDS);
+        if (b != u.bucket) {
+            uint256 gap = b - u.bucket;
+            if (gap >= RING_BUCKETS) {
+                for (uint256 i; i < RING_BUCKETS; ++i) u.ring[i] = 0;
+            } else {
+                for (uint256 i = 1; i <= gap; ++i) u.ring[(u.bucket + i) % RING_BUCKETS] = 0;
+            }
+            u.bucket = b;
+        }
+        for (uint256 i; i < RING_BUCKETS; ++i) used += u.ring[i];
+    }
+
+    /// @dev Read-only twin of `_roll`: the spend inside the window as of now.
+    function _windowUsed(Usage storage u) internal view returns (uint256 used) {
+        uint64 b = uint64(block.timestamp / BUCKET_SECONDS);
+        if (b < u.bucket || b - u.bucket >= RING_BUCKETS) return 0;
+        uint256 stale = b - u.bucket;
+        // Buckets u.bucket-4+stale .. u.bucket are still inside the window.
+        for (uint256 k; k + stale < RING_BUCKETS; ++k) used += u.ring[(u.bucket + RING_BUCKETS - k) % RING_BUCKETS];
+    }
+
+    /// @dev Charges `amount` of `token` to the session and every ancestor: per-call, rolling 24 h and budget.
     function _charge(bytes32 id, address token, uint256 amount) internal {
         if (amount == 0) return;
-        uint64 day = uint64(block.timestamp / 1 days);
         bytes32 node = id;
         while (node != bytes32(0)) {
             Limit storage l = _limits[node][token];
             if (!l.allowed) revert TokenNotAllowed(token);
             if (amount > l.perCall) revert PerCallCapExceeded(token, amount, l.perCall);
             Usage storage u = _usage[node][token];
-            if (u.day != day) {
-                u.day = day;
-                u.dayAmount = 0;
-            }
-            uint256 dayTotal = uint256(u.dayAmount) + amount;
+            uint256 dayTotal = _roll(u) + amount;
             if (dayTotal > l.daily) revert DailyCapExceeded(token, dayTotal, l.daily);
             uint256 total = uint256(u.consumed) + amount;
             if (total > l.budget) revert BudgetExceeded(token, total, l.budget);
-            u.dayAmount = uint128(dayTotal);
+            u.ring[u.bucket % RING_BUCKETS] += uint128(amount);
             u.consumed = uint128(total);
             node = _sessions[node].parent;
         }

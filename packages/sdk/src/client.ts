@@ -156,6 +156,8 @@ export class Lykia {
     outrun: (id: string) => this.request<Outrun>("GET", `/v1/intents/${id}/outrun`),
     prepare: (id: string, stepId: string, options: { confirm?: boolean } = {}) => this.request<PrepareStepResponse>("POST", `/v1/intents/${id}/steps/${stepId}/prepare`, options),
     submit: (id: string, stepId: string, hashes: readonly `0x${string}`[]) => this.request<SubmitStepResponse>("POST", `/v1/intents/${id}/steps/${stepId}/submit`, { hashes }),
+    /** Smart accounts (ERC-4337): the step's calls ran inside one UserOperation. */
+    submitUserOp: (id: string, stepId: string, userOpHash: `0x${string}`) => this.request<SubmitStepResponse>("POST", `/v1/intents/${id}/steps/${stepId}/submit`, { userOpHash }),
     stop: (id: string) => this.request<unknown>("POST", `/v1/intents/${id}/stop`, {}),
     /** Live updates of one intent (events: step, outrun). */
     follow: (id: string, signal?: AbortSignal) => this.stream<unknown>(`/v1/intents/${id}/stream`, undefined, signal),

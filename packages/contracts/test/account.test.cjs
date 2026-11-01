@@ -123,22 +123,65 @@ describe("LykiaAccount", function () {
       expect(await usdc.balanceOf(account.target)).to.equal(U(10_000));
     });
 
-    it("enforces per-call, daily (rolling to the next day) and lifetime caps", async function () {
+    it("enforces per-call, rolling 24 h and lifetime caps", async function () {
       const id = await rootSession();
       const swap = (amt) => h.call(id, venue, swapData(usdc, amt, eurc, 1n, account.target), { spendToken: usdc.target, spendAmount: amt });
       await expect(account.connect(agent).agentExecute(swap(U(101)))).to.be.revertedWithCustomError(account, "PerCallCapExceeded");
       for (let i = 0; i < 3; i++) await account.connect(agent).agentExecute(swap(U(100)));
       await expect(account.connect(agent).agentExecute(swap(U(1)))).to.be.revertedWithCustomError(account, "DailyCapExceeded");
       expect(await account.spendable(id, usdc.target)).to.equal(0);
-      await time.increase(h.DAY);
+      await time.increase(h.WINDOW);
       expect(await account.spendable(id, usdc.target)).to.equal(U(100));
       for (let i = 0; i < 3; i++) await account.connect(agent).agentExecute(swap(U(100)));
-      await time.increase(h.DAY);
+      await time.increase(h.WINDOW);
       for (let i = 0; i < 3; i++) await account.connect(agent).agentExecute(swap(U(100)));
-      await time.increase(h.DAY);
+      await time.increase(h.WINDOW);
       // 900 consumed of a 1000 budget
       await account.connect(agent).agentExecute(swap(U(100)));
       await expect(account.connect(agent).agentExecute(swap(U(1)))).to.be.revertedWithCustomError(account, "BudgetExceeded");
+    });
+
+    it("never lets an agent spend twice its daily cap around midnight UTC", async function () {
+      const id = await rootSession();
+      const swap = (amt) => h.call(id, venue, swapData(usdc, amt, eurc, 1n, account.target), { spendToken: usdc.target, spendAmount: amt });
+      // Land just before 00:00 UTC and spend the whole 300 daily cap.
+      const now = await h.now();
+      const nextMidnight = Math.ceil((now + 1) / h.DAY) * h.DAY;
+      await time.setNextBlockTimestamp(nextMidnight - 60);
+      for (let i = 0; i < 3; i++) await account.connect(agent).agentExecute(swap(U(100)));
+      // Two minutes later a new UTC day has started: an old midnight reset would allow 300 more.
+      await time.setNextBlockTimestamp(nextMidnight + 60);
+      await expect(account.connect(agent).agentExecute(swap(U(1)))).to.be.revertedWithCustomError(account, "DailyCapExceeded");
+      expect(await account.spendable(id, usdc.target)).to.equal(0);
+      // 23 h after the spend the window still holds it.
+      await time.increaseTo(nextMidnight - 60 + 23 * 3600);
+      await expect(account.connect(agent).agentExecute(swap(U(1)))).to.be.revertedWithCustomError(account, "DailyCapExceeded");
+      // Once the spend has left the window (at most 30 h), the cap is free again.
+      await time.increaseTo(nextMidnight - 60 + h.WINDOW);
+      expect(await account.spendable(id, usdc.target)).to.equal(U(100));
+      await account.connect(agent).agentExecute(swap(U(100)));
+    });
+
+    it("bounds every 24 h window when spends are spread across buckets", async function () {
+      const id = await rootSession();
+      const swap = (amt) => h.call(id, venue, swapData(usdc, amt, eurc, 1n, account.target), { spendToken: usdc.target, spendAmount: amt });
+      const start = await h.now();
+      const spends = [];
+      // Try to spend 100 every 5 hours for 3 days; record what passes.
+      for (let k = 0; k < 15; k++) {
+        await time.setNextBlockTimestamp(start + 10 + k * 5 * 3600);
+        try {
+          await account.connect(agent).agentExecute(swap(U(100)));
+          spends.push(start + 10 + k * 5 * 3600);
+        } catch {
+          await ethers.provider.send("evm_mine", []);
+        }
+      }
+      for (const t of spends) {
+        const inWindow = spends.filter((s) => s > t - 24 * 3600 && s <= t).length;
+        expect(inWindow * 100).to.be.at.most(300);
+      }
+      expect(spends.length).to.be.greaterThan(3);
     });
 
     it("stops at maxCalls and at expiry", async function () {

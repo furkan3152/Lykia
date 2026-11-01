@@ -12,6 +12,8 @@ import { MEMO_ABI, MULTICALL3_FROM_ABI } from "../engine/abis.js";
 import { quoteVenues } from "../engine/api.js";
 import { VenueRouter } from "../engine/router.js";
 import { aaveCalls } from "../engine/venues/aave.js";
+import { buildCalls } from "../engine/adapters.js";
+import { shape } from "../engine/calls.js";
 import { YieldService } from "../engine/venues/yields.js";
 import { FlockService } from "../flock/flock.js";
 import { silentLogger } from "../log.js";
@@ -80,7 +82,7 @@ await check("Rates: Morpho API and Aave API answer", async () => {
   if (r.sources.morpho !== "live" || r.sources.aave !== "live") throw new Error(JSON.stringify(r.sources));
   return `${r.vaults.length} vaults, ${r.markets.length} markets, ${r.reserves.length} Aave reserves`;
 });
-await check("Route: 1000 USDC -> EURC across Uniswap v3, v4 and the Aerodrome estimate", async () => {
+await check("Route: 1000 USDC -> EURC across Uniswap v3, v4 and Aerodrome", async () => {
   const q = await quoteVenues(router, { kind: "swap", environment: "mainnet", from: "USDC", to: "EURC", amount: "1000" });
   if (!q.choice) throw new Error("no route");
   return `${q.options.length} options; ${q.choice.reason}`;
@@ -106,6 +108,18 @@ await check("Aave V4 Main Spoke: approve + supply + withdraw compose (eth_call)"
   ];
   await chains.client("mainnet").call({ account: whale, to: contractAddress("multicall3From", "mainnet") as Address, data: encodeFunctionData({ abi: MULTICALL3_FROM_ABI, functionName: "aggregate3", args: [calls] }) });
   return "ok";
+});
+
+await check("Aerodrome Slipstream: routed 1000 USDC -> EURC, approve + Memo(Metarouter.execute) simulates (eth_call)", async () => {
+  const swap = await router.swap("mainnet", "USDC", "EURC", 1_000_000_000n);
+  const aero = swap.candidates.find((c) => c.adapter === "swap-aerodrome" && c.params.pool?.toLowerCase() === "0x6f57b4c22155cef09f17184c954f227ff0493742");
+  if (!aero) throw new Error("no Aerodrome candidate");
+  const user = "0x7a3000000000000000000000000000000000a11c" as Address;
+  const minOut = (aero.amountOut * 9950n) / 10_000n;
+  const built = await buildCalls({ adapter: "swap-aerodrome", params: { ...aero.params, minOut: minOut.toString(), display: "1000 USDC" } }, { environment: "mainnet", chains, account: user });
+  const [tx] = shape(built.calls, built.approvals, { environment: "mainnet", chainId: 5042, from: user, memo: { intentId: "out_smoke", stepId: "s1", verdict: "0000000000000000" }, account: "eoa" });
+  await chains.client("mainnet").call({ account: user, to: tx!.to as Address, data: tx!.data as `0x${string}`, stateOverride: [{ address: user, balance: 10n ** 22n }] });
+  return `quote ${aero.amountOut} EURC units, min ${minOut}; batch simulates`;
 });
 
 for (const r of results) console.log(`${r.ok ? "PASS" : "FAIL"}  ${r.check}  ${r.detail}`);

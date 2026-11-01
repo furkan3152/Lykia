@@ -33,6 +33,14 @@ export function roleForAction(action: PlanAction): SpecialistRole {
   }
 }
 
+/** Clarify options that start with this prefix ask the web to switch to mainnet and re-ask the rest. */
+export const PREVIEW_ON_MAINNET = { en: "Preview on mainnet: ", tr: "Mainnet'te önizle: " } as const;
+
+/** A planning failure caused by venues missing on Arc testnet (practice venues not deployed yet). */
+export function practiceGap(message: string): boolean {
+  return /practice|not deployed|testnet yet|mainnet only/iu.test(message);
+}
+
 export interface DeterministicInput {
   readonly ctx: AppContext;
   readonly environment: ArcEnvironment;
@@ -71,6 +79,7 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
   }
 
   const proposals: AgentProposal[] = [];
+  const failures: string[] = [];
   const planned: { actions: readonly PlanAction[]; proposal: AgentProposal }[] = [];
   for (const group of groups) {
     const specialist = specialistFor(group.role, input.fence, input.pack);
@@ -78,7 +87,9 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
     emit("task", { agent: specialist.name, role: specialist.role, task: part });
     const outcome = await planActions(input.ctx, group.actions, input.message, { environment: input.environment, owner: input.owner, fence: specialist.fence, proposedByAgent: groups.length > 1 });
     if (outcome.kind !== "planned") {
-      emit("tool", { agent: specialist.name, name: "plan_intent", ok: false, summary: outcome.kind === "refused" ? outcome.message : outcome.reply });
+      const why = outcome.kind === "refused" ? outcome.message : outcome.reply;
+      failures.push(why);
+      emit("tool", { agent: specialist.name, name: "plan_intent", ok: false, summary: why });
       continue;
     }
     const { intent } = outcome.result;
@@ -99,9 +110,23 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
   const merged = await mergeProposals(input, planned, input.fence);
   const final = merged ? [merged] : proposals;
   const denied = final.find((p) => p.decision === "deny");
-  const text = final.length === 0
-    ? parsed.lang === "tr" ? "Bu planı kuramadım; ayrıntılar yukarıda." : "I could not build that plan; details above."
-    : denied
+  if (final.length === 0) {
+    const tr = parsed.lang === "tr";
+    const reasons = [...new Set(failures)].join(" ");
+    const testnetGap = input.environment === "testnet" && failures.some(practiceGap);
+    if (testnetGap) {
+      const options = tr
+        ? [`${PREVIEW_ON_MAINNET.tr}${input.message}`, "Owner konsolundan pratik venue'ları deploy et"]
+        : [`${PREVIEW_ON_MAINNET.en}${input.message}`, "Deploy the practice venues from the owner console"];
+      emit("clarify", { question: tr ? "Arc testnet'te bu rota için venue yok. Mainnet'te deneme olarak göstereyim mi?" : "Arc testnet has no venue for this route yet. Preview it on mainnet as a dry run?", options });
+      const text = tr
+        ? `Pratik venue'lar Arc testnet'te henüz deploy edilmedi, bu yüzden bu rotayı burada kuramıyorum (${reasons}). Mainnet'e geçip deneme olarak görebilir ya da owner konsolundan pratik venue'ları deploy edebilirsin.`
+        : `The practice venues aren't deployed on Arc testnet yet, so I can't route this here (${reasons}). Switch to mainnet to preview the route as a dry run, or deploy them from the owner console.`;
+      return done(text, [], "clarify");
+    }
+    return done(reasons ? `${tr ? "Bu planı kuramadım" : "I could not build that plan"}: ${reasons}` : tr ? "Bu planı kuramadım." : "I could not build that plan.", []);
+  }
+  const text = denied
       ? `${parsed.lang === "tr" ? "Çit izin vermiyor" : "The Fence says no"}: ${denied.reasons.join(" ")}`
       : `${final.map((p) => p.steps.join(" → ")).join(" | ")}. ${LYKO_LINES.herding[parsed.lang]}`;
   return done(text, final);

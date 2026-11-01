@@ -14,7 +14,7 @@ Lykia's on-chain layer for Arc Network. **Not audited.** Testnet first.
 A session is issued by the owner (`createSession`). Its limits:
 
 - `validUntil`, `maxCalls`
-- per token: `perCall`, `daily` (UTC day buckets) and `budget` (lifetime), with `perCall <= daily <= budget`
+- per token: `perCall`, `daily` (a rolling 24 h window: five 6 h buckets) and `budget` (lifetime), with `perCall <= daily <= budget`
 - calls: `(target, selector)` pairs. `receiverWords` is a bitmask of ABI argument words that must equal the account, so outputs cannot be pointed at the agent (bit 1 for ERC-4626 `deposit(assets, receiver)`, bit 3 for Uniswap `exactInputSingle`'s recipient). Value-moving selectors (`approve`, `transfer`, `transferFrom`, `permit`, EIP-3009, Permit2 `approve` and similar) can never be allowlisted.
 - recipients for `agentTransfer` (the owner is always a valid recipient)
 - `fenceHash`: the canonical `sha256` of the off-chain Fence, emitted with the session

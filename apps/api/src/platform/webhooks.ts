@@ -164,7 +164,7 @@ export class WebhookService {
       const body = JSON.stringify(doc.value.payload);
       try {
         await assertPublicUrl(endpoint.url, "url", this.deps.resolve);
-        const response = await this.ctx.fetch(endpoint.url, {
+        const response = await this.ctx.publicFetch(endpoint.url, {
           method: "POST",
           headers: { "content-type": "application/json", "user-agent": "Lykia-Webhooks/1", [WEBHOOK_SIGNATURE_HEADER]: signWebhook(open(this.ctx, endpoint.secretBox), body, Math.floor(now / 1000)), "Lykia-Event": doc.value.event },
           body,

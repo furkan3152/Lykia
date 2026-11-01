@@ -38,6 +38,8 @@ type Call = { address: string; functionName: string; args?: readonly unknown[] }
 /** A fake Arc: balances per (token, holder), vault sizes, a Uniswap quoter and Chainlink feeds. */
 export class FakeArc {
   balances = new Map<string, bigint>();
+  /** `${token}:${owner}:${spender}` -> allowance. */
+  allowances = new Map<string, bigint>();
   vaultAssets = new Map<string, bigint>();
   /** amountOut = amountIn * rate / 1e6 for fee 500; other tiers revert. */
   quoteRatePpm = 896_000n;
@@ -67,7 +69,7 @@ export class FakeArc {
       case "convertToAssets":
         return call.args?.[0] as bigint;
       case "allowance":
-        return 0n;
+        return this.allowances.get(`${a}:${String(call.args?.[0]).toLowerCase()}:${String(call.args?.[1]).toLowerCase()}`) ?? 0n;
       case "decimals":
         return 8;
       case "latestRoundData": {

@@ -6,7 +6,7 @@
  *   GET  /intents/:id                            graph + outrun
  *   GET  /intents/:id/outrun                     where the money is
  *   POST /intents/:id/steps/:sid/prepare         unsigned calls + binding + memo
- *   POST /intents/:id/steps/:sid/submit          hashes -> verified on Arc
+ *   POST /intents/:id/steps/:sid/submit          hashes, or a userOpHash for smart accounts -> verified on Arc
  *   GET  /intents/:id/steps/:sid/attestation     CCTP attestation once complete
  *   POST /intents/:id/stop                       stop every unstarted step
  *   GET  /intents/:id/stream                     SSE: intent, outrun
@@ -138,8 +138,8 @@ export const intentsModule: ApiModule = {
 
     router.post("/intents/:id/steps/:sid/submit", ctx.limits.heavy, async (req, res) => {
       const { id, sid } = parseParams(req, StepParams);
-      const body = parseBody(req, z.object({ hashes: z.array(txHash).min(1).max(4) }));
-      res.json(await services(ctx).intents.submit(id, sid, body.hashes));
+      const body = parseBody(req, z.union([z.object({ hashes: z.array(txHash).min(1).max(4) }), z.object({ userOpHash: txHash })]));
+      res.json("userOpHash" in body ? await services(ctx).intents.submitUserOp(id, sid, body.userOpHash) : await services(ctx).intents.submit(id, sid, body.hashes));
     });
 
     router.get("/intents/:id/steps/:sid/attestation", async (req, res) => {

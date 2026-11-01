@@ -4,7 +4,8 @@
  * Every figure comes from the snapshot; unpriced holdings are flagged, not
  * counted as zero.
  */
-import { assessToken, compareDecimal, fromBaseUnits, type Address, type ArcEnvironment } from "@lykia/core";
+import { assessToken, compareDecimal, fromBaseUnits, networkFor, PROTOCOLS, TOKENS, tokenAddress, type Address, type ArcEnvironment } from "@lykia/core";
+import { encodeFunctionData, erc20Abi } from "viem";
 import type { Insight, InsightsResponse } from "@lykia/core/api/agents";
 import type { FlockSnapshot } from "@lykia/core/api/flock";
 import type { AppContext } from "../context.js";
@@ -67,7 +68,59 @@ export function insightsFrom(snap: FlockSnapshot): Insight[] {
   return out;
 }
 
+/** Contracts of every venue Lykia approves tokens to (registry rows with the approve verb). */
+export function knownSpenders(environment: ArcEnvironment): { readonly spender: Address; readonly venue: string; readonly name: string }[] {
+  const tokens = new Set(TOKENS.map((t) => tokenAddress(t, environment)?.toLowerCase()).filter(Boolean));
+  const out = new Map<string, { spender: Address; venue: string; name: string }>();
+  for (const p of PROTOCOLS) {
+    if (!p.verbs.includes("approve")) continue;
+    for (const [name, address] of Object.entries(p.deployments[environment]?.contracts ?? {})) {
+      if (tokens.has(address.toLowerCase()) || name.toLowerCase().startsWith("pool")) continue;
+      if (!out.has(address.toLowerCase())) out.set(address.toLowerCase(), { spender: address, venue: p.name, name });
+    }
+  }
+  return [...out.values()];
+}
+
+/**
+ * Lykia approves exact amounts that the same transaction spends, so any
+ * allowance left from the owner to a venue contract is stale: a standing
+ * door an exploit at that venue could walk through. One multicall reads
+ * every (token, spender) pair; each leftover gets a ready-to-sign revoke.
+ */
+export async function staleApprovals(ctx: AppContext, environment: ArcEnvironment, owner: Address): Promise<Insight[]> {
+  const spenders = knownSpenders(environment);
+  const tokens = TOKENS.map((t) => ({ token: t, address: tokenAddress(t, environment) })).filter((t): t is { token: (typeof TOKENS)[number]; address: Address } => t.address !== null);
+  const pairs = tokens.flatMap((t) => spenders.map((s) => ({ ...t, ...s })));
+  if (pairs.length === 0) return [];
+  let results: readonly { status: string; result?: unknown }[];
+  try {
+    results = await ctx.chains.client(environment).multicall({ contracts: pairs.map((p) => ({ address: p.address, abi: erc20Abi, functionName: "allowance", args: [owner, p.spender] }) as const), allowFailure: true });
+  } catch {
+    return [];
+  }
+  const chainId = networkFor(environment).chainId;
+  const out: Insight[] = [];
+  pairs.forEach((p, i) => {
+    const r = results[i];
+    if (!r || r.status !== "success" || typeof r.result !== "bigint" || r.result === 0n) return;
+    const unlimited = r.result >= 2n ** 255n;
+    const amount = unlimited ? "unlimited" : `${fromBaseUnits(r.result, p.token.decimals)} ${p.token.symbol}`;
+    out.push({
+      id: `stale-approval-${p.token.symbol}-${p.spender.toLowerCase()}`,
+      kind: "stale-approval",
+      severity: unlimited ? "act" : "watch",
+      title: `${p.token.symbol} still approved to ${p.venue}`,
+      detail: `${amount} can still be pulled by ${p.venue} (${p.name}, ${p.spender}). Lykia's own steps never leave allowances behind; revoking closes the door.`,
+      proposal: null,
+      role: "sentinel",
+      transactions: [{ chainId, from: owner, to: p.address, data: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [p.spender, 0n] }), value: "0", label: `Revoke ${p.token.symbol} allowance from ${p.venue}` }],
+    });
+  });
+  return out;
+}
+
 export async function insightsFor(ctx: AppContext, environment: ArcEnvironment, owner: Address): Promise<InsightsResponse> {
-  const snap = await services(ctx).flock.snapshot(environment, owner);
-  return { owner, environment, at: new Date(ctx.clock.now()).toISOString(), insights: insightsFrom(snap) };
+  const [snap, stale] = await Promise.all([services(ctx).flock.snapshot(environment, owner), staleApprovals(ctx, environment, owner)]);
+  return { owner, environment, at: new Date(ctx.clock.now()).toISOString(), insights: [...insightsFrom(snap), ...stale] };
 }

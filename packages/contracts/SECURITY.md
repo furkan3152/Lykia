@@ -16,7 +16,7 @@ The router protects callers from venues that under-deliver (per-step and final f
 
 ## Known limitations
 
-- **Daily caps** use UTC day buckets. Spending right before and right after midnight can reach twice the daily cap within a short time. Lifetime budgets bound the total.
+- **Daily caps** are a rolling window: spends land in 6 h buckets and a charge passes only if the last five buckets (24 to 30 h) stay within the cap, so no 24 h window can exceed it. The price is conservatism: a spend keeps counting for up to 30 h. Tests cover the midnight boundary.
 - **Receiver checks** cover static ABI words only. Recipients inside dynamic data (for example a struct with a `bytes` field, or the router's `Intent.recipient`) are not checked on chain. Allowlist such calls only where the off-chain Fence and Lykia's planner pin the recipient, or where outflow measurement is enough.
 - **Outflow measurement** covers the tokens the session has limits for, plus the native coin and its ERC-20 face. A token without a limit can still leave the account if the owner left a standing approval for it to an allowlisted venue. Owners should not leave standing approvals on accounts that host agents.
 - **Allowlisting a general-purpose contract** (a multicall, an aggregator with arbitrary hooks, a contract with `delegatecall` helpers) effectively hands that contract's power to the agent.

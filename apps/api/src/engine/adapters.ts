@@ -12,10 +12,11 @@
  *   morpho-borrow/repay      Morpho Blue cirBTC markets                            mainnet
  *   swap / swap-path         Uniswap v3 single pool and two-hop paths              mainnet
  *   swap-v4                  Uniswap v4 through UniversalRouter + Permit2          mainnet
+ *   swap-aerodrome           Aerodrome Slipstream through its Metarouter           mainnet
  *   practice-*               Lykia practice vault, swap and lending                testnet (once deployed)
  * Listed, not executable: StableFX RFQ (Circle credentials and a taker
- * signature flow), Aerodrome Slipstream (Metarouter not wired), USYC Teller
- * (unverified source).
+ * signature flow), Synthra and SushiSwap V3 (exact quotes, no verified router),
+ * USYC Teller (unverified source).
  */
 import {
   contractAddress,
@@ -38,6 +39,7 @@ import { GATEWAY_WALLET_ABI, PERMIT2_ABI, PRACTICE_LENDING_ABI, PRACTICE_SWAP_AB
 import { aaveCalls } from "./venues/aave.js";
 import { MORPHO_BLUE, morphoCalls, morphoMarkets, readMorphoPosition } from "./venues/morphoBlue.js";
 import { quoteV3Single, quoteV4, uniswapCalls, v3Contracts, v4Contracts } from "./venues/uniswap.js";
+import { aerodromeCalls, quoteCl } from "./venues/aerodrome.js";
 import { approveCall, type RawCall } from "./calls.js";
 
 export type AdapterId =
@@ -49,6 +51,7 @@ export type AdapterId =
   | "swap"
   | "swap-path"
   | "swap-v4"
+  | "swap-aerodrome"
   | "aave-supply"
   | "aave-withdraw"
   | "aave-borrow"
@@ -63,7 +66,7 @@ export type AdapterId =
 
 /** Venues the engine executes per environment (practice venues once deployed, see venues/practice.ts). */
 export const EXECUTABLE_VENUES: Readonly<Record<ArcEnvironment, ReadonlySet<string>>> = {
-  mainnet: new Set(["arc-transfer", "cctp", "gateway", "morpho-vaults", "morpho-blue", "aave-v4", "uniswap-v3", "uniswap-v4"]),
+  mainnet: new Set(["arc-transfer", "cctp", "gateway", "morpho-vaults", "morpho-blue", "aave-v4", "uniswap-v3", "uniswap-v4", "aerodrome-slipstream"]),
   testnet: new Set(["arc-transfer", "cctp", "gateway", "lykia-practice"]),
 };
 
@@ -211,6 +214,15 @@ export async function buildCalls(plan: StepPlan, ctx: BuildContext): Promise<Bui
       if (!permitted) approvals.push(uniswapCalls.permit2Approve(v4.permit2, p.tokenIn as Address, v4.router, amountIn, now + PERMIT2_EXPIRY_SECONDS, `Permit2: let Uniswap's UniversalRouter pull ${p.symbolIn} for 30 minutes`));
       return { approvals, calls: [uniswapCalls.v4Single(v4.router, key, p.zeroForOne === "true", amountIn, big("minOut"), BigInt(now + PERMIT2_EXPIRY_SECONDS), `Swap ${p.display} on Uniswap v4`)] };
     }
+    case "swap-aerodrome": {
+      const amountIn = big("amountIn");
+      await freshMinimum(async () => (await quoteCl(ctx.chains, ctx.environment, p.pool as Address, p.tokenIn as Address, amountIn))?.amountOut ?? null);
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + PERMIT2_EXPIRY_SECONDS);
+      return {
+        approvals: await needApproval(p.tokenIn as Address, p.router as Address, amountIn, p.symbolIn as string, "Aerodrome"),
+        calls: [aerodromeCalls.swapExactIn(p.router as Address, p.pool as Address, p.tokenIn as Address, amountIn, big("minOut"), ctx.account, deadline, `Swap ${p.display} on Aerodrome Slipstream`)],
+      };
+    }
     case "practice-swap": {
       const amountIn = big("amountIn");
       await freshMinimum(async () => {
@@ -311,6 +323,7 @@ export const ADAPTER_VENUE: Readonly<Record<AdapterId, string>> = {
   swap: "uniswap-v3",
   "swap-path": "uniswap-v3",
   "swap-v4": "uniswap-v4",
+  "swap-aerodrome": "aerodrome-slipstream",
   "aave-supply": "aave-v4",
   "aave-withdraw": "aave-v4",
   "aave-borrow": "aave-v4",
@@ -344,6 +357,7 @@ export function stepKindOf(adapter: AdapterId, fx: boolean): StepKind {
     case "swap":
     case "swap-path":
     case "swap-v4":
+    case "swap-aerodrome":
     case "practice-swap":
       return fx ? "fx" : "swap";
     case "aave-borrow":

@@ -43,6 +43,7 @@ import { stablefxQuote, stablefxTrade, stablefxTradeStatus } from "../circle/sta
 import { createAgentWallet, walletBalances } from "../circle/wallets.js";
 import { arcRequirement, authorizationTypedData, fetchChallenge, payAndFetch, paymentHeader, type PaymentRequirement } from "../circle/x402buyer.js";
 import { deviationBps, pythPrices } from "../oracles/pyth.js";
+import { referenceFx } from "../oracles/referenceFx.js";
 import { getProfile } from "../personal/profile.js";
 import { mustSession } from "../platform/session.js";
 import { typedCollection } from "../platform/typed.js";
@@ -150,7 +151,7 @@ export const circleModule: ApiModule = {
       const b = parseBody(req, z.object({ resource: z.string().url().max(500), method: z.enum(["GET", "POST"]).optional(), owner: evmAddress, environment: environmentSchema.optional(), signer: z.enum(["wallet", "agent"]).optional(), fence: z.unknown().optional() }));
       const environment = environmentOf(ctx, b.environment);
       const method = b.method ?? "GET";
-      const probe = await fetchChallenge(ctx.fetch, b.resource, method);
+      const probe = await fetchChallenge(ctx.publicFetch, b.resource, method);
       if (!probe.challenge) return res.json({ paid: false, status: probe.status, note: "The service did not ask for payment.", preview: probe.preview });
       const requirement = arcRequirement(probe.challenge, environment);
       if (!requirement) throw new LykiaHttpError("NO_ROUTE", 422, `This service does not take USDC on Arc ${environment}.`, { accepts: probe.challenge.accepts.map((a) => ({ scheme: a.scheme, network: a.network })) });
@@ -179,7 +180,7 @@ export const circleModule: ApiModule = {
       await pending.delete(b.paymentId);
       const p = doc.value;
       const header = paymentHeader(p.version, p.requirement, p.authorization, b.signature as Hex);
-      const result = await payAndFetch(ctx.fetch, { resource: p.resource, method: p.method, header, ...(b.body ? { body: b.body } : {}) });
+      const result = await payAndFetch(ctx.publicFetch, { resource: p.resource, method: p.method, header, ...(b.body ? { body: b.body } : {}) });
       res.json({ paid: result.status < 400, ...result });
     });
 
@@ -234,9 +235,21 @@ export const circleModule: ApiModule = {
       const chainlink = await services(ctx).prices.prices(["USDC", "EURC", "cirBTC"]);
       const pyth = await pythPrices(ctx.chains, ["USDC", "EURC", "cirBTC", "USD/TRY"], ctx.clock.now());
       const rows = ["USDC", "EURC", "cirBTC"].map((s) => ({ symbol: s, chainlink: chainlink[s]?.usd ?? null, pyth: pyth[s]?.price ?? null, deviationBps: deviationBps(chainlink[s]?.usd ?? null, pyth[s]?.price ?? null) }));
+      const reference = await referenceFx(ctx.fetch, ctx.clock.now());
       const eurUsd = chainlink.EURC?.usd ?? pyth.EURC?.price ?? null;
-      const usdTry = pyth["USD/TRY"]?.price ?? null;
-      res.json({ prices: rows, display: { EUR: eurUsd, TRY: usdTry === null ? null : String(1 / Number(usdTry)) }, sources: { chainlink: "Chainlink feeds on Arc mainnet", pyth: "Pyth contract on Arc mainnet (getPriceUnsafe; only feeds pushed in the last hour)" }, note: "display.X is USD per unit of X; a gap above 50 bps between sources is flagged on conversion plans." });
+      const pythTry = pyth["USD/TRY"]?.price ?? null;
+      const refTry = reference?.perUsd.TRY ?? null;
+      const tryUsd = pythTry !== null ? String(1 / Number(pythTry)) : refTry !== null ? String(1 / Number(refTry)) : null;
+      // Display-only cross-check: ECB EUR against the Chainlink EURC/USD feed (EURC tracks EUR, so a wide gap means a stale feed or a depeg).
+      const refEurUsd = reference?.perUsd.EUR ? String(1 / Number(reference.perUsd.EUR)) : null;
+      res.json({
+        prices: rows,
+        display: { EUR: eurUsd, TRY: tryUsd },
+        displaySources: { EUR: chainlink.EURC?.usd ? "chainlink" : pyth.EURC?.price ? "pyth" : null, TRY: pythTry !== null ? "pyth" : refTry !== null ? "ecb-reference" : null },
+        reference: reference ? { ...reference, eurcVsEcbBps: deviationBps(chainlink.EURC?.usd ?? null, refEurUsd) } : null,
+        sources: { chainlink: "Chainlink feeds on Arc mainnet", pyth: "Pyth contract on Arc mainnet (getPriceUnsafe; only feeds pushed in the last hour)", ecb: "ECB reference rates (display only, not tradable)" },
+        note: "display.X is USD per unit of X. The Fence's oracle-gap fact compares fresh on-chain feeds only (Chainlink vs Pyth); with no fresh second feed it makes no claim.",
+      });
     });
   },
 };

@@ -73,6 +73,8 @@ export interface Insight {
   readonly proposal: string | null;
   /** The specialist that would carry it out. */
   readonly role: PackRole;
+  /** Ready-to-sign transactions for fixes that are not intents (e.g. revoking a stale approval). */
+  readonly transactions?: readonly UnsignedTransaction[];
 }
 
 export interface InsightsResponse {

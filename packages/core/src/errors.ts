@@ -19,6 +19,7 @@ export const ERRORS = Object.freeze({
   NOT_SIGNABLE: { status: 409, retryable: false, message: "This plan is a dry run or denied; nothing can be signed." },
   STEP_NOT_READY: { status: 409, retryable: false, message: "That step is not ready yet; its dependencies have not settled." },
   BINDING_MISMATCH: { status: 409, retryable: false, message: "The submitted transaction does not match the prepared one." },
+  IDEMPOTENCY_CONFLICT: { status: 409, retryable: false, message: "This Idempotency-Key was used with a different body, or its first request is still running." },
   REFERENCE_CLAIMED: { status: 409, retryable: false, message: "That transaction hash is already attached to another step." },
   RECEIPT_REVERTED: { status: 422, retryable: false, message: "The transaction reverted on Arc." },
   NO_ROUTE: { status: 422, retryable: false, message: "No live venue on Arc can do that right now." },

@@ -25,5 +25,9 @@ export interface HealthResponse {
   readonly uptimeSeconds: number;
   readonly networks: Record<string, { readonly reachable: boolean; readonly head: number | null; readonly latencyMs: number | null }>;
   readonly store: { readonly kind: string; readonly ok: boolean };
+  /** "serverless" on Vercel Functions, "server" for a long-running process. */
+  readonly runtime?: "serverless" | "server";
+  /** "memory" means state does not survive restarts or cold starts. */
+  readonly persistence?: "memory" | "postgres";
   readonly features: { readonly agent: boolean; readonly stablefx: boolean; readonly x402: boolean; readonly x402Settlement: boolean };
 }

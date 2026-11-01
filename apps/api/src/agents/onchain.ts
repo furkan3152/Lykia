@@ -12,7 +12,10 @@
  */
 import { getToken, tokenAddress, usdMicros, type Address, type ArcEnvironment, type PackAgent } from "@lykia/core";
 import type { UnsignedTransaction } from "@lykia/core";
-import { encodeFunctionData, type Hex } from "viem";
+import { encodeFunctionData, toFunctionSelector, type Hex } from "viem";
+import { morphoVaults } from "../flock/flock.js";
+import { aaveSpokes } from "../engine/venues/aave.js";
+import { v3Contracts } from "../engine/venues/uniswap.js";
 import type { AppContext } from "../context.js";
 import { services } from "../services.js";
 
@@ -103,6 +106,44 @@ export function sessionCalldata(spec: SessionSpec, parentSessionId?: Hex): Hex {
     : encodeFunctionData({ abi: SESSION_ABI, functionName: "createSession", args: [tuple] });
 }
 
+/**
+ * Call rules derived from the venues an agent's Fence allows, for calls
+ * whose output argument sits at a fixed ABI word so the account can pin it
+ * to itself (receiverWords): ERC-4626 vaults, Aave V4 Spokes and Uniswap v3
+ * exactInputSingle. Routers whose recipient lives inside dynamic bytes
+ * (Uniswap v4's UniversalRouter, the Aerodrome Metarouter) are never
+ * derived: the account could not check where the output goes.
+ */
+export function callRulesFor(agent: Pick<PackAgent, "fence">, environment: ArcEnvironment): CallRule[] {
+  const kinds = new Set(agent.fence.kinds?.allow ?? ["deposit", "withdraw", "supply", "swap", "fx"]);
+  const allowVenue = (id: string) => !(agent.fence.venues?.deny ?? []).includes(id) && (agent.fence.venues?.allow ? agent.fence.venues.allow.includes(id) : true);
+  const rules: CallRule[] = [];
+  const add = (target: string | undefined, signature: string, words: readonly number[], homeward = false) => {
+    if (!target) return;
+    rules.push({ target: target as Address, selector: toFunctionSelector(signature) as Hex, receiverWords: words.reduce((m, w) => m | (1 << w), 0), homeward });
+  };
+  if (allowVenue("morpho-vaults")) {
+    for (const v of morphoVaults(environment)) {
+      if (kinds.has("deposit")) add(v.address, "deposit(uint256,address)", [1]);
+      if (kinds.has("withdraw")) {
+        add(v.address, "withdraw(uint256,address,address)", [1, 2], true);
+        add(v.address, "redeem(uint256,address,address)", [1, 2], true);
+      }
+    }
+  }
+  if (allowVenue("aave-v4")) {
+    for (const spoke of aaveSpokes(environment)) {
+      if (kinds.has("supply")) add(spoke.address, "supply(uint256,uint256,address)", [2]);
+      if (kinds.has("withdraw")) add(spoke.address, "withdraw(uint256,uint256,address)", [2], true);
+      if (kinds.has("repay")) add(spoke.address, "repay(uint256,uint256,address)", [2], true);
+    }
+  }
+  if (allowVenue("uniswap-v3") && (kinds.has("swap") || kinds.has("fx"))) {
+    add(v3Contracts(environment)?.router, "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))", [3]);
+  }
+  return rules;
+}
+
 export interface SessionTxInput {
   readonly agent: PackAgent;
   readonly parent: PackAgent | null;
@@ -117,7 +158,8 @@ export async function buildSessionTx(ctx: AppContext, input: SessionTxInput, env
   const prices = await services(ctx).prices.prices(["USDC", "EURC"]);
   const usdPerUnit: Record<string, number | null> = {};
   for (const [symbol, quote] of Object.entries(prices)) usdPerUnit[symbol] = quote?.usd ? Number(quote.usd) : null;
-  const spec = sessionSpecOf({ agent: input.agent, key: input.key, validDays: input.validDays, maxCalls: input.maxCalls, ...(input.calls ? { calls: input.calls } : {}), usdPerUnit, now: ctx.clock.now() });
+  const calls = input.calls ?? callRulesFor(input.agent, environment);
+  const spec = sessionSpecOf({ agent: input.agent, key: input.key, validDays: input.validDays, maxCalls: input.maxCalls, calls, usdPerUnit, now: ctx.clock.now() });
   const parentSession = input.parent?.session?.sessionId as Hex | undefined;
   const sub = Boolean(input.parent && parentSession);
   const from = (sub ? input.parent?.signer : input.agent.owner) as Address | undefined;
@@ -134,7 +176,7 @@ export async function buildSessionTx(ctx: AppContext, input: SessionTxInput, env
   const note = [
     sub ? "Signed by the parent agent's session key; the account refuses a sub-session outside its parent." : "Signed by the owner's wallet on their LykiaAccount.",
     left.length > 0 ? `${left.join(", ")} left out: no reference price.` : "",
-    spec.calls.length === 0 ? "No contract call rules: the session can make agentTransfer payments only, until call rules are added." : "",
+    spec.calls.length === 0 ? "No contract call rules: the session can make agentTransfer payments only, until call rules are added." : input.calls ? "" : `${spec.calls.length} call rule(s) derived from the Fence's venues, each pinning its output argument to the account. Routers that hide the recipient inside bytes (Uniswap v4, Aerodrome) are not included.`,
   ].filter(Boolean).join(" ");
   return { spec, transaction, note };
 }

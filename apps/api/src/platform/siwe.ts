@@ -85,7 +85,11 @@ export async function verifySiwe(ctx: AppContext, message: string, signature: st
     const network = resolveNetwork(parsed.chainId);
     if (network) {
       try {
-        // ERC-1271 (smart accounts such as LykiaAccount) through Arc RPC.
+        // Smart accounts through Arc RPC. viem's public-client verifyMessage covers ERC-1271 for
+        // deployed accounts (LykiaAccount, Circle Modular Wallets) and ERC-6492 for counterfactual
+        // ones: a passkey account that is not deployed yet signs with a 6492 wrapper (factory +
+        // init code + inner signature, magic suffix 0x6492…6492), which is checked by simulating the
+        // deployment with the universal validator in a single eth_call. Nothing is deployed.
         valid = await ctx.chains.client(network.environment).verifyMessage({ address, message, signature: signature as Hex });
       } catch {
         valid = false;

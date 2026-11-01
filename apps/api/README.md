@@ -245,7 +245,7 @@ Executable venues:
 
 Listed for discovery but not executed:
 
-- Aerodrome Slipstream. It holds the deepest USDC/EURC pool on Arc, but its Metarouter is not wired yet, so routes show its pool price as a read-only estimate.
+- Synthra and SushiSwap V3. Their pools are quoted exactly (see below), but neither has a verified router on Arc, so Lykia lists them without executing. Synthra pools show no swaps in the last ~300k blocks; the contract that swaps in the SushiSwap pool (0x09AD…4Afa) has no verified source.
 - Other venues: Synthra, Archery, SushiSwap V3, PancakeSwap Infinity, Kaleido, Uniswap v2, and Curve (deployed, no pools yet).
 - Launchpads: ArgusPad, FAZE, LIFT V2, Tolly.
 - Oracles: Chainlink, Pyth, Stork.
@@ -292,3 +292,76 @@ src/
   modules/    route modules (developers, auth, system, arc, flock, fence, language, intents, scent, kunye, agent, admin, mcp)
   scripts/    smoke.ts (live, read-only)
 ```
+
+## Exact CL quotes and Aerodrome
+
+Concentrated-liquidity pools outside Uniswap are quoted with `LykiaClQuoter`
+(packages/contracts/contracts/quoters). The contract is never deployed: the
+API places its runtime code at a throwaway address through an `eth_call`
+state override, asks the pool to swap, and reverts inside
+`uniswapV3SwapCallback` with the deltas. The quote is the pool's own math at
+the current block and nothing moves.
+
+Aerodrome Slipstream is executable on mainnet (`swap-aerodrome`). The step is
+`approve(Metarouter)` + `Memo(Metarouter.execute(0x00, [SwapExactInParams],
+deadline))` through Multicall3From; the encoding comes from the Metarouter's
+verified source (command `CL_SWAP_EXACT_IN`, `payerIsUser = true`, spend mode
+`Amount`). It was simulated on mainnet: 1000 USDC into the USDC/EURC pool
+passes with an 890 EURC minimum (quote 895.97) and reverts with 897.
+`npm run smoke -w @lykia/api` repeats the simulation.
+
+## Hardening
+
+- **Pinned outbound fetches.** Künye card fetches, webhook deliveries and
+  x402 relays use `ctx.publicFetch`: the hostname is resolved once at
+  connect time by the guarded lookup, non-public addresses are refused and
+  the socket connects to the checked address with the original Host and TLS
+  server name. No redirect is followed. A DNS answer that changes between
+  registration and delivery (rebinding) is refused.
+- **Idempotency-Key.** `POST /v1/intents`, step `prepare` and `submit`, and
+  Pack writes honour the header for 24 hours: the same key and body replay
+  the stored answer (`Idempotent-Replayed: true`), a different body or a
+  request still in flight answers 409 `IDEMPOTENCY_CONFLICT`, and 5xx answers
+  are not stored.
+- **Stale approvals.** Insights read every allowance from the owner to known
+  venue contracts in one multicall. Lykia's own steps approve exact amounts
+  that the same transaction spends, so a leftover allowance is reported with
+  a ready-to-sign `approve(spender, 0)` in `insight.transactions`.
+
+## Display currencies
+
+`GET /v1/oracles` returns `display.TRY` from a fresh Pyth USD/TRY price when
+Arc carries one, otherwise from ECB reference rates (api.frankfurter.dev,
+cached six hours), labelled `ecb-reference` and not tradable. The ECB EUR rate
+is also compared with Chainlink EURC/USD (`reference.eurcVsEcbBps`) for
+display. The Fence's oracle-gap fact only compares fresh on-chain feeds; with
+no fresh second feed it makes no claim.
+
+## Serverless
+
+On Vercel Functions (`VERCEL=1`) `/v1/health` reports `runtime: "serverless"`
+and `persistence: "memory" | "postgres"`. Event streams close after 280 s with
+a reconnect comment so EventSource resumes with `Last-Event-ID` before the
+300 s function limit. Background timers are unref'd. Without a database each
+instance keeps its own memory store; attach Postgres (`DATABASE_URL` from the
+Vercel Neon integration works) for state that survives cold starts.
+
+## Smart accounts
+
+- **Sign-in.** SIWE accepts EOA signatures, ERC-1271 signatures from deployed
+  smart accounts and ERC-6492 wrapped signatures from counterfactual ones
+  (for example a Circle Modular Wallet passkey account that is not deployed
+  yet). The check runs through viem's public-client `verifyMessage` against
+  Arc, which simulates the deployment in one `eth_call`; nothing is deployed.
+- **Execution.** Intents created with `account: "smart"` get plain calls.
+  When the account runs them inside one ERC-4337 UserOperation, submit with
+  `{ "userOpHash": "0x…" }` instead of `hashes`. The API finds the
+  EntryPoint's `UserOperationEvent` (v0.6, v0.7 and v0.8 are deployed on both
+  Arc networks), decodes the bundle's `handleOps`, takes the operation with
+  the same sender and nonce, and requires every prepared call (target, data
+  and non-zero value) inside its callData. The bundle transaction hash
+  becomes the step's reference. Limitations: matching is containment rather
+  than a decode of the account's own execute ABI; bundles sent through a
+  wrapper contract instead of a direct `handleOps` call are refused; only the
+  last ~5 hours of logs (four 10,000-block windows) are searched; Circle's bundler receipt endpoint is not
+  used because it needs credentials.

@@ -11,6 +11,7 @@
  * promises from async handlers to the error handler, so handlers simply
  * throw LykiaHttpError (or let zod/upstream errors propagate).
  */
+import { idempotency } from "./idempotency.js";
 import express, { type Express, type RequestHandler, type Router } from "express";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "./errors.js";
@@ -70,6 +71,7 @@ export function createV1Router(ctx: AppContext, modules: readonly ApiModule[]): 
   router.use(bodyGuards);
   router.use(express.json({ limit: MAX_BODY_BYTES, strict: true, type: ["application/json", "application/*+json"] }));
   router.use(ctx.limits.default);
+  router.use(idempotency(ctx));
 
   const names = new Set<string>();
   for (const module of modules) {

@@ -46,3 +46,30 @@ only BTC/USD there, and it was older than the one-hour freshness limit,
 so the cross-check shows "unpriced" until someone pushes fresh prices to
 Arc. Hermes' public price endpoints now answer "unauthorized", so Lykia
 does not depend on them.
+
+## Registering the entity secret from a phone
+
+Developer-controlled wallets need `CIRCLE_ENTITY_SECRET`. Circle's usual
+route is to generate it locally (openssl or the SDK) and register its
+ciphertext. Owners without a computer can let the API do it once:
+
+1. Set `CIRCLE_API_KEY` on the API deployment and redeploy.
+2. Sign in to Lykia with a wallet listed in `LYKIA_ADMIN_ADDRESSES`.
+3. `POST /v1/admin/circle/entity-secret` with an empty JSON body (the owner
+   console calls it).
+
+The API generates 32 random bytes (64 hex characters), fetches the entity
+public key (`GET /v1/w3s/config/entity/publicKey`), encrypts the secret
+with RSA-OAEP and SHA-256, and registers the ciphertext
+(`POST /v1/w3s/config/entity/entitySecret { entitySecretCiphertext }`), the
+same steps as `registerEntitySecretCiphertext` in Circle's Node SDK
+(checked against @circle-fin/developer-controlled-wallets 10.8.1). The
+response carries `entitySecret`, `recoveryFile` (base64 of Circle's
+recovery file) and `recoveryFileName`, once, with `Cache-Control: no-store`.
+Lykia never logs or stores either value.
+
+Save the recovery file somewhere safe, set `CIRCLE_ENTITY_SECRET` to the
+returned value in the API's environment and redeploy. When the variable is
+already set the endpoint refuses with 409; `{ "replace": true }` registers a
+new one only if Circle accepts it (an entity with a secret must rotate it in
+the Circle Console with its recovery file).

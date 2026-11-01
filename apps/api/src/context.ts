@@ -8,6 +8,7 @@ import type { Clock } from "./clock.js";
 import { systemClock } from "./clock.js";
 import type { Config } from "./config.js";
 import { DependencyMonitor, type FetchLike } from "./health/dependencies.js";
+import { pinnedFetch } from "./http/pinnedFetch.js";
 import { createHttpLimits, type HttpLimits } from "./http/limits.js";
 import { createLogger, type Logger } from "./log.js";
 import { PulseService, type PulseFeed } from "./arc/pulse.js";
@@ -28,6 +29,12 @@ export interface AppContext {
   readonly limits: HttpLimits;
   /** Outbound HTTP (Circle APIs, card fetches); a seam for tests. */
   readonly fetch: FetchLike;
+  /**
+   * Outbound HTTP to URLs a user chose (Künye cards, webhooks, x402
+   * resources): DNS pinned at connect time and non-public addresses refused.
+   * Tests that inject `fetch` get that fetch here too.
+   */
+  readonly publicFetch: FetchLike;
   readonly startedAt: number;
 }
 
@@ -36,6 +43,7 @@ export interface ContextOverrides {
   readonly clock?: Clock;
   readonly store?: Store;
   readonly fetch?: FetchLike;
+  readonly publicFetch?: FetchLike;
   readonly chains?: ArcChains;
   readonly chainOptions?: ArcChainsOptions;
   readonly pulse?: PulseFeed;
@@ -52,7 +60,8 @@ export function createContext(config: Config, overrides: ContextOverrides = {}):
   const pulse = overrides.pulse ?? new PulseService({ chains, clock, log: log.child({ component: "pulse" }), bus });
   const health = new DependencyMonitor({ networks: config.networks, store, clock, fetch: fetchImpl });
   const limits = overrides.limits ?? createHttpLimits(config.rateLimits);
-  return { config, log, store, chains, pulse, health, bus, clock, limits, fetch: fetchImpl, startedAt: clock.now() };
+  const publicFetch: FetchLike = overrides.publicFetch ?? overrides.fetch ?? pinnedFetch;
+  return { config, log, store, chains, pulse, health, bus, clock, limits, fetch: fetchImpl, publicFetch, startedAt: clock.now() };
 }
 
 export async function closeContext(ctx: AppContext): Promise<void> {

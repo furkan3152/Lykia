@@ -2,6 +2,8 @@
 const { ethers } = require("hardhat");
 
 const DAY = 24 * 60 * 60;
+// The rolling daily window keeps spends for 24 to 30 h (five 6 h buckets); waiting WINDOW always clears them.
+const WINDOW = 30 * 60 * 60;
 const NATIVE = ethers.ZeroAddress;
 const MAX128 = (1n << 128n) - 1n;
 
@@ -120,4 +122,4 @@ async function signAgentTransfer(signer, account, t, nonce, deadline) {
   return signer.signTypedData(domain, types, { ...t, memoHash: ethers.keccak256(t.memo), nonce, deadline });
 }
 
-module.exports = { DAY, NATIVE, MAX128, now, deployTokens, deployAccount, spec, limit, rule, sessionIdFrom, call, signAgentCall, signAgentTransfer };
+module.exports = { DAY, WINDOW, NATIVE, MAX128, now, deployTokens, deployAccount, spec, limit, rule, sessionIdFrom, call, signAgentCall, signAgentTransfer };

@@ -4,6 +4,7 @@
  *   GET  /admin/deployments[?environment]   POST /admin/deployments   (verified against Arc before it is recorded)
  *   GET  /admin/flags                       PUT  /admin/flags
  *   GET  /admin/overview                    store, agents, flags, health of the RPCs
+ *   POST /admin/circle/entity-secret        generate + register a Circle entity secret (returned once)
  *   GET  /deployments[?environment]         public: verified addresses for clients
  */
 import { FEATURE_FLAGS, type FeatureFlag } from "@lykia/core/api/platform";
@@ -12,6 +13,8 @@ import type { ApiModule } from "../http/router.js";
 import { parseBody, parseQuery } from "../http/validate.js";
 import { flags, listDeployments, recordDeployment, setFlags } from "../platform/admin.js";
 import { mustSession } from "../platform/session.js";
+import { EntitySecretError, registerEntitySecret } from "../circle/entitySecret.js";
+import { LykiaHttpError } from "../http/errors.js";
 import { environmentSchema } from "./common.js";
 
 const hex = (len: number) => z.string().regex(new RegExp(`^0x[0-9a-fA-F]{${len}}$`, "u"));
@@ -41,6 +44,21 @@ export const adminModule: ApiModule = {
       await mustSession(ctx, req, "admin");
       const body = parseBody(req, z.record(z.enum(FEATURE_FLAGS as unknown as [FeatureFlag, ...FeatureFlag[]]), z.boolean()));
       res.json(await setFlags(ctx, body));
+    });
+    router.post("/admin/circle/entity-secret", ctx.limits.auth, async (req, res) => {
+      await mustSession(ctx, req, "admin");
+      const body = parseBody(req, z.object({ replace: z.literal(true).optional() }).strict());
+      if (!ctx.config.circle.apiKey) throw new LykiaHttpError("NEEDS_KEY", 409, "Set CIRCLE_API_KEY on the API first; the entity secret is registered with it.");
+      if (ctx.config.circle.entitySecret && body.replace !== true) throw new LykiaHttpError("ALREADY_CONFIGURED", 409, "CIRCLE_ENTITY_SECRET is already set on this deployment. Send { \"replace\": true } only if you really mean to register a new one.");
+      try {
+        const registered = await registerEntitySecret(ctx.fetch, ctx.config.circle.apiKey, ctx.clock.now());
+        res.setHeader("Cache-Control", "no-store, max-age=0");
+        res.setHeader("Pragma", "no-cache");
+        res.status(201).json({ ...registered, next: "Save the recovery file somewhere safe, then set CIRCLE_ENTITY_SECRET to entitySecret in the API's environment and redeploy. Lykia keeps neither." });
+      } catch (error) {
+        if (error instanceof EntitySecretError) throw new LykiaHttpError("CIRCLE_ENTITY_SECRET", error.status, error.message);
+        throw error;
+      }
     });
     router.get("/admin/overview", async (req, res) => {
       await mustSession(ctx, req, "admin");

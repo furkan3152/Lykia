@@ -34,6 +34,7 @@ import type { FetchLike } from "../health/dependencies.js";
 import { LykiaHttpError } from "../http/errors.js";
 import type { Logger } from "../log.js";
 import type { JsonValue, Store } from "../store/types.js";
+import { opRunsPrepared, resolveUserOp, UserOpError, type ResolvedUserOp } from "./userop.js";
 import { buildCalls, IRIS_API, type StepPlan } from "./adapters.js";
 import { shape } from "./calls.js";
 import type { Planner } from "./planner.js";
@@ -242,6 +243,51 @@ export class IntentService {
       } else {
         transition(step, "settling");
       }
+    }
+    await this.save(id, version, { ...doc, graph });
+    return { step, outrun: outrunOf(graph) };
+  }
+
+  /**
+   * Smart accounts (ERC-4337): the step's calls ran inside one
+   * UserOperation. The op is found by its EntryPoint event, its sender must
+   * be the step's account and its callData must carry every prepared call
+   * (see userop.ts). The userOpHash is claimed once; the bundle transaction
+   * hash becomes the step's reference for the explorer.
+   */
+  async submitUserOp(id: string, stepId: string, userOpHash: string): Promise<SubmitStepResponse> {
+    const { doc, version } = await this.load(id);
+    const graph = doc.graph;
+    const step = graph.steps.find((s) => s.id === stepId);
+    if (!step) throw new LykiaHttpError("NOT_FOUND", 404, "No such step.");
+    if (step.status !== "awaiting-signature" || !step.transactions) throw new LykiaHttpError("STEP_NOT_READY", 409, `Step ${stepId} is ${step.status}; prepare it first.`);
+    let op: ResolvedUserOp;
+    try {
+      op = await resolveUserOp(this.deps.chains, graph.environment, userOpHash as `0x${string}`);
+    } catch (error) {
+      if (error instanceof UserOpError) throw new LykiaHttpError(error.code, error.code === "NOT_FOUND" ? 404 : 409, error.message, { userOpHash });
+      throw error;
+    }
+    if (op.sender.toLowerCase() !== step.account.toLowerCase()) throw new LykiaHttpError("BINDING_MISMATCH", 409, "That UserOperation was sent by another account.", { userOpHash, sender: op.sender });
+    if (!opRunsPrepared(op, step.transactions)) throw new LykiaHttpError("BINDING_MISMATCH", 409, "That UserOperation does not run the prepared calls.", { userOpHash });
+    const key = `userop:${userOpHash.toLowerCase()}`;
+    const claim = await this.claims().compareAndSet(key, null, { intent: id, step: stepId } as JsonValue, { ttlMs: INTENT_TTL_MS });
+    if (!claim) {
+      const owner = (await this.claims().get(key))?.value as { intent?: string; step?: string } | undefined;
+      if (owner?.intent !== id || owner.step !== stepId) throw new LykiaHttpError("REFERENCE_CLAIMED", 409, "That UserOperation is attached to another step.", { userOpHash });
+    }
+    step.references = [op.transactionHash];
+    transition(step, "submitted");
+    if (!op.success) {
+      transition(step, "failed");
+      step.failure = { code: "RECEIPT_REVERTED", message: "The UserOperation reverted on Arc (EntryPoint reported success = false).", retryable: false };
+    } else if (step.settlement.kind === "receipt" || step.settlement.kind === "gateway") {
+      transition(step, "settled");
+      step.settledAt = new Date(this.deps.clock.now()).toISOString();
+      await this.recordSpend(graph, step);
+      unlockSteps(graph);
+    } else {
+      transition(step, "settling");
     }
     await this.save(id, version, { ...doc, graph });
     return { step, outrun: outrunOf(graph) };

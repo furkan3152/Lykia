@@ -30,6 +30,7 @@ import { aaveCollateralNeededMicros, aaveReserve, aaveSpokes, liveCollateralFact
 import { morphoCollateralNeeded, morphoMarketFor, projectMorphoHealth, readMorphoPosition } from "./venues/morphoBlue.js";
 import { practiceVenues } from "./venues/practice.js";
 import { quoteV3Single, quoteV3TwoHop, quoteV4 } from "./venues/uniswap.js";
+import { CL_POOLS, metarouter, quoteCl } from "./venues/aerodrome.js";
 import { sameAddr, type YieldService } from "./venues/yields.js";
 
 export type RoutedAdapter =
@@ -39,6 +40,7 @@ export type RoutedAdapter =
   | "swap"
   | "swap-path"
   | "swap-v4"
+  | "swap-aerodrome"
   | "practice-swap"
   | "aave-borrow"
   | "morpho-borrow"
@@ -78,18 +80,12 @@ export interface BorrowCandidate extends Candidate {
 }
 
 /** Gas used when a quoter does not report one, plus the Memo/Multicall3From overhead. */
-export const GAS_DEFAULTS = { v3: 130_000n, path: 210_000n, v4: 180_000n, practice: 90_000n, overhead: 60_000n } as const;
+export const GAS_DEFAULTS = { v3: 130_000n, path: 210_000n, v4: 180_000n, aerodrome: 260_000n, practice: 90_000n, overhead: 60_000n } as const;
 export const SPLIT_MIN_GAIN_BPS = 5;
 const MIN_TVL_USD = 50_000;
 const Q192 = 2n ** 192n;
 
-/** Read-only pools Lykia compares against (cannot execute yet). */
-export const READ_ONLY_POOLS: Readonly<Record<string, readonly { label: string; venue: string; pool: Address; pair: [string, string] }[]>> = {
-  mainnet: [
-    { label: "Aerodrome Slipstream USDC/EURC", venue: "aerodrome-slipstream", pool: "0x6F57B4C22155ceF09F17184c954f227FF0493742", pair: ["USDC", "EURC"] },
-    { label: "Aerodrome Slipstream USDC/cirBTC", venue: "aerodrome-slipstream", pool: "0x86A68d86465bCf19779454e1b4d31368740503c7", pair: ["USDC", "cirBTC"] },
-  ],
-};
+/** Concentrated-liquidity pools outside Uniswap are listed in venues/aerodrome.ts (CL_POOLS). */
 
 export class VenueRouter {
   constructor(private readonly deps: { readonly chains: ArcChains; readonly prices: PriceService; readonly yields: YieldService }) {}
@@ -249,10 +245,27 @@ export class VenueRouter {
     }
 
     const readOnly: VenueOption[] = [];
-    for (const pool of READ_ONLY_POOLS[environment] ?? []) {
+    const router = metarouter(environment);
+    for (const pool of CL_POOLS[environment] ?? []) {
       if (!isPair(pool.pair[0], pool.pair[1])) continue;
-      const estimate = await this.poolEstimate(environment, pool.pool, tokenIn, amountIn);
-      if (estimate !== null) readOnly.push({ venue: pool.venue, label: pool.label, amountOut: estimate.toString(), risk: "low", executable: false, notes: ["Mid-price estimate from the pool (not a quote); Lykia cannot execute its Metarouter yet."] });
+      const quote = await quoteCl(this.deps.chains, environment, pool.pool, tokenIn, amountIn);
+      if (quote === null) {
+        const estimate = await this.poolEstimate(environment, pool.pool, tokenIn, amountIn);
+        if (estimate !== null) readOnly.push({ venue: pool.venue, label: pool.label, amountOut: estimate.toString(), risk: "low", executable: false, notes: ["Mid-price estimate (the exact quote was unavailable)."] });
+        continue;
+      }
+      if (pool.executable && router) {
+        const n = await net(quote.amountOut, GAS_DEFAULTS.aerodrome);
+        candidates.push({
+          option: { venue: pool.venue, label: pool.label, amountOut: quote.amountOut.toString(), netAmountOut: n.toString(), risk: "low", executable: true, notes: [`Quote ${fmt(quote.amountOut)} (pool math through Lykia's quoter). ${pool.note}`] },
+          adapter: "swap-aerodrome",
+          params: { ...base, pool: pool.pool, router },
+          amountOut: quote.amountOut,
+          netOut: n,
+        });
+      } else {
+        readOnly.push({ venue: pool.venue, label: pool.label, amountOut: quote.amountOut.toString(), risk: "low", executable: false, notes: [pool.note] });
+      }
     }
     return { candidates, readOnly };
   }

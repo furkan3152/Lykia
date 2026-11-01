@@ -25,6 +25,7 @@ const CONTRACTS = [
   { name: "PracticeVault", file: "practice/PracticeVault.sol", deployable: true, environments: ["testnet"], note: "Arc testnet practice venue." },
   { name: "PracticeSwap", file: "practice/PracticeSwap.sol", deployable: true, environments: ["testnet"], note: "Arc testnet practice venue." },
   { name: "PracticeLending", file: "practice/PracticeLending.sol", deployable: true, environments: ["testnet"], note: "Arc testnet practice venue." },
+  { name: "LykiaClQuoter", file: "quoters/LykiaClQuoter.sol", deployable: false, environments: [], note: "Never deployed: the API places the runtime code at a throwaway address through an eth_call state override to quote concentrated-liquidity pools exactly." },
 ];
 
 function artifact(c) {

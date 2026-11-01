@@ -11,6 +11,7 @@ import { parseQuery } from "../http/validate.js";
 import { EXECUTABLE_VENUES } from "../engine/adapters.js";
 import { practiceVenues } from "../engine/venues/practice.js";
 import { environmentOf, environmentQuery } from "./common.js";
+import { RUNTIME } from "../runtime.js";
 
 export const systemModule: ApiModule = {
   name: "system",
@@ -27,6 +28,8 @@ export const systemModule: ApiModule = {
         uptimeSeconds: Math.floor((ctx.clock.now() - ctx.startedAt) / 1000),
         networks,
         store: { kind: report.store.kind, ok: report.store.ok },
+        runtime: RUNTIME,
+        persistence: ctx.store.kind === "postgres" ? "postgres" : "memory",
         features: { agent: ctx.config.agent.anthropicApiKey !== null, stablefx: ctx.config.stablefxApiKey !== null, x402: ctx.config.x402.payTo !== null, x402Settlement: ctx.config.x402.facilitatorUrl !== null },
       };
       res.status(body.status === "down" ? 503 : 200).json(body);

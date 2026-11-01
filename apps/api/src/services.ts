@@ -34,7 +34,7 @@ export function services(ctx: AppContext): Services {
   const router = new VenueRouter({ chains: ctx.chains, prices, yields });
   const planner = new Planner({ chains: ctx.chains, prices, fetch: ctx.fetch, stablefxConfigured: ctx.config.stablefxApiKey !== null, router });
   const intents = new IntentService({ planner, chains: ctx.chains, store: ctx.store, clock: ctx.clock, bus: ctx.bus, fetch: ctx.fetch, log: ctx.log.child({ component: "intents" }) });
-  const kunye = new KunyeService({ chains: ctx.chains, store: ctx.store, fetch: ctx.fetch });
+  const kunye = new KunyeService({ chains: ctx.chains, store: ctx.store, fetch: ctx.publicFetch });
   const standing = new StandingService({ chains: ctx.chains, store: ctx.store, clock: ctx.clock, bus: ctx.bus, log: ctx.log.child({ component: "standing" }), intents: () => intents });
   const built = { prices, flock, scent, planner, intents, kunye, yields, router, standing };
   SERVICES.set(ctx, built);
