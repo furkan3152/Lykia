@@ -15,7 +15,7 @@ in the hosting dashboards, never in the repository, chats or tickets.
 |---|---|
 | LykiaAccountFactory (mainnet) | Deployed: `0x810e8db89f4c4e8fa814ed3ed0d636d3416dd7f9` |
 | LykiaRouter (mainnet) | Deployed: `0xc9c0ea4d22ddbef4504a634759fb78334efc5d18` |
-| LykiaOrders (mainnet) | Not deployed yet |
+| LykiaOrders (mainnet) | Deployed: `0xdcefebb3d449b7f8965c5f1ae3bba836f30ae6cc` (block 29120103) |
 | Router venue allowlist | Empty on mainnet |
 | API | Vercel (serverless): https://lykia-api-akdogan1.vercel.app |
 | App | Vercel: https://lykia-akdogan1.vercel.app |
@@ -23,7 +23,7 @@ in the hosting dashboards, never in the repository, chats or tickets.
 
 ## Phase 1: finish the contracts
 
-1. **Deploy LykiaOrders.** Who: owner. How: open the app's **/owner** page
+1. **Deploy LykiaOrders.** Done on 2026-11-02. Who: owner. How: open the app's **/owner** page
    signed in with the admin wallet on Arc mainnet. The deploy plan lists
    LykiaOrders after the router; press its deploy button and sign. The page
    records the address through `POST /v1/admin/deployments`.
@@ -34,7 +34,7 @@ in the hosting dashboards, never in the repository, chats or tickets.
    - Aerodrome Slipstream Metarouter `0x0fef9e88a7b76bcdbf451780c6774fe32965ee98`
 
    `GET /v1/admin/router` shows which calls are still missing.
-3. **Record the new address in code.** Who: developer. How: add `LykiaOrders`
+3. **Record the new address in code.** Done. Who: developer. How: add `LykiaOrders`
    to the mainnet entry in `packages/core/src/contracts/deployments.ts`, with
    the deploy block in the comment, then run the core tests and redeploy.
 4. **Verify the source on the Arc explorer.** Who: developer. How: use the
