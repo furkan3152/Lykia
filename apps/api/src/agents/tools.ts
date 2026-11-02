@@ -7,8 +7,42 @@
  * Every tool result goes back to the model wrapped as untrusted data:
  * token names, memos and card text are written by strangers.
  */
-import { fromBaseUnits, getProtocol, KNOWLEDGE_ROWS, ORDER_KINDS, protocolsFor, tokensFor, venueBrief, venueKnowledge, type Address, type ArcEnvironment, type Fence, type OrderKind, type PackCapability, type PackRole, type PlanAction } from "@lykia/core";
-import type { AgentProposal } from "@lykia/core/api/agents";
+import {
+  ALERT_CHANNELS,
+  ALERT_KINDS,
+  ALERT_LIMITS,
+  alertDraftLink,
+  AUTOMATION_EVENTS,
+  automationDraftLink,
+  describeAlert,
+  describeAutomationTrigger,
+  findToken,
+  fromBaseUnits,
+  getProtocol,
+  KNOWLEDGE_ROWS,
+  ORDER_KINDS,
+  PRICE_FEEDS,
+  protocolsFor,
+  tokensFor,
+  validateActions,
+  validateAutomationTrigger,
+  venueBrief,
+  venueKnowledge,
+  WEEKDAYS,
+  type Address,
+  type AlertChannel,
+  type AlertDraft,
+  type AlertKind,
+  type ArcEnvironment,
+  type AutomationDraft,
+  type AutomationTrigger,
+  type Fence,
+  type OrderKind,
+  type PackCapability,
+  type PackRole,
+  type PlanAction,
+} from "@lykia/core";
+import type { AgentProposal, ChatDraftLink } from "@lykia/core/api/agents";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { EXECUTABLE_VENUES } from "../engine/adapters.js";
@@ -16,6 +50,8 @@ import { services } from "../services.js";
 import { planSentence } from "./engine.js";
 import { knowledgePaths } from "../engine/search.js";
 import { ordersService } from "../orders/service.js";
+import { alertInputIssue, alertsService } from "../alerts/service.js";
+import { createAutomation } from "../devflows/automations.js";
 import { readSentence } from "../language/reader.js";
 import type { LlmTool } from "./llm.js";
 
@@ -34,6 +70,17 @@ export interface ToolContext {
   readonly owner: Address | null;
   readonly agent: ActingAgent;
   readonly proposals: AgentProposal[];
+  /**
+   * True only when the request proved control of `owner`: a SIWE session for
+   * that address, or a secret key with the agents scope acting for it. Tools
+   * that save state for the owner (alerts, automations) save only when this is
+   * true; otherwise they return a draft and a link the owner opens signed in.
+   */
+  readonly ownerVerified: boolean;
+  /** Who saves for the owner when verified: the owner's session, or the developer behind the secret key. */
+  readonly actor?: { readonly developer: string; readonly via: "session" | "secret" };
+  /** Alerts and automations set up this turn (saved, or a link to the prefilled form); the chat shows them as buttons. */
+  readonly drafts?: ChatDraftLink[];
   /** The actions behind each proposal, for merging specialists' plans into one intent. */
   readonly planned?: { readonly actions: readonly PlanAction[]; readonly proposal: AgentProposal }[];
 }
@@ -65,6 +112,34 @@ const needOwner = (tc: ToolContext): Address => {
   if (!tc.owner) throw new Error("No owner wallet is connected.");
   return tc.owner;
 };
+
+/** The owner and actor a saving tool may write for, or null when the owner has not proven control. */
+const verifiedOwner = (tc: ToolContext): { owner: Address; actor: NonNullable<ToolContext["actor"]> } | null => {
+  if (!tc.ownerVerified || !tc.owner) return null;
+  return { owner: tc.owner, actor: tc.actor ?? { developer: tc.owner.toLowerCase(), via: "session" } };
+};
+
+const SIGN_IN_NOTE = "Nothing was saved: this chat has not proven control of the owner's address. The owner opens the link, signs in with the wallet (one message, no transaction), checks the prefilled form and saves it there.";
+const DECIMAL = /^(?:0|[1-9]\d*)(?:\.\d+)?$/u;
+const decimal = z.string().max(40).regex(DECIMAL);
+
+const automationTrigger = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("price"), feed: z.enum(PRICE_FEEDS as unknown as [string, ...string[]]), op: z.enum(["above", "below"]), value: decimal }).strict(),
+  z
+    .object({
+      type: z.literal("schedule"),
+      every: z.enum(["day", "week", "month"]),
+      weekday: z.enum(WEEKDAYS as unknown as [string, ...string[]]).optional(),
+      day: z.number().int().min(1).max(28).optional(),
+      at: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/u),
+      timezone: z.string().min(1).max(64),
+    })
+    .strict(),
+  z.object({ type: z.literal("balance"), token: z.string().min(2).max(10), op: z.enum(["above", "below"]), value: decimal }).strict(),
+  z.object({ type: z.literal("event"), event: z.enum(AUTOMATION_EVENTS as unknown as [string, ...string[]]) }).strict(),
+]);
+const automationAction = z.discriminatedUnion("type", [z.object({ type: z.literal("plan"), sentence: z.string().min(3).max(400) }).strict(), z.object({ type: z.literal("notify"), channel: z.literal("webhook") }).strict()]);
+type AutomationToolInput = { name: string; trigger: z.infer<typeof automationTrigger>; action: z.infer<typeof automationAction>; maxFiresPerDay?: number };
 
 export const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
   spec({
@@ -216,6 +291,128 @@ export const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
       return {
         summary: `Order drafted: ${draft.summary}`,
         data: { summary: draft.summary, hash: draft.hash, executions: draft.order.executions, intervalSeconds: draft.order.interval, perExecution: draft.perExecution, approvalNeeded: draft.approval ? draft.approval.label : null, notes: draft.notes, next: "The owner signs this order (EIP-712) on the Orders page; funds stay in the wallet until a keeper executes it." },
+      };
+    },
+  }),
+  spec({
+    name: "create_alert",
+    description:
+      "Arm an alert for the owner: price-above / price-below (token EURC or cirBTC, threshold in USD, Chainlink-priced), health-below (threshold = health factor), transfer-in / transfer-out (token USDC or EURC, threshold = whole tokens), scent-warning, order-filled. Channels: inbox (default), webhook, telegram. Alerts never move money. When the owner is signed in it is saved and armed; otherwise nothing is saved and the result carries a link to the Alerts page with the form prefilled.",
+    capability: "propose",
+    schema: z
+      .object({
+        kind: z.enum(ALERT_KINDS as unknown as [AlertKind, ...AlertKind[]]),
+        token: z.string().min(2).max(10).optional(),
+        threshold: decimal.optional(),
+        channels: z.array(z.enum(ALERT_CHANNELS as unknown as [AlertChannel, ...AlertChannel[]])).min(1).max(3).optional(),
+        cooldownSeconds: z.number().int().min(ALERT_LIMITS.minCooldownSeconds).max(7 * 86_400).optional(),
+      })
+      .strict(),
+    json: obj(
+      {
+        kind: { type: "string", enum: [...ALERT_KINDS] },
+        token: { type: "string", description: "price alerts: EURC or cirBTC; transfer alerts: USDC or EURC" },
+        threshold: { type: "string", description: "Decimal string: USD price, health factor, or whole tokens for transfers, e.g. \"1.10\"" },
+        channels: { type: "array", items: { type: "string", enum: [...ALERT_CHANNELS] }, minItems: 1, maxItems: 3 },
+        cooldownSeconds: { type: "integer", minimum: ALERT_LIMITS.minCooldownSeconds, maximum: 604800, description: `Quiet time after a firing; default ${ALERT_LIMITS.defaultCooldownSeconds}` },
+      },
+      ["kind"],
+    ),
+    async run(input: { kind: AlertKind; token?: string; threshold?: string; channels?: AlertChannel[]; cooldownSeconds?: number }, tc) {
+      const issue = alertInputIssue({ environment: tc.environment, kind: input.kind, ...(input.token ? { token: input.token } : {}), ...(input.threshold ? { threshold: input.threshold } : {}) });
+      if (issue) throw new Error(issue);
+      const usesToken = input.kind.startsWith("price-") || input.kind.startsWith("transfer-");
+      const usesThreshold = usesToken || input.kind === "health-below";
+      const token = usesToken && input.token ? (findToken(tc.environment, input.token)?.symbol ?? input.token) : undefined;
+      const draft: AlertDraft = {
+        kind: input.kind,
+        ...(token ? { token } : {}),
+        ...(usesThreshold && input.threshold ? { threshold: input.threshold } : {}),
+        ...(input.channels ? { channels: [...new Set(input.channels)] } : {}),
+        ...(input.cooldownSeconds ? { cooldownSeconds: input.cooldownSeconds } : {}),
+      };
+      const described = describeAlert(draft);
+      const who = verifiedOwner(tc);
+      if (!who) {
+        const link = alertDraftLink(draft);
+        tc.drafts?.push({ kind: "alert", saved: false, label: described, href: link });
+        return { summary: `Alert drafted (not saved): ${described}`, data: { saved: false, alert: draft, description: described, link, next: SIGN_IN_NOTE } };
+      }
+      const rule = await alertsService(tc.ctx).create({ owner: who.owner, environment: tc.environment, ...draft });
+      tc.drafts?.push({ kind: "alert", saved: true, label: described, href: "/app/alerts" });
+      return { summary: `Alert armed: ${described}`, data: { saved: true, id: rule.id, description: described, channels: rule.channels, cooldownSeconds: rule.cooldownSeconds, manage: "/app/alerts" } };
+    },
+  }),
+  spec({
+    name: "draft_automation",
+    description:
+      "Set up a recurring automation for the owner. Trigger: schedule (every day/week/month at HH:MM in an IANA time zone; weekly needs weekday, monthly needs day 1-28), price (a Chainlink feed above/below a value), balance (a registry token's wallet balance above/below a value) or event (payout or invoice events). Action: plan one plain English sentence each time it fires (checked against the Fence and delivered as a proposal the owner signs, never executed alone), or notify the owner's webhooks. Example: every Friday 17:00 Europe/Istanbul, plan 'keep 1 USDC liquid and earn the rest'. When the owner is signed in it is saved; otherwise nothing is saved and the result carries a link to the Automations page with the form prefilled.",
+    capability: "propose",
+    schema: z.object({ name: z.string().min(1).max(120), trigger: automationTrigger, action: automationAction, maxFiresPerDay: z.number().int().min(1).max(24).optional() }).strict() as unknown as z.ZodType<AutomationToolInput>,
+    json: obj(
+      {
+        name: { type: "string", maxLength: 120, description: "Short label, e.g. \"Friday USDC sweep\"" },
+        trigger: {
+          type: "object",
+          description: "type picks the fields: price {feed, op, value}; schedule {every, weekday?, day?, at, timezone}; balance {token, op, value}; event {event}",
+          properties: {
+            type: { type: "string", enum: ["price", "schedule", "balance", "event"] },
+            feed: { type: "string", enum: [...PRICE_FEEDS] },
+            op: { type: "string", enum: ["above", "below"] },
+            value: { type: "string", description: "Decimal string" },
+            every: { type: "string", enum: ["day", "week", "month"] },
+            weekday: { type: "string", enum: [...WEEKDAYS] },
+            day: { type: "integer", minimum: 1, maximum: 28 },
+            at: { type: "string", description: "HH:MM, 24-hour" },
+            timezone: { type: "string", description: "IANA time zone, e.g. Europe/Istanbul or UTC" },
+            token: { type: "string", description: "Registry symbol, e.g. USDC" },
+            event: { type: "string", enum: [...AUTOMATION_EVENTS] },
+          },
+          required: ["type"],
+          additionalProperties: false,
+        },
+        action: {
+          type: "object",
+          description: "plan {sentence}: one English sentence re-planned at each fire; notify {channel: webhook}",
+          properties: { type: { type: "string", enum: ["plan", "notify"] }, sentence: { type: "string", maxLength: 400 }, channel: { type: "string", enum: ["webhook"] } },
+          required: ["type"],
+          additionalProperties: false,
+        },
+        maxFiresPerDay: { type: "integer", minimum: 1, maximum: 24 },
+      },
+      ["name", "trigger", "action"],
+    ),
+    async run(input: AutomationToolInput, tc) {
+      const trigger = input.trigger as AutomationTrigger;
+      const issues = validateAutomationTrigger(trigger);
+      if (trigger.type === "schedule" && trigger.every === "week" && !trigger.weekday) issues.push({ path: "trigger.weekday", message: "A weekly run needs a weekday." });
+      if (trigger.type === "schedule" && trigger.every === "month" && !trigger.day) issues.push({ path: "trigger.day", message: "A monthly run needs a day from 1 to 28." });
+      if (issues.length > 0) throw new Error(`Invalid trigger: ${issues.map((i) => `${i.path}: ${i.message}`).join("; ")}`);
+      if (trigger.type === "balance" && !findToken(tc.environment, trigger.token)) throw new Error(`${trigger.token} is not a registry token.`);
+      if (input.action.type === "plan") {
+        const parsed = readSentence(input.action.sentence);
+        if (parsed.clarify.length > 0 || parsed.actions.length === 0) return { summary: "Needs a detail", data: { saved: false, clarify: parsed.clarify.length > 0 ? parsed.clarify : [parsed.reply] } };
+        const actionIssues = validateActions(parsed.actions);
+        if (actionIssues.length > 0) throw new Error(`The sentence does not make a valid plan: ${actionIssues.map((i) => i.message).join("; ")}`);
+      }
+      const draft: AutomationDraft = { name: input.name, trigger, action: input.action, ...(input.maxFiresPerDay ? { maxFiresPerDay: input.maxFiresPerDay } : {}) };
+      const when = describeAutomationTrigger(trigger);
+      const what = input.action.type === "plan" ? `plan "${input.action.sentence}"` : "notify webhooks";
+      const who = verifiedOwner(tc);
+      if (!who) {
+        const link = automationDraftLink(draft);
+        tc.drafts?.push({ kind: "automation", saved: false, label: input.name, href: link });
+        return { summary: `Automation drafted (not saved): ${when}, ${what}`, data: { saved: false, automation: draft, trigger: when, action: what, link, next: SIGN_IN_NOTE } };
+      }
+      const saved = await createAutomation(
+        tc.ctx,
+        { developer: who.actor.developer, project: null, via: who.actor.via },
+        { owner: who.owner, name: input.name, environment: tc.environment, trigger, action: input.action, fence: tc.agent.fence, ...(input.maxFiresPerDay ? { maxFiresPerDay: input.maxFiresPerDay } : {}) },
+      );
+      tc.drafts?.push({ kind: "automation", saved: true, label: input.name, href: "/app/automations" });
+      return {
+        summary: `Automation saved (${saved.status}): ${when}, ${what}`,
+        data: { saved: true, id: saved.id, status: saved.status, trigger: when, action: what, fence: tc.agent.fence.label ?? "custom", next: "Each fire is checked against the Fence and arrives as a proposal the owner signs; nothing moves on its own. Pause or delete it on the Automations page.", manage: "/app/automations" },
       };
     },
   }),

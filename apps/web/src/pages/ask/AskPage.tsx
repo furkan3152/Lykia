@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { navigate } from "../../app/routes/history";
+import { Link } from "../../app/routes/Link";
 import { useUiStore } from "../../app/state/uiStore";
 import { useRouteParam } from "../../app/routes/useRoute";
 import { Composer } from "../../features/ask/Composer";
@@ -68,6 +69,14 @@ function Bubble({ m, first }: { m: ChatMessage; first: boolean }) {
           </div>
         ) : null}
         {m.error ? <p className="m-note m-note--bad">{m.error}</p> : null}
+        {(m.drafts ?? []).map((d, i) => (
+          <div key={`d${i}`} className="m-note" role="status">
+            <b>{d.kind === "alert" ? "Alert" : "Automation"}{d.saved ? " saved" : " drafted, not saved"}:</b> {d.label}
+            <div style={{ marginTop: 6 }}>
+              <Link to={d.href} className="m-btn m-btn--sm">{d.saved ? "MANAGE" : "REVIEW AND SAVE"}</Link>
+            </div>
+          </div>
+        ))}
         {m.proposals.map((p, i) => (
           <div key={i} className="m-frame m-frame--thin" style={{ padding: 12, animation: "m-msg-in 400ms both" }}>
             <div className="flex items-center justify-between gap-2 flex-wrap">

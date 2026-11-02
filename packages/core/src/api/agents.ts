@@ -15,13 +15,26 @@ export type ChatEvent =
   | { readonly event: "tool"; readonly data: { readonly agent: string; readonly name: string; readonly ok: boolean; readonly summary: string } }
   | { readonly event: "proposal"; readonly data: AgentProposal }
   | { readonly event: "clarify"; readonly data: { readonly question: string; readonly options: readonly string[] } }
+  | { readonly event: "draft"; readonly data: ChatDraftLink }
   | { readonly event: "text"; readonly data: { readonly text: string } }
   | { readonly event: "error"; readonly data: { readonly code: string; readonly message: string } }
   | { readonly event: "done"; readonly data: { readonly threadId: string; readonly stopReason: string } };
 
 export type ChatEventName = ChatEvent["event"];
 
-export const CHAT_EVENT_NAMES: readonly ChatEventName[] = ["thread", "reading", "thinking-summary", "task", "tool", "proposal", "clarify", "text", "error", "done"];
+export const CHAT_EVENT_NAMES: readonly ChatEventName[] = ["thread", "reading", "thinking-summary", "task", "tool", "proposal", "clarify", "draft", "text", "error", "done"];
+
+/**
+ * An alert or automation Lyko set up in chat. saved: true means it was saved
+ * for the signed-in owner (href manages it); saved: false means nothing was
+ * saved and href opens the page with the form prefilled from `?draft=`.
+ */
+export interface ChatDraftLink {
+  readonly kind: "alert" | "automation";
+  readonly saved: boolean;
+  readonly label: string;
+  readonly href: string;
+}
 
 export interface AgentProposal {
   /** Stored intent the owner can prepare and sign; null for a dry run or a refusal. */

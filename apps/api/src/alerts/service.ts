@@ -52,6 +52,16 @@ export interface AlertInput {
   readonly cooldownSeconds?: number;
 }
 
+/** Why an alert cannot be armed as given, or null. Shared by the route and Lyko's create_alert tool. */
+export function alertInputIssue(input: Pick<AlertInput, "environment" | "kind" | "token" | "threshold">): string | null {
+  const needsToken = input.kind.startsWith("price-") || input.kind.startsWith("transfer-");
+  const needsThreshold = needsToken || input.kind === "health-below";
+  if (needsToken && (!input.token || !findToken(input.environment, input.token))) return "This alert needs a registry token (USDC, EURC, cirBTC).";
+  if (input.kind.startsWith("price-") && findToken(input.environment, input.token as string)?.symbol === "USDC") return "USDC is the unit of account; price alerts watch EURC or cirBTC.";
+  if (needsThreshold && (!input.threshold || !/^(?:0|[1-9]\d*)(?:\.\d+)?$/u.test(input.threshold))) return "This alert needs a positive decimal threshold.";
+  return null;
+}
+
 export class AlertsService {
   constructor(private readonly ctx: AppContext) {}
 
@@ -68,11 +78,8 @@ export class AlertsService {
   async create(input: AlertInput): Promise<AlertRule> {
     const existing = await this.list(input.owner);
     if (existing.length >= ALERT_LIMITS.perOwner) throw new LykiaHttpError("INVALID_REQUEST", 400, `At most ${ALERT_LIMITS.perOwner} alerts per owner.`);
-    const needsToken = input.kind.startsWith("price-") || input.kind.startsWith("transfer-");
-    const needsThreshold = needsToken || input.kind === "health-below";
-    if (needsToken && (!input.token || !findToken(input.environment, input.token))) throw new LykiaHttpError("INVALID_REQUEST", 400, "This alert needs a registry token (USDC, EURC, cirBTC).");
-    if (input.kind.startsWith("price-") && findToken(input.environment, input.token as string)?.symbol === "USDC") throw new LykiaHttpError("INVALID_REQUEST", 400, "USDC is the unit of account; price alerts watch EURC or cirBTC.");
-    if (needsThreshold && (!input.threshold || !/^(?:0|[1-9]\d*)(?:\.\d+)?$/u.test(input.threshold))) throw new LykiaHttpError("INVALID_REQUEST", 400, "This alert needs a positive decimal threshold.");
+    const issue = alertInputIssue(input);
+    if (issue) throw new LykiaHttpError("INVALID_REQUEST", 400, issue);
     const now = new Date(this.ctx.clock.now()).toISOString();
     const rule: AlertRule = {
       id: `al_${randomHex(8)}`,

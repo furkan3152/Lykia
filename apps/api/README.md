@@ -154,7 +154,7 @@ Agent Tag routes live under `/v1/tags`.
 
 | route | answer |
 |---|---|
-| `POST /v1/agent/chat` | `{ message, owner?, threadId?, environment?, fence? }`. The reply is Server-Sent Events: `thread`, `reading`, `task`, `tool`, `thinking-summary`, `proposal`, `clarify`, `text`, `error`, `done`. Send `Accept: application/json` (or use the original `messages` array) to get the same events collected in one JSON document instead. |
+| `POST /v1/agent/chat` | `{ message, owner?, threadId?, environment?, fence? }`. The reply is Server-Sent Events: `thread`, `reading`, `task`, `tool`, `thinking-summary`, `proposal`, `clarify`, `draft`, `text`, `error`, `done`. Alerts and automations Lyko sets up are saved only when the request proves control of `owner` (its Lykia-Session, or a secret key with the agents scope); otherwise `draft` carries a link to the prefilled form. Send `Accept: application/json` (or use the original `messages` array) to get the same events collected in one JSON document instead. |
 | `GET /v1/agent/threads?owner=` / `GET /v1/agent/threads/:id?owner=` / `POST /v1/agent/threads` | thread memory per owner: the last 40 messages, kept for 30 days |
 | `GET /v1/agent/insights?owner=&environment=` | insights on the Flock: idle cash, FX exposure, concentration, health factor, unpriced holdings, look-alike tokens, low gas. Each one comes with a sentence the deck can plan with one tap. |
 | `GET/POST /v1/agent/automations`, `POST /v1/agent/automations/:id/(enable\|disable)`, `POST /v1/agent/automations/run` | bounded automations, fired by an insight or a timer. They produce proposals only. |

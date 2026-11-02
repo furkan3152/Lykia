@@ -1,4 +1,4 @@
-/** The desk's sub-navigation: orders, markets, discover, alerts, activity, what-if. */
+/** The desk's sub-navigation: orders, markets, discover, alerts, automations, activity, what-if. */
 import { Link } from "../../app/routes/Link";
 
 const DESK = [
@@ -6,6 +6,7 @@ const DESK = [
   { href: "/app/markets", label: "Markets" },
   { href: "/app/discover", label: "Discover" },
   { href: "/app/alerts", label: "Alerts" },
+  { href: "/app/automations", label: "Automations" },
   { href: "/app/activity", label: "Activity" },
   { href: "/app/whatif", label: "What-if" },
 ] as const;

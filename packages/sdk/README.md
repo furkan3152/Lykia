@@ -64,7 +64,7 @@ outrun.fees;          // ["1 USDC"]
 
 ## Lyko and the Pack
 
-To talk to Lyko, stream a turn with `agent.chat`. The stream contains these events: `thread`, `reading`, `task` (one per specialist), `tool`, `thinking-summary`, `proposal`, `clarify`, `text`, `error` and `done`.
+To talk to Lyko, stream a turn with `agent.chat`. The stream contains these events: `thread`, `reading`, `task` (one per specialist), `tool`, `thinking-summary`, `proposal`, `clarify`, `draft` (an alert or automation Lyko saved, or a link to its prefilled form), `text`, `error` and `done`.
 
 ```ts
 for await (const { event, data } of lykia.agent.chat({ message: "pay the March invoices and keep 30% of the rest in EUR", owner })) {

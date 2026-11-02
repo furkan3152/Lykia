@@ -1,7 +1,7 @@
 /**
  * Lyko and the Pack.
  *
- *   POST /agent/chat                     SSE: thread, reading, task, tool, thinking-summary, proposal, clarify, text, error, done
+ *   POST /agent/chat                     SSE: thread, reading, task, tool, thinking-summary, proposal, clarify, draft, text, error, done
  *                                        (Accept: application/json returns the same events as one JSON document)
  *   GET  /agent/threads?owner            thread list (owner session or agents key)   GET /agent/threads/:id?owner   one thread
  *   POST /agent/threads                  open an empty thread
@@ -62,6 +62,20 @@ export async function authorizeOwner(ctx: AppContext, req: Request, owner: strin
   throw new LykiaHttpError(session ? "FORBIDDEN" : "UNAUTHORIZED", session ? 403 : 401, session ? "This session belongs to another address." : "Sign in as the owner (Lykia-Session) or use a secret API key with the agents scope.");
 }
 
+/**
+ * Whether this request proved control of `owner`, and who acts for it: a SIWE
+ * session for that address, or a secret key with the agents scope (the same
+ * rule as authorizeOwner). A bare `owner` in a body proves nothing.
+ */
+export async function ownerProof(ctx: AppContext, req: Request, owner: string | null): Promise<{ readonly developer: string; readonly via: "session" | "secret" } | null> {
+  if (!owner) return null;
+  const session = await sessionOf(ctx, req);
+  if (session && session.address.toLowerCase() === owner.toLowerCase()) return { developer: owner.toLowerCase(), via: "session" };
+  const key = keyOf(req);
+  if (key && key.kind === "secret" && key.scopes.includes("agents")) return { developer: key.owner.toLowerCase(), via: "secret" };
+  return null;
+}
+
 /** The address sample plans are made for when no wallet is connected; plans for it are always dry runs. */
 export const SAMPLE_OWNER = "0x000000000000000000000000000000000000dEaD";
 
@@ -94,6 +108,8 @@ export const agentModule: ApiModule = {
       const realOwner = named && named.toLowerCase() === SAMPLE_OWNER.toLowerCase() ? null : named;
       const sample = realOwner === null;
       const owner = (realOwner ?? SAMPLE_OWNER) as Address;
+      // Tools that save state (alerts, automations) save only for an owner this request proved control of.
+      const proof = await ownerProof(ctx, req, realOwner);
       // Through a project key: the project's Fence is the default, and its caps and modules tighten any Fence.
       const project = projectOf(req);
       const ownFence = fenceFrom(body.fence) ?? (project ? projectFence(project) : realOwner ? fenceForProfile(await getProfile(ctx, realOwner)) : DEFAULT_FENCE);
@@ -122,7 +138,7 @@ export const agentModule: ApiModule = {
         if (client) {
           const seen = await perceive(ctx, { environment, owner, fence, pack, emit });
           const appContext = project ? projectPromptBlock(project) : "";
-          const result = await runTurn({ ctx, client, environment, owner, fence, pack, history, message, stateLine: seen.line, emit, ...(appContext ? { appContext } : {}) });
+          const result = await runTurn({ ctx, client, environment, owner, ownerVerified: proof !== null, ...(proof ? { actor: proof } : {}), fence, pack, history, message, stateLine: seen.line, emit, ...(appContext ? { appContext } : {}) });
           text = result.text;
           proposals = result.proposals;
           stopReason = result.stopReason;

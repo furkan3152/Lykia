@@ -40,7 +40,9 @@ How you work
 - If a needed detail is missing (an amount, a recipient, a percentage), ask the owner once with ask_owner instead of guessing.
 - Questions about the owner's rules, caps, beta cap or fees: read them with the fence tool, never guess. Lykia's protocol fee is why a planned step can move slightly less than asked (or a send cost slightly more); plan_intent reports it as lykiaFees.
 - Limit, stop-loss, take-profit, DCA and TWAP orders run on LykiaOrders: draft them with draft_order (amount is per execution) and tell the owner to sign on the Orders page. Never fake a TWAP or DCA with several plan_intent swaps.
-- Price, health-factor and transfer alerts live on the Alerts page (inbox, webhook or Telegram). Recurring automations (a sentence re-planned on a timer or an insight, always as a proposal) are created by the signed-in owner through the API. You cannot create either from chat: point the owner there instead of saying Lykia lacks them.
+- Alerts (EURC or cirBTC price above/below, health factor below, incoming or outgoing transfers, Scent warnings, executed orders; delivered to the inbox, webhooks or Telegram): create them with create_alert. Never say you cannot create alerts.
+- Recurring automations (on a schedule, a price feed, a token balance or a payout/invoice event: re-plan one English sentence under the Fence, or notify webhooks): set them up with draft_automation. Never say you cannot set them up. "Every Friday, sweep idle USDC above 1 into the best vault" becomes a weekly schedule on fri with the plan sentence "keep 1 USDC liquid and earn the rest". If the time or time zone is missing, ask once with ask_owner. Each fire is only a proposal checked by the Fence that the owner signs; say so.
+- When create_alert or draft_automation returns saved: false, nothing was saved because this chat has not proven control of the owner's address. The chat shows the link from the result as a button; tell the owner to open it, sign in with their wallet (one message, no transaction), check the prefilled form and save it there. Never claim it was saved.
 
 Hard rules (also enforced in code)
 - You and the specialists never sign, send or move funds, and never see keys. Plans are proposals the owner signs in their own wallet. Say "proposed", never "done".
@@ -87,6 +89,9 @@ export interface TurnInput {
   readonly client: LlmClient;
   readonly environment: ArcEnvironment;
   readonly owner: Address | null;
+  /** The request proved control of `owner` (SIWE session, or a secret key acting for it). Saving tools need it. */
+  readonly ownerVerified?: boolean;
+  readonly actor?: ToolContext["actor"];
   readonly fence: Fence;
   readonly pack: readonly PackAgent[];
   readonly history: readonly { readonly role: "user" | "assistant"; readonly text: string }[];
@@ -157,7 +162,9 @@ async function runLoop(input: {
     let stop = false;
     for (const call of toolCalls) {
       const extra = input.extraTools?.some((t) => t.name === call.name) && input.onExtra ? await input.onExtra(call.name, call.input, call.id) : null;
+      const drafted = input.tc.drafts?.length ?? 0;
       const outcome = extra ?? (await runTool(call.name, call.input, input.tc, allowed));
+      for (const d of input.tc.drafts?.slice(drafted) ?? []) input.emit("draft", d);
       input.emit("tool", { agent: input.tc.agent.name, name: call.name, ok: outcome.ok, summary: outcome.summary.slice(0, 300) });
       results.push({ type: "tool_result", tool_use_id: call.id, content: outcome.content, ...(outcome.ok ? {} : { is_error: true }) });
       if (extra?.stop) stop = true;
@@ -176,7 +183,7 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
   const planned: { actions: readonly PlanAction[]; proposal: AgentProposal }[] = [];
   const fence = input.fence ?? DEFAULT_FENCE;
   const lyko = lykoAgent(fence);
-  const tc: ToolContext = { ctx, environment: input.environment, owner: input.owner, agent: lyko, proposals, planned };
+  const tc: ToolContext = { ctx, environment: input.environment, owner: input.owner, ownerVerified: input.ownerVerified === true && input.owner !== null, ...(input.actor ? { actor: input.actor } : {}), agent: lyko, proposals, planned, drafts: [] };
   let delegations = 0;
   let modelCalls = 0;
 

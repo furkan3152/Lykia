@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { DeskTabs } from "../../features/desk/DeskTabs";
+import { ALERT_TOKENS, alertFormFromSearch } from "../../features/desk/drafts";
 import { useSiwe } from "../../features/session/useSiwe";
 import { apiFetch, apiGet, apiPost, describeError } from "../../lib/api";
 import { useEnvironment } from "../../lib/environment";
@@ -18,17 +19,20 @@ const KIND_LABEL: Record<AlertKind, string> = {
   "scent-warning": "Scent warning in my flock",
   "order-filled": "Order executed",
 };
-const TOKEN_FOR: Partial<Record<AlertKind, readonly string[]>> = { "price-above": ["cirBTC", "EURC"], "price-below": ["cirBTC", "EURC"], "transfer-in": ["USDC", "EURC"], "transfer-out": ["USDC", "EURC"] };
+const TOKEN_FOR = ALERT_TOKENS;
 const THRESHOLD_LABEL: Partial<Record<AlertKind, string>> = { "price-above": "Price (USD)", "price-below": "Price (USD)", "health-below": "Health factor", "transfer-in": "At least (tokens)", "transfer-out": "At least (tokens)" };
 
 export default function AlertsPage() {
   const environment = useEnvironment();
   const siwe = useSiwe();
   const qc = useQueryClient();
-  const [kind, setKind] = useState<AlertKind>("price-below");
-  const [token, setToken] = useState("cirBTC");
-  const [threshold, setThreshold] = useState("");
-  const [channels, setChannels] = useState<AlertChannel[]>(["inbox"]);
+  // A draft from Lyko (?draft=) only prefills the form; the owner still presses ARM.
+  const [draft] = useState(() => (typeof window === "undefined" ? null : alertFormFromSearch(window.location.search)));
+  const [kind, setKind] = useState<AlertKind>(draft?.kind ?? "price-below");
+  const [token, setToken] = useState(draft?.token ?? "cirBTC");
+  const [threshold, setThreshold] = useState(draft?.threshold ?? "");
+  const [channels, setChannels] = useState<AlertChannel[]>(draft?.channels ?? ["inbox"]);
+  const cooldownSeconds = draft?.cooldownSeconds ?? null;
   const [busy, setBusy] = useState(false);
   const enabled = siwe.signedIn;
   const rules = useQuery({ queryKey: ["alerts", siwe.address], enabled, queryFn: ({ signal }) => apiGet<{ alerts: AlertRule[] }>("/v1/alerts", { signal }) });
@@ -41,7 +45,7 @@ export default function AlertsPage() {
   const create = async () => {
     setBusy(true);
     try {
-      await apiPost("/v1/alerts", { kind, environment, channels, ...(tokens ? { token } : {}), ...(thresholdLabel ? { threshold: threshold.trim() } : {}) });
+      await apiPost("/v1/alerts", { kind, environment, channels, ...(tokens ? { token } : {}), ...(thresholdLabel ? { threshold: threshold.trim() } : {}), ...(cooldownSeconds ? { cooldownSeconds } : {}) });
       toast.success("Alert armed", { description: describeAlert({ kind, token, threshold }), from: "LYKO" });
       setThreshold("");
       await refresh();
@@ -79,13 +83,13 @@ export default function AlertsPage() {
       <section className="m-wrap" style={{ marginTop: 28 }}>
         {!enabled ? (
           <Card title={"Sign in first"}>
-            <EmptyState mood="happy" title={"Alerts belong to your address"}>{"Sign in with your wallet (one message, no transaction) to arm alerts and read your inbox."}</EmptyState>
+            <EmptyState mood="happy" title={"Alerts belong to your address"}>{draft ? "Lyko drafted an alert for you. Sign in with your wallet (one message, no transaction), check the prefilled form and press ARM." : "Sign in with your wallet (one message, no transaction) to arm alerts and read your inbox."}</EmptyState>
             <div className="m-center"><Button onClick={() => void siwe.signIn()} disabled={siwe.busy || !siwe.address}>{siwe.address ? "SIGN IN" : "CONNECT A WALLET"}</Button></div>
           </Card>
         ) : (
           <div className="m-grid-2 m-grid-2--r">
             <div style={{ display: "grid", gap: 24, alignContent: "start" }}>
-              <Card title={"New alert"} footer={<Button onClick={() => void create()} disabled={busy || (Boolean(thresholdLabel) && !threshold.trim())}>{busy ? "…" : "ARM"}</Button>}>
+              <Card title={"New alert"} kicker={draft ? "DRAFTED BY LYKO · CHECK AND ARM" : undefined} footer={<Button onClick={() => void create()} disabled={busy || (Boolean(thresholdLabel) && !threshold.trim())}>{busy ? "…" : "ARM"}</Button>}>
                 <div style={{ display: "grid", gap: 10 }}>
                   <Field label="When"><Select value={kind} onChange={(e) => { const k = e.target.value as AlertKind; setKind(k); const t = TOKEN_FOR[k]; if (t && !t.includes(token)) setToken(t[0] as string); }}>{ALERT_KINDS.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}</Select></Field>
                   {tokens ? <Field label="Token"><Select value={token} onChange={(e) => setToken(e.target.value)}>{tokens.map((t) => <option key={t}>{t}</option>)}</Select></Field> : null}

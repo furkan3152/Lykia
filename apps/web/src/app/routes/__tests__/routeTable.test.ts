@@ -44,6 +44,7 @@ describe("route table", () => {
       ["/app/markets", "markets"],
       ["/app/discover", "discover"],
       ["/app/alerts", "alerts"],
+      ["/app/automations", "automations"],
       ["/app/activity", "activity"],
       ["/app/whatif", "whatif"],
       ["/app/security", "security"],

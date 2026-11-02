@@ -51,7 +51,8 @@ export const LISTED_PROTOCOL_ROWS: ProtocolDescriptor[] = [
   listed("arclotls", "ArcLotls", "infra", "Arc infrastructure or service.", 217),
   listed("basedbid", "basedbid", "launchpad", "Token launchpad on Arc. Launch tokens are where the wolves live: Scent them first.", 129, "https://www.based.bid/"),
   listed("bonker", "Bonker", "launchpad", "Token launchpad on Arc. Launch tokens are where the wolves live: Scent them first.", 119, "https://bonker.wtf"),
-  listed("load", "Load", "launchpad", "Token launchpad on Arc. Launch tokens are where the wolves live: Scent them first.", 110, "https://load.fun"),
+  // Load: load.fun answered 404 on 2026-11-02 and arc.io/ecosystem has no entry for it, so no website until one is verified.
+  listed("load", "Load", "launchpad", "Token launchpad on Arc. Launch tokens are where the wolves live: Scent them first.", 110),
   listed("solonpad-v3", "SolonPad V3", "launchpad", "Token launchpad on Arc. Launch tokens are where the wolves live: Scent them first.", 57, "https://solonpad.fun"),
   listed("solonpad", "SolonPad", "launchpad", "Token launchpad on Arc. Launch tokens are where the wolves live: Scent them first.", 56, "https://solonpad.fun"),
   listed("lunya-dex", "Lunya DEX", "dex", "DEX with liquidity on Arc.", 32),
