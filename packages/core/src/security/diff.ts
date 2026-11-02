@@ -64,6 +64,7 @@ export function analyzeFlow(expect: ExpectedFlow, calls: readonly DecodedCall[])
   const targets = calls.flatMap((c) => (c.kind === "call" ? [c.target] : c.kind === "erc20-transfer" || c.kind === "erc20-approve" ? [c.token] : []));
   const out = new Map<string, bigint>();
   const feePaid = new Map<string, bigint>();
+  const payeeFeeKeys = new Set<string>();
   const approvals: SigningSummary["approvals"][number][] = [];
   const touched = new Set<string>();
   const receiversOk = [expect.account, expect.owner, ...expect.recipients];
@@ -77,6 +78,8 @@ export function analyzeFlow(expect: ExpectedFlow, calls: readonly DecodedCall[])
         const feeKey = `${call.token}:${call.to}`.toLowerCase();
         if (feeBudget.has(feeKey)) {
           addTo(feePaid, feeKey, amount);
+          // The fee recipient can also be the payee (or the owner): its principal is then not a fee.
+          if (includes(expect.recipients, call.to) || sameAddress(call.to, expect.owner)) payeeFeeKeys.add(feeKey);
         } else if (!includes(expect.recipients, call.to) && !sameAddress(call.to, expect.owner)) {
           block("unexpected-transfer", `A transfer of ${call.amount} base units to ${call.to} is not in the plan.`, call.to);
         }
@@ -129,7 +132,10 @@ export function analyzeFlow(expect: ExpectedFlow, calls: readonly DecodedCall[])
     }
   }
   for (const [key, paid] of feePaid) {
-    const budget = feeBudget.get(key) ?? 0n;
+    // When the fee recipient is also a planned payee, the transfers to it may carry the step's spend too;
+    // the outflow check below still bounds the total.
+    const principal = payeeFeeKeys.has(key) ? (need.get(key.split(":")[0] ?? "") ?? 0n) : 0n;
+    const budget = (feeBudget.get(key) ?? 0n) + principal;
     if (paid > budget) block("fee-overcharge", `The fee transfer is ${paid} base units; the plan quoted ${budget}.`);
   }
   for (const [token, amount] of out) {

@@ -61,6 +61,7 @@ import { services } from "../services.js";
 import { EXTRA_PROVIDERS, poweredByLabel, providerQuotes, type ProviderQuote, type ProviderRequest } from "../engine/providers.js";
 import { feeCall } from "../engine/calls.js";
 import type { JsonValue } from "../store/types.js";
+import { lockedOr } from "../platform/requestState.js";
 
 export const QUOTE_TTL_MS = 60_000;
 /** Quotes stay readable a little longer than they are buildable, so an expired id says "expired", not "unknown". */
@@ -180,7 +181,7 @@ async function resolve(ctx: AppContext, req: ActionRequest, http: Request | null
   // Same precedence as POST /v1/intents: the request's Fence, else the project's, else the owner's profile. A project only tightens.
   let fence = req.fence ?? (project ? projectFence(project) : fenceForProfile(profile));
   if (project) fence = tightenFence(fence, project);
-  const environment = req.environment ?? (project ? project.network : ctx.config.mode);
+  const environment = req.environment ?? lockedOr(project ? project.network : ctx.config.mode);
   const known = new Set([...EXECUTABLE_VENUES[environment], "aerodrome-slipstream", ...(await routableManifests(ctx, environment).catch(() => [])).map((m) => m.protocol.id)]);
   const include = req.venues?.include;
   const blocked = [...new Set([...profile.venues.blocked, ...(req.venues?.exclude ?? []), ...(include && include.length > 0 ? [...known].filter((v) => !include.includes(v)) : [])])];

@@ -7,7 +7,7 @@
  * Every tool result goes back to the model wrapped as untrusted data:
  * token names, memos and card text are written by strangers.
  */
-import { getProtocol, KNOWLEDGE_ROWS, protocolsFor, tokensFor, venueBrief, venueKnowledge, type Address, type ArcEnvironment, type Fence, type PackCapability, type PackRole, type PlanAction } from "@lykia/core";
+import { fromBaseUnits, getProtocol, KNOWLEDGE_ROWS, ORDER_KINDS, protocolsFor, tokensFor, venueBrief, venueKnowledge, type Address, type ArcEnvironment, type Fence, type OrderKind, type PackCapability, type PackRole, type PlanAction } from "@lykia/core";
 import type { AgentProposal } from "@lykia/core/api/agents";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
@@ -15,6 +15,7 @@ import { EXECUTABLE_VENUES } from "../engine/adapters.js";
 import { services } from "../services.js";
 import { planSentence } from "./engine.js";
 import { knowledgePaths } from "../engine/search.js";
+import { ordersService } from "../orders/service.js";
 import { readSentence } from "../language/reader.js";
 import type { LlmTool } from "./llm.js";
 
@@ -53,6 +54,7 @@ interface ToolSpec<T> {
 }
 
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/u);
+const FEE_BASIS = { input: "taken from the amount", "on-top": "paid on top of the amount", output: "taken from the borrowed amount" } as const;
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({ type: "object", properties, required, additionalProperties: false });
 
 function spec<T>(s: ToolSpec<T>): ToolSpec<unknown> {
@@ -165,6 +167,59 @@ export const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
     },
   }),
   spec({
+    name: "fence",
+    description: "Read the Fence you plan under: caps (per step, per intent, per day), allowed recipients, slippage and health limits, Scent requirement, when the owner must confirm, plus the mainnet beta cap and Lykia's protocol fee. Use it to answer questions about the owner's rules instead of guessing.",
+    capability: "read",
+    schema: z.object({}).strict(),
+    json: obj({}),
+    async run(_input, tc) {
+      const { fee, beta } = tc.ctx.config;
+      return {
+        summary: `Fence ${tc.agent.fence.label ?? "custom"} (${tc.agent.fence.mode ?? "live"})`,
+        data: { fence: tc.agent.fence, betaCap: tc.environment === "mainnet" ? beta : null, protocolFee: { bps: fee.bps, note: "Taken from the amount on swaps, conversions, deposits and bridges; paid on top of an exact send." } },
+      };
+    },
+  }),
+  spec({
+    name: "draft_order",
+    description:
+      "Draft a conditional order on LykiaOrders: limit, stop-loss, take-profit (one execution at a trigger price) or dca, twap (several executions at an interval). Registry tokens only; triggers need a Chainlink pair (e.g. EURC/USD, BTC/USD via cirBTC). Returns the order summary, per-execution fee and minimum output, and the allowance still needed. Nothing is signed: the owner signs the order on the Orders page.",
+    capability: "propose",
+    schema: z
+      .object({
+        kind: z.enum(ORDER_KINDS as unknown as [OrderKind, ...OrderKind[]]),
+        sell: z.string().min(2).max(10),
+        buy: z.string().min(2).max(10),
+        amount: z.string().regex(/^(?:0|[1-9]\d*)(?:\.\d+)?$/u),
+        executions: z.number().int().min(1).max(1000).optional(),
+        intervalSeconds: z.number().int().min(60).max(30 * 86_400).optional(),
+        triggerPrice: z.string().regex(/^(?:0|[1-9]\d*)(?:\.\d+)?$/u).optional(),
+        triggerAbove: z.boolean().optional(),
+      })
+      .strict(),
+    json: obj(
+      {
+        kind: { type: "string", enum: [...ORDER_KINDS] },
+        sell: { type: "string", description: "Registry symbol the order spends, e.g. USDC" },
+        buy: { type: "string", description: "Registry symbol the order buys, e.g. EURC" },
+        amount: { type: "string", description: "Whole tokens per execution, e.g. \"0.25\"" },
+        executions: { type: "integer", minimum: 1, maximum: 1000, description: "dca/twap: number of slices" },
+        intervalSeconds: { type: "integer", minimum: 60, maximum: 2592000, description: "dca/twap: seconds between slices" },
+        triggerPrice: { type: "string", description: "USD price of the non-USDC token that triggers the order, e.g. \"1.10\"" },
+        triggerAbove: { type: "boolean", description: "true: fire at or above the trigger; false: at or below" },
+      },
+      ["kind", "sell", "buy", "amount"],
+    ),
+    async run(input: { kind: OrderKind; sell: string; buy: string; amount: string; executions?: number; intervalSeconds?: number; triggerPrice?: string; triggerAbove?: boolean }, tc) {
+      const owner = needOwner(tc);
+      const draft = await ordersService(tc.ctx).draft({ ...input, owner, environment: tc.environment });
+      return {
+        summary: `Order drafted: ${draft.summary}`,
+        data: { summary: draft.summary, hash: draft.hash, executions: draft.order.executions, intervalSeconds: draft.order.interval, perExecution: draft.perExecution, approvalNeeded: draft.approval ? draft.approval.label : null, notes: draft.notes, next: "The owner signs this order (EIP-712) on the Orders page; funds stay in the wallet until a keeper executes it." },
+      };
+    },
+  }),
+  spec({
     name: "plan_intent",
     description:
       "Propose a plan from one plain English sentence, e.g. 'deposit 100 USDC into Morpho', 'convert 200 USDC to EURC', 'send 20 USDC to 0x… for invoice 12', 'bridge 50 USDC to base'. Several moves can be chained with 'then'. The plan is checked against your own Fence; the owner signs later. Returns the steps and the verdict.",
@@ -189,7 +244,9 @@ export const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
       };
       tc.proposals.push(proposal);
       tc.planned?.push({ actions: outcome.actions, proposal });
-      return { summary: `Planned (${intent.verdict.decision}): ${proposal.steps.join(" → ")}`, data: { intentId: proposal.intentId, steps: proposal.steps, decision: proposal.decision, reasons: proposal.reasons, warnings: proposal.warnings } };
+      // The protocol fee explains why a step moves a little less (or a send costs a little more) than the sentence said.
+      const fees = intent.steps.flatMap((st) => (st.fee ? [{ step: st.id, fee: `${fromBaseUnits(st.fee.amount, st.fee.decimals)} ${st.fee.symbol}`, bps: st.fee.bps, basis: FEE_BASIS[st.fee.basis] }] : []));
+      return { summary: `Planned (${intent.verdict.decision}): ${proposal.steps.join(" → ")}`, data: { intentId: proposal.intentId, steps: proposal.steps, decision: proposal.decision, reasons: proposal.reasons, warnings: proposal.warnings, ...(fees.length > 0 ? { lykiaFees: fees } : {}) } };
     },
   }),
 ];

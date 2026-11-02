@@ -18,8 +18,9 @@ import { useLykiaWallet } from "../../features/wallet/useLykiaWallet";
 import { useWallet } from "../../features/wallet/store";
 import { apiGet, apiPost, describeError } from "../../lib/api";
 import { useEnvironment } from "../../lib/environment";
+import { useSession } from "../../lib/session";
 import { qrMatrix, qrSvgPath } from "../../lib/qr";
-import { friendlyError, isAddress, isAmount, MIN_GAS_USDC, MOVE_TABS, paymentUri, type MoveTab, type TokenRow } from "../../features/move/model";
+import { canReadContacts, friendlyError, isAddress, isAmount, MIN_GAS_USDC, MOVE_TABS, paymentUri, type MoveTab, type TokenRow } from "../../features/move/model";
 import { Button, Card, Field, Frame, Input, PageHead, Select, Tag, Toggle } from "../../mosaic";
 
 const TAB_LABEL: Record<MoveTab, string> = { send: "Send", receive: "Receive", swap: "Swap", earn: "Earn", borrow: "Borrow", bridge: "Bridge" };
@@ -62,7 +63,9 @@ export default function MovePage() {
   const chainId = environment === "mainnet" ? 5042 : 5042002;
 
   const tokens = useQuery({ queryKey: ["tokens", environment], queryFn: () => apiGet<{ tokens: TokenRow[] }>(`/v1/tokens?environment=${environment}`), staleTime: 300_000 });
-  const contacts = useQuery({ queryKey: ["contacts", owner], queryFn: () => apiGet<{ contacts: Contact[] }>("/v1/contacts"), enabled: Boolean(owner), retry: false });
+  // The address book needs a signed-in session for this wallet; without one the API answers 401.
+  const signedIn = useSession((st) => canReadContacts(owner, st.session));
+  const contacts = useQuery({ queryKey: ["contacts", owner], queryFn: () => apiGet<{ contacts: Contact[] }>("/v1/contacts"), enabled: signedIn, retry: false });
   const flock = useQuery({ queryKey: ["flock-native", environment, owner], queryFn: () => apiGet<{ native?: { usdc18?: string } }>(`/v1/flock/${owner}?environment=${environment}`), enabled: Boolean(owner), staleTime: 30_000 });
   const list = tokens.data?.tokens ?? [];
   const stables = list.filter((t) => t.symbol === "USDC" || t.symbol === "EURC" || t.symbol === "cirBTC" || t.symbol === "WETH");

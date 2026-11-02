@@ -34,3 +34,8 @@ export function friendlyError(message: string): string {
   return message;
 }
 
+
+/** The address book is per signed-in owner: query it only with a live session for the connected wallet. */
+export function canReadContacts(owner: string | null | undefined, session: { readonly address: string; readonly expiresAt: string } | null, now = Date.now()): boolean {
+  return Boolean(owner && session && session.address.toLowerCase() === owner.toLowerCase() && Date.parse(session.expiresAt) > now);
+}

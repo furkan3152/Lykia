@@ -131,7 +131,18 @@ describe("Lyko orchestration", () => {
     assert.ok(names.includes("task") && names.includes("tool") && names.includes("proposal") && names.includes("text"));
     // The specialist got its own tools only: no delegate, no ask_owner.
     const specialistCall = client.calls.find((c) => c.system.startsWith("You are Yield keeper"))!;
-    assert.deepEqual(specialistCall.tools.map((t) => t.name).sort(), ["flock", "knowledge", "outrun", "plan_intent", "prices", "scent", "search_routes", "venues"]);
+    assert.deepEqual(specialistCall.tools.map((t) => t.name).sort(), ["draft_order", "fence", "flock", "knowledge", "outrun", "plan_intent", "prices", "scent", "search_routes", "venues"]);
+  });
+
+  it("reads the Fence, the beta cap and the fee, and reports the fee behind a plan", async () => {
+    const client = scripted({ Lyko: [reply([toolUse("fence", {}), toolUse("plan_intent", { sentence: "convert 50 USDC to EURC" })]), reply([say("Here are your rules.")], "end_turn")] });
+    await turn(client, "what are my caps, and convert 50 USDC to EURC", []);
+    const results = JSON.stringify(client.calls[1]!.messages[client.calls[1]!.messages.length - 1]);
+    assert.match(results, /perStepUsd/u);
+    assert.match(results, /betaCap/u);
+    assert.match(results, /protocolFee/u);
+    assert.match(results, /lykiaFees/u);
+    assert.match(results, /taken from the amount/u);
   });
 
   it("stops at the step cap", async () => {
@@ -179,6 +190,17 @@ describe("Lyko orchestration", () => {
     const threadId = JSON.parse(/event: thread\ndata: (.+)\n/u.exec(raw)?.[1] ?? "{}").threadId as string;
     const thread = (await (await fetch(`${served.url}/v1/agent/threads/${encodeURIComponent(threadId)}?owner=${OWNER}`)).json()) as { messages: { role: string }[] };
     assert.deepEqual(thread.messages.map((m) => m.role), ["user", "assistant"]);
+  });
+
+  it("lists an owner's threads and automations only for that owner", async () => {
+    for (const path of ["/v1/agent/threads", "/v1/agent/automations"]) {
+      const anonymous = await fetch(`${served.url}${path}?owner=${OWNER}`);
+      assert.equal(anonymous.status, 401, path);
+      const stranger = await fetch(`${served.url}${path}?owner=${OWNER}`, { headers: { "lykia-session": issueToken(ctx, "0x1111111111111111111111111111111111111111").token } });
+      assert.equal(stranger.status, 403, path);
+      const own = await fetch(`${served.url}${path}?owner=${OWNER}`, { headers: { "lykia-session": issueToken(ctx, OWNER).token } });
+      assert.equal(own.status, 200, path);
+    }
   });
 
   it("serves JSON chat with a scripted model and gates Pack writes behind the owner's session", async () => {

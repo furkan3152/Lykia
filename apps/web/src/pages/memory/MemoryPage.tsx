@@ -45,9 +45,10 @@ export default function MemoryPage() {
   const [addr, setAddr] = useState("");
   const owner = address ?? null;
   const q = { owner, environment };
-  const memory = useQuery({ queryKey: ["memory", owner], enabled: Boolean(owner), retry: false, queryFn: ({ signal }) => apiGet<MemoryView>("/v1/memory", { query: q, signal }) });
-  const intents = useQuery({ queryKey: ["memory-intents", owner], enabled: Boolean(owner), retry: false, queryFn: ({ signal }) => apiGet<{ intents: MemoryIntent[] }>("/v1/memory/intents", { query: q, signal }) });
-  const contacts = useQuery({ queryKey: ["contacts", owner], enabled: Boolean(owner), retry: false, queryFn: ({ signal }) => apiGet<{ contacts: Contact[] }>("/v1/contacts", { query: q, signal }) });
+  // Memory, intents and contacts are the signed-in owner's own: without a session the API answers 401.
+  const memory = useQuery({ queryKey: ["memory", owner], enabled: Boolean(owner) && siwe.signedIn, retry: false, queryFn: ({ signal }) => apiGet<MemoryView>("/v1/memory", { query: q, signal }) });
+  const intents = useQuery({ queryKey: ["memory-intents", owner], enabled: Boolean(owner) && siwe.signedIn, retry: false, queryFn: ({ signal }) => apiGet<{ intents: MemoryIntent[] }>("/v1/memory/intents", { query: q, signal }) });
+  const contacts = useQuery({ queryKey: ["contacts", owner], enabled: Boolean(owner) && siwe.signedIn, retry: false, queryFn: ({ signal }) => apiGet<{ contacts: Contact[] }>("/v1/contacts", { query: q, signal }) });
   const refresh = () => qc.invalidateQueries({ queryKey: ["memory"] }).then(() => qc.invalidateQueries({ queryKey: ["contacts"] })).then(() => qc.invalidateQueries({ queryKey: ["memory-intents"] }));
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     try {
@@ -94,6 +95,11 @@ export default function MemoryPage() {
         <div style={{ marginTop: 20 }}>
           {!owner ? (
             <Card title={"Wallet first"}><EmptyState mood="sleeping" title={"Memory belongs to your wallet"} /></Card>
+          ) : !siwe.signedIn ? (
+            <Card title={"Sign in first"}>
+              <EmptyState mood="sleeping" title={"Sign in to read what Lyko remembers"} />
+              <div className="m-center"><Button onClick={() => void siwe.signIn()} disabled={siwe.busy}>{"SIGN IN"}</Button></div>
+            </Card>
           ) : tab === "timeline" ? (
             <Card title={"Intent history"} kicker={"WITH OUTCOMES"}>
               {intents.isLoading ? <Skeleton h={160} /> : intents.isError ? (soon(intents.error) ? <Soon what="Intent history" /> : <p className="m-note m-note--bad">{describeError(intents.error)}</p>) : (intents.data?.intents ?? []).length === 0 ? <EmptyState title={"Nothing yet"} example={"Put half my USDC to work"} onExample={(x) => { begin(x); navigate("/app"); }} /> : (

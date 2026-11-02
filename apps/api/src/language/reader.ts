@@ -52,7 +52,7 @@ const VERB_PATTERNS: readonly { readonly verb: Verb; readonly re: readonly RegEx
   { verb: "repay", re: [w("repay|pay back|pay off|pay down")] },
   { verb: "borrow", re: [w("borrow|take a loan|take out a loan")] },
   { verb: "bridge", re: [w("bridge|move .* to (?:base|ethereum|arbitrum|optimism|op|polygon|avalanche|solana|unichain|linea)|send .* to (?:base|ethereum|arbitrum|optimism|polygon|avalanche|solana|unichain|linea)")] },
-  { verb: "unify", re: [w("unify|consolidate|unified balance|into gateway")] },
+  { verb: "unify", re: [w("unify|consolidate|unified balance|(?:into|to|in|on) (?:the |my )?(?:circle )?gateway")] },
   { verb: "supply", re: [w("supply|post collateral|add collateral|deposit collateral")] },
   { verb: "withdraw", re: [w("withdraw|take out|pull out|redeem|unstake")] },
   { verb: "earn", re: [w("earn|deposit|invest|stake|save|park|lend|put .*(?:to work|in(?:to)? (?:the |a |my )?(?:best |safest |highest |top )?(?:vault|yield|earn|aave|morpho|lending|savings))")] },
@@ -192,7 +192,7 @@ function tokensIn(clause: string): string[] {
 
 function memoIn(clause: string): string | undefined {
   const match =
-    w("(?:for|memo|ref|reference|note)\\s*:?\\s*((?:invoice|order|payroll|bill|inv|rent|salary)?\\s*#?[\\p{L}\\p{N}_-]{1,40}(?:\\s+[\\p{L}\\p{N}_-]{1,20}){0,3})").exec(clause);
+    w("(?:for|memo|ref|reference|note)\\s*:?\\s*[\"'\u201c\u2018]?((?:invoice|order|payroll|bill|inv|rent|salary)?\\s*#?[\\p{L}\\p{N}_-]{1,40}(?:\\s+[\\p{L}\\p{N}_-]{1,20}){0,3})").exec(clause);
   const memo = match?.[1]?.replace(/0x[0-9a-fA-F]{40}/gu, "").replace(/\s+(?:every|each)\b.*$/iu, "").trim();
   return memo ? memo : undefined;
 }

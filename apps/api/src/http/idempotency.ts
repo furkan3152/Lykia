@@ -8,8 +8,8 @@
  * the same key and the same body replays the stored answer with
  * `Idempotent-Replayed: true`; the same key with a different body is refused
  * with 409 IDEMPOTENCY_CONFLICT. A request still in flight answers 409 so a
- * double click can never plan or submit twice. 5xx answers are not stored,
- * so a failed attempt can be retried with the same key. Keys are scoped to
+ * double click can never plan or submit twice. 5xx and 429 answers are not
+ * stored, so a failed or rate-limited attempt can be retried with the same key. Keys are scoped to
  * the caller's credentials and the path.
  *
  * Modules get this for free. A route that must never run without a key
@@ -72,7 +72,8 @@ function run(ctx: AppContext, req: Request, res: Response, next: NextFunction, k
     res.json = (body: unknown) => {
       stored = true;
       const status = res.statusCode;
-      void (status >= 500 ? col.delete(id) : col.put(id, { state: "done", bodyHash, statusCode: status, body: (body ?? null) as JsonValue }, { ttlMs: IDEMPOTENCY_TTL_MS })).catch(() => undefined);
+      // A rate-limited (429) or failed (5xx) attempt never ran: free the key so the retry runs.
+      void (status >= 500 || status === 429 ? col.delete(id) : col.put(id, { state: "done", bodyHash, statusCode: status, body: (body ?? null) as JsonValue }, { ttlMs: IDEMPOTENCY_TTL_MS })).catch(() => undefined);
       return json(body);
     };
     res.on("close", () => {

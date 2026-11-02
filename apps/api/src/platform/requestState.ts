@@ -45,6 +45,11 @@ export function currentEnvironmentLock(): ArcEnvironment | null {
   return ALS.getStore()?.environmentLock ?? null;
 }
 
+/** The environment a request gets when it names none: testnet under a test key's lock, else `fallback`. */
+export function lockedOr(fallback: ArcEnvironment): ArcEnvironment {
+  return currentEnvironmentLock() ?? fallback;
+}
+
 export function testKeyMainnetError(): LykiaHttpError {
   return new LykiaHttpError("LIVE_MODE_REQUIRED", 403, "Test keys (lk_test_…) only work on testnet. Use a live key for mainnet.");
 }

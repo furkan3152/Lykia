@@ -113,6 +113,10 @@ describe("API platform core", () => {
     // Without an environment a test key is served testnet even on a mainnet server.
     const fence = (await (await call("/v1/fence/default", { headers: testHeaders })).json()) as unknown;
     assert.ok(fence);
+    // The aggregator too: a quote that names no environment is a testnet quote, never mainnet.
+    const quoted = await call("/v1/aggregator/quote", { body: { kind: "transfer", token: "USDC", amount: "1", taker: wallet.address, to: wallet.address }, headers: testHeaders });
+    const quoteBody = (await quoted.json()) as { environment?: string; error?: { code: string } };
+    assert.notEqual(quoteBody.environment, "mainnet", JSON.stringify(quoteBody).slice(0, 300));
 
     // Fine scopes: a read-only live key cannot quote; admin is needed to list keys with a key.
     const reader = await newKey({ label: "reader", mode: "live", scopes: ["read"] });

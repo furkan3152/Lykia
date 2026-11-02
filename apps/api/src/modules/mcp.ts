@@ -23,6 +23,7 @@ import { discoverService } from "../discover/service.js";
 import { ordersService } from "../orders/service.js";
 import { DEFAULT_FENCE as OWNER_DEFAULT_FENCE } from "@lykia/core";
 import { registerBuilderTools } from "../aggregator/mcpTools.js";
+import { lockedOr } from "../platform/requestState.js";
 
 const env = z.enum(["mainnet", "testnet"]).optional();
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/u);
@@ -54,7 +55,7 @@ function text(value: unknown) {
 
 export function buildMcpServer(ctx: AppContext): McpServer {
   const server = new McpServer({ name: "lykia", version: ctx.config.version });
-  const environmentOf = (e: ArcEnvironment | undefined) => e ?? ctx.config.mode;
+  const environmentOf = (e: ArcEnvironment | undefined) => e ?? lockedOr(ctx.config.mode);
   server.registerTool("lykia_venues", { description: "Venues on Arc Network and which ones Lykia executes.", inputSchema: toolSchema(z.object({ environment: env }), objectJson({ environment: ENV_JSON }, [])) }, async ({ environment }) =>
     text(protocolsFor(environmentOf(environment)).map((p) => ({ id: p.id, name: p.name, category: p.category, executable: EXECUTABLE_VENUES[environmentOf(environment)].has(p.id), summary: p.summary }))),
   );

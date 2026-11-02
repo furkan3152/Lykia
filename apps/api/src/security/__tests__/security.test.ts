@@ -43,6 +43,19 @@ describe("security layer: decode and balance diff", () => {
     assert.ok(rules(shape([feeCall(USDC, DEFAULT_FEE_RECIPIENT as Address, 200_000n, "fee"), transfer(FRIEND, 25_000_000n)], null, shapeOpts)).includes("simulation.outflow-exceeds-plan"));
   });
 
+  it("does not count a payment to the fee recipient as a fee overcharge", () => {
+    const fee = DEFAULT_FEE_RECIPIENT as Address;
+    const toFeeRecipient = { ...sendFlow, recipients: [fee] };
+    const rules = (flow: typeof sendFlow, txs: UnsignedTransaction[]) => analyzeFlow(flow, decodeTransactions(txs)).findings.map((f) => f.rule);
+    assert.deepEqual(rules(toFeeRecipient, shape([feeCall(USDC, fee, 200_000n, "fee"), transfer(fee, 20_000_000n)], null, shapeOpts)), []);
+    // The owner is the fee recipient and sends to itself.
+    const selfSend = { ...sendFlow, account: fee, owner: fee, recipients: [] };
+    assert.deepEqual(rules(selfSend, shape([feeCall(USDC, fee, 200_000n, "fee"), transfer(fee, 20_000_000n)], null, { ...shapeOpts, from: fee })), []);
+    // Taking more than plan + fee is still refused.
+    const over = rules(toFeeRecipient, shape([feeCall(USDC, fee, 2_000_000n, "fee"), transfer(fee, 20_000_000n)], null, shapeOpts));
+    assert.ok(over.includes("simulation.outflow-exceeds-plan"));
+  });
+
   it("blocks unlimited, oversized and unknown-spender approvals and a vault receiver swap", () => {
     const deposit = (receiver: Address) => ({ to: VAULT, data: encodeFunctionData({ abi: [{ type: "function", name: "deposit", stateMutability: "nonpayable", inputs: [{ name: "assets", type: "uint256" }, { name: "receiver", type: "address" }], outputs: [{ name: "", type: "uint256" }] }], functionName: "deposit", args: [5_000_000n, receiver] }), label: "deposit" });
     const flow = { ...sendFlow, kind: "deposit", inputs: [{ token: USDC, symbol: "USDC", amount: "5000000" }], fees: [], recipients: [], knownContracts: [VAULT] };

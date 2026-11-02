@@ -19,6 +19,7 @@ import { actionFields, toActionRequest } from "../modules/aggregator.js";
 import { actionsFrom } from "../modules/common.js";
 import { aiRoute, explainRoute } from "./ai.js";
 import { ACTION_KINDS, actionsOf, buildAction, quoteAction, type ActionKind } from "./service.js";
+import { lockedOr } from "../platform/requestState.js";
 
 const env = z.enum(["mainnet", "testnet"]).optional();
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/u);
@@ -65,7 +66,7 @@ const wrap = async (fn: () => Promise<unknown>) => {
 };
 
 export function registerBuilderTools(server: McpServer, ctx: AppContext): void {
-  const e = (x: ArcEnvironment | undefined) => x ?? ctx.config.mode;
+  const e = (x: ArcEnvironment | undefined) => x ?? lockedOr(ctx.config.mode);
   server.registerTool("lykia_aggregator_quote", { description: "Best-execution quote for any action on Arc (swap, fx, transfer, bridge, deposit, withdraw, supply, borrow, repay, batch): best route, alternatives, price impact, gas in USDC, Lykia's fee and the Fence verdict, plus a quote id.", inputSchema: toolSchema(actionSchema, obj(ACTION_JSON, ["kind", "taker"])) }, async (input) => wrap(() => quoteAction(ctx, request(input as z.infer<typeof actionSchema>))));
   server.registerTool(
     "lykia_build",

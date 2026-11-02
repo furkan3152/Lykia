@@ -10,6 +10,12 @@ describe("language reader", () => {
     assert.deepEqual(r.actions, [{ verb: "send", token: "USDC", amount: { exact: "20" }, to: ADDR, memo: "invoice 4411" }]);
   });
 
+  it("keeps a quoted memo and reads a deposit into Circle Gateway as unify", () => {
+    assert.deepEqual(readSentence(`send 0.5 USDC to ${ADDR} with memo 'invoice 42'`).actions, [{ verb: "send", token: "USDC", amount: { exact: "0.5" }, to: ADDR, memo: "invoice 42" }]);
+    assert.equal(readSentence(`send 1 USDC to ${ADDR}, memo: "rent"`).actions[0]?.verb === "send" && (readSentence(`send 1 USDC to ${ADDR}, memo: "rent"`).actions[0] as { memo?: string }).memo, "rent");
+    for (const s of ["Deposit 1 USDC into Circle Gateway", "deposit 1 USDC to Gateway", "put 1 USDC in the gateway"]) assert.deepEqual(readSentence(s).actions, [{ verb: "unify", amount: { exact: "1" } }], s);
+  });
+
   it("reads shares, venues, possessives and memos", () => {
     assert.deepEqual(readSentence("deposit half into Morpho").actions, [{ verb: "earn", token: "USDC", amount: { percent: 50 }, venue: "morpho-vaults" }]);
     assert.deepEqual(readSentence("convert 100 USDC to EURC").actions, [{ verb: "fx", from: "USDC", to: "EURC", amount: { exact: "100" } }]);

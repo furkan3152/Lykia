@@ -51,6 +51,7 @@ import { buildBatch, checkBatch, memoEvents, memoIdFor, verifySubmitted, type Re
 import { circleConfigured, circleContractExecution, circleTransaction } from "./circleExec.js";
 import { businessEvent } from "./events.js";
 import { listOwned, payouts, RECORD_TTL_MS } from "./stores.js";
+import { lockedOr } from "../platform/requestState.js";
 
 export const MAX_BATCH_ROWS = 12;
 
@@ -116,7 +117,7 @@ function fenceFor(caller: FlowCaller, input: CreatePayoutInput): Fence {
 }
 
 export async function createPayout(ctx: AppContext, caller: FlowCaller, input: CreatePayoutInput): Promise<Payout> {
-  const environment = input.environment ?? caller.project?.network ?? ctx.config.mode;
+  const environment = input.environment ?? lockedOr(caller.project?.network ?? ctx.config.mode);
   const issues = validatePayoutRows(input.rows, environment);
   if (issues.length > 0) throw new LykiaHttpError("INVALID_REQUEST", 400, `Invalid payout: ${issues.slice(0, 5).map((i) => `${i.path}: ${i.message}`).join("; ")}`, { issues: issues.slice(0, 50) });
   const payer = input.payer.toLowerCase() as Address;

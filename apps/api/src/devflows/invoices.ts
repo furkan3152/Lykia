@@ -39,6 +39,7 @@ import type { FlowCaller } from "./access.js";
 import { memoEvents, transferEvents, type ReceiptLog } from "./batch.js";
 import { businessEvent } from "./events.js";
 import { invoices, listOwned, RECORD_TTL_MS } from "./stores.js";
+import { lockedOr } from "../platform/requestState.js";
 
 const TRANSFER = parseAbiItem("event Transfer(address indexed from, address indexed to, uint256 value)");
 export const INVOICE_ID = /^inv_[a-z0-9]{12}$/u;
@@ -49,7 +50,7 @@ export function payUrl(ctx: AppContext, id: string): string {
 }
 
 export async function createInvoice(ctx: AppContext, caller: FlowCaller, input: InvoiceInput & { readonly environment?: ArcEnvironment }): Promise<Invoice> {
-  const environment = input.environment ?? caller.project?.network ?? ctx.config.mode;
+  const environment = input.environment ?? lockedOr(caller.project?.network ?? ctx.config.mode);
   const issues = validateInvoiceInput(input, environment);
   if (issues.length > 0) throw new LykiaHttpError("INVALID_REQUEST", 400, `Invalid invoice: ${issues.slice(0, 5).map((i) => `${i.path}: ${i.message}`).join("; ")}`, { issues });
   const token = findToken(environment, input.token)!;

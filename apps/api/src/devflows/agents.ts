@@ -46,6 +46,7 @@ import { services } from "../services.js";
 import type { FlowCaller } from "./access.js";
 import { apiAgents, listOwned, RECORD_TTL_MS } from "./stores.js";
 import { indexVerdict } from "./verdicts.js";
+import { lockedOr } from "../platform/requestState.js";
 
 export type StoredAgent = AgentApiView;
 
@@ -112,7 +113,7 @@ export async function createAgent(ctx: AppContext, caller: FlowCaller, input: Ag
     projectId: caller.project?.id ?? null,
     name: input.name,
     owner,
-    environment: input.environment ?? caller.project?.network ?? ctx.config.mode,
+    environment: input.environment ?? lockedOr(caller.project?.network ?? ctx.config.mode),
     tools: input.tools ?? ["plan", "flock", "prices", "venues", "scent"],
     kinds: input.kinds ?? null,
     venues: input.venues ?? null,

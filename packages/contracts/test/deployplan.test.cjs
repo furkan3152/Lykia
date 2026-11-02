@@ -103,6 +103,6 @@ describe("deployPlan (core): direct CREATE from the owner's wallet", function ()
     expect(plan.steps[1].predictedAddress).to.equal(ethers.getCreateAddress({ from: owner.address, nonce: 8 }));
     expect(plan.notes.join(" ")).to.match(/creator/);
     expect(core.deployedAddress("mainnet", "LykiaRouter")).to.equal("0xc9c0ea4d22ddbef4504a634759fb78334efc5d18");
-    expect(core.deployedAddress("mainnet", "LykiaOrders")).to.equal(null);
+    expect(core.deployedAddress("mainnet", "LykiaOrders")).to.equal("0xdcefebb3d449b7f8965c5f1ae3bba836f30ae6cc");
   });
 });

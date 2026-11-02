@@ -284,6 +284,10 @@ html[data-night="on"] .m-strip, html[data-night="on"] .m-strip b { color: #c9d3e
 .m-stops { display: flex; flex-direction: column; gap: 10px; }
 .m-stop { position: relative; padding: 12px 12px 12px 14px; background: #fffdf7; box-shadow: inset 0 0 0 2px var(--grout); animation: m-msg-in 360ms var(--ease-out) both; }
 .m-stop::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 6px; background: linear-gradient(180deg, #c8402f 0 50%, #fff 50% 100%); }
+/* Step titles carry full 0x addresses and fee lines: let them wrap inside the card on narrow screens. */
+.m-stop { min-width: 0; overflow-wrap: anywhere; }
+.m-stop > .flex > div:first-child { min-width: 0; }
+.m-stop .m-tag { white-space: normal; max-width: 100%; }
 .m-stop small { display: block; margin-top: 4px; font-family: Silkscreen, monospace; font-size: 10px; letter-spacing: 0.08em; color: var(--ink-2); }
 .m-stop[data-status="settled"] { box-shadow: inset 0 0 0 2px var(--ok); }
 .m-stop[data-status="failed"] { box-shadow: inset 0 0 0 2px var(--bad); }

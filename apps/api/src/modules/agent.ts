@@ -3,10 +3,10 @@
  *
  *   POST /agent/chat                     SSE: thread, reading, task, tool, thinking-summary, proposal, clarify, text, error, done
  *                                        (Accept: application/json returns the same events as one JSON document)
- *   GET  /agent/threads?owner            thread list        GET /agent/threads/:id?owner   one thread
+ *   GET  /agent/threads?owner            thread list (owner session or agents key)   GET /agent/threads/:id?owner   one thread
  *   POST /agent/threads                  open an empty thread
  *   GET  /agent/insights?owner&environment
- *   GET  /agent/automations?owner        POST /agent/automations   POST /agent/automations/:id/(enable|disable)
+ *   GET  /agent/automations?owner (owner session or agents key)   POST /agent/automations   POST /agent/automations/:id/(enable|disable)
  *   POST /agent/automations/run          evaluate the owner's automations now (proposals only)
  *   POST /agent/check                    a Fence verdict for an agent's own facts
  *
@@ -153,6 +153,8 @@ export const agentModule: ApiModule = {
 
     router.get("/agent/threads", async (req, res) => {
       const { owner } = parseQuery(req, ownerQuery);
+      // Titles are the owner's own words and the ids open whole conversations: only the owner lists them.
+      await authorizeOwner(ctx, req, owner);
       res.json({ threads: await listThreads(ctx, owner as Address) });
     });
     router.get("/agent/threads/:id", async (req, res) => {
@@ -173,6 +175,7 @@ export const agentModule: ApiModule = {
 
     router.get("/agent/automations", async (req, res) => {
       const { owner } = parseQuery(req, ownerQuery);
+      await authorizeOwner(ctx, req, owner);
       res.json({ automations: await listAutomations(ctx, owner as Address) });
     });
     router.post("/agent/automations", async (req, res) => {

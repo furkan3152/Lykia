@@ -49,6 +49,7 @@ import { services } from "../services.js";
 import type { FlowCaller } from "./access.js";
 import { businessEvent, onBusinessEvent, type BusinessEvent } from "./events.js";
 import { automations, listOwned, RECORD_TTL_MS } from "./stores.js";
+import { lockedOr } from "../platform/requestState.js";
 
 export type StoredAutomation = UnifiedAutomation & { readonly fence: Fence };
 
@@ -82,7 +83,7 @@ function standingTrigger(trigger: AutomationTrigger): StandingTrigger | null {
 export async function createAutomation(ctx: AppContext, caller: FlowCaller, input: AutomationInput): Promise<StoredAutomation> {
   const issues = validateAutomationTrigger(input.trigger);
   if (issues.length > 0) throw new LykiaHttpError("INVALID_REQUEST", 400, `Invalid trigger: ${issues.map((i) => `${i.path}: ${i.message}`).join("; ")}`, { issues });
-  const environment = input.environment ?? caller.project?.network ?? ctx.config.mode;
+  const environment = input.environment ?? lockedOr(caller.project?.network ?? ctx.config.mode);
   if (input.trigger.type === "balance" && !findToken(environment, input.trigger.token)) throw new LykiaHttpError("INVALID_REQUEST", 400, "trigger.token is not a registry token.");
   const actions = actionsOf(input.action);
   if (actions) {

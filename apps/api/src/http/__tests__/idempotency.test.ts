@@ -23,6 +23,11 @@ describe("Idempotency-Key", () => {
         res.status(500).json({ error: "boom" });
         return;
       }
+      if (req.body.limited && calls % 2 === 1) {
+        // A route-level rate limiter answers before the handler runs.
+        res.status(429).json({ error: { code: "RATE_LIMITED" } });
+        return;
+      }
       res.status(201).json({ id: `out_${calls}` });
     });
     server = app.listen(0, "127.0.0.1");
@@ -60,6 +65,15 @@ describe("Idempotency-Key", () => {
     await new Promise((r) => setTimeout(r, 20));
     assert.equal((await post({ boom: true }, "key-cccccccc")).status, 500);
     assert.equal(calls, before + 2);
+  });
+
+  it("does not store a 429, so the retry after the window runs", async () => {
+    calls = 0;
+    assert.equal((await post({ limited: true }, "key-dddddddd")).status, 429);
+    await new Promise((r) => setTimeout(r, 20));
+    const retry = await post({ limited: true }, "key-dddddddd");
+    assert.equal(retry.status, 201);
+    assert.equal(retry.headers.get("idempotent-replayed"), null);
   });
 
   it("leaves requests without a key alone and validates keys", async () => {
