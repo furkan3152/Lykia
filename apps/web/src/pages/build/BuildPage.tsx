@@ -175,7 +175,7 @@ function IntegrateSection() {
         </div>
       </div>
       <div className="flex flex-wrap gap-2" style={{ marginTop: 14 }}>
-        <a className="m-btn m-btn--sea" href="https://github.com/furkan3152/lykia/blob/main/docs/integrate-your-protocol.md" target="_blank" rel="noopener noreferrer">{"READ THE GUIDE"}</a>
+        <a className="m-btn m-btn--sea" href="https://github.com/furkan3152/Lykia/blob/HEAD/docs/integrate-your-protocol.md" target="_blank" rel="noopener noreferrer">{"READ THE GUIDE"}</a>
         <a className="m-btn m-btn--ghost" href={apiUrl("/.well-known/x402")} target="_blank" rel="noopener noreferrer">{"x402 MANIFEST"}</a>
         <a className="m-btn m-btn--ghost" href={apiUrl("/v1/openapi.json")} target="_blank" rel="noopener noreferrer">{"OPENAPI"}</a>
       </div>

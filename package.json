@@ -4,7 +4,28 @@
   "private": true,
   "type": "module",
   "license": "MIT",
-  "description": "Lykia: the agent and stablecoin desk built on Arc Network. Lyko keeps the flock inside the Fence.",
+  "description": "Policy-bound agents and stablecoin routing on Arc Network: intents, route search, the Fence policy engine and a developer platform.",
+  "homepage": "https://lykia-akdogan1.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/furkan3152/Lykia.git"
+  },
+  "bugs": {
+    "url": "https://github.com/furkan3152/Lykia/issues"
+  },
+  "author": "Furkan Akdogan (https://github.com/furkan3152)",
+  "keywords": [
+    "arc",
+    "circle",
+    "usdc",
+    "stablecoin",
+    "defi",
+    "ai-agents",
+    "intents",
+    "erc-8004",
+    "x402",
+    "mcp"
+  ],
   "engines": {
     "node": ">=22.12"
   },
