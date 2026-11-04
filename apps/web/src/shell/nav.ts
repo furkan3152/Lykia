@@ -1,27 +1,31 @@
 /**
  * Lykia's information architecture, in one place.
  *
- * Five primary areas. Each label is a metaphor from the shepherd's valley
- * with a short plain subtitle beside it, so a newcomer reads the product and
- * a returning user reads the story:
+ * Three primary areas. Each label is a metaphor from the shepherd's valley
+ * with a plain subtitle beside it, so a newcomer reads the product and a
+ * returning user reads the story:
  *
- *   ASK LYKO   assistant                say the outcome, get a checked plan
- *   FLOCK      portfolio                what you hold, moving it, yields, stress tests
- *   FENCE      rules                    the Fence, the Pack, Tags, Scent, the watch
- *   HERDING    orders and automations   orders, rounds, barks, tracks
- *   THE MINT   build                    the developer portal, the League, the harbour, Circle, the ledger
+ *   ASK LYKO   your agent                                   every action happens here
+ *   THE FOLD   everything you own and everything in motion  holdings, activity, instructions, agents, rules + Lyko on watch
+ *   THE MINT   build                                        the developer portal, the League, the harbour, Circle, the ledger
  *
- * Everything else is secondary: the account pages (settings, memory), a
- * short "More" list in the avatar menu and the footer, and Letoon, the team
- * console, which the avatar menu shows to admins only. Pages in no list (the
- * design kit, the night scene, payment links, redirects) are reachable only
- * by direct link, on purpose.
+ * If the agent can do something, there is no separate manual page for it:
+ * the old Move, Orders, Alerts, Automations, Activity, What-if, Fence and
+ * Flock pages redirect to Ask Lyko with a prefilled intent or to the
+ * matching Fold tab (see app/routes/aliases.ts). A form survives only as the
+ * "edit the details" step a route card or a draft link opens.
+ *
+ * Everything else is secondary: Your Lyko (preferences, voice and memory) in
+ * the avatar menu, a short "More" list, and Letoon, the team console, which
+ * the avatar menu shows to admins only. Detail pages (an agent, a Tag, a
+ * token check, the watch, the yields) live inside their area and are reached
+ * from it. Pages in no list are reachable only by direct link, on purpose.
  *
  * Pure data: node tests import this file directly.
  */
 import type { RouteId } from "../app/routes/routeTable";
 
-export type AreaId = "ask" | "flock" | "fence" | "herding" | "mint";
+export type AreaId = "ask" | "fold" | "mint";
 
 export interface NavSection {
   readonly id: RouteId;
@@ -38,12 +42,14 @@ export interface NavArea {
   readonly id: AreaId;
   /** The metaphor shown first. */
   readonly label: string;
-  /** The plain subtitle shown under it ("portfolio"). */
+  /** The plain subtitle ("your agent"). */
   readonly sub: string;
-  /** A one-word subtitle for the phone's bottom bar. */
+  /** A short subtitle for narrow headers. */
   readonly short: string;
+  /** One word for the phone's bottom bar ("Ask", "Fold", "Mint"). */
+  readonly tab: string;
   readonly href: string;
-  /** One line: what the area is for. Used in the footer and the menu. */
+  /** One line: what the area is for. Used in the footer and as the link title. */
   readonly blurb: string;
   readonly sections: readonly NavSection[];
 }
@@ -59,60 +65,29 @@ export const AREAS: readonly NavArea[] = [
   {
     id: "ask",
     label: "Ask Lyko",
-    sub: "assistant",
-    short: "assistant",
+    sub: "your agent",
+    short: "your agent",
+    tab: "Ask",
     href: "/app",
-    blurb: "Say the outcome; get a plan checked by your Fence.",
-    sections: [{ id: "ask", href: "/app", label: "Ask Lyko", sub: "assistant", also: ["outrun"] }],
+    blurb: "Say the outcome; Lyko plans it, your Fence checks it, you sign once.",
+    sections: [{ id: "ask", href: "/app", label: "Ask Lyko", sub: "your agent", also: ["outrun"] }],
   },
   {
-    id: "flock",
-    label: "Flock",
-    sub: "portfolio",
-    short: "portfolio",
-    href: "/app/flock",
-    blurb: "What you hold on Arc, and moving it without a sentence.",
-    sections: [
-      { id: "flock", href: "/app/flock", label: "Flock", sub: "portfolio" },
-      { id: "move", href: "/app/move", label: "Move", sub: "send and swap" },
-      { id: "pastures", href: "/app/pastures", label: "Pastures", sub: "yields" },
-      { id: "whatif", href: "/app/whatif", label: "What-if", sub: "stress test" },
-    ],
-  },
-  {
-    id: "fence",
-    label: "Fence",
-    sub: "rules",
-    short: "rules",
-    href: "/app/fence",
-    blurb: "Your rules, your agents and their Tags, token checks and the watch.",
-    sections: [
-      { id: "fence", href: "/app/fence", label: "Fence", sub: "rules" },
-      { id: "pack", href: "/app/pack", label: "Pack", sub: "agents" },
-      { id: "tag", href: "/app/tag", label: "Tag", sub: "agent identity" },
-      { id: "scent", href: "/app/scent", label: "Scent", sub: "token check" },
-      { id: "security", href: "/app/security", label: "Watch", sub: "security" },
-    ],
-  },
-  {
-    id: "herding",
-    label: "Herding",
-    sub: "orders and automations",
-    short: "orders",
-    href: "/app/orders",
-    blurb: "Orders, automations and alerts that run under the same Fence.",
-    sections: [
-      { id: "orders", href: "/app/orders", label: "Orders", sub: "limit, stop, DCA" },
-      { id: "automations", href: "/app/automations", label: "Rounds", sub: "automations" },
-      { id: "alerts", href: "/app/alerts", label: "Barks", sub: "alerts" },
-      { id: "activity", href: "/app/activity", label: "Tracks", sub: "activity" },
-    ],
+    id: "fold",
+    label: "The Fold",
+    sub: "everything you own and everything in motion",
+    short: "all you own",
+    tab: "Fold",
+    href: "/app/fold",
+    blurb: "Holdings, activity, instructions, agents and rules, with Lyko on watch.",
+    sections: [{ id: "fold", href: "/app/fold", label: "The Fold", sub: "everything you own and everything in motion", also: ["pack", "tag", "scent", "security", "pastures"] }],
   },
   {
     id: "mint",
     label: "The Mint",
     sub: "build",
     short: "build",
+    tab: "Mint",
     href: "/mint",
     blurb: "Build on the same engine, and the League of cities built with it.",
     sections: [
@@ -125,16 +100,13 @@ export const AREAS: readonly NavArea[] = [
   },
 ];
 
-/** "Flock · portfolio": the metaphor and its plain meaning, as page titles and menus show them. */
+/** "The Mint · build": the metaphor and its plain meaning, as page titles and menus show them. */
 export function titleOf(item: { readonly label: string; readonly sub: string }): string {
   return item.label.toLowerCase() === item.sub.toLowerCase() ? item.label : `${item.label} · ${item.sub}`;
 }
 
-/** The account pages, shown as tabs of their own and in the avatar menu. */
-export const ACCOUNT: readonly NavSection[] = [
-  { id: "you", href: "/app/you", label: "Settings", sub: "settings" },
-  { id: "memory", href: "/app/memory", label: "Memory", sub: "memory" },
-];
+/** The account page: Your Lyko (preferences, voice and look, memory), in the avatar menu. */
+export const ACCOUNT: readonly NavSection[] = [{ id: "you", href: "/app/you", label: "Your Lyko", sub: "preferences and memory" }];
 
 /** Secondary pages: real and working, but not part of the core story. */
 export const MORE: readonly NavLink[] = [
@@ -146,6 +118,13 @@ export const MORE: readonly NavLink[] = [
 /** The team console: in the avatar menu for admins only (the API checks the role on every call). */
 export const ADMIN: readonly NavLink[] = [{ id: "letoon", href: "/letoon", label: "Letoon", blurb: "The team console: League council, contracts, flags and the Whistle, Circle, audit, usage." }];
 
+/**
+ * Old addresses of pages whose work the agent or the Fold now does. They
+ * redirect (with the details they carried) and keep working as links; a
+ * `?draft=` or `?edit=` link still opens the form as an "edit the details" step.
+ */
+export const REDIRECTED: readonly RouteId[] = ["move", "flock", "orders", "alerts", "automations", "activity", "whatif", "fence", "memory"];
+
 /** Routes deliberately outside every menu. `owner` is an alias of Letoon. */
 export const UNLISTED: readonly RouteId[] = ["landing", "pay", "kit", "lykaion", "owner", "appNotFound", "notFound"];
 
@@ -154,11 +133,10 @@ export function areaOf(routeId: RouteId): NavArea | null {
   return AREAS.find((a) => a.sections.some((s) => s.id === routeId || s.also?.includes(routeId))) ?? null;
 }
 
-/** The tab row for a route: its area's sections, or the account tabs. Null when there is nothing to switch between. */
+/** The tab row for a route: its area's sections. Null when there is nothing to switch between. */
 export function tabsFor(routeId: RouteId): readonly NavSection[] | null {
   const area = areaOf(routeId);
-  if (area) return area.sections.length > 1 ? area.sections : null;
-  return ACCOUNT.some((s) => s.id === routeId) ? ACCOUNT : null;
+  return area && area.sections.length > 1 ? area.sections : null;
 }
 
 export function sectionIsCurrent(section: NavSection, routeId: RouteId): boolean {

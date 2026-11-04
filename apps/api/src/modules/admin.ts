@@ -80,7 +80,7 @@ export const adminModule: ApiModule = {
         version: ctx.config.version,
         mode: ctx.config.mode,
         store: ctx.store.kind,
-        llm: ctx.config.agent.anthropicApiKey !== null,
+        llm: ctx.config.agent.anthropicApiKey !== null && ctx.config.agent.model !== null,
         model: ctx.config.agent.model,
         flags: await flags(ctx),
         packAgents: agents.length,

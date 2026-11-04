@@ -79,13 +79,14 @@ describe("route table", () => {
 
   it("titles pages with the metaphor and a plain meaning, matching the navigation", () => {
     const titles: ReadonlyArray<readonly [keyof typeof ROUTES, string]> = [
-      ["ask", "Ask Lyko · assistant"],
-      ["flock", "Flock · portfolio"],
+      ["ask", "Ask Lyko · your agent"],
+      ["fold", "The Fold · everything you own and everything in motion"],
+      ["flock", "Flock · holdings"],
       ["pastures", "Pastures · yields"],
       ["pack", "Pack · agents"],
       ["scent", "Scent · token check"],
       ["outrun", "Outrun · plan"],
-      ["you", "Settings"],
+      ["you", "Your Lyko · preferences and memory"],
       ["memory", "Memory"],
       ["discover", "New pools"],
     ];

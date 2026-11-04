@@ -42,6 +42,15 @@ interface Payout {
   readonly createdAt?: string;
 }
 
+/** Shown, labelled "sample", until the owner signs in. */
+const SAMPLE_ROWS = [
+  { kind: "Invoice" as const, id: "s1", title: "Logo design, final round", status: "paid", at: "2026-11-04T09:12:00Z", amount: "250" },
+  { kind: "Invoice" as const, id: "s2", title: "Lunch on Friday", status: "open", at: "2026-11-04T08:40:00Z", amount: "18.50" },
+  { kind: "Payout" as const, id: "s3", title: "Payout to 4 recipients", status: "settled", at: "2026-11-03T17:05:00Z", amount: "1200" },
+  { kind: "Invoice" as const, id: "s4", title: "Request (open amount)", status: "open", at: "2026-11-02T11:30:00Z", amount: null },
+  { kind: "Invoice" as const, id: "s5", title: "October consulting", status: "paid", at: "2026-11-01T10:00:00Z", amount: "162.50" },
+];
+
 const TABS: readonly CityTab<Tab>[] = [
   { id: "home", label: "Home", icon: "home" },
   { id: "activity", label: "Activity", icon: "list" },
@@ -135,10 +144,108 @@ export function PayShell({ city, home }: { readonly city: LeagueCity; readonly h
     </section>
   );
 
+  const today = new Date().toISOString().slice(0, 10);
+  const mine = invoices.data?.invoices ?? [];
+  const summary = siwe.signedIn
+    ? {
+        sample: false,
+        requested: mine.filter((i) => (i.createdAt ?? "").startsWith(today)).length,
+        paid: mine.filter((i) => i.status === "paid" || i.status === "settled").reduce((a, i) => a + Number(i.amount ?? 0), 0),
+        open: mine.filter((i) => !i.status || i.status === "open" || i.status === "pending").length,
+        payouts: (payouts.data?.payouts ?? []).filter((x) => (x.createdAt ?? "").startsWith(today)).length,
+      }
+    : { sample: true, requested: 3, paid: 412.5, open: 2, payouts: 1 };
+  const rows = siwe.signedIn
+    ? recent.slice(0, 8).map((r) => ({ ...r, amount: r.kind === "Invoice" ? (mine.find((i) => i.id === r.id)?.amount ?? null) : ((payouts.data?.payouts ?? []).find((x) => x.id === r.id)?.total ?? null) }))
+    : SAMPLE_ROWS;
+  const previewUrl = `${home}/pay/new?to=${address ?? "your-address"}${amount ? `&amount=${amount}` : ""}${memo.trim() ? `&memo=${encodeURIComponent(memo.trim())}` : ""}`;
+
+  const desk = (
+    <div className="ctd-pay">
+      <section className="ct-balance ctd-pay__bal" aria-label="Balance">
+        <span className="m-kick">{`BALANCE · ARC ${env.toUpperCase()}`}</span>
+        <p className="ct-balance__v num">{!address ? "—" : balance === null ? "…" : `$${balance}`}</p>
+        <p className="m-small">{!address ? "Connect a wallet to see your balance." : eurc ? `USDC in your wallet · plus ${Number(eurc.amount).toFixed(2)} EURC` : "USDC in your wallet"}</p>
+        <div className="ct-bigacts">
+          <button type="button" className="ct-big ct-big--in" onClick={() => document.getElementById("ctd-amount")?.focus()}><PixelIcon name="in" size={28} />{"Request payment"}</button>
+          <button type="button" className="ct-big ct-big--out" onClick={() => setSheet("pay")}><PixelIcon name="out" size={28} />{"Pay someone"}</button>
+        </div>
+      </section>
+
+      <section className="ctd-today m-frame m-frame--thin" aria-labelledby="ctd-today-h">
+        <div className="ct-card__head"><h2 id="ctd-today-h">{"Today"}</h2><span className="m-kick">{summary.sample ? "SAMPLE · SIGN IN FOR YOURS" : new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</span></div>
+        <dl className="ctd-today__grid">
+          <div><dt>{"Requests sent"}</dt><dd className="num">{summary.requested}</dd></div>
+          <div><dt>{"Paid to you"}</dt><dd className="num">{`$${summary.paid.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</dd></div>
+          <div><dt>{"Waiting to be paid"}</dt><dd className="num">{summary.open}</dd></div>
+          <div><dt>{"Payouts"}</dt><dd className="num">{summary.payouts}</dd></div>
+        </dl>
+        {askBar}
+      </section>
+
+      <section className="ctd-builder m-frame m-frame--thin" aria-labelledby="ctd-builder-h">
+        <div className="ct-card__head"><h2 id="ctd-builder-h">{"Payment link"}</h2><span className="m-kick">{"LIVE PREVIEW"}</span></div>
+        <div className="ctd-builder__in">
+          <div className="ct-form">
+            <Field label="Amount (USDC)" hint="Leave empty to let the payer choose."><Input id="ctd-amount" value={amount} inputMode="decimal" placeholder="25.00" onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/gu, ""))} /></Field>
+            <Field label="What for"><Input value={memo} maxLength={200} placeholder="Lunch on Friday" onChange={(e) => setMemo(e.target.value)} /></Field>
+            <div className="flex gap-2 flex-wrap">{["10", "25", "100", "250"].map((v) => <button key={v} type="button" className="m-chip ctd-chip" onClick={() => setAmount(v)}>{`$${v}`}</button>)}</div>
+            {!address ? (
+              <Button className="ct-form__go" onClick={() => setSheet("request")}>{"CONNECT TO CREATE"}</Button>
+            ) : !siwe.signedIn ? (
+              <Button className="ct-form__go" onClick={() => void siwe.signIn()} disabled={siwe.busy}>{"SIGN IN TO CREATE"}</Button>
+            ) : (
+              <Button className="ct-form__go" onClick={() => request.mutate()} disabled={request.isPending}>{request.isPending ? "CREATING…" : "CREATE THE LINK"}</Button>
+            )}
+          </div>
+          <figure className="ctd-qr">
+            <QrCode text={previewUrl} />
+            <figcaption>
+              <b className="num">{amount ? `${amount} USDC` : "Any amount"}</b>
+              <span className="m-small m-muted">{memo.trim() || "No note"}</span>
+              <span className="m-kick">{"PREVIEW · THE LINK GETS ITS OWN ID WHEN CREATED"}</span>
+            </figcaption>
+          </figure>
+        </div>
+        <ol className="ct-steps ctd-steps" aria-label="How a payment works">
+          <li><PixelIcon name="in" size={20} /><div><b>{"Request"}</b><span className="m-small m-muted">{"A link and a QR code, any amount."}</span></div></li>
+          <li><PixelIcon name="shield" size={20} /><div><b>{"They sign"}</b><span className="m-small m-muted">{"A plain USDC transfer, fee shown first."}</span></div></li>
+          <li><PixelIcon name="spark" size={20} /><div><b>{"It lands"}</b><span className="m-small m-muted">{"Final on Arc in under a second."}</span></div></li>
+        </ol>
+      </section>
+
+      <section className="ctd-table m-frame m-frame--thin" aria-labelledby="ctd-table-h">
+        <div className="ct-card__head">
+          <h2 id="ctd-table-h">{"Recent activity"}</h2>
+          {siwe.signedIn ? <span className="m-kick">{"INVOICES · PAYOUTS"}</span> : <span className="ctd-samplehead"><Tag tone="ochre">{"SAMPLE"}</Tag><Button size="sm" onClick={() => void siwe.signIn()} disabled={siwe.busy || !address}>{address ? "SIGN IN FOR YOURS" : "CONNECT A WALLET"}</Button></span>}
+        </div>
+        {siwe.signedIn && rows.length === 0 ? (
+          <p className="m-small m-muted ct-empty">{"Nothing yet. Create your first link above and it shows up here."}</p>
+        ) : (
+          <table className="m-table ctd-tbl">
+            <thead><tr><th>{"Kind"}</th><th>{"What"}</th><th>{"Date"}</th><th className="r">{"Amount"}</th><th className="r">{"Status"}</th></tr></thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className={siwe.signedIn ? undefined : "ctd-sample"}>
+                  <td><span className={`ct-dot ct-dot--${r.kind.toLowerCase()}`} aria-hidden="true" /> {r.kind}</td>
+                  <td>{r.title}</td>
+                  <td className="num">{r.at ? new Date(r.at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}</td>
+                  <td className="r num">{r.amount ? `$${Number(r.amount).toFixed(2)}` : "open"}</td>
+                  <td className="r"><Tag tone={r.status === "paid" || r.status === "settled" ? "ok" : "ghost"}>{r.status.toUpperCase()}</Tag></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+    </div>
+  );
+
   return (
     <CityFrame city={city} home={home} tab={tab} tabs={TABS} onTab={(t) => (t === "ask" ? setSheet("ask") : setTab(t))} action={askBar}>
+      {tab === "home" ? <div className="ct-desk-only">{desk}</div> : null}
       {tab === "home" ? (
-        <div className="ct-grid">
+        <div className="ct-grid ct-phone-only">
           <section className="ct-balance" aria-label="Balance">
             <span className="m-kick">{`BALANCE · ARC ${env.toUpperCase()}`}</span>
             <p className="ct-balance__v num">{!address ? "—" : balance === null ? "…" : `$${balance}`}</p>

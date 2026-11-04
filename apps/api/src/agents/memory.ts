@@ -1,6 +1,7 @@
 /** Thread memory: per-owner conversations in the store (last 40 messages kept, 30 days). */
 import type { Address, ArcEnvironment } from "@lykia/core";
 import type { AgentProposal, ThreadMessage, ThreadView } from "@lykia/core/api/agents";
+import type { ThreadSummaryView } from "@lykia/core/api/fold";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { typedCollection } from "../platform/typed.js";
@@ -28,10 +29,12 @@ export async function openThread(ctx: AppContext, owner: Address | null, environ
   return thread;
 }
 
-export async function appendMessages(ctx: AppContext, thread: ThreadView, entries: readonly { role: "user" | "assistant"; text: string; proposals?: readonly AgentProposal[] }[]): Promise<ThreadView> {
+export async function appendMessages(ctx: AppContext, thread: ThreadView, entries: readonly { role: "user" | "assistant"; text: string; proposals?: readonly AgentProposal[]; origin?: "ask" | "fold" }[]): Promise<ThreadView> {
   const at = new Date(ctx.clock.now()).toISOString();
-  const messages: ThreadMessage[] = [...thread.messages, ...entries.map((e) => ({ role: e.role, text: e.text.slice(0, 8_000), at, ...(e.proposals && e.proposals.length > 0 ? { proposals: e.proposals } : {}) }))].slice(-MAX_THREAD_MESSAGES);
-  const next: ThreadView = { ...thread, messages, updatedAt: at };
+  // Ask Lyko and Lyko on watch write to the same thread; re-read it so neither drops the other's turn.
+  const latest = (await threads(ctx).get(thread.id).catch(() => null))?.value ?? thread;
+  const messages: ThreadMessage[] = [...latest.messages, ...entries.map((e) => ({ role: e.role, text: e.text.slice(0, 8_000), at, ...(e.proposals && e.proposals.length > 0 ? { proposals: e.proposals } : {}), ...(e.origin === "fold" ? { origin: "fold" as const } : {}) }))].slice(-MAX_THREAD_MESSAGES);
+  const next: ThreadView = { ...latest, messages, updatedAt: at };
   await threads(ctx).put(thread.id, next, { ttlMs: THREAD_TTL_MS });
   return next;
 }
@@ -40,6 +43,17 @@ export async function listThreads(ctx: AppContext, owner: Address): Promise<Omit
   return (await threads(ctx).list({ prefix: `${ownerKey(owner)}:`, limit: 200 }))
     .map(({ value: { messages: _m, ...rest } }) => rest)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+/** The shared threads as the rail and the Fold list them: size, the last line and where it was written. */
+export async function threadSummaries(ctx: AppContext, owner: Address, limit = 50): Promise<ThreadSummaryView[]> {
+  return (await threads(ctx).list({ prefix: `${ownerKey(owner)}:`, limit: 200 }))
+    .map(({ value: t }) => {
+      const last = t.messages[t.messages.length - 1];
+      return { id: t.id, title: t.title, environment: t.environment, createdAt: t.createdAt, updatedAt: t.updatedAt, messages: t.messages.length, last: last ? last.text.slice(0, 140) : null, origin: last?.origin === "fold" ? ("fold" as const) : ("ask" as const) };
+    })
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, limit);
 }
 
 export async function getThread(ctx: AppContext, owner: Address, id: string): Promise<ThreadView> {

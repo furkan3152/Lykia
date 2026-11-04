@@ -17,6 +17,9 @@ export const systemModule: ApiModule = {
   name: "system",
   register(router, ctx) {
     router.get("/health", async (_req, res) => {
+      // Public read, like /v1/stats: any site may show Lykia's status.
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Vary", "Origin");
       const report = await ctx.health.report();
       const networks: HealthResponse["networks"] = {};
       for (const [key, probe] of Object.entries(report.networks)) if (probe) networks[key] = { reachable: probe.reachable, head: probe.head, latencyMs: probe.latencyMs };
@@ -31,7 +34,7 @@ export const systemModule: ApiModule = {
         runtime: RUNTIME,
         persistence: ctx.store.kind === "postgres" ? "postgres" : "memory",
         beta: ctx.config.beta ? { ...ctx.config.beta, audited: false } : null,
-        features: { agent: ctx.config.agent.anthropicApiKey !== null, stablefx: ctx.config.stablefxApiKey !== null, x402: ctx.config.x402.payTo !== null, x402Settlement: ctx.config.x402.facilitatorUrl !== null && (ctx.config.circle.apiKey !== null || !/circle\.com/u.test(ctx.config.x402.facilitatorUrl)) },
+        features: { agent: ctx.config.agent.anthropicApiKey !== null && ctx.config.agent.model !== null, stablefx: ctx.config.stablefxApiKey !== null, x402: ctx.config.x402.payTo !== null, x402Settlement: ctx.config.x402.facilitatorUrl !== null && (ctx.config.circle.apiKey !== null || !/circle\.com/u.test(ctx.config.x402.facilitatorUrl)) },
       };
       res.status(body.status === "down" ? 503 : 200).json(body);
     });

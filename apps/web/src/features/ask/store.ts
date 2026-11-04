@@ -28,15 +28,36 @@ function storedThreads(): ThreadSummary[] {
   }
 }
 
+/** Text dropped into the composer without sending it (a quick tile, `?intent=`, "Ask Lyko /" from the Fold). */
+export interface Prefill {
+  readonly text: string;
+  readonly nonce: number;
+}
+
+export interface SendContext {
+  owner?: `0x${string}`;
+  environment: ArcEnvironment;
+  fence?: Fence;
+  /** Where the message was written: Ask Lyko (default) or Lyko on watch in the Fold. Both write to the same thread. */
+  origin?: "ask" | "fold";
+}
+
 interface AskState {
   readonly pending: string | null;
+  readonly prefill: Prefill | null;
+  /** Context carried from the Fold into the next message (an insight, a Herding item); sent once. */
+  readonly context: string | null;
   readonly convo: Conversation;
   readonly status: "idle" | "streaming" | "error";
   readonly threads: readonly ThreadSummary[];
   readonly abort: AbortController | null;
   begin(text: string): void;
   takePending(): string | null;
-  send(text: string, ctx: { owner?: `0x${string}`; environment: ArcEnvironment; fence?: Fence }): Promise<void>;
+  send(text: string, ctx: SendContext): Promise<void>;
+  setPrefill(text: string): void;
+  carry(context: string | null): void;
+  /** A thread the server opened outside a chat turn (a Fold answer): keep the conversation, take its id. */
+  adopt(threadId: string, title: string): void;
   stop(): void;
   fresh(): void;
   openThread(id: string): void;
@@ -44,11 +65,23 @@ interface AskState {
 
 export const useAsk = create<AskState>()((set, get) => ({
   pending: null,
+  prefill: null,
+  context: null,
   convo: EMPTY,
   status: "idle",
   threads: storedThreads(),
   abort: null,
   begin: (text) => set({ pending: text }),
+  setPrefill: (text) => set({ prefill: { text, nonce: (get().prefill?.nonce ?? 0) + 1 } }),
+  carry: (context) => set({ context }),
+  adopt: (threadId, title) => {
+    if (get().convo.threadId) return;
+    set({ convo: { ...get().convo, threadId } });
+    const entry: ThreadSummary = { id: threadId, title: titleOf(title), at: Date.now() };
+    const threads = [entry, ...get().threads.filter((t) => t.id !== threadId)].slice(0, 40);
+    writeStorage(THREADS_KEY, JSON.stringify(threads));
+    set({ threads });
+  },
   takePending: () => {
     const p = get().pending;
     if (p) set({ pending: null });
@@ -58,10 +91,11 @@ export const useAsk = create<AskState>()((set, get) => ({
     get().abort?.abort();
     const controller = new AbortController();
     const start = get().convo;
-    set({ convo: { ...start, messages: [...start.messages, userMessage(text), assistantDraft()] }, status: "streaming", abort: controller });
+    const context = get().context;
+    set({ convo: { ...start, messages: [...start.messages, userMessage(text), assistantDraft()] }, status: "streaming", abort: controller, context: null });
     try {
       await streamChat(
-        { message: text, environment: ctx.environment, ...(ctx.owner ? { owner: ctx.owner } : {}), ...(start.threadId ? { threadId: start.threadId } : {}), ...(ctx.fence ? { fence: ctx.fence } : {}) },
+        { message: text, environment: ctx.environment, ...(ctx.owner ? { owner: ctx.owner } : {}), ...(start.threadId ? { threadId: start.threadId } : {}), ...(ctx.fence ? { fence: ctx.fence } : {}), ...(ctx.origin ? { origin: ctx.origin } : {}), ...(context ? { context: context.slice(0, 1000) } : {}) },
         (event) => set({ convo: reduce(get().convo, event) }),
         controller.signal,
       );

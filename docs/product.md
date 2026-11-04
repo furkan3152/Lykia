@@ -60,32 +60,87 @@ Other problems:
 
 ### After
 
-Five primary areas. Each label is a metaphor with a short plain subtitle
-under it ("Flock · portfolio"), and each area has a short tab row under the
-header (metaphor first, plain word beside it). Everything lives in
+Three primary areas. If the agent can do something, there is no separate
+manual page for it: people come to Lykia so they do not have to do it by
+hand. Each label is a metaphor with a plain subtitle. Everything lives in
 `apps/web/src/shell/nav.ts` and is tested in
-`apps/web/src/shell/__tests__/nav.test.ts`: at most five areas, every route
-placed exactly once, a plain subtitle for every metaphor, page titles that
-match the labels, and every link resolving to its page.
+`apps/web/src/shell/__tests__/nav.test.ts`: exactly three areas, every route
+placed exactly once, no manual page for agent work in any menu, and every old
+address redirecting.
 
 ```
-ASK LYKO · assistant      Ask Lyko                              /app  (a plan: /app/outrun/:id)
-FLOCK · portfolio         Flock · Move · Pastures · What-if     /app/flock, /app/move, /app/pastures, /app/whatif
-FENCE · rules             Fence · Pack · Tag · Scent · Watch    /app/fence, /app/pack, /app/tag, /app/scent, /app/security
-HERDING · orders and automations
-                          Orders · Rounds · Barks · Tracks      /app/orders, /app/automations, /app/alerts, /app/activity
-THE MINT · build          The Mint · The League · Harbour · Circle · Ledger
-                                                                /mint/:section, /league (+ /league/:city), /ecosystem, /app/circle, /stats
+ASK LYKO · your agent        /app                 every action: send, convert, earn, borrow, bridge,
+                                                  orders, automations, the goal compiler (a plan: /app/outrun/:id)
+THE FOLD · everything you own and everything in motion
+                             /app/fold/:tab       Flock · holdings, Trails · activity, Herding · instructions,
+                                                  Pack · agents, Fence · rules, and Lyko on watch docked beside them
+THE MINT · build             /mint/:section       The Mint · The League · Harbour · Circle · Ledger
 
-Avatar menu   Settings · Memory (their own tab row) │ More: Perps markets · New pools · Notice and risks │ Team: Letoon (admins only)
-Footer        Product (the five areas) │ Proof (the League, stats, ecosystem, mainnet flows, self-review, source) │ More
+Avatar menu   Your Lyko (preferences, voice and look, memory) │ More: Perps markets · New pools · Notice and risks │ Team: Letoon (admins only)
+Inside areas  an agent (/app/pack/:id), a Tag, a token check, the watch and the yields, reached from the Fold
+Redirected    /app/move/:tab → /app?intent=… │ /app/flock → Fold · Flock │ /app/orders, /alerts, /automations → Fold · Herding
+              /app/activity → Fold · Trails │ /app/whatif → Fold · Flock (what-if open) │ /app/fence → Fold · Fence │ /app/memory → Your Lyko
+              A ?draft= or ?edit= link still opens the old form: it is the "edit the details" step of something Lyko drafted.
 Unlisted      /pay/:id (payment links), /kit, /lykaion, 404
-Aliases       /build and /developers → /mint (old tabs and hashes land on their section), /owner → /letoon
+Aliases       /build and /developers → /mint, /owner → /letoon
 City mode     <slug>.<root domain>, /c/<slug>, ?city=<slug> or a verified custom domain: the city's own shell
 ```
 
-The phone shows the five areas as a one-row bottom bar (the metaphor and one
-plain word under it, 44 px targets or more); modals become bottom sheets.
+Ask Lyko's quick-action tiles ("Pay someone", "Put idle USDC to work", "Hedge
+into EUR", "Set a rule", "New agent") drop an intent into the composer; they
+never open a form and never send on their own.
+
+### The Fold
+
+A two-column workspace: the Fold bar and five tabs on the left (keys 1 to
+5), **Lyko on watch** docked on the right.
+
+- **Fold bar.** Net worth with rolling digits (only changed digits roll), the
+  allocation as a strip of tesserae by venue type, today's Fence headroom
+  (spent against the Fence's daily cap and the beta cap), one line of counts
+  ("3 rules running · 1 order waiting · 2 agents working") and two buttons:
+  Ask Lyko (`/`) and the Whistle.
+- **Flock · holdings.** The pasture (holdings as tiles sized by value, grouped
+  by venue), a what-if slider on the same shock model the assistant answers
+  with (`applyFoldShocks` in `@lykia/core`), and the holdings table, where each
+  row offers one assistant action that drafts through the proposal system.
+- **Trails · activity.** Settled steps with their Arc Memo, Fence verdict and
+  digest and the fee, plans, failed and refused attempts, orders, alerts and
+  proposal transitions, with filters, beside a yield and fees explanation the
+  server writes as a structured artifact.
+- **Herding · instructions.** One list of every standing instruction
+  (automations, standing orders and recurring payments, alerts, agent
+  automations, LykiaOrders orders) with status, next run, last result and the
+  expected Fence verdict, pause and resume, and edit via Lyko. Above it, the
+  drafts waiting for a signature: what automations and insights produce lands
+  here instead of vanishing.
+- **Pack · agents.** Budget meters, Tags, what each agent may do and a Whistle
+  per agent. New agents are made by asking Lyko.
+- **Fence · rules.** The Fence in plain words, the headroom, the recent
+  refusals with their reasons, and Fence edits Lyko proposes. Tightening
+  applies at once; loosening needs the owner's wallet signature.
+- **Lyko on watch.** Its first message comes from server-side, deterministic
+  insights (`GET /v1/fold/insights/:address`, also the Lyko tool
+  `get_insights`): each has a title, a plain explanation, the figures behind a
+  "Why?", a severity and an optional one-tap draft. Drafts go through the
+  proposal store (`/v1/fold/proposals`, lifecycle proposed → approved → done or
+  stopped, a 30-day feed, an audit entry for each move), and an insight acted
+  on is marked handled until its condition changes. The chat is the same server
+  thread as Ask Lyko; follow-up chips are answered from live reads and written
+  to that thread; "Open in Ask Lyko" carries the insight as context. A short
+  "new since" brief appears when something changed since the last visit.
+
+**Your Lyko** (`/app/you`) is the preferences page the memory never had: risk
+profile, liquidity floor, target mix with a band, gas floor, which insights to
+show and how to be told, the reply language and the Fold's own layout (tabs
+and bar cards, shown, hidden and ordered). Each setting says what it changes.
+They live on the server (`GET/PUT /v1/me/preferences`); the risk profile is
+written through to the profile, so the default Fence follows it everywhere.
+
+The phone shows the three areas as a bottom bar (Ask · Fold · Mint, with
+Lyko's badge on the Fold). In the Fold the bar condenses into one card, the
+tabs become a chip row, Lyko becomes a tab of its own, drafts open as bottom
+sheets and an "Ask Lyko" bar stays within thumb reach. Targets are 44 px or more.
 
 ### The League, The Mint and Letoon
 

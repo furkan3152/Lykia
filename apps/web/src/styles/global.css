@@ -1,5 +1,7 @@
 @import "./fonts.css";
 @import "./mosaic.css";
+@import "./fold.css";
+@import "./city-desk.css";
 
 @tailwind base;
 @tailwind components;

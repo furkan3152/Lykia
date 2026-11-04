@@ -24,6 +24,17 @@ import { Sheet } from "./Sheet";
 
 type Tab = "agents" | "activity" | "whistle";
 
+/** Shown, labelled "sample", before a wallet is connected. */
+const sampleAgent = (id: string, name: string, role: PackAgentView["role"], cap: string, spent: string, tag?: string) =>
+  ({ id, name, role, status: "active", depth: 0, agentId: tag, fenceHash: "sha256:0000000000000000", fence: { caps: { dailyUsd: cap } }, budget: { caps: { dailyUsd: cap }, allocated: {}, free: {}, spent: { dayUsd: spent, weekUsd: spent } } }) as unknown as PackAgentView;
+const SAMPLE_AGENTS: readonly PackAgentView[] = [sampleAgent("s1", "Payroll", "payroll", "250", "120", "1842"), sampleAgent("s2", "Yield keeper", "yield-keeper", "250", "214"), sampleAgent("s3", "Bill payer", "bill-payer", "100", "18")];
+const SAMPLE_FEED = [
+  { id: "f1", kind: "plan", at: "Nov 4, 09:12", what: "Payroll · 4 payouts" },
+  { id: "f2", kind: "verdict", at: "Nov 4, 09:12", what: "allow · inside budget" },
+  { id: "f3", kind: "blocked", at: "Nov 4, 08:30", what: "Yield keeper · over cap" },
+  { id: "f4", kind: "submit", at: "Nov 3, 17:05", what: "Bill payer · electricity" },
+];
+
 const TABS: readonly CityTab<Tab>[] = [
   { id: "agents", label: "Agents", icon: "agents" },
   { id: "activity", label: "Activity", icon: "list" },
@@ -98,8 +109,16 @@ export function AgentsShell({ city, home }: { readonly city: LeagueCity; readonl
         <button type="button" className="ct-whistle__btn ct-wide-only" onClick={() => setConfirm(true)}><PixelIcon name="whistle" size={16} />{whistle ? "RELEASE" : "WHISTLE"}</button>
       </div>
       {tab === "agents" ? (
-        !owner ? (
-          <EmptyState mood="happy" title="Connect a wallet to meet your agents">{"Each agent gets a budget carved from yours and a Fence inside your Fence."}</EmptyState>
+        <div className="ctd-ag">
+        <div className="ctd-ag__main">
+        {!owner ? (
+          <>
+            <EmptyState mood="happy" title="Connect a wallet to meet your agents">{"Each agent gets a budget carved from yours and a Fence inside your Fence."}</EmptyState>
+            <div className="ct-desk-only">
+              <div className="ctd-samplehead ctd-samplehead--row"><Tag tone="ochre">{"SAMPLE"}</Tag><span className="m-small m-muted">{"What your agents look like here once you have some."}</span></div>
+              <ul className="ct-agents">{SAMPLE_AGENTS.map((a) => <AgentCard key={a.id} agent={a} />)}</ul>
+            </div>
+          </>
         ) : agents.isLoading ? (
           <div className="ct-agents">{[0, 1, 2].map((i) => <Skeleton key={i} h={170} />)}</div>
         ) : list.length === 0 ? (
@@ -114,7 +133,29 @@ export function AgentsShell({ city, home }: { readonly city: LeagueCity; readonl
           </div>
         ) : (
           <ul className="ct-agents">{list.map((a) => <AgentCard key={a.id} agent={a} />)}</ul>
-        )
+        )}
+        </div>
+        <aside className="ctd-ag__side ct-desk-only" aria-label="Activity">
+          <section className="ct-card m-frame m-frame--thin">
+            <div className="ct-card__head"><h2>{"Today"}</h2><span className="m-kick">{owner ? "YOUR PACK" : "SAMPLE"}</span></div>
+            <dl className="ctd-today__grid">
+              <div><dt>{"Working"}</dt><dd className="num">{owner ? list.filter((a) => a.status === "active").length : 3}</dd></div>
+              <div><dt>{"Spent today"}</dt><dd className="num">{`$${(owner ? list.reduce((x, a) => x + Number(a.budget.spent.dayUsd || 0), 0) : 184.2).toFixed(2)}`}</dd></div>
+            </dl>
+            <Button onClick={() => setCreating(true)}>{"NEW AGENT"}</Button>
+          </section>
+          <section className="ct-card m-frame m-frame--thin ctd-ag__feed">
+            <div className="ct-card__head"><h2>{"Activity"}</h2><span className="m-kick">{siwe.signedIn ? "AUDIT LOG" : "SAMPLE"}</span></div>
+            <ul className="ct-list">
+              {(siwe.signedIn ? [...(audit.data?.entries ?? [])].reverse().slice(0, 8).map((e) => ({ id: String(e.seq), kind: e.kind, at: new Date(e.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }), what: e.subject.slice(0, 22) })) : SAMPLE_FEED).map((e) => (
+                <li key={e.id}><span className={`ct-dot ct-dot--${e.kind === "blocked" || e.kind === "halt" ? "bad" : "invoice"}`} aria-hidden="true" /><div className="ct-list__t"><b>{e.kind}</b><span className="m-small m-muted">{`${e.at} · ${e.what}`}</span></div></li>
+              ))}
+            </ul>
+            {siwe.signedIn && (audit.data?.entries ?? []).length === 0 ? <p className="m-small m-muted">{"Nothing recorded yet. Every plan, verdict and stop lands here."}</p> : null}
+            {!siwe.signedIn ? <Button size="sm" tone="ghost" onClick={() => void siwe.signIn()} disabled={siwe.busy || !owner}>{owner ? "SIGN IN FOR YOURS" : "CONNECT A WALLET"}</Button> : null}
+          </section>
+        </aside>
+        </div>
       ) : (
         <section className="ct-card m-frame m-frame--thin" aria-labelledby="ag-activity">
           <div className="ct-card__head"><h2 id="ag-activity">{"Decisions"}</h2><span className="m-kick">{"HASH-CHAINED AUDIT LOG"}</span></div>

@@ -25,7 +25,7 @@ export interface LlmClient {
 
 export function anthropicClient(ctx: AppContext): LlmClient | null {
   const { anthropicApiKey, model } = ctx.config.agent;
-  if (!anthropicApiKey) return null;
+  if (!anthropicApiKey || !model) return null;
   const sdk = new Anthropic({ apiKey: anthropicApiKey, maxRetries: 2, timeout: 120_000 });
   return {
     model,

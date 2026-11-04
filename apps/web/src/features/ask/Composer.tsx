@@ -18,10 +18,16 @@ export interface ComposerProps {
   readonly initial?: string;
   /** Show memory chips ("again", "same as last week", "@") under the composer. */
   readonly memoryChips?: boolean;
+  /** Text to drop in (not send): applied whenever its nonce changes. */
+  readonly prefill?: { readonly text: string; readonly nonce: number } | null;
+  /** The small label above the text box. */
+  readonly meta?: string;
+  /** The send button's label. */
+  readonly sendLabel?: string;
 }
 
 /** Ask Lyko's composer: grows with the text, Enter sends, Shift+Enter breaks a line. */
-export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, className, morph = true, initial = "", memoryChips = false }: ComposerProps) {
+export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, className, morph = true, initial = "", memoryChips = false, prefill = null, meta, sendLabel }: ComposerProps) {
   const [text, setText] = useState(initial);
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const owner = useSession((st) => st.session?.address ?? null);
@@ -49,6 +55,20 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
   useEffect(() => {
     if (autoFocus) ref.current?.focus();
   }, [autoFocus]);
+  const prefillNonce = prefill?.nonce ?? 0;
+  const prefillText = prefill?.text ?? "";
+  useEffect(() => {
+    if (!prefillNonce) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- an outside request to fill the box (a quick tile, ?intent=)
+    setText(prefillText);
+    setCaret(prefillText.length);
+    requestAnimationFrame(() => {
+      const el = ref.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(prefillText.length, prefillText.length);
+    });
+  }, [prefillNonce, prefillText]);
   const send = () => {
     const line = text.trim();
     if (!line || busy) return;
@@ -59,7 +79,7 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
     <div className={cx("m-frame m-composer", morph && "vt-composer", className)}>
       <LykoFace mood={busy ? "herding" : text ? "alert" : "watching"} scale={1.8} />
       <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
-        <span className="m-composer__meta">{"ASK LYKO · SAY IT IN PLAIN WORDS"}</span>
+        <span className="m-composer__meta">{meta ?? "ASK LYKO · SAY IT IN PLAIN WORDS"}</span>
         <textarea
           ref={ref}
           rows={1}
@@ -119,7 +139,7 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
         </Button>
       ) : (
         <Button onClick={send} disabled={!text.trim()}>
-          {"PLAN IT"}
+          {sendLabel ?? "PLAN IT"}
         </Button>
       )}
     </div>

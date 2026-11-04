@@ -26,7 +26,8 @@ export function Header({ kind, routeId }: { readonly kind: RouteKind; readonly r
           {AREAS.map((area) => (
             <Link key={area.id} to={area.href} title={area.blurb} aria-current={area.id === current ? "page" : undefined}>
               <span className="m-nav__l">{area.label.toUpperCase()}</span>
-              <span className="m-nav__s">{area.sub}</span>
+              <span className="m-nav__s m-nav__s--long">{area.sub}</span>
+              <span className="m-nav__s m-nav__s--short">{area.short}</span>
             </Link>
           ))}
         </nav>

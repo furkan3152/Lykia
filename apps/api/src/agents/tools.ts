@@ -56,6 +56,7 @@ import { readSentence } from "../language/reader.js";
 import { compileIntent } from "../compiler/service.js";
 import { deliver } from "../compiler/deliver.js";
 import type { LlmTool } from "./llm.js";
+import { foldInsights } from "../fold/insights.js";
 
 export interface ActingAgent {
   readonly name: string;
@@ -155,6 +156,19 @@ export const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
     async run(_input, tc) {
       const snap = await services(tc.ctx).flock.snapshot(tc.environment, needOwner(tc));
       return { summary: `Flock read: total ${snap.totalUsd === null ? "partly unpriced" : `$${snap.totalUsd}`}, ${snap.holdings.length} holdings`, data: snap };
+    },
+  }),
+  spec({
+    name: "get_insights",
+    description: "Read what Lyko on watch noticed on the owner's Fold: idle USDC above the liquidity floor, health factors near the Fence floor, EURC drift from the target mix, runway for scheduled payments, open approvals, red-flag tokens, low gas, today's cap headroom, orders near their trigger, agents near their budget, unsettled steps and better low-risk rates. Each has figures and, when there is a sensible move, a draft sentence the owner can plan. Use it before suggesting portfolio moves; the Fold shows the same list.",
+    capability: "read",
+    schema: z.object({}).strict(),
+    json: obj({}),
+    async run(_input, tc) {
+      const owner = needOwner(tc);
+      const view = await foldInsights(tc.ctx, tc.environment, owner, tc.ownerVerified);
+      const open = view.insights.filter((i) => !i.handled);
+      return { summary: `${open.length} insight(s) on the Fold`, data: open.map((i) => ({ id: i.id, kind: i.kind, severity: i.severity, title: i.title, explain: i.explain, figures: i.figures, draft: i.draft?.sentence ?? null })) };
     },
   }),
   spec({

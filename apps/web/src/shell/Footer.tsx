@@ -1,6 +1,6 @@
 import { Link } from "../app/routes/Link";
 import { MeanderBand } from "../mosaic";
-import { AREAS, MORE } from "./nav";
+import { ACCOUNT, AREAS, MORE } from "./nav";
 
 const REPO = "https://github.com/furkan3152/Lykia";
 
@@ -12,7 +12,7 @@ export function Footer() {
         <div>
           <span className="m-footer__h">{"PRODUCT"}</span>
           {AREAS.map((a) => (
-            <Link key={a.id} to={a.href} title={a.blurb}>{`${a.label.toUpperCase()} · ${a.sub.toUpperCase()}`}</Link>
+            <Link key={a.id} to={a.href} title={a.blurb}>{`${a.label.toUpperCase()} · ${a.short.toUpperCase()}`}</Link>
           ))}
         </div>
         <div>
@@ -26,6 +26,9 @@ export function Footer() {
         </div>
         <div>
           <span className="m-footer__h">{"MORE"}</span>
+          {ACCOUNT.map((l) => (
+            <Link key={l.id} to={l.href}>{l.label.toUpperCase()}</Link>
+          ))}
           {MORE.map((l) => (
             <Link key={l.id} to={l.href}>{l.label.toUpperCase()}</Link>
           ))}

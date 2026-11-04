@@ -98,6 +98,10 @@ export interface ChatRequest {
   readonly environment?: ArcEnvironment;
   readonly threadId?: string;
   readonly fence?: Fence;
+  /** Where the message was written; the server records it on the shared thread. */
+  readonly origin?: "ask" | "fold";
+  /** Context carried from the Fold (an insight, a Herding item) when a conversation moves to Ask Lyko. */
+  readonly context?: string;
 }
 
 export interface ThreadMessage {
@@ -105,6 +109,8 @@ export interface ThreadMessage {
   readonly text: string;
   readonly at: string;
   readonly proposals?: readonly AgentProposal[];
+  /** Where it was written: Ask Lyko (default) or Lyko on watch in the Fold. Both share one thread. */
+  readonly origin?: "ask" | "fold";
 }
 
 export interface ThreadView {

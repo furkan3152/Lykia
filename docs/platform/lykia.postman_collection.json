@@ -5065,6 +5065,757 @@
       ]
     },
     {
+      "name": "Fold",
+      "item": [
+        {
+          "name": "Back to the default preferences",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/me/preferences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "me",
+                "preferences"
+              ]
+            },
+            "description": "Back to the default preferences\n\nAuth: session."
+          }
+        },
+        {
+          "name": "A structured explanation (yield and fees, a what-if, this week's runs, open approvals) as label, value and note lines",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fold/explain",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fold",
+                "explain"
+              ],
+              "query": [
+                {
+                  "key": "owner",
+                  "value": "",
+                  "disabled": false
+                },
+                {
+                  "key": "environment",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "question",
+                  "value": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "A structured explanation (yield and fees, a what-if, this week's runs, open approvals) as label, value and note lines\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Every proposal transition of the last 30 days",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fold/feed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fold",
+                "feed"
+              ],
+              "query": [
+                {
+                  "key": "owner",
+                  "value": "",
+                  "disabled": false
+                },
+                {
+                  "key": "environment",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Every proposal transition of the last 30 days\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Lyko on watch: deterministic insights for an address (idle USDC, health factor, FX drift, runway, approvals, red-flag tokens, gas, caps, orders, agent budgets, unsettled steps, better rates), each with the figures behind it and an optional one-tap draft. Signed in as the owner: preferences, handled flags and the morning brief apply.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fold/insights/:address",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fold",
+                "insights",
+                ":address"
+              ],
+              "query": [
+                {
+                  "key": "environment",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "address",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Lyko on watch: deterministic insights for an address (idle USDC, health factor, FX drift, runway, approvals, red-flag tokens, gas, caps, orders, agent budgets, unsettled steps, better rates), each with the figures behind it and an optional one-tap draft. Signed in as the owner: preferences, handled flags and the morning brief apply.\n\nAuth: public."
+          }
+        },
+        {
+          "name": "Herding: one list of every standing instruction (automations, standing orders and recurring payments, alerts, agent automations, LykiaOrders orders) with next run, last result and the expected Fence verdict, plus the proposals waiting for a signature",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fold/instructions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fold",
+                "instructions"
+              ],
+              "query": [
+                {
+                  "key": "owner",
+                  "value": "",
+                  "disabled": false
+                },
+                {
+                  "key": "environment",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Herding: one list of every standing instruction (automations, standing orders and recurring payments, alerts, agent automations, LykiaOrders orders) with next run, last result and the expected Fence verdict, plus the proposals waiting for a signature\n\nAuth: session."
+          }
+        },
+        {
+          "name": "The owner's proposals, newest first; plans that settled become done and plans that failed become stopped",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fold/proposals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fold",
+                "proposals"
+              ],
+              "query": [
+                {
+                  "key": "owner",
+                  "value": "",
+                  "disabled": false
+                },
+                {
+                  "key": "environment",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "The owner's proposals, newest first; plans that settled become done and plans that failed become stopped\n\nAuth: session."
+          }
+        },
+        {
+          "name": "The Fold bar: today's spend against the Fence's daily cap and the beta cap, and the counts of rules running, orders waiting, agents working and proposals waiting",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fold/summary/:address",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fold",
+                "summary",
+                ":address"
+              ],
+              "query": [
+                {
+                  "key": "environment",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "address",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "The Fold bar: today's spend against the Fence's daily cap and the beta cap, and the counts of rules running, orders waiting, agents working and proposals waiting\n\nAuth: public."
+          }
+        },
+        {
+          "name": "Trails: settled steps with their Arc Memo, Fence verdict and digest and fee; plans running; failed and refused attempts; orders, alerts and proposals",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fold/trails",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fold",
+                "trails"
+              ],
+              "query": [
+                {
+                  "key": "owner",
+                  "value": "",
+                  "disabled": false
+                },
+                {
+                  "key": "environment",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Trails: settled steps with their Arc Memo, Fence verdict and digest and fee; plans running; failed and refused attempts; orders, alerts and proposals\n\nAuth: session."
+          }
+        },
+        {
+          "name": "The shared shock model on the live Flock: EURC and cirBTC price moves (percent) and a lending rate change (bps), with health factors and one sentence",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fold/whatif/:address",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fold",
+                "whatif",
+                ":address"
+              ],
+              "query": [
+                {
+                  "key": "environment",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "eurc",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "btc",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "rates",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "address",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "The shared shock model on the live Flock: EURC and cirBTC price moves (percent) and a lending rate change (bps), with health factors and one sentence\n\nAuth: public."
+          }
+        },
+        {
+          "name": "Your Lyko: risk profile, liquidity floor, target mix, gas floor, insights and notifications, reply language and the Fold's layout, with the effect of each",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/me/preferences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "me",
+                "preferences"
+              ]
+            },
+            "description": "Your Lyko: risk profile, liquidity floor, target mix, gas floor, insights and notifications, reply language and the Fold's layout, with the effect of each\n\nAuth: session."
+          }
+        },
+        {
+          "name": "The owner's shared threads (Ask Lyko and Lyko on watch), newest first, with size, last line and origin",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/me/threads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "me",
+                "threads"
+              ]
+            },
+            "description": "The owner's shared threads (Ask Lyko and Lyko on watch), newest first, with size, last line and origin\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Answer a follow-up chip and write the exchange to the owner's shared thread",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fold/answer",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fold",
+                "answer"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"\",\n  \"question\": \"yield\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Answer a follow-up chip and write the exchange to the owner's shared thread\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Draft a proposal: from an insight (its server-side draft is used), a holding action or a chat sentence (planned under the owner's Fence with the fee and the beta cap), or a Fence edit. Nothing is signed.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fold/proposals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fold",
+                "proposals"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"\",\n  \"source\": {\n    \"kind\": \"insight\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Draft a proposal: from an insight (its server-side draft is used), a holding action or a chat sentence (planned under the owner's Fence with the fee and the beta cap), or a Fence edit. Nothing is signed.\n\nAuth: session."
+          }
+        },
+        {
+          "name": "The owner accepted or started signing a proposal (proposed → approved)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fold/proposals/:id/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fold",
+                "proposals",
+                ":id",
+                "approve"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "The owner accepted or started signing a proposal (proposed → approved)\n\nAuth: session."
+          }
+        },
+        {
+          "name": "A proposal finished (approved → done)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fold/proposals/:id/done",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fold",
+                "proposals",
+                ":id",
+                "done"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "A proposal finished (approved → done)\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Stop a proposal (its plan is stopped too)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fold/proposals/:id/stop",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fold",
+                "proposals",
+                ":id",
+                "stop"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Stop a proposal (its plan is stopped too)\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Mark the morning brief as seen: the next brief lists only what changed after now",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fold/seen",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fold",
+                "seen"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Mark the morning brief as seen: the next brief lists only what changed after now\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Update Your Lyko (partial; validated; the risk profile is written through to the profile)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/me/preferences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "me",
+                "preferences"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Update Your Lyko (partial; validated; the risk profile is written through to the profile)\n\nAuth: session."
+          }
+        }
+      ]
+    },
+    {
       "name": "Integrations",
       "item": [
         {

@@ -26,14 +26,19 @@ import { useLamp } from "../../lib/pulseStore";
 import { Button, LykoFace, LykoTile, MosaicCanvas, Seal, Tag, cx } from "../../mosaic";
 import { strip, STRIP_H, STRIP_W } from "../../mosaic/scenes";
 import { handleLine } from "../../shell/palette";
+import { useSession } from "../../lib/session";
+import type { ThreadSummaryView } from "@lykia/core/api/fold";
+import { mergeThreads } from "../../features/fold/model";
 
 const SAMPLE_OWNER = "0x000000000000000000000000000000000000dEaD" as const;
 
-const STARTERS = [
-  { en: "Earn yield", q: { en: "Put half my USDC to work", }, kick: "EARN · MORPHO · AAVE V4" },
-  { en: "Pay with a memo", q: { en: "Send 250 EURC to 0x4100000000000000000000000000000000009e for invoice 12", }, kick: "ARC MEMO · ONE TX" },
-  { en: "Hedge into EURC", q: { en: "Convert 200 USDC to EURC", }, kick: "FX · CHAINLINK BAND" },
-  { en: "Bridge to Base", q: { en: "Bridge 50 USDC to Base", }, kick: "CCTP V2 · FAST" },
+/** Quick actions: each drops an intent into the composer for you to finish. Nothing is sent until you press PLAN IT. */
+const QUICK = [
+  { en: "Pay someone", q: "Pay 250 USDC to ", kick: "ARC MEMO · ONE TX", hint: "Name, address or @contact, an amount, a note" },
+  { en: "Put idle USDC to work", q: "Put my idle USDC to work at low risk", kick: "EARN · MORPHO · AAVE V4", hint: "Keeps your liquidity floor in the wallet" },
+  { en: "Hedge into EUR", q: "Convert 200 USDC to EURC", kick: "FX · STABLEFX · BAND", hint: "Inside your Fence's FX band" },
+  { en: "Set a rule", q: "Every Friday at 17:00, pay ", kick: "HERDING · ROUNDS · ORDERS", hint: "Schedules, price triggers, alerts" },
+  { en: "New agent", q: "Create a payroll agent with a 500 USDC daily budget", kick: "PACK · FENCE · TAG", hint: "A budget carved from yours" },
 ] as const;
 
 function Bubble({ m, first }: { m: ChatMessage; first: boolean }) {
@@ -74,8 +79,9 @@ function Bubble({ m, first }: { m: ChatMessage; first: boolean }) {
         {(m.drafts ?? []).map((d, i) => (
           <div key={`d${i}`} className="m-note" role="status">
             <b>{d.kind === "alert" ? "Alert" : "Automation"}{d.saved ? " saved" : " drafted, not saved"}:</b> {d.label}
-            <div style={{ marginTop: 6 }}>
-              <Link to={d.href} className="m-btn m-btn--sm">{d.saved ? "MANAGE" : "REVIEW AND SAVE"}</Link>
+            {d.saved ? <span className="m-small"> {"I added this to your Fold."}</span> : null}
+            <div className="flex gap-2 flex-wrap" style={{ marginTop: 6 }}>
+              {d.saved ? <Link to={`/app/fold/herding?show=${d.kind === "alert" ? "alerts" : "rounds"}`} className="m-btn m-btn--sm">{"SEE IT IN HERDING"}</Link> : <Link to={d.href} className="m-btn m-btn--sm">{"REVIEW AND SAVE"}</Link>}
             </div>
           </div>
         ))}
@@ -105,7 +111,11 @@ export default function AskPage() {
   const night = fence.mode === "whistle";
   const lit = useLamp();
   const threadParam = useRouteParam("threadId");
-  const { convo, status, threads, send, stop, fresh, openThread, takePending } = useAsk();
+  const { convo, status, threads: localThreads, send, stop, fresh, openThread, takePending, prefill, setPrefill } = useAsk();
+  const session = useSession((st) => st.session);
+  const signedIn = Boolean(session && address && session.address.toLowerCase() === address.toLowerCase());
+  const serverThreads = useQuery({ queryKey: ["me-threads", session?.address, convo.threadId], enabled: signedIn, retry: false, staleTime: 15_000, queryFn: ({ signal }) => apiGet<{ threads: ThreadSummaryView[] }>("/v1/me/threads", { signal }) });
+  const threads = useMemo(() => mergeThreads(localThreads, serverThreads.data?.threads ?? []), [localThreads, serverThreads.data]);
   const [railOpen, setRailOpen] = useState(false);
   const [artifactClosed, setArtifactClosed] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -117,12 +127,18 @@ export default function AskPage() {
   useEffect(() => {
     if (started.current) return;
     started.current = true;
+    // /app?intent=…: an old page or a quick action asked for this; fill the composer, never send on its own.
+    const intent = new URLSearchParams(window.location.search).get("intent");
+    if (intent) {
+      setPrefill(intent.slice(0, 400));
+      navigate(window.location.pathname, { replace: true });
+    }
     const pending = takePending();
     if (pending) {
       if (threadParam) openThread(threadParam);
       void send(pending, ctx);
     } else if (threadParam) openThread(threadParam);
-  }, [takePending, send, ctx, threadParam, openThread]);
+  }, [takePending, send, ctx, threadParam, openThread, setPrefill]);
 
   // Questions asked from ⌘K while already here.
   const pendingLive = useAsk((s) => s.pending);
@@ -170,7 +186,7 @@ export default function AskPage() {
   const ask = (text: string) => {
     if (handleLine(text)) return;
     useAsk.getState().takePending();
-    void send(text, ctx);
+    void send(text, { ...ctx, origin: "ask" });
   };
   const empty = convo.messages.length === 0 && !serverThread.data;
   const firstUser = convo.messages.findIndex((m) => m.role === "user");
@@ -189,7 +205,7 @@ export default function AskPage() {
           {threads.map((t) => (
             <button key={t.id} type="button" className="m-thread" aria-current={t.id === convo.threadId} onClick={() => { openThread(t.id); navigate(`/app/ask/${encodeURIComponent(t.id)}`); setRailOpen(false); }}>
               {t.title}
-              <small>{new Date(t.at).toLocaleString()}</small>
+              <small>{t.origin === "fold" ? "FROM THE FOLD · " : ""}{new Date(t.at).toLocaleString()}</small>
             </button>
           ))}
         </div>
@@ -218,15 +234,18 @@ export default function AskPage() {
                 <LykoFace mood="happy" scale={3} className="mx-auto" />
                 <h1 className="m-title">{"What should your money do?"}</h1>
                 <p className="m-sub">{"Say the outcome in one sentence. Lykia plans it across Arc protocols and Circle rails, your Fence (your spending rules) checks every step, and you sign once."}</p>
-                <div className="m-starters">
-                  {STARTERS.map((s) => (
-                    <button key={s.en} type="button" className="m-starter" onClick={() => ask(s.q.en)}>
+                <div className="m-starters m-starters--quick" role="list" aria-label="Quick actions">
+                  {QUICK.map((s) => (
+                    <button key={s.en} type="button" role="listitem" className="m-starter" onClick={() => setPrefill(s.q)}>
                       <span className="m-kick">{s.kick}</span>
                       <b>{s.en}</b>
-                      <span className="m-small m-muted">{s.q.en}</span>
+                      <span className="m-small m-muted">{s.hint}</span>
                     </button>
                   ))}
                 </div>
+                <p className="m-small m-muted" style={{ marginTop: 14 }}>
+                  {"Everything you own and everything in motion lives in "}<Link to="/app/fold">{"The Fold"}</Link>{"; Lyko on watch keeps an eye on it there."}
+                </p>
               </div>
             ) : null}
             {serverThread.data && convo.messages.length === 0
@@ -253,7 +272,7 @@ export default function AskPage() {
         </div>
         <div className="m-convo__dock">
           <div className="m-convo__col">
-            <Composer onSubmit={ask} busy={status === "streaming"} onStop={stop} autoFocus memoryChips />
+            <Composer onSubmit={ask} busy={status === "streaming"} onStop={stop} autoFocus memoryChips prefill={prefill} />
             <p className="m-kick m-center" style={{ marginTop: 8 }}>{address ? ("LYKO ONLY PROPOSES · YOUR WALLET SIGNS") : "NO WALLET · DRY RUNS FOR A SAMPLE ADDRESS · CONNECT TO PLAN YOURS"}</p>
           </div>
         </div>

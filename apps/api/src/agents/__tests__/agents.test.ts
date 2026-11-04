@@ -131,7 +131,7 @@ describe("Lyko orchestration", () => {
     assert.ok(names.includes("task") && names.includes("tool") && names.includes("proposal") && names.includes("text"));
     // The specialist got its own tools only: no delegate, no ask_owner.
     const specialistCall = client.calls.find((c) => c.system.startsWith("You are Yield keeper"))!;
-    assert.deepEqual(specialistCall.tools.map((t) => t.name).sort(), ["compile_goal", "create_alert", "draft_automation", "draft_order", "fence", "flock", "knowledge", "outrun", "plan_intent", "prices", "scent", "search_routes", "venues"]);
+    assert.deepEqual(specialistCall.tools.map((t) => t.name).sort(), ["compile_goal", "create_alert", "draft_automation", "draft_order", "fence", "flock", "get_insights", "knowledge", "outrun", "plan_intent", "prices", "scent", "search_routes", "venues"]);
   });
 
   it("reads the Fence, the beta cap and the fee, and reports the fee behind a plan", async () => {
@@ -188,7 +188,10 @@ describe("Lyko orchestration", () => {
     const proposal = JSON.parse(/event: proposal\ndata: (.+)\n/u.exec(raw)?.[1] ?? "{}") as { attribution: unknown[]; title: string };
     assert.equal(proposal.attribution.length, 2);
     const threadId = JSON.parse(/event: thread\ndata: (.+)\n/u.exec(raw)?.[1] ?? "{}").threadId as string;
-    const thread = (await (await fetch(`${served.url}/v1/agent/threads/${encodeURIComponent(threadId)}?owner=${OWNER}`)).json()) as { messages: { role: string }[] };
+    const threadUrl = `${served.url}/v1/agent/threads/${encodeURIComponent(threadId)}?owner=${OWNER}`;
+    assert.equal((await fetch(threadUrl)).status, 401);
+    assert.equal((await fetch(threadUrl, { headers: { "lykia-session": issueToken(ctx, "0x1111111111111111111111111111111111111111").token } })).status, 403);
+    const thread = (await (await fetch(threadUrl, { headers: { "lykia-session": issueToken(ctx, OWNER).token } })).json()) as { messages: { role: string }[] };
     assert.deepEqual(thread.messages.map((m) => m.role), ["user", "assistant"]);
   });
 

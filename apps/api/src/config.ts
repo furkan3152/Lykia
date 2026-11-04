@@ -15,8 +15,6 @@ import { LOG_LEVELS, type LogLevel } from "./log.js";
 
 export const DEFAULT_PORT = 3002;
 export const DEV_WEB_ORIGINS = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5176", "http://localhost:4176"] as const;
-/** Default model for the Lyko agent. */
-export const DEFAULT_AGENT_MODEL = "claude-sonnet-5-5";
 
 /** Env var that overrides (prepends to) the RPC endpoints of each EVM network. */
 export const RPC_OVERRIDE_ENV: Readonly<Record<ArcNetworkKey, string>> = Object.freeze({
@@ -47,7 +45,8 @@ export interface Config {
   readonly sessionSecret: string | null;
   readonly agent: {
     readonly anthropicApiKey: string | null;
-    readonly model: string;
+    /** Model id for the Lyko agent, from LYKIA_AGENT_MODEL; null keeps the deterministic reader. */
+    readonly model: string | null;
     /** Upper bound on tool rounds per agent turn (orchestrator and each specialist). */
     readonly maxSteps: number;
     /** Output token budget per model call. */
@@ -330,7 +329,7 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
     sessionSecret: env.LYKIA_SESSION_SECRET ?? null,
     agent: Object.freeze({
       anthropicApiKey: env.ANTHROPIC_API_KEY ?? null,
-      model: env.LYKIA_AGENT_MODEL ?? DEFAULT_AGENT_MODEL,
+      model: env.LYKIA_AGENT_MODEL ?? null,
       maxSteps: env.LYKIA_AGENT_MAX_STEPS,
       maxTokens: env.LYKIA_AGENT_MAX_TOKENS,
     }),

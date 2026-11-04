@@ -1,0 +1,90 @@
+/*
+ * City shells on wide screens (901 px and up): layouts that use the whole
+ * viewport. Phones keep the task-first single column from mosaic.css.
+ */
+.ct-desk-only { display: block; }
+.ct-phone-only { display: none !important; }
+@media (max-width: 900px) {
+  .ct-desk-only { display: none !important; }
+  .ct-phone-only { display: grid !important; }
+}
+
+.ct-main { width: min(1320px, 100% - 48px); }
+.ct-top__in, .ct-foot { width: min(1320px, 100% - 48px); }
+@media (max-width: 900px) { .ct-main, .ct-top__in, .ct-foot { width: calc(100% - 32px); } }
+
+/* ------------------------------------------------------------- Pay */
+.ctd-pay { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.25fr); grid-template-areas: "bal today builder" "table table builder"; gap: 20px; align-items: stretch; }
+.ctd-pay__bal { grid-area: bal; align-content: start; }
+.ctd-today { grid-area: today; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ctd-builder { grid-area: builder; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ctd-table { grid-area: table; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ctd-today__grid { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ctd-today__grid div { padding: 10px 12px; background: #fffdf7; box-shadow: inset 0 0 0 2px var(--grout), inset 0 -3px 0 var(--city); min-width: 0; }
+.ctd-today__grid dt { font-family: Silkscreen, monospace; font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.ctd-today__grid dd { margin: 4px 0 0; font-family: "Pixelify Sans", monospace; font-size: 26px; line-height: 1; overflow-wrap: anywhere; }
+.ctd-today .ct-askbar { margin-top: auto; }
+.ctd-builder__in { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.ctd-chip { min-height: 36px; }
+.ctd-qr { margin: 0; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; align-items: center; padding: 14px; background: #fffdf7; box-shadow: inset 0 0 0 2px var(--grout); }
+.ctd-qr .ct-qr { width: 150px; }
+.ctd-qr figcaption { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ctd-qr figcaption b { font-family: "Pixelify Sans", monospace; font-size: 24px; }
+.ctd-qr figcaption span { overflow-wrap: anywhere; }
+.ctd-samplehead { display: inline-flex; align-items: center; gap: 10px; }
+.ctd-samplehead--row { display: flex; margin: 8px 0 12px; }
+.ctd-tbl td { vertical-align: middle; }
+.ctd-tbl .r { text-align: right; }
+.ctd-sample td { color: var(--ink-2); }
+@media (max-width: 1279px) {
+  .ctd-pay { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "bal builder" "today builder" "table table"; }
+}
+@media (min-width: 1280px) { .ctd-builder__in { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------------------------------------------------------- Agents */
+.ctd-ag { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+.ctd-ag__main { min-width: 0; display: grid; gap: 16px; align-content: start; }
+.ctd-ag__side { position: sticky; top: 90px; display: grid; gap: 16px; }
+.ctd-ag__side .ct-card .m-btn { width: 100%; }
+.ctd-ag .ct-agents { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
+@media (max-width: 1099px) { .ctd-ag { grid-template-columns: minmax(0, 1fr) 300px; } }
+@media (max-width: 900px) { .ctd-ag { grid-template-columns: minmax(0, 1fr); } }
+
+/* ----------------------------------------------------------- Perps */
+.ctc-hero { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 40px; align-items: center; padding: 28px 8px 8px; }
+.ctc-hero__coin { display: grid; place-items: center; padding: 18px; background: radial-gradient(circle, rgba(217, 164, 65, 0.22), transparent 70%); }
+.ctc-hero__text { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; min-width: 0; }
+.ctc-hero__text .m-title { text-align: left; }
+.ctc-hero__text .m-sub { text-align: left; margin: 0; }
+.ctc-note { max-width: 680px; }
+.ctc-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+.ctc-three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.ctc-two { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px; align-items: stretch; }
+.ctc-how, .ctc-road { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.ctc-how li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; color: var(--city); }
+.ctc-how li div, .ctc-road li div { display: grid; color: var(--ink); }
+.ctc-road li { position: relative; display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 12px; padding-bottom: 6px; }
+.ctc-road li i { width: 16px; height: 16px; margin-top: 3px; background: var(--lime); box-shadow: inset 0 0 0 2px var(--grout); }
+.ctc-road li[data-done="true"] i { background: var(--city); box-shadow: none; }
+.ctc-road li + li::before { content: ""; position: absolute; left: 7px; top: -12px; height: 14px; width: 2px; background: var(--grout); }
+.ctc-preview .m-table td, .ctc-preview .m-table th { padding-block: 10px; }
+.ctc-preview .r { text-align: right; }
+@media (max-width: 1099px) { .ctc-three { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ctc-three > :last-child { grid-column: 1 / -1; } .ctc-two { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 720px) {
+  .ctc-hero { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; gap: 12px; }
+  .ctc-hero__text { align-items: center; }
+  .ctc-hero__text .m-title, .ctc-hero__text .m-sub { text-align: center; }
+  .ctc-cta { justify-content: center; }
+  .ctc-three { grid-template-columns: minmax(0, 1fr); }
+  .ctc-three > :last-child { grid-column: auto; }
+  .ctc-preview { overflow-x: auto; }
+  .ctc-cta .m-btn { min-height: 44px; }
+}
+.ctd-steps { margin-top: auto; max-width: none; }
+.ctd-ag__main .ct-desk-only .ct-agent { animation: none; opacity: 0.92; }
+.ct:not(.ct--tabs) .ct-top__act { grid-column: 3; }
+@media (max-width: 900px) { .ct:not(.ct--tabs) .ct-top__act { grid-column: 2; } }
+.ctc-three .lg-list { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
+.ctc-three .lg-list li { margin: 0; padding: 0; }
+.ctc-three .lg-card__mods { align-items: flex-start; margin: 0; }
+.ctc-three .ct-card { align-content: start; }

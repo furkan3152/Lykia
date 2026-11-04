@@ -31,8 +31,11 @@ portfolio"). The navigation lives in `apps/web/src/shell/nav.ts` (see
 
 | Word | Meaning | In the UI |
 |---|---|---|
-| Ask Lyko | The assistant: say the outcome, get a checked plan. | Ask Lyko · assistant |
-| Flock | Everything the owner holds on Arc. | Flock · portfolio |
+| Ask Lyko | Your agent: say the outcome, get a checked plan. Every action happens here. | Ask Lyko · your agent |
+| The Fold | Everything the owner holds and everything in motion, with Lyko on watch beside it. | The Fold · everything you own and everything in motion |
+| Lyko on watch | The portfolio assistant docked in the Fold: it proposes, you sign. | Lyko on watch · proposes, you sign |
+| Your Lyko | How Lyko decides, speaks and remembers for the owner. | Your Lyko · preferences and memory |
+| Flock | Everything the owner holds on Arc (a tab of the Fold). | Flock · holdings |
 | Pastures | Where stablecoins earn: lending markets and vaults. | Pastures · yields |
 | Fence | The rules around an agent or an owner. | Fence · rules |
 | Pack | The owner's agents and sub-agents (pups). | Pack · agents |
@@ -40,10 +43,10 @@ portfolio"). The navigation lives in `apps/web/src/shell/nav.ts` (see
 | Scent | What can be proven about a token before anyone touches it. | Scent · token check |
 | Watch | The six security layers between a plan and the wallet. | Watch · security |
 | Whistle | The emergency stop: stops every new risk. Moves that bring value home still pass. | Whistle (the kill switch) |
-| Herding | Standing instructions: orders, automations, alerts and the activity trail. | Herding · orders and automations |
-| Rounds, Barks, Tracks | Automations, alerts and the activity trail. | Rounds · automations, Barks · alerts, Tracks · activity |
+| Herding | Every standing instruction, and the drafts waiting for a signature (a tab of the Fold). | Herding · instructions |
+| Trails | The timeline of everything that happened (a tab of the Fold). | Trails · activity |
+| Rounds, Barks | Automations and alerts, as Herding labels them. | Rounds · automations, Barks · alerts |
 | Outrun | The path of a plan, drawn as an arc. | Outrun · plan |
-| Fold | Where the money ends up when the plan is done. | "where the money ends up" |
 | The Mint | The developer portal, where builders strike projects. | The Mint · build |
 | League | Lykia's products and approved community apps, shown together. | The League · Lykia's cities |
 | City | One product of the League: a real project with its own brand, modules and Fence caps. | "city" |

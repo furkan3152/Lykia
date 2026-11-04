@@ -93,6 +93,9 @@
       "name": "Flock"
     },
     {
+      "name": "Fold"
+    },
+    {
       "name": "Integrations"
     },
     {
@@ -14920,6 +14923,2368 @@
         "x-lykia-auth": "public",
         "security": [
           {},
+          {
+            "LykiaKey": []
+          }
+        ]
+      }
+    },
+    "/v1/fold/answer": {
+      "post": {
+        "operationId": "postFoldAnswer",
+        "summary": "Answer a follow-up chip and write the exchange to the owner's shared thread",
+        "tags": [
+          "Fold"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "threadId": {
+                      "type": "string"
+                    },
+                    "question": {
+                      "type": "string"
+                    },
+                    "reply": {
+                      "type": "string"
+                    },
+                    "artifact": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "yield",
+                            "whatif",
+                            "week",
+                            "approvals"
+                          ]
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "summary": {
+                          "type": "string"
+                        },
+                        "lines": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string"
+                              },
+                              "value": {
+                                "type": "string"
+                              },
+                              "note": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "value",
+                              "note"
+                            ]
+                          }
+                        },
+                        "sources": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "at": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "title",
+                        "summary",
+                        "lines",
+                        "sources",
+                        "at"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "threadId",
+                    "question",
+                    "reply",
+                    "artifact"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "owner": {
+                    "type": "string"
+                  },
+                  "environment": {
+                    "type": "string",
+                    "enum": [
+                      "mainnet",
+                      "testnet"
+                    ]
+                  },
+                  "question": {
+                    "type": "string",
+                    "enum": [
+                      "yield",
+                      "whatif",
+                      "week",
+                      "approvals"
+                    ]
+                  },
+                  "threadId": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "shocks": {
+                    "type": "object",
+                    "properties": {
+                      "EURC": {
+                        "type": "number",
+                        "minimum": -90,
+                        "maximum": 90,
+                        "default": 0
+                      },
+                      "cirBTC": {
+                        "type": "number",
+                        "minimum": -90,
+                        "maximum": 90,
+                        "default": 0
+                      },
+                      "ratesBps": {
+                        "type": "integer",
+                        "minimum": -1000,
+                        "maximum": 1000,
+                        "default": 0
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "owner",
+                  "question"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/fold/explain": {
+      "get": {
+        "operationId": "getFoldExplain",
+        "summary": "A structured explanation (yield and fees, a what-if, this week's runs, open approvals) as label, value and note lines",
+        "tags": [
+          "Fold"
+        ],
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mainnet",
+                "testnet"
+              ]
+            }
+          },
+          {
+            "name": "question",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "yield",
+                "whatif",
+                "week",
+                "approvals"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "yield",
+                        "whatif",
+                        "week",
+                        "approvals"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "summary": {
+                      "type": "string"
+                    },
+                    "lines": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "label": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "string"
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "label",
+                          "value",
+                          "note"
+                        ]
+                      }
+                    },
+                    "sources": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "at": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "title",
+                    "summary",
+                    "lines",
+                    "sources",
+                    "at"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ]
+      }
+    },
+    "/v1/fold/feed": {
+      "get": {
+        "operationId": "getFoldFeed",
+        "summary": "Every proposal transition of the last 30 days",
+        "tags": [
+          "Fold"
+        ],
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mainnet",
+                "testnet"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ]
+      }
+    },
+    "/v1/fold/insights/{address}": {
+      "get": {
+        "operationId": "getFoldInsightsByAddress",
+        "summary": "Lyko on watch: deterministic insights for an address (idle USDC, health factor, FX drift, runway, approvals, red-flag tokens, gas, caps, orders, agent budgets, unsettled steps, better rates), each with the figures behind it and an optional one-tap draft. Signed in as the owner: preferences, handled flags and the morning brief apply.",
+        "tags": [
+          "Fold"
+        ],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mainnet",
+                "testnet"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "owner": {
+                      "type": "string"
+                    },
+                    "environment": {
+                      "type": "string"
+                    },
+                    "at": {
+                      "type": "string"
+                    },
+                    "insights": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "idle-usdc",
+                              "health-factor",
+                              "fx-drift",
+                              "runway",
+                              "approval-hygiene",
+                              "scent-warning",
+                              "gas-floor",
+                              "beta-headroom",
+                              "order-near-trigger",
+                              "agent-budget",
+                              "unsettled",
+                              "yield-change"
+                            ]
+                          },
+                          "severity": {
+                            "type": "string",
+                            "enum": [
+                              "info",
+                              "watch",
+                              "act"
+                            ]
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "explain": {
+                            "type": "string"
+                          },
+                          "figures": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "label": {
+                                  "type": "string"
+                                },
+                                "value": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "label",
+                                "value"
+                              ]
+                            }
+                          },
+                          "draft": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "label": {
+                                "type": "string"
+                              },
+                              "sentence": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "sentence"
+                            ]
+                          },
+                          "handled": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind",
+                          "severity",
+                          "title",
+                          "explain",
+                          "figures",
+                          "draft",
+                          "handled"
+                        ]
+                      }
+                    },
+                    "brief": {
+                      "type": "object",
+                      "properties": {
+                        "since": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lines": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "since",
+                        "lines"
+                      ]
+                    },
+                    "personal": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "owner",
+                    "environment",
+                    "at",
+                    "insights",
+                    "brief",
+                    "personal"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "public",
+        "security": [
+          {},
+          {
+            "LykiaKey": []
+          }
+        ]
+      }
+    },
+    "/v1/fold/instructions": {
+      "get": {
+        "operationId": "getFoldInstructions",
+        "summary": "Herding: one list of every standing instruction (automations, standing orders and recurring payments, alerts, agent automations, LykiaOrders orders) with next run, last result and the expected Fence verdict, plus the proposals waiting for a signature",
+        "tags": [
+          "Fold"
+        ],
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mainnet",
+                "testnet"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "owner": {
+                      "type": "string"
+                    },
+                    "at": {
+                      "type": "string"
+                    },
+                    "instructions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "source": {
+                            "type": "string"
+                          },
+                          "sourceLabel": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "trigger": {
+                            "type": "string"
+                          },
+                          "nextRunAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "nextRunLabel": {
+                            "type": "string"
+                          },
+                          "lastRunAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "lastResult": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "controllable": {
+                            "type": "boolean"
+                          },
+                          "editSentence": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "source",
+                          "sourceLabel",
+                          "name",
+                          "status",
+                          "trigger",
+                          "nextRunAt",
+                          "nextRunLabel",
+                          "lastRunAt",
+                          "lastResult",
+                          "controllable",
+                          "editSentence"
+                        ]
+                      }
+                    },
+                    "waiting": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "owner": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "proposed",
+                              "approved",
+                              "done",
+                              "stopped"
+                            ]
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "sentence": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "intentId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "decision": {
+                            "type": "string"
+                          },
+                          "reasons": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "steps": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "owner",
+                          "status",
+                          "title",
+                          "sentence",
+                          "intentId",
+                          "decision",
+                          "reasons",
+                          "steps"
+                        ]
+                      }
+                    },
+                    "counts": {
+                      "type": "object",
+                      "properties": {
+                        "running": {
+                          "type": "number"
+                        },
+                        "paused": {
+                          "type": "number"
+                        },
+                        "ordersWaiting": {
+                          "type": "number"
+                        },
+                        "waitingSignature": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "running",
+                        "paused",
+                        "ordersWaiting",
+                        "waitingSignature"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "owner",
+                    "at",
+                    "instructions",
+                    "waiting",
+                    "counts"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ]
+      }
+    },
+    "/v1/fold/proposals": {
+      "get": {
+        "operationId": "getFoldProposals",
+        "summary": "The owner's proposals, newest first; plans that settled become done and plans that failed become stopped",
+        "tags": [
+          "Fold"
+        ],
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mainnet",
+                "testnet"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "proposed",
+                "approved",
+                "done",
+                "stopped"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "proposals": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "owner": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "proposed",
+                              "approved",
+                              "done",
+                              "stopped"
+                            ]
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "sentence": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "intentId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "decision": {
+                            "type": "string"
+                          },
+                          "reasons": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "steps": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "owner",
+                          "status",
+                          "title",
+                          "sentence",
+                          "intentId",
+                          "decision",
+                          "reasons",
+                          "steps"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "proposals"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postFoldProposals",
+        "summary": "Draft a proposal: from an insight (its server-side draft is used), a holding action or a chat sentence (planned under the owner's Fence with the fee and the beta cap), or a Fence edit. Nothing is signed.",
+        "tags": [
+          "Fold"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "owner": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "proposed",
+                        "approved",
+                        "done",
+                        "stopped"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "sentence": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "intentId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "decision": {
+                      "type": "string"
+                    },
+                    "reasons": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "steps": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "owner",
+                    "status",
+                    "title",
+                    "sentence",
+                    "intentId",
+                    "decision",
+                    "reasons",
+                    "steps"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "owner": {
+                    "type": "string"
+                  },
+                  "environment": {
+                    "type": "string",
+                    "enum": [
+                      "mainnet",
+                      "testnet"
+                    ]
+                  },
+                  "source": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "insight",
+                          "chat",
+                          "fence",
+                          "holding"
+                        ]
+                      },
+                      "ref": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 120,
+                        "default": null
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  "sentence": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 400
+                  },
+                  "fencePatch": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  },
+                  "fence": {}
+                },
+                "required": [
+                  "owner",
+                  "source"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/fold/proposals/{id}/approve": {
+      "post": {
+        "operationId": "postFoldProposalsByIdApprove",
+        "summary": "The owner accepted or started signing a proposal (proposed → approved)",
+        "tags": [
+          "Fold"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^0x[0-9a-f]{40}:prp_[0-9a-f]{12}$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "owner": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "proposed",
+                        "approved",
+                        "done",
+                        "stopped"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "sentence": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "intentId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "decision": {
+                      "type": "string"
+                    },
+                    "reasons": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "steps": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "owner",
+                    "status",
+                    "title",
+                    "sentence",
+                    "intentId",
+                    "decision",
+                    "reasons",
+                    "steps"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "owner": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "owner"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/fold/proposals/{id}/done": {
+      "post": {
+        "operationId": "postFoldProposalsByIdDone",
+        "summary": "A proposal finished (approved → done)",
+        "tags": [
+          "Fold"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^0x[0-9a-f]{40}:prp_[0-9a-f]{12}$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "owner": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "proposed",
+                        "approved",
+                        "done",
+                        "stopped"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "sentence": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "intentId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "decision": {
+                      "type": "string"
+                    },
+                    "reasons": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "steps": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "owner",
+                    "status",
+                    "title",
+                    "sentence",
+                    "intentId",
+                    "decision",
+                    "reasons",
+                    "steps"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "owner": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "owner"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/fold/proposals/{id}/stop": {
+      "post": {
+        "operationId": "postFoldProposalsByIdStop",
+        "summary": "Stop a proposal (its plan is stopped too)",
+        "tags": [
+          "Fold"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^0x[0-9a-f]{40}:prp_[0-9a-f]{12}$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "owner": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "proposed",
+                        "approved",
+                        "done",
+                        "stopped"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "sentence": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "intentId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "decision": {
+                      "type": "string"
+                    },
+                    "reasons": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "steps": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "owner",
+                    "status",
+                    "title",
+                    "sentence",
+                    "intentId",
+                    "decision",
+                    "reasons",
+                    "steps"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "owner": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "owner"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/fold/seen": {
+      "post": {
+        "operationId": "postFoldSeen",
+        "summary": "Mark the morning brief as seen: the next brief lists only what changed after now",
+        "tags": [
+          "Fold"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "at": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "at"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "owner": {
+                    "type": "string"
+                  },
+                  "environment": {
+                    "type": "string",
+                    "enum": [
+                      "mainnet",
+                      "testnet"
+                    ]
+                  }
+                },
+                "required": [
+                  "owner"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/fold/summary/{address}": {
+      "get": {
+        "operationId": "getFoldSummaryByAddress",
+        "summary": "The Fold bar: today's spend against the Fence's daily cap and the beta cap, and the counts of rules running, orders waiting, agents working and proposals waiting",
+        "tags": [
+          "Fold"
+        ],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mainnet",
+                "testnet"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "public",
+        "security": [
+          {},
+          {
+            "LykiaKey": []
+          }
+        ]
+      }
+    },
+    "/v1/fold/trails": {
+      "get": {
+        "operationId": "getFoldTrails",
+        "summary": "Trails: settled steps with their Arc Memo, Fence verdict and digest and fee; plans running; failed and refused attempts; orders, alerts and proposals",
+        "tags": [
+          "Fold"
+        ],
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mainnet",
+                "testnet"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ]
+      }
+    },
+    "/v1/fold/whatif/{address}": {
+      "get": {
+        "operationId": "getFoldWhatifByAddress",
+        "summary": "The shared shock model on the live Flock: EURC and cirBTC price moves (percent) and a lending rate change (bps), with health factors and one sentence",
+        "tags": [
+          "Fold"
+        ],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mainnet",
+                "testnet"
+              ]
+            }
+          },
+          {
+            "name": "eurc",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "btc",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "rates",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "public",
+        "security": [
+          {},
+          {
+            "LykiaKey": []
+          }
+        ]
+      }
+    },
+    "/v1/me/preferences": {
+      "delete": {
+        "operationId": "deleteMePreferences",
+        "summary": "Back to the default preferences",
+        "tags": [
+          "Fold"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "getMePreferences",
+        "summary": "Your Lyko: risk profile, liquidity floor, target mix, gas floor, insights and notifications, reply language and the Fold's layout, with the effect of each",
+        "tags": [
+          "Fold"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "putMePreferences",
+        "summary": "Update Your Lyko (partial; validated; the risk profile is written through to the profile)",
+        "tags": [
+          "Fold"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/threads": {
+      "get": {
+        "operationId": "getMeThreads",
+        "summary": "The owner's shared threads (Ask Lyko and Lyko on watch), newest first, with size, last line and origin",
+        "tags": [
+          "Fold"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
           {
             "LykiaKey": []
           }
