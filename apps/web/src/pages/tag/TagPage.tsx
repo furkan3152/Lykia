@@ -44,7 +44,7 @@ export default function TagPage() {
   const v = view.data;
   return (
     <div>
-      <PageHead kicker={"TAG · ON ERC-8004"} title={<>Every agent wears a <em>tag.</em></>} sub={"A Tag is an ERC-8004 identity on Arc that pins the hash of the Fence the agent obeys, so anyone can check which rules it follows."} medal={false}>
+      <PageHead kicker={"RULES · TAGS · ERC-8004"} title={<>Every agent wears a <em>tag.</em></>} sub={"A Tag is an ERC-8004 identity on Arc that pins the hash of the Fence the agent obeys, so anyone can check which rules it follows."} medal={false}>
         <div style={{ marginTop: 8 }}><Medallion size={180} spin title={v ? `Tag #${v.agentId}` : "Tag"} /></div>
         <form className="flex gap-2 justify-center" style={{ marginTop: 16, maxWidth: 420, marginInline: "auto" }} onSubmit={(e) => { e.preventDefault(); if (/^\d{1,30}$/u.test(id)) navigate(`/app/tag/${id}`); }}>
           <Input placeholder={"Agent id, e.g. 1"} value={id} onChange={(e) => setId(e.target.value)} />

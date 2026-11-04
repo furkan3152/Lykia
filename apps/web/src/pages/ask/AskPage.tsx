@@ -18,6 +18,7 @@ import { clarifyAction, clarifyLabel } from "../../features/ask/clarify";
 import { failureReasons, latestProposal, type ChatMessage } from "../../features/ask/model";
 import { useAsk } from "../../features/ask/store";
 import { RouteArtifact } from "../../features/route/RouteArtifact";
+import { ProgramCard } from "../../features/ask/ProgramCard";
 import { apiGet } from "../../lib/api";
 import { useEnvironment } from "../../lib/environment";
 import { useLykiaStore } from "../../lib/lykiaStore";
@@ -29,7 +30,7 @@ import { handleLine } from "../../shell/palette";
 const SAMPLE_OWNER = "0x000000000000000000000000000000000000dEaD" as const;
 
 const STARTERS = [
-  { en: "Greener pasture", q: { en: "Put half my USDC to work", }, kick: "EARN · MORPHO · AAVE V4" },
+  { en: "Earn yield", q: { en: "Put half my USDC to work", }, kick: "EARN · MORPHO · AAVE V4" },
   { en: "Pay with a memo", q: { en: "Send 250 EURC to 0x4100000000000000000000000000000000009e for invoice 12", }, kick: "ARC MEMO · ONE TX" },
   { en: "Hedge into EURC", q: { en: "Convert 200 USDC to EURC", }, kick: "FX · CHAINLINK BAND" },
   { en: "Bridge to Base", q: { en: "Bridge 50 USDC to Base", }, kick: "CCTP V2 · FAST" },
@@ -69,6 +70,7 @@ function Bubble({ m, first }: { m: ChatMessage; first: boolean }) {
           </div>
         ) : null}
         {m.error ? <p className="m-note m-note--bad">{m.error}</p> : null}
+        {m.program ? <ProgramCard view={m.program} /> : null}
         {(m.drafts ?? []).map((d, i) => (
           <div key={`d${i}`} className="m-note" role="status">
             <b>{d.kind === "alert" ? "Alert" : "Automation"}{d.saved ? " saved" : " drafted, not saved"}:</b> {d.label}
@@ -178,7 +180,7 @@ export default function AskPage() {
       <aside className="m-rail" data-open={railOpen}>
         <div className="m-rail__head">
           <Button onClick={() => { fresh(); navigate("/app"); setRailOpen(false); }}>
-            + {"NEW OUTRUN"}
+            + {"NEW PLAN"}
           </Button>
           <span className="m-kick">{"THREADS"} · {threads.length}</span>
         </div>
@@ -214,8 +216,8 @@ export default function AskPage() {
             {empty ? (
               <div className="m-center m-ask-empty">
                 <LykoFace mood="happy" scale={3} className="mx-auto" />
-                <h1 className="m-title">{"Where to, shepherd?"}</h1>
-                <p className="m-sub">{"Write one sentence. Lyko and his pups plan it across Arc, the Fence decides, you sign once."}</p>
+                <h1 className="m-title">{"What should your money do?"}</h1>
+                <p className="m-sub">{"Say the outcome in one sentence. Lykia plans it across Arc protocols and Circle rails, your Fence (your spending rules) checks every step, and you sign once."}</p>
                 <div className="m-starters">
                   {STARTERS.map((s) => (
                     <button key={s.en} type="button" className="m-starter" onClick={() => ask(s.q.en)}>

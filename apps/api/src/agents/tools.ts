@@ -42,7 +42,7 @@ import {
   type PackRole,
   type PlanAction,
 } from "@lykia/core";
-import type { AgentProposal, ChatDraftLink } from "@lykia/core/api/agents";
+import type { AgentProposal, ChatDraftLink, ChatProgramView } from "@lykia/core/api/agents";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { EXECUTABLE_VENUES } from "../engine/adapters.js";
@@ -53,6 +53,8 @@ import { ordersService } from "../orders/service.js";
 import { alertInputIssue, alertsService } from "../alerts/service.js";
 import { createAutomation } from "../devflows/automations.js";
 import { readSentence } from "../language/reader.js";
+import { compileIntent } from "../compiler/service.js";
+import { deliver } from "../compiler/deliver.js";
 import type { LlmTool } from "./llm.js";
 
 export interface ActingAgent {
@@ -81,6 +83,8 @@ export interface ToolContext {
   readonly actor?: { readonly developer: string; readonly via: "session" | "secret" };
   /** Alerts and automations set up this turn (saved, or a link to the prefilled form); the chat shows them as buttons. */
   readonly drafts?: ChatDraftLink[];
+  /** Programs compiled this turn (compile_goal); the chat renders them as Now / Scheduled / Assumptions. */
+  readonly programs?: ChatProgramView[];
   /** The actions behind each proposal, for merging specialists' plans into one intent. */
   readonly planned?: { readonly actions: readonly PlanAction[]; readonly proposal: AgentProposal }[];
 }
@@ -413,6 +417,44 @@ export const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
       return {
         summary: `Automation saved (${saved.status}): ${when}, ${what}`,
         data: { saved: true, id: saved.id, status: saved.status, trigger: when, action: what, fence: tc.agent.fence.label ?? "custom", next: "Each fire is checked against the Fence and arrives as a proposal the owner signs; nothing moves on its own. Pause or delete it on the Automations page.", manage: "/app/automations" },
+      };
+    },
+  }),
+  spec({
+    name: "compile_goal",
+    description:
+      "Compile a request with several goals, a time dimension (every month, on the 1st, if BTC goes above) or abstract wording (safe, defensive, the rest, a third, runway, hedge, out within a day) into a verified program: it reads the owner's balances, resolves shares, remainders and reserves into amounts, plans everything that happens now as ONE route under your Fence (the owner signs it), drafts automations, LykiaOrders orders and alerts for later (saved only when the owner is signed in, otherwise links), and returns the assumptions it made, trade-offs, rejected alternatives and questions. Pass the owner's own words (any language). Use overrides (assumption id -> value) to apply a change the owner asked for.",
+    capability: "propose",
+    schema: z.object({ goal: z.string().min(3).max(1000), overrides: z.record(z.string().max(64), z.string().max(64)).optional() }).strict(),
+    json: obj({ goal: { type: "string", maxLength: 1000, description: "The owner's request in their own words." }, overrides: { type: "object", description: "Assumption id -> value, e.g. {\"share:e3\": \"25%\", \"schedule.timezone\": \"Europe/Berlin\"}", additionalProperties: { type: "string" } } }, ["goal"]),
+    async run(input: { goal: string; overrides?: Record<string, string> }, tc) {
+      const owner = needOwner(tc);
+      const result = await compileIntent(tc.ctx, { text: input.goal, owner, environment: tc.environment, fence: tc.agent.fence, search: false, proposedByAgent: true, ...(input.overrides ? { overrides: input.overrides } : {}) });
+      const who = verifiedOwner(tc);
+      const delivered = await deliver({ ctx: tc.ctx, environment: tc.environment, owner, fence: tc.agent.fence, verified: who ? who.actor : null, agent: { name: tc.agent.name, role: tc.agent.role }, proposedByAgent: true }, result, input.overrides ?? {});
+      if (delivered.proposal) tc.proposals.push(delivered.proposal);
+      tc.drafts?.push(...delivered.drafts);
+      tc.programs?.push(delivered.view);
+      const v = delivered.view;
+      return {
+        summary: `Compiled (${result.status}): ${result.why.summary}`,
+        data: {
+          status: result.status,
+          programHash: result.programHash,
+          goals: v.goals,
+          now: v.now ? { steps: v.now.steps.map((st) => st.summary), decision: v.now.decision, reasons: v.now.reasons, signable: delivered.proposal?.intentId ? "the owner signs it from the route panel" : "dry run" } : null,
+          planError: delivered.planError,
+          scheduled: v.scheduled.map((sch) => ({ kind: sch.kind, summary: sch.summary, saved: sch.saved, decision: sch.decision })),
+          kept: v.kept,
+          fees: v.fees,
+          assumptions: v.assumptions.map((a) => ({ id: a.id, text: a.text, options: a.options })),
+          questions: v.questions,
+          refusals: v.refusals,
+          blockers: v.blockers,
+          tradeoffs: v.tradeoffs,
+          rejected: v.rejected,
+          next: "Present Now / Scheduled / Assumptions in a few lines, then ask the owner to confirm or change an assumption. Drafts with saved: false are links the owner opens signed in.",
+        },
       };
     },
   }),

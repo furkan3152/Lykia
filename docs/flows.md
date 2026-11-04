@@ -70,7 +70,7 @@ Result key:
 | Aave V4: post 0.01 cirBTC, borrow 200 USDC, repay 200 USDC (one batch) | PASS | Approve 0.01 cirBTC to Aave V4 Main Spoke → Supply 0.01 cirBTC as collateral → Use cirBTC as collateral → Borrow 200 USDC from Aave V4 Main Spoke (with Arc memo) → Approve 200 USDC to Aave V4 Main Spoke → Repay 200 USDC on Aave V4 Main Spoke (with Arc memo) (block 29041440) |
 | Morpho Blue: post 0.01 cirBTC, borrow 200 USDC, repay 200 USDC (one batch) | PASS | Approve 0.01 cirBTC to Morpho Blue → Post 0.01 cirBTC on Morpho cirBTC/USDC 86% → Borrow 200 USDC on Morpho cirBTC/USDC 86% (with Arc memo) → Approve 200 USDC to Morpho Blue → Repay 200 USDC on Morpho cirBTC/USDC 86% (with Arc memo) (block 29041449) |
 | Borrow 1000 USDC on cirBTC and put it to work (health ≥ 1.8) | PASS | 7 calls ok at block 29041449. On Morpho cirBTC/USDC 86%: post 0.02748912 cirBTC and borrow 1000 USDC (health factor 1.8360 after, floor 1.8) [fee 10000000 USDC units] → Deposit 980.1 USDC into Aave V4 Main Spoke [fee 9900000 USDC units]. Fence confirm. Funded: cirBTC (storage override). |
-| CCTP V2 out: bridge 50 USDC to Base (standard) | PASS | 3 calls ok at block 29041449. Bridge 49.5 USDC to Base over CCTP [fee 500000 USDC units]. Fence confirm. Funded: USDC (native balance override). |
+| CCTP V2 out: bridge 50 USDC to Base (standard; Circle's Forwarding Service mints on Base) | PASS | 3 calls ok at block 29530858 (2026-11-04). Bridge 49.5 USDC to Base over CCTP (Circle forwards the mint) [fee 500000 USDC units]: `depositForBurnWithHook` with the `cctp-forward` hook, threshold 2000, `maxFee` = live forwarding fee. Fence confirm. Funded: USDC (native balance override). |
 | Gateway: deposit 40 USDC into the unified balance | PASS | 3 calls ok at block 29041449. Deposit 39.6 USDC into Circle Gateway (one balance on every Gateway chain) [fee 400000 USDC units]. Fence confirm. Funded: USDC (native balance override). |
 | Complex intent: 40% best vault, 20% to EURC, bridge the rest to Base (of 500 USDC kept as base) | PASS | 9 calls ok at block 29041449. Deposit 198 USDC into Aave V4 Main Spoke [fee 2000000 USDC units] → Convert 99 USDC -> 88.736515 EURC on Aerodrome Slipstream USDC/EURC (min 88.292832) [fee 1000000 USDC units] → Bridge 193.05 USDC to Base over CCTP [fee 1950000 USDC units]. Fence confirm. Funded: USDC (native balance override). |
 | Convert 500 USDC to EURC, then pay 200 EURC for invoice 7 | PASS | 5 calls ok at block 29041457. Convert 495 USDC -> 443.681617 EURC on Aerodrome Slipstream USDC/EURC (min 441.463208) [fee 5000000 USDC units] → Send 200 EURC to 0x2222…2222 (invoice 7) [fee 2000000 EURC units]. Fence confirm. Funded: USDC (native balance override). |
@@ -85,7 +85,7 @@ Result key:
 | Payout batch: 3 recipients (USDC, USDC, EURC) in one Multicall3From transaction, an Arc Memo per row | PASS | 1 transaction, 6 inner calls (3 fee transfers + 3 memo-wrapped transfers) ok at block 29050807. Send 40 USDC, 25 USDC and 15 EURC to three payees, fees 400000, 250000 and 150000 units. Fence allow. Memo notes: payout po_prove000001 · ref INV-1001 / INV-1002 / INV-1003. Funded: USDC (native balance override), EURC (storage override). |
 | Invoice payment: pay a 120 USDC invoice in full through the pay page's plan | PASS | 2 calls ok at block 29050816. Send 120 USDC to 0x2222…2222 (invoice inv_prove0000001 ref INV-77) [fee 1200000 USDC units]. Fence confirm (invoice Fence: this payee and token only). The memo note reconciles to inv_prove0000001. |
 | Invoice payment: partial payment of 50 USDC on the same invoice | PASS | 2 calls ok at block 29050816. Send 50 USDC [fee 500000 USDC units]. Fence confirm. The memo note reconciles to inv_prove0000001. |
-| LykiaOrders (limit, stop-loss, DCA, TWAP) | GATED | Not deployed on mainnet: the Orders page shows “deploy from the owner console”. |
+| LykiaOrders (limit, stop-loss, DCA, TWAP) | GATED (at the time of this run) | Deployed on mainnet on 2026-11-02 at `0xdcefebb3d449b7f8965c5f1ae3bba836f30ae6cc`, after this matrix was recorded. The next `npm run prove` run covers it. |
 
 Payouts and invoices are documented in [platform/payouts.md](platform/payouts.md)
 and [platform/invoices.md](platform/invoices.md). The payout row is the
@@ -117,16 +117,36 @@ swap step's inputs, so the step understated what leaves the wallet (and the
 Fence saw a slightly lower USD amount). The FX row with the integrator fee
 failed its self-check until `planner.ts` counted both fees.
 
+## Circle on Arc (2026-11-04, sender 0xada5…f7cb)
+
+`npm run prove` also runs `src/scripts/proveCircle.ts` against Arc mainnet
+and Circle's live keyless APIs. Nothing is signed by a real key, sent to
+Circle or broadcast.
+
+| Flow | Result | Detail |
+|---|---|---|
+| CCTP V2: 25 USDC to Base with the Forwarding Service | PASS | approve + `depositForBurnWithHook` as one Multicall3From eth_call, ok at block 29530924. Live Iris fee: forwarding 54551 units (`med`), protocol 0 bps at threshold 2000; burn 25054551 units, maxFee 54551. The Iris status endpoint answered "not found" for a zero hash. |
+| Gateway: forwarded transfer of 10 USDC Arc → Base | PASS | `maxFee` 60337 units from Gateway's `/v1/estimate?enableForwarder=true` (forwarding fee 0.053337 USDC) plus one source gas fee as buffer, expiry block 30913325; the EIP-712 burn intent signed by a throwaway key recovers to the depositor. Not submitted. |
+| USYC: subscribe 100 USDC from a wallet without entitlement | REFUSED (expected) | `Entitlements.canCall(owner, Teller, deposit)` = false, so Lykia builds nothing; the Teller itself reverts the same calldata (custom error 0x7f63bd0f). Teller preview: 100 USDC → 87.52 USYC. |
+| Compliance Engine screening | GATED | Needs `CIRCLE_API_KEY` with Compliance Engine access; without it recipients are reported as not screened, never as approved. |
+
+The aggregator's CCTP row above (`Aggregator: bridge 50 USDC to Base`) now
+builds the same forwarded burn: 49.445296 USDC arrives on Base after the
+forwarding fee.
+
 ## Flows that are not an eth_call
 
 | Flow | Status |
 |---|---|
 | CCTP V2 inbound mint | `POST /v1/cctp/inbound` returns the unsigned `MessageTransmitterV2.receiveMessage` once Iris attests the burn. Simulating it needs a real attested burn from another chain. |
-| CCTP fast transfer and forwarding | Not built yet. Outbound burns use the standard finality threshold (2000), which Arc reaches on inclusion. |
+| CCTP Fast Transfer | Not applicable from Arc: Circle lists Fast Transfer as N/A with Arc as the source (one block, ~0.5 s attestation). Outbound burns use the standard threshold (2000) at 0 bps. |
+| CCTP forwarded mint | The burn is proven above; the destination mint is Circle's (Iris `forwardState`, `GET /v1/circle/cctp/status`). |
+| Gateway transfer submit | Needs a funded Gateway balance and the owner's signature. The draft (maxFee from Gateway's own estimate) is proven below; nothing is submitted. |
+| StableFX trades | Need StableFX access; quote, trade, funding presign and fund are relayed (`/v1/circle/stablefx/*`), never signed. |
 | x402 purchases | Paid with an EIP-3009 authorization the buyer signs off chain; the facilitator settles it. There is no transaction from the buyer to simulate. |
 | Request and receive | The Move page's Receive tab shows a payment link and an EIP-681 QR code. Paying it is the send flow above. |
 | Standing orders | They plan through the same planner when they fire, so they are covered by the rows above. |
-| LykiaOrders | Waits for the owner to deploy it from the owner console. |
+| LykiaOrders | Deployed on 2026-11-02; keepers execute signed orders when the Chainlink condition holds. Not yet in the matrix above. |
 | Router split swaps | Both legs run atomically through LykiaRouter only when the owner has allowlisted the venues (`setVenue`). Until then the legs run as separate steps, as in the FX rows. |
 
 ## Partner stablecoins without a price

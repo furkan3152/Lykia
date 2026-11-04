@@ -53,7 +53,7 @@ export interface StoredIntent {
   readonly fence: Fence;
   readonly account: "eoa" | "smart";
   readonly confirmed: boolean;
-  readonly cctp?: Record<string, { readonly attestation?: string; readonly message?: string; readonly status: string }>;
+  readonly cctp?: Record<string, { readonly attestation?: string; readonly message?: string; readonly status: string; readonly forwarded?: boolean; readonly forwardState?: string; readonly destinationMintTxHash?: string }>;
 }
 
 export interface CreateInput {
@@ -71,6 +71,8 @@ export interface CreateInput {
   readonly preferences?: VenuePrefs;
   /** The embedding project's fee, paid on chain beside Lykia's fee. */
   readonly integrator?: IntegratorFeePolicy;
+  /** Digest of the compiled program the plan came from (pinned in the verdict). */
+  readonly program?: `sha256:${string}`;
 }
 
 export const INTENT_TTL_MS = 30 * 24 * 3600_000;
@@ -162,6 +164,7 @@ export class IntentService {
       ...(input.proposedByAgent ? { proposedByAgent: true } : {}),
       ...(input.preferences ? { preferences: input.preferences } : {}),
       ...(input.integrator ? { integrator: input.integrator } : {}),
+      ...(input.program ? { program: input.program } : {}),
     });
     const stored: StoredIntent = { ...result, account: input.account ?? "eoa", confirmed: false };
     if (!input.dryRun) await this.intents().put(result.graph.id, stored as unknown as JsonValue, { ttlMs: INTENT_TTL_MS });
@@ -394,10 +397,14 @@ export class IntentService {
       if (!hash) return false;
       const response = await this.deps.fetch(`${IRIS_API[env]}/v2/messages/26?transactionHash=${hash}`, { signal: AbortSignal.timeout(5_000) });
       if (!response.ok) return false;
-      const body = (await response.json()) as { messages?: Array<{ status?: string; attestation?: string; message?: string }> };
+      const body = (await response.json()) as { messages?: Array<{ status?: string; attestation?: string; message?: string; forwardState?: string; destinationMintTxHash?: string }> };
       const message = body.messages?.[0];
       if (message?.status !== "complete") return false;
-      (doc as { cctp?: StoredIntent["cctp"] }).cctp = { ...(doc.cctp ?? {}), [step.id]: { status: "complete", ...(message.attestation ? { attestation: message.attestation } : {}), ...(message.message ? { message: message.message } : {}) } };
+      // A forwarded burn is settled when Circle's Forwarding Service has minted on the destination (Iris forwardState COMPLETE).
+      const forwarded = doc.plans[step.id]?.params.forward === "1";
+      const forwardState = message.forwardState?.toUpperCase();
+      if (forwarded && forwardState !== "COMPLETE" && !message.destinationMintTxHash) return false;
+      (doc as { cctp?: StoredIntent["cctp"] }).cctp = { ...(doc.cctp ?? {}), [step.id]: { status: "complete", ...(message.attestation ? { attestation: message.attestation } : {}), ...(message.message ? { message: message.message } : {}), ...(forwarded ? { forwarded: true, ...(forwardState ? { forwardState } : {}), ...(message.destinationMintTxHash ? { destinationMintTxHash: message.destinationMintTxHash } : {}) } : {}) } };
       transition(step, "settled");
       step.settledAt = new Date(this.deps.clock.now()).toISOString();
       await this.recordSpend(doc.graph, step);

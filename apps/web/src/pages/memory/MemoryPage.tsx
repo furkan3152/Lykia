@@ -78,7 +78,7 @@ export default function MemoryPage() {
 
   return (
     <div>
-      <PageHead kicker={"MEMORY · LYKO REMEMBERS"} title={<>Carved <em>in stone.</em></>} sub={"What you asked for, what Lyko learned, who you pay. Edit, delete or export any of it. Learned contacts stay \"unconfirmed\" until your first confirmed send."} mood="proud">
+      <PageHead kicker={"SETTINGS · MEMORY"} title={<>What Lykia <em>remembers.</em></>} sub={"What you asked for, what Lyko learned, who you pay. Edit, delete or export any of it. Learned contacts stay \"unconfirmed\" until your first confirmed send."} mood="proud">
         <div className="flex justify-center gap-2 flex-wrap" style={{ marginTop: 16 }}>
           <Button size="sm" tone="ghost" onClick={() => void exportAll()} disabled={!owner}>{"EXPORT JSON"}</Button>
           <Button size="sm" tone="navy" disabled={!owner} onClick={() => { if (window.confirm("Make Lyko forget everything?")) void run(() => apiPost("/v1/memory/forget", { owner, all: true }), "Lyko forgot everything"); }}>{"FORGET ALL"}</Button>

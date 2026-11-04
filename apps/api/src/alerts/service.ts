@@ -16,6 +16,7 @@
  */
 import {
   ALERT_LIMITS,
+  ARC_NATIVE_TRANSFER_EMITTER,
   assessToken,
   compareDecimal,
   describeAlert,
@@ -179,12 +180,15 @@ export class AlertsService {
           if (!token) continue;
           const start = scanStart(rule.cursorBlock, head);
           const owner = rule.owner;
-          const logs = await client.getLogs({ address: tokenAddress(token, environment) as Address, event: TRANSFER, args: rule.kind === "transfer-in" ? { to: owner } : { from: owner }, fromBlock: start, toBlock: head });
+          // USDC on Arc: the EIP-7708 system emitter logs every movement (native sends too) at 18 decimals; the ERC-20 face misses native sends.
+          const native = token.symbol === "USDC";
+          const decimals = native ? 18 : token.decimals;
+          const logs = await client.getLogs({ address: native ? ARC_NATIVE_TRANSFER_EMITTER : (tokenAddress(token, environment) as Address), event: TRANSFER, args: rule.kind === "transfer-in" ? { to: owner } : { from: owner }, fromBlock: start, toBlock: head });
           await this.rules().put(`${owner.toLowerCase()}:${rule.id}`, { ...rule, cursorBlock: head.toString() } as unknown as JsonValue);
-          const min = BigInt(Math.round(Number(rule.threshold) * 10 ** token.decimals));
+          const min = BigInt(Math.round(Number(rule.threshold) * 10 ** token.decimals)) * (native ? 10n ** 12n : 1n);
           const big = logs.find((l) => (l.args.value ?? 0n) >= min);
           if (big) {
-            const amount = fromBaseUnits(big.args.value ?? 0n, token.decimals);
+            const amount = fromBaseUnits(big.args.value ?? 0n, decimals).replace(/(\.\d{6})\d+$/u, "$1");
             const other = rule.kind === "transfer-in" ? big.args.from : big.args.to;
             if (await this.fire({ ...rule, cursorBlock: head.toString() }, `${rule.kind === "transfer-in" ? "Received" : "Sent"} ${amount} ${token.symbol}`, `${rule.kind === "transfer-in" ? "From" : "To"} ${other} in block ${big.blockNumber}.`)) fired += 1;
           }

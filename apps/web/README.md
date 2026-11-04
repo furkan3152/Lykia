@@ -43,7 +43,7 @@ Data becomes landscape:
 - Grass height in a pen is the venue's yield.
 - Wool colour is the token.
 - Islands are CCTP chains.
-- Wolves outside the fence are Scent threats.
+- Wolves outside the fence are bad tokens the token check (Scent) catches.
 - The Patara lighthouse blinks on every Arc block the pulse stream reports.
 - Pups are sub-agents.
 - Market stalls are Circle products.
@@ -51,20 +51,19 @@ Data becomes landscape:
 
 ## Pages
 
-| Route | Page |
+The navigation lives in `src/shell/nav.ts` (tested in `src/shell/__tests__/nav.test.ts`): five primary areas, each a short tab row, plus the account pages and a short "More" list. The full reasoning is in [docs/product.md](../../docs/product.md). URLs did not change when the labels did.
+
+| Area | Tabs (route) |
 |---|---|
-| `/` | The bay, with the Ask Lyko composer and the story. Asking a question morphs the composer into the conversation. |
-| `/app`, `/app/ask/:threadId` | Ask Lyko: a thread rail and an SSE conversation (reading, tool, task, proposal, clarify and text events). The route artifact holds the outrun scene, the Fence seal, "why this route" and signing each step in the wallet. Memory chips and `@contact` completion. |
-| `/app/flock/:address?` | The pasture across mainnet and testnet, holdings, the Gateway card, Circle and insights with one-tap proposals. |
-| `/app/pastures` | Live yields as pens, with risk tier and source. |
-| `/app/pack/:id?` | The kennel, the agent tree, spawn-a-pup with per-field Fence violations, bones for budgets, cascading revoke, the on-chain session and a Circle agent wallet. |
-| `/app/fence` | The fence editor: posts are caps and gates are allowed venues. It shows loosening warnings, and the Whistle turns the scene to night. |
-| `/app/scent/:token?`, `/app/tag/:id?`, `/app/outrun/:id` | Scent (with Circle compliance), Tag, and a full outrun. |
-| `/app/you` | Personalization, including Lyko's look with a live preview that repaints the whole app. |
-| `/app/memory` | Lyko remembers: timeline, learned preferences, contacts, patterns, export and forget. |
-| `/app/circle` | The harbor market of Circle products and the Gateway transfer flow. |
-| `/build`, `/owner` | The developer portal (SIWE, keys, webhooks, fee, playground, MCP, SDK, Circle) and the owner console (each contract created straight from your wallet, so explorers show it as the creator; checked and recorded). |
-| `/kit`, `/lykaion`, 404 | Every component and scene, the hidden Arcadia night, and Lyko sniffing for a trail. |
+| **Ask** | Ask (`/app`, `/app/ask/:threadId`): a thread rail and an SSE conversation; the route artifact holds the plan, the Fence seal, "why this route" and signing. A full plan opens at `/app/outrun/:id`. |
+| **Portfolio** | Holdings (`/app/flock/:address?`), Move (`/app/move/:tab?`: send, receive, swap, earn, borrow, bridge without a sentence), Yields (`/app/pastures`), What-if (`/app/whatif`). |
+| **Rules** | Fence (`/app/fence`), Agents (`/app/pack/:id?`), Tags (`/app/tag/:id?`), Token check (`/app/scent/:token?`), Security (`/app/security`). |
+| **Automate** | Orders (`/app/orders`), Automations (`/app/automations`), Alerts (`/app/alerts`), Activity (`/app/activity`). |
+| **Build** | Developers (`/build`, also `/developers`), Ecosystem (`/ecosystem`), Circle (`/app/circle`), Stats (`/stats`). |
+
+Secondary: Settings (`/app/you`) and Memory (`/app/memory`) in the avatar menu, with their own tab row; More: Perps markets (`/app/markets`), New pools (`/app/discover`), Owner console (`/owner`), Notice and risks (`/legal/:doc?`). Unlisted on purpose: payment links (`/pay/:id`), the design kit (`/kit`), the hidden night scene (`/lykaion`) and the 404.
+
+The landing (`/`) tells the story for builders and reviewers: the problem, how it works in three steps, the three pillars, live mainnet proof (contracts, the flow matrix, live Arc stats), the Circle products used, developer entry points and the beta note. Asking a question in its composer morphs into the conversation.
 
 ## Motion
 

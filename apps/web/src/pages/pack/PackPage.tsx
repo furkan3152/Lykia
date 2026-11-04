@@ -79,7 +79,7 @@ export default function PackPage() {
       return wizard?.parent ? apiPost<PackAgentView>(`/v1/pack/${wizard.parent.id}/spawn`, body) : apiPost<PackAgentView>("/v1/pack", { owner: address, environment, ...body });
     },
     onSuccess: (agent) => {
-      toast.success("A new pup joined the pack", { description: agent.name, from: "LYKO" });
+      toast.success("Agent created", { description: agent.name, from: "LYKO" });
       setWizard(null);
       setForm(EMPTY_WIZ);
       setViolations({});
@@ -137,7 +137,7 @@ export default function PackPage() {
 
   return (
     <div>
-      <PageHead kicker={"THE PACK · SUB-AGENTS"} title={<>Lyko's <em>pups.</em></>} sub={"Every agent has a role and a Fence. A pup's Fence stays inside its parent's, its budget is carved from the parent's, and revoking a parent revokes its pups."} mood="proud" />
+      <PageHead kicker={"RULES · AGENTS"} title={<>Agents that stay <em>inside your rules.</em></>} sub={"Every agent has a role, a budget and its own Fence. A sub-agent's Fence stays inside its parent's, its budget is carved from the parent's, and revoking a parent revokes its sub-agents. Lyko calls them pups."} mood="proud" />
       <section className="m-wrap" style={{ marginTop: 28 }}>
         <SceneFrame
           build={(t) => kennel({ pups: agents.length ? agents.filter((a) => a.role !== "orchestrator").map((a) => ({ role: a.role, status: a.status, depth: a.depth })) : SAMPLE_PUPS, lit, night }, t)}
@@ -152,11 +152,11 @@ export default function PackPage() {
       </section>
       <section className="m-wrap" style={{ marginTop: 28 }}>
         {!address ? (
-          <Card title={"Wallet first"}><EmptyState mood="sleeping" title={"The kennel is closed"}>{"Connect a wallet to see your pack."}</EmptyState></Card>
+          <Card title={"Wallet first"}><EmptyState mood="sleeping" title={"Connect a wallet"}>{"Your agents belong to your wallet. Connect it to see them, or start from the sample below."}</EmptyState></Card>
         ) : (
           <div className="m-grid-2 m-grid-2--r">
             <Card title={"The tree"} kicker={siwe.signedIn ? ("SIGNED IN · YOU CAN CHANGE IT") : "SIGN IN TO CHANGE IT"} footer={siwe.signedIn ? <Button tone="sea" onClick={() => setWizard({ parent: null })}>{"+ ROOT AGENT"}</Button> : <Button onClick={() => void siwe.signIn()} disabled={siwe.busy}>{"SIGN IN ON ARC"}</Button>}>
-              {tree.isLoading ? <Skeleton h={180} /> : agents.length === 0 ? <EmptyState mood="happy" title={"No pups yet"}>{"Start your first agent with a role: treasurer, payroll, FX hedger, yield keeper, bill payer, sentinel or researcher."}</EmptyState> : (
+              {tree.isLoading ? <Skeleton h={180} /> : agents.length === 0 ? <EmptyState mood="happy" title={"No agents yet"}>{"Start your first agent with a role: treasurer, payroll, FX hedger, yield keeper, bill payer, sentinel or researcher."}</EmptyState> : (
                 <div>
                   {ordered.map((a) => (
                     <button key={a.id} type="button" className="m-thread" aria-current={selected?.id === a.id} style={{ paddingLeft: 10 + a.depth * 22, display: "flex", gap: 10, alignItems: "center", opacity: a.status === "revoked" ? 0.45 : 1 }} onClick={() => navigate(`/app/pack/${a.id}`)}>
@@ -188,7 +188,7 @@ export default function PackPage() {
                     <div className="flex gap-2 flex-wrap justify-center">
                       {selected.capabilities.includes("spawn") || selected.depth < 3 ? <Button tone="sea" size="sm" onClick={() => setWizard({ parent: selected })}>{"SPAWN A PUP"}</Button> : null}
                       <Button tone="ghost" size="sm" onClick={() => void act(`/v1/pack/${selected.id}/${selected.status === "paused" ? "resume" : "pause"}`, selected.status === "paused" ? "Resumed" : "Paused")}>{selected.status === "paused" ? ("RESUME") : "PAUSE"}</Button>
-                      <Button tone="navy" size="sm" onClick={() => { if (window.confirm("Revoke this agent and every pup under it?")) void act(`/v1/pack/${selected.id}/revoke`, "Revoked, with its pups"); }}>{"REVOKE"}</Button>
+                      <Button tone="navy" size="sm" onClick={() => { if (window.confirm("Revoke this agent and every sub-agent under it?")) void act(`/v1/pack/${selected.id}/revoke`, "Revoked, with its sub-agents"); }}>{"REVOKE"}</Button>
                       <Button tone="ochre" size="sm" onClick={() => navigate(`/app/tag${selected.agentId ? `/${selected.agentId}` : ""}`)}>TAG</Button>
                       <Button tone="sea" size="sm" onClick={() => void provision(selected.id)}>{"CIRCLE WALLET"}</Button>
                       <Button tone="ghost" size="sm" onClick={() => void compilePolicy(selected)}>{"CIRCLE POLICY"}</Button>

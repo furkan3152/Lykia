@@ -1,7 +1,7 @@
 <h1 align="center">Lykia</h1>
 
 <p align="center">
-  <strong>Policy-bound agents and stablecoin routing, built on Arc Network.</strong>
+  <strong>The policy layer for money that agents and apps move on Arc Network.</strong>
 </p>
 
 <p align="center">
@@ -21,13 +21,24 @@
 
 ---
 
-Lykia turns an outcome written in plain words into a plan across the
-protocols live on Arc, checks every step against a typed policy called the
-**Fence**, and hands the result to a wallet or an agent to sign. The same
-engine is exposed as an API, SDKs and embeddable components, so any team
-can add routing, policy checks and an assistant to its own product.
+Say the outcome. Lykia compiles it into a route across the protocols live on
+Arc and Circle's rails (CCTP, Gateway, StableFX), checks every step against
+a typed policy called the **Fence**, and hands the result to a wallet or an
+agent to sign. The same engine is an API, SDKs, an MCP server and
+embeddable components, so any team can add routing, policy checks and an
+assistant to its own product.
 
 Lykia is non-custodial: the server never holds keys and never signs.
+
+| Pillar | In one line |
+|---|---|
+| Outcomes, not transactions | A sentence, a form or one API call becomes a scored, simulated route sent as one transaction with an Arc Memo. |
+| Rules that hold | The Fence is checked before signing, compiled into a Circle Agent Wallet policy and enforced on chain; agents carry a Tag (ERC-8004) that pins it. |
+| One engine for every builder | REST and SSE, MCP, TypeScript and Python SDKs, a CLI and components, all on the engine the app uses. |
+
+The product story, the app's structure and open decisions are in
+[docs/product.md](docs/product.md). Every flow is simulated on Arc mainnet in
+[docs/flows.md](docs/flows.md).
 
 ## Contents
 
@@ -56,7 +67,7 @@ Lykia is non-custodial: the server never holds keys and never signs.
   kill switch (the **Whistle**) that still lets value come home.
 - **Conditional orders.** Limit, stop-loss, take-profit, TWAP and DCA
   orders on the `LykiaOrders` contract, executed by keepers.
-- **Token checks (Scent).** Look-alike detection, proxy and privileged
+- **Token checks.** Look-alike detection, proxy and privileged
   function analysis and a simulated transfer before a token is touched.
 
 **For developers**
@@ -193,6 +204,8 @@ Fence. Moves that bring value home are never capped.
 
 | Topic | Link |
 |---|---|
+| Product story and structure | [docs/product.md](docs/product.md) |
+| Mainnet flow proofs | [docs/flows.md](docs/flows.md) |
 | Developer platform | [docs/platform](docs/platform/README.md) |
 | Fence specification | [docs/fence.md](docs/fence.md) |
 | Agents and sub-agents | [docs/pack.md](docs/pack.md) |

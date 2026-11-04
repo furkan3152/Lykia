@@ -41,14 +41,26 @@ export interface GatewayTransferDraft {
   /** EIP-712 typed data per burn intent, for the depositor's wallet to sign. */
   readonly typedData: readonly unknown[];
   readonly burnIntents: readonly unknown[];
-  readonly fee: { readonly maxFee: string; readonly transferFeeBps: number; readonly gasFeeUsdc: string };
+  readonly fee: {
+    readonly maxFee: string;
+    readonly transferFeeBps: number;
+    readonly gasFeeUsdc: string;
+    /** "estimate": Gateway's POST /v1/estimate set maxFee; "formula": Circle's published formula (gas fee + 0.005%). */
+    readonly source?: "estimate" | "formula";
+    /** Forwarding Service fee in USDC when the transfer is forwarded (from the estimate). */
+    readonly forwardingFeeUsdc?: string | null;
+  };
+  /** True when Circle's Forwarding Service will submit the destination mint. */
+  readonly forward?: boolean;
   readonly submit: string;
 }
 
 export interface GatewayTransferResult {
-  readonly attestation: string;
-  readonly signature: string;
+  /** Null when the transfer was forwarded: Circle submits the mint and the response may omit it. */
+  readonly attestation: string | null;
+  readonly signature: string | null;
   readonly transferId: string | null;
-  /** Unsigned gatewayMint on the destination chain. */
-  readonly mint: { readonly chainId: number | null; readonly to: string; readonly data: string; readonly value: string };
+  /** Unsigned gatewayMint on the destination chain; null when Circle's Forwarding Service mints. */
+  readonly mint: { readonly chainId: number | null; readonly to: string; readonly data: string; readonly value: string } | null;
+  readonly forwarded?: boolean;
 }

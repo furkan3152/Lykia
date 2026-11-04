@@ -42,9 +42,9 @@ export default function EcosystemPage() {
   return (
     <div>
       <header className="m-head m-wrap">
-        <span className="m-kick">{"BUILT ON ARC NETWORK · POWERED BY CIRCLE"}</span>
+        <span className="m-kick">{"BUILD · ECOSYSTEM"}</span>
         <h1 className="m-title">
-          Lykia brings the <em>Arc ecosystem</em> together.
+          Every Arc protocol, <em>one route away.</em>
         </h1>
         <p className="m-sub">{POSITIONING}</p>
         <p className="m-small" style={{ marginTop: 10 }}>
@@ -56,7 +56,7 @@ export default function EcosystemPage() {
 
       <section className="m-wrap">
         <EcosystemStats data={q.data} />
-        {q.isError ? <p className="m-note" style={{ marginTop: 12 }}>{"The API did not answer; the harbour fills in when it does."}</p> : null}
+        {q.isError ? <p className="m-note" style={{ marginTop: 12 }}>{"The API did not answer; this page fills in when it does. Try again in a minute."}</p> : null}
       </section>
 
       <section className="m-wrap" style={{ marginTop: 32 }}>
@@ -67,9 +67,9 @@ export default function EcosystemPage() {
 
       <section className="m-wrap" style={{ marginTop: 32 }} aria-labelledby="eco-stalls">
         <div className="m-center">
-          <span className="m-kick">{"EVERY STALL ALONG THE QUAY"}</span>
-          <h2 id="eco-stalls" className="m-h2" style={{ marginTop: 8 }}>{"Every Arc protocol, one route away"}</h2>
-          <p className="m-small m-muted" style={{ marginTop: 8 }}>{"ROUTABLE ON LYKIA: Lykia plans, checks and executes through it. READ: prices and positions in the Flock. LISTED: in the registry, routable as soon as an adapter lands. Each card links to the protocol's official Arc ecosystem entry where one exists."}</p>
+          <span className="m-kick">{"PROTOCOLS ON ARC"}</span>
+          <h2 id="eco-stalls" className="m-h2" style={{ marginTop: 8 }}>{"Routable, read or listed"}</h2>
+          <p className="m-small m-muted" style={{ marginTop: 8 }}>{"ROUTABLE ON LYKIA: Lykia plans, checks and executes through it. READ: prices and positions show in your portfolio. LISTED: in the registry, routable as soon as an adapter lands. Each card links to the protocol's official Arc ecosystem entry where one exists."}</p>
         </div>
         <div className="eco-filters" role="group" aria-label="Filter protocols">
           {FILTERS.map(([key, label]) => (
@@ -87,7 +87,7 @@ export default function EcosystemPage() {
           <Card title={"Your protocol here"} kicker={"INTEGRATE IN AN AFTERNOON"} footer={<Link to="/build#integrate" className="m-btn m-btn--sea">{"INTEGRATE YOUR PROTOCOL"}</Link>}>
             <p className="m-small">{"Send the addresses and the evidence, add one typed adapter, and every Lykia user and agent can reach you, inside their Fence. Free developer keys for Arc builders."}</p>
           </Card>
-          <Card title={"Routed by Lykia"} kicker={"EMBED THE HARBOUR"}>
+          <Card title={"Routed by Lykia"} kicker={"EMBED THE DIRECTORY"}>
             <p className="m-small">{"Show the Arc ecosystem, live, on your own site. The data is public and open to every origin."}</p>
             <pre className="m-code eco-embed">{snippet}</pre>
           </Card>

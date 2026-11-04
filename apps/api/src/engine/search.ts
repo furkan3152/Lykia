@@ -76,6 +76,8 @@ export interface RouteSearchInput {
   readonly source?: string;
   /** USD spent today / this week (IntentService.spent); unknown spend fails the daily caps closed. */
   readonly spent?: { readonly dayUsd: string | null; readonly weekUsd: string | null };
+  /** Digest of the compiled program (lykia.program/v1); pinned in every candidate's Fence facts. */
+  readonly program?: `sha256:${string}`;
 }
 
 export interface RouteScore {
@@ -369,6 +371,7 @@ export class RouteSearch {
           ...(input.proposedByAgent ? { proposedByAgent: true } : {}),
           ...(input.preferences ? { preferences: input.preferences } : {}),
           ...(input.integrator ? { integrator: input.integrator } : {}),
+          ...(input.program ? { program: input.program } : {}),
         }),
         SEARCH_DEFAULTS.candidateTimeoutMs,
       );

@@ -1,7 +1,12 @@
 # Positioning
 
-> Built on Arc Network and Circle's products: every Arc protocol routable on
-> Lykia, every agent inside its Fence.
+> Lykia is the policy layer for money that agents and apps move on Arc: say
+> the outcome, Lykia compiles it into a route across Arc protocols and Circle
+> rails, the Fence checks every step, and the same engine is an API for every
+> builder.
+
+The full story, the three pillars and the app's structure are in
+[product.md](product.md).
 
 Lykia is the unifier and amplifier of the Arc Network ecosystem. Circle is
 not a competitor: Lykia is built on Circle's products, and wherever Circle
@@ -16,7 +21,7 @@ and links each one to its official entry on https://www.arc.io/ecosystem.
 |---|---|---|
 | Built on Circle's rails | USDC is Arc's gas and Lykia's unit of account. CCTP, Gateway, StableFX, Circle Wallets, Compliance screening, the x402 facilitator and the Agent Marketplace do the moving; Lykia uses every one that is live on Arc. | `GET /v1/circle/status`, the Circle quay on `/ecosystem` |
 | Routing value to every Arc protocol | Every protocol on Arc is in the registry. Lykia compares the routable ones for each move and records why it chose one. Teams can integrate in an afternoon. | `GET /v1/ecosystem`, `/ecosystem`, `docs/integrate-your-protocol.md` |
-| Keeping every agent inside its Fence | The Fence checks every step before it can be signed: caps, recipients, venues, tokens, health factor, FX band, Scent and the Whistle. Each verdict is filed as an ERC-8354 policy attestation. | `docs/fence.md`, `POST /v1/fence/evaluate` |
+| Keeping every agent inside its Fence | The Fence checks every step before it can be signed: caps, recipients, venues, tokens, health factor, FX band, token checks and the Whistle (emergency stop). Each verdict is filed as an ERC-8354 policy attestation. | `docs/fence.md`, `POST /v1/fence/evaluate` |
 
 ## Words to use
 
@@ -24,7 +29,10 @@ and links each one to its official entry on https://www.arc.io/ecosystem.
 - "Powered by Circle" for Circle's products. Text only; no partner logos
   without the brand kit and permission.
 - "Routes to", "brings together", "sends traffic to" for protocols.
-- "Fence", "Tag", "Scent", "Whistle", "Flock" as in `docs/brand.md`.
+- "Fence" and "Tag" as product terms, explained on first use. Plain words
+  elsewhere: "portfolio" (not Flock), "agents" (not Pack), "token check"
+  (not Scent), "plan" (not Outrun), "emergency stop" next to "Whistle".
+  See [product.md](product.md#vocabulary).
 
 ## Words to avoid
 
@@ -35,7 +43,7 @@ and links each one to its official entry on https://www.arc.io/ecosystem.
 - Anything that positions Lykia against Circle, Arc or a protocol
   ("replaces", "instead of", "better than").
 - "Arc" inside Lykia's own name, logo or page titles (Arc's brand rules).
-- "Safe" about a token: Scent says what can be proven, never "safe".
+- "Safe" about a token: the token check says what can be proven, never "safe".
 
 ## Mainnet beta
 

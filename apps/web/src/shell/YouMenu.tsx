@@ -1,10 +1,11 @@
-/** The header's avatar menu: You, Memory, Circle, Pastures, Owner and the theme, with Lyko in your colours. */
+/** The header's avatar menu: the account pages, the secondary "More" pages, network and theme. */
 import { useEffect, useRef, useState } from "react";
 
 import { Link } from "../app/routes/Link";
 import { useUiStore } from "../app/state/uiStore";
 import { useProfile } from "../lib/profile";
 import { LykoFace, Toggle } from "../mosaic";
+import { ACCOUNT, MORE } from "./nav";
 
 export function YouMenu() {
   const mode = useUiStore((s) => s.mode);
@@ -25,24 +26,24 @@ export function YouMenu() {
       window.removeEventListener("keydown", close);
     };
   }, [open]);
-  const links: [string, string][] = [
-    ["/app/you", "YOU"],
-    ["/app/memory", "MEMORY"],
-    ["/app/circle", "CIRCLE"],
-    ["/app/pastures", "PASTURES"],
-    ["/owner", "OWNER"],
-  ];
+  const item = { textDecoration: "none", fontFamily: "Silkscreen", fontSize: 12, letterSpacing: "0.1em" } as const;
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <button type="button" className="m-askbtn" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)} style={{ padding: "0 8px" }} aria-label="Your menu">
+      <button type="button" className="m-askbtn" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)} style={{ padding: "0 8px" }} aria-label="Settings and more">
         <LykoFace mood="happy" scale={1} label="You" />
         <span aria-hidden="true">▾</span>
       </button>
       {open ? (
         <div role="menu" className="m-frame m-frame--thin" style={{ position: "absolute", right: 0, top: 44, zIndex: 60, width: 240, padding: 12, display: "grid", gap: 8, animation: "m-tile-in 260ms both" }}>
-          {links.map(([href, label]) => (
-            <Link key={href} to={href} role="menuitem" className="m-thread" onClick={() => setOpen(false)} style={{ textDecoration: "none", fontFamily: "Silkscreen", fontSize: 12, letterSpacing: "0.1em" }}>
-              {label}
+          {ACCOUNT.map((l) => (
+            <Link key={l.href} to={l.href} role="menuitem" className="m-thread" onClick={() => setOpen(false)} style={item}>
+              {l.label.toUpperCase()}
+            </Link>
+          ))}
+          <span className="m-kick" style={{ marginTop: 4 }}>{"MORE"}</span>
+          {MORE.map((l) => (
+            <Link key={l.href} to={l.href} role="menuitem" className="m-thread" title={l.blurb} onClick={() => setOpen(false)} style={item}>
+              {l.label.toUpperCase()}
             </Link>
           ))}
           <div style={{ borderTop: "2px dashed var(--grout)", paddingTop: 8, display: "grid", gap: 8 }}>

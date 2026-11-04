@@ -34,3 +34,5 @@ export * from "./project.js";
 export * from "./adapterManifest.js";
 export * from "./devflows.js";
 export * from "./drafts.js";
+export * from "./program.js";
+export * from "./programCompile.js";

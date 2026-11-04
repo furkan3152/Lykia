@@ -1,33 +1,37 @@
 import { Link } from "../app/routes/Link";
 import { MeanderBand } from "../mosaic";
+import { AREAS, MORE } from "./nav";
+
+const REPO = "https://github.com/furkan3152/Lykia";
 
 export function Footer() {
   return (
     <footer className="m-footer">
       <MeanderBand />
-      <div className="m-wrap m-footer__in">
-        <span>LYKIA</span>
-        <span>·</span>
-        <span>BUILT ON ARC NETWORK</span>
-        <span>·</span>
-        <span>POWERED BY CIRCLE</span>
-        <span>·</span>
-        <span>USDC GAS</span>
-        <span>·</span>
-        <span>FINAL IN UNDER A SECOND</span>
-        <span>·</span>
-        <Link to="/ecosystem">ECOSYSTEM</Link>
-        <Link to="/app/pastures">PASTURES</Link>
-        <Link to="/app/scent">SCENT</Link>
-        <Link to="/app/tag">TAG</Link>
-        <Link to="/stats">STATS</Link>
-        <Link to="/owner">OWNER</Link>
-        <span>·</span>
-        <Link to="/legal/notice">TERMS · SOFTWARE NOTICE</Link>
-        <Link to="/legal/notice">RISKS</Link>
-        <Link to="/legal/privacy">PRIVACY</Link>
-        <span>{"DRAFT · NOT AFFILIATED WITH CIRCLE OR ARC"}</span>
+      <div className="m-wrap m-footer__grid">
+        <div>
+          <span className="m-footer__h">{"PRODUCT"}</span>
+          {AREAS.map((a) => (
+            <Link key={a.id} to={a.href}>{a.label.toUpperCase()}</Link>
+          ))}
+        </div>
+        <div>
+          <span className="m-footer__h">{"PROOF"}</span>
+          <Link to="/stats">{"STATS"}</Link>
+          <Link to="/ecosystem">{"ECOSYSTEM"}</Link>
+          <a href={`${REPO}/blob/main/docs/flows.md`} target="_blank" rel="noreferrer">{"MAINNET FLOWS"}</a>
+          <a href={`${REPO}/blob/main/docs/security/self-review.md`} target="_blank" rel="noreferrer">{"SELF-REVIEW"}</a>
+          <a href={REPO} target="_blank" rel="noreferrer">{"SOURCE (MIT)"}</a>
+        </div>
+        <div>
+          <span className="m-footer__h">{"MORE"}</span>
+          {MORE.map((l) => (
+            <Link key={l.id} to={l.href}>{l.label.toUpperCase()}</Link>
+          ))}
+          <Link to="/legal/privacy">{"PRIVACY"}</Link>
+        </div>
       </div>
+      <p className="m-wrap m-footer__note">{"LYKIA · BUILT ON ARC NETWORK · POWERED BY CIRCLE · INDEPENDENT, NOT AFFILIATED WITH OR ENDORSED BY CIRCLE OR ARC · BETA"}</p>
     </footer>
   );
 }

@@ -139,7 +139,7 @@ export default function MovePage() {
 
   return (
     <div>
-      <PageHead kicker={`MOVE · ARC ${environment.toUpperCase()}`} title={<>Move money, <em>inside the Fence.</em></>} sub={"Send, receive, swap, earn, borrow and bridge without writing a sentence. Lykia finds the best route, checks it with your Fence and one simulation, and you sign it in your own wallet."} mood="herding" />
+      <PageHead kicker={`PORTFOLIO · MOVE · ARC ${environment.toUpperCase()}`} title={<>Move money, <em>inside the Fence.</em></>} sub={"Send, receive, swap, earn, borrow and bridge without writing a sentence. Lykia finds the best route, checks it against your Fence (your spending rules) and one simulation, and you sign it in your own wallet."} mood="herding" />
       <section className="m-wrap" style={{ marginTop: 24, maxWidth: 880 }}>
         <div className="m-scroll-x" style={{ marginBottom: 16 }}>
           <Toggle label="Flow" value={tab} onChange={(t) => { setAnswer(null); setError(null); navigate(`/app/move/${t}`); }} options={MOVE_TABS.map((t) => ({ value: t, label: TAB_LABEL[t] }))} />

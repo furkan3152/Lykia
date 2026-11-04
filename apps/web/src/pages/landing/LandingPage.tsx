@@ -1,26 +1,54 @@
 /**
- * The landing: Lyko's bay. Ask in the composer and it morphs into the Ask
- * Lyko conversation (shared composer + scene in a View Transition).
+ * The landing, written for builders and for the Arc and Circle teams:
+ * the story in one sentence, the problem, how it works, live proof from
+ * mainnet, the Circle products underneath, developer entry points and an
+ * honest beta note. The composer in the bay scene hands a sentence to Ask
+ * (shared composer + scene in a View Transition).
  */
+import { useQuery } from "@tanstack/react-query";
+import { explorerAddress, lykiaContracts, networkFor } from "@lykia/core";
 import { useMemo } from "react";
 
 import { Link } from "../../app/routes/Link";
 import { warmRoute } from "../../app/routes/loader";
 import { Composer } from "../../features/ask/Composer";
-import { CircleQuay, EcosystemLink, EcosystemStats, PartnerStalls } from "../../features/ecosystem/Harbour";
+import { BetaRibbon } from "../../features/ecosystem/BetaRibbon";
+import { EcosystemStats } from "../../features/ecosystem/Harbour";
 import { useEcosystem } from "../../features/ecosystem/useEcosystem";
 import { FeesCard } from "../../features/fees/FeesCard";
 import { SAMPLE_PENS, topYields, useRates } from "../../features/data/hooks";
 import { SceneFrame } from "../../features/scenes/SceneFrame";
 import { handleLine } from "../../shell/palette";
+import { apiGet } from "../../lib/api";
 import { usePulse } from "../../lib/pulseStore";
-import { Button, Card, LykoFace, MeanderBand, Medallion, PupIcon, Sprite, Stat, Tag } from "../../mosaic";
+import { Card, MeanderBand, Medallion, Stat, Tag } from "../../mosaic";
 import { bay, BAY_H, BAY_W } from "../../mosaic/scenes";
-import { LYKO_SNIFF, LYKO_TROT, PAL, SHEEP, WOOL } from "../../mosaic/sprites";
 
-const CHIPS = {
-  en: ["Put half my USDC to work", "Keep 5000 USDC for payroll, put the rest in the best vault and hedge 20% into EURC", "Convert 200 USDC to EURC", "Bridge 50 USDC to Base"],
-} as const;
+const REPO = "https://github.com/furkan3152/Lykia";
+const API_REFERENCE = "https://lykia-api-akdogan1.vercel.app/v1/reference";
+
+const CHIPS = ["Put half my USDC to work", "Keep 5000 USDC for payroll, put the rest in the best vault and hedge 20% into EURC", "Convert 200 USDC to EURC", "Bridge 50 USDC to Base"] as const;
+
+/** Why a policy layer: what goes wrong without one. */
+const PROBLEM: readonly (readonly [string, string])[] = [
+  ["Too many paths", "Arc already has exchanges, lending markets, vaults and Circle's own rails. Picking the best route by hand, every time, is slow and easy to get wrong."],
+  ["Wallets sign anything", "A wallet or an agent key signs whatever it is handed. Spending caps alone do not know a health factor, a slippage limit or a look-alike token."],
+  ["No record of the rules", "After an agent moves money, nobody can show which rules it was held to, or that the check happened before the signature."],
+];
+
+/** How it works: one sentence in, one checked transaction out. */
+const STEPS: readonly (readonly [string, string, string])[] = [
+  ["1", "Say the outcome", "\"Keep 5,000 USDC for payroll, put the rest in the best vault and hedge 20% into EURC.\" A sentence in the app, or one API call."],
+  ["2", "Lykia compiles a route", "Every capable Arc protocol and Circle rail (CCTP, Gateway, StableFX) is compared on the net result after fees, gas and slippage. The winner is simulated on Arc before you see it."],
+  ["3", "The Fence decides, you sign once", "Your rules (caps, recipients, tokens, health factor, FX band) return allow, confirm or deny with reasons. Approve, act and an Arc Memo with the verdict go out as one transaction."],
+];
+
+/** The three pillars, each pointing at the area of the app that carries it. */
+const PILLARS: readonly { title: string; kicker: string; line: string; links: readonly (readonly [string, string])[] }[] = [
+  { title: "Outcomes, not transactions", kicker: "ASK · PORTFOLIO · AUTOMATE", line: "Send, swap, earn, borrow and bridge by saying what you want, or with plain forms. Orders and automations re-plan under the same rules while you are away.", links: [["/app", "ASK"], ["/app/move", "MOVE"], ["/app/orders", "AUTOMATE"]] },
+  { title: "Rules that hold", kicker: "FENCE · AGENTS · TAG", line: "The Fence is checked off chain before signing and on chain by Lykia's smart account. Sub-agents get a Fence inside yours, and a Tag (an ERC-8004 identity) pins the hash of the Fence an agent obeys.", links: [["/app/fence", "FENCE"], ["/app/pack", "AGENTS"], ["/app/tag", "TAGS"]] },
+  { title: "One engine for every builder", kicker: "REST · MCP · SDK · x402", line: "The planner, the router and the Fence behind this app are a public API, an MCP server, TypeScript and Python SDKs and drop-in components. Your brand, your fee.", links: [["/build", "BUILD"], ["/ecosystem", "ECOSYSTEM"]] },
+];
 
 /** Which Circle product each Lykia feature uses (docs/circle/README.md). */
 const TOGETHER: readonly (readonly [string, string, string])[] = [
@@ -33,38 +61,50 @@ const TOGETHER: readonly (readonly [string, string, string])[] = [
   ["Every plan", "USDC · EURC", "USDC is Arc's gas and Lykia's unit of account."],
 ];
 
+/** Mainnet flow proofs in docs/flows.md: simulated with eth_call, nothing signed. */
+const FLOWS = { passed: 33, refused: 7 } as const;
+
+interface StatsLite {
+  readonly circle: { readonly productsUsed: readonly string[] };
+}
+
 export default function LandingPage() {
   const rates = useRates("mainnet");
   const eco = useEcosystem("mainnet");
+  const stats = useQuery({ queryKey: ["stats", "mainnet"], queryFn: ({ signal }) => apiGet<StatsLite>("/v1/stats", { query: { environment: "mainnet" }, signal, timeoutMs: 20_000 }), staleTime: 60_000, retry: 1 });
   const lit = usePulse((s) => s.lit);
   const pulse = usePulse((s) => s.pulse);
   const live = useMemo(() => topYields(rates.data, "USDC", 3), [rates.data]);
   const pens = useMemo(() => (live.length >= 3 ? [live[1]!, live[0]!, live[2]!] : SAMPLE_PENS), [live]);
   const best = Math.max(...pens.map((p) => p.apy ?? 0));
-  const ask = (text: string) => {
-    // A question is handed to Ask Lyko (and the composer morphs there); commands and pages run here.
-    handleLine(text);
-  };
+  const contracts = Object.entries(lykiaContracts.LYKIA_DEPLOYMENTS.mainnet);
+  const mainnet = networkFor("mainnet");
+  // A question is handed to Ask (and the composer morphs there); commands and page names run here.
+  const ask = (text: string) => handleLine(text);
   const dataKey = useMemo(() => `${pens.map((p) => p.apy).join(",")}|${lit}`, [pens, lit]);
   const short = (s: string) => s.replace(/ USDC$/u, "").replace(/^Aave V4 /u, "AAVE V4 ").toUpperCase().slice(0, 16);
 
   return (
     <div>
       <header className="m-head m-wrap">
-        <Medallion size={168} spin />
-        <h1 className="m-title" style={{ marginTop: 18 }}>
-          {(
-            <>
-              Lead the flock to <em>greener pastures.</em>
-            </>
-          )}
+        <Medallion size={104} spin />
+        <div style={{ marginTop: 14 }}>
+          <span className="m-kick">{"BUILT ON ARC NETWORK · POWERED BY CIRCLE · MAINNET BETA"}</span>
+        </div>
+        <h1 className="m-title">
+          Say the outcome. <em>Keep the rules.</em>
         </h1>
         <p className="m-sub">
-          {"Built on Arc Network and Circle's products: every Arc protocol routable on Lykia, every agent inside its Fence. Say it once; Lyko herds your stablecoins and keeps the wolves outside."}
+          {"Lykia is the policy layer for money that agents and apps move on Arc. It compiles what you want into a route across Arc protocols and Circle rails, checks every step against your Fence, and hands it to your wallet or your agent to sign. The same engine is an API for every builder."}
         </p>
+        <div className="lp-cta">
+          <Link to="/app" className="m-btn">{"OPEN THE APP"}</Link>
+          <Link to="/build" className="m-btn m-btn--sea">{"BUILD WITH THE API"}</Link>
+          <a href="#proof" className="m-btn m-btn--ghost">{"SEE THE PROOF"}</a>
+        </div>
       </header>
 
-      <section className="m-wrap" style={{ marginTop: 28 }}>
+      <section className="m-wrap" style={{ marginTop: 28 }} aria-label="Try it">
         <SceneFrame
           vt
           build={(t) => bay({ pens: pens.map((p) => ({ label: p.label, apy: p.apy })), flock: ["USDC", "EURC", "USDC", "USDC", "cirBTC", "EURC"], wolves: 2, lit, grow: rates.isLoading ? 0.25 : 1 }, t)}
@@ -72,13 +112,12 @@ export default function LandingPage() {
           height={BAY_H}
           dataKey={dataKey}
           assembleKey="bay"
-          label="Lyko's bay: three pens whose grass height is each venue's yield, the flock, the Patara lighthouse and two wolves kept outside the fence"
+          label="Three pens whose grass height is each Arc vault's live yield, your assets inside the Fence, and two bad tokens kept outside it"
           labels={[
-            { x: 50, y: 1.5, text: "PATARA · BLINKS EVERY ARC BLOCK" },
-            { x: 28, y: 26, text: "BASE · CCTP", tone: undefined },
+            { x: 28, y: 26, text: "BASE · CCTP" },
             { x: 72, y: 26, text: "ETHEREUM · CCTP" },
             { x: 18.5, y: 63, text: `${short(pens[0]!.label)} ${pens[0]!.apy?.toFixed(1) ?? "n/a"}%`, tone: pens[0]!.apy === best ? "ok" : "ochre" },
-            { x: 50, y: 59, text: `${short(pens[1]!.label)} ${pens[1]!.apy?.toFixed(1) ?? "n/a"}%${pens[1]!.apy === best ? " · GREENEST" : ""}`, tone: pens[1]!.apy === best ? "ok" : "ochre" },
+            { x: 50, y: 59, text: `${short(pens[1]!.label)} ${pens[1]!.apy?.toFixed(1) ?? "n/a"}%${pens[1]!.apy === best ? " · BEST" : ""}`, tone: pens[1]!.apy === best ? "ok" : "ochre" },
             { x: 81.5, y: 66, text: `${short(pens[2]!.label)} ${pens[2]!.apy?.toFixed(1) ?? "n/a"}%`, tone: pens[2]!.apy === best ? "ok" : "ochre" },
             { x: 6.5, y: 76, text: "LOOK-ALIKE", tone: "wolf" },
             { x: 93.5, y: 76, text: "HONEYPOT", tone: "wolf" },
@@ -87,7 +126,7 @@ export default function LandingPage() {
             <div style={{ padding: 12, borderTop: "8px solid", borderImage: "var(--rule8) 8 round" }} onFocus={() => void warmRoute("/app")} onMouseEnter={() => void warmRoute("/app")}>
               <Composer onSubmit={ask} className="m-frame--thin" />
               <div className="m-chips">
-                {CHIPS.en.map((c) => (
+                {CHIPS.map((c) => (
                   <button key={c} type="button" className="m-chip" onClick={() => ask(c)}>
                     {c}
                   </button>
@@ -97,109 +136,91 @@ export default function LandingPage() {
           }
         />
         <p className="m-kick m-center" style={{ marginTop: 10 }}>
-          {live.length >= 3 ? `${"LIVE YIELDS"} · MORPHO + AAVE · ARC MAINNET` : rates.isLoading ? "…" : "SAMPLE YIELDS · API NOT REACHED"}
+          {live.length >= 3 ? "LIVE USDC YIELDS · MORPHO + AAVE · ARC MAINNET" : rates.isLoading ? "…" : "SAMPLE YIELDS · THE API DID NOT ANSWER"}
         </p>
       </section>
 
       <MeanderBand className="mt-12" />
 
-      <section className="m-wrap" style={{ marginTop: 40 }}>
+      <section className="m-wrap" style={{ marginTop: 40 }} aria-labelledby="lp-problem">
         <div className="m-center">
-          <span className="m-kick">{"IN SIXTY SECONDS"}</span>
-          <h2 className="m-h2" style={{ marginTop: 8 }}>
-            {"Arc gives agents money. Lyko keeps them in line."}
-          </h2>
+          <span className="m-kick">{"THE PROBLEM"}</span>
+          <h2 id="lp-problem" className="m-h2" style={{ marginTop: 8 }}>{"Agents can hold money on Arc. Nobody should hand them a blank cheque."}</h2>
         </div>
-        <div className="m-grid-3" style={{ marginTop: 28 }}>
-          <Card title="The Outrun" kicker={"ONE SENTENCE · ONE SIGNATURE · <1 S"} footer={<Button onClick={() => ask(CHIPS.en[0])}>{"TRY IT"}</Button>}>
-            <div className="flex justify-center" style={{ padding: "8px 0" }}>
-              <Sprite rows={LYKO_TROT} scale={3} label="Lyko trotting" />
+        <div className="m-grid-3" style={{ marginTop: 24 }}>
+          {PROBLEM.map(([title, line]) => (
+            <div key={title} className="m-frame m-frame--thin lp-box">
+              <b>{title}</b>
+              <p className="m-small m-muted">{line}</p>
             </div>
-            {[
-              ["I", "Plans", "Every live Arc venue is compared"],
-              ["II", "The Fence decides", "Caps, recipients, Scent, health factor"],
-              ["III", "One signature", "Approve + act + memo in one Arc transaction"],
-            ].map(([n, t, d]) => (
-              <div key={n} className="m-row">
-                <span style={{ fontFamily: "Pixelify Sans", fontWeight: 700, fontSize: 20, color: "var(--terra)", width: 28, textAlign: "center" }}>{n}</span>
-                <div>
-                  <b>{t}</b>
-                  <p className="m-small m-muted">{d}</p>
-                </div>
-              </div>
-            ))}
-          </Card>
-          <Card title="The Pack" kicker={"SUB-AGENTS · THEIR OWN FENCES"} footer={<Link to="/app/pack" className="m-btn m-btn--sea">{"SPAWN A PUP"}</Link>}>
-            {([["treasurer", "Treasurer", "Tag on Arc · daily cap"], ["payroll", "Payroll", "Fridays · named payees"], ["fx-hedger", "FX hedger", "EURC band ±25 bps"], ["sentinel", "Sentinel", "Scent + health · blows the whistle"]] as const).map(([role, name, line]) => (
-              <div key={role} className="m-row" style={{ alignItems: "center" }}>
-                <PupIcon role={role} scale={3} />
-                <div>
-                  <b>{name}</b>
-                  <p className="m-small m-muted">{line}</p>
-                </div>
-              </div>
-            ))}
-            <p className="m-note" style={{ marginTop: 8 }}>{"A pup's Fence can never leave its parent's; its budget is carved from the parent's."}</p>
-          </Card>
-          <Card title="The Fence" kicker={"ON CHAIN TOO"} footer={<Link to="/app/fence" className="m-btn m-btn--navy">{"BUILD YOUR FENCE"}</Link>}>
-            {[
-              ["Per step", "$1,000"],
-              ["Per day", "$5,000"],
-              ["Health factor", "≥ 1.5"],
-              ["FX band", "±50 bps"],
-              ["Strangers", "never"],
-            ].map(([k, v]) => (
-              <div key={k} className="m-row" style={{ justifyContent: "space-between" }}>
-                <span>{k}</span>
-                <span className="num">{v}</span>
-              </div>
-            ))}
-            <p className="m-note" style={{ marginTop: 8 }}>{"The Whistle: new risk stops, moves home always pass."}</p>
-          </Card>
-        </div>
-      </section>
-
-      <section className="m-wrap" style={{ marginTop: 48 }}>
-        <div className="m-grid-4">
-          {[
-            { rows: LYKO_SNIFF, title: "Scent", line: "What can be proven about a token before anyone touches it. Never says \"safe\".", href: "/app/scent" },
-            { rows: SHEEP, palette: { ...PAL, W: WOOL.USDC! }, title: "Flock", line: "Mainnet and testnet, wallet, Gateway and venues in one pasture.", href: "/app/flock" },
-            { face: true, title: "Tag", line: "An ERC-8004 identity that pins the hash of the Fence it obeys.", href: "/app/tag" },
-            { rows: SHEEP, palette: { ...PAL, W: WOOL.EURC! }, title: "Pastures", line: "Live yields: grass height is the rate, with risk and source.", href: "/app/pastures" },
-          ].map((p) => (
-            <Link key={p.title} to={p.href} className="m-frame m-card m-center" style={{ textDecoration: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-              <div style={{ height: 72, display: "grid", placeItems: "center" }}>{p.face ? <LykoFace mood="proud" scale={2.4} /> : <Sprite rows={p.rows!} palette={p.palette} scale={3} />}</div>
-              <h3 style={{ fontSize: 22 }}>{p.title}</h3>
-              <p className="m-small m-muted">{p.line}</p>
-            </Link>
           ))}
         </div>
       </section>
 
-      <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="eco-together">
+      <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="lp-how">
         <div className="m-center">
-          <span className="m-kick">{"BUILT ON ARC NETWORK · POWERED BY CIRCLE"}</span>
-          <h2 id="eco-together" className="m-h2" style={{ marginTop: 8 }}>{"Lykia brings the Arc ecosystem together"}</h2>
-          <p className="m-sub" style={{ marginTop: 8 }}>{"Circle's products are the quay. Every Arc protocol is a stall along it. Lykia walks every user and agent to the right one, inside their Fence."}</p>
+          <span className="m-kick">{"HOW IT WORKS"}</span>
+          <h2 id="lp-how" className="m-h2" style={{ marginTop: 8 }}>{"One sentence in. One checked transaction out."}</h2>
         </div>
-        <div style={{ marginTop: 24 }}>
-          <CircleQuay data={eco.data} compact />
+        <ol className="lp-steps" aria-label="How Lykia works">
+          {STEPS.map(([n, title, line]) => (
+            <li key={n} className="m-frame lp-step">
+              <span className="lp-step__n" aria-hidden="true">{n}</span>
+              <b>{title}</b>
+              <p className="m-small m-muted">{line}</p>
+            </li>
+          ))}
+        </ol>
+        <p className="m-small m-muted m-center" style={{ marginTop: 12 }}>{"The server never holds keys and never signs. A deny comes back with its reasons; nothing is sent."}</p>
+      </section>
+
+      <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="lp-pillars">
+        <h2 id="lp-pillars" className="sr-only">{"What Lykia does"}</h2>
+        <div className="m-grid-3">
+          {PILLARS.map((p) => (
+            <Card key={p.title} title={p.title} kicker={p.kicker} footer={<div className="lp-links">{p.links.map(([href, label]) => <Link key={href} to={href} className="m-btn m-btn--sm m-btn--navy">{label}</Link>)}</div>}>
+              <p className="m-small">{p.line}</p>
+            </Card>
+          ))}
         </div>
-        <EcosystemStats data={eco.data} />
-        <div style={{ marginTop: 20 }}>
-          <PartnerStalls data={eco.data} limit={6} filter="verified" />
+      </section>
+
+      <section id="proof" className="m-wrap" style={{ marginTop: 48, scrollMarginTop: 80 }} aria-labelledby="lp-proof">
+        <div className="m-center">
+          <span className="m-kick">{"LIVE ON ARC MAINNET"}</span>
+          <h2 id="lp-proof" className="m-h2" style={{ marginTop: 8 }}>{"Proof, not promises"}</h2>
         </div>
-        <div className="m-center" style={{ marginTop: 18 }}>
-          <EcosystemLink />
+        <div className="m-grid-4" style={{ marginTop: 24 }}>
+          <Stat label="FLOWS PROVEN" value={String(FLOWS.passed + FLOWS.refused)} hint={`${FLOWS.passed} pass, ${FLOWS.refused} refused as designed`} />
+          <Stat label="CIRCLE PRODUCTS USED" value={stats.data ? String(stats.data.circle.productsUsed.length) : stats.isError ? "n/a" : "…"} hint="read live from GET /v1/stats" />
+          <Stat label="BLOCK TIME" value={pulse?.blockTimeMs ? `${Math.round(pulse.blockTimeMs)} ms` : "…"} hint={pulse ? `block #${pulse.block.toLocaleString("en-US")}, final on inclusion` : undefined} />
+          <Stat label="A TRANSFER COSTS" value={pulse?.transferCostUsd ? `$${Number(pulse.transferCostUsd).toFixed(4)}` : "…"} hint="gas paid in USDC" />
         </div>
-        <p className="m-kick m-center" style={{ marginTop: 14 }}>{"VERDICTS FILED AS ERC-8354 POLICY ATTESTATIONS · BUILT ON ARC NETWORK · POWERED BY CIRCLE"}</p>
+        <div className="m-grid-2" style={{ marginTop: 16 }}>
+          <Card title={"Lykia's contracts"} kicker={"DEPLOYED FROM THE OWNER'S WALLET"}>
+            <ul className="lp-contracts">
+              {contracts.map(([name, address]) => (
+                <li key={name}>
+                  <b>{name}</b>
+                  <a className="mono" href={explorerAddress(mainnet, address)} target="_blank" rel="noreferrer">{address}</a>
+                </li>
+              ))}
+            </ul>
+          </Card>
+          <Card title={"Every flow, simulated on mainnet"} kicker={"ETH_CALL · NOTHING SIGNED"} footer={<div className="lp-links"><a className="m-btn m-btn--sm m-btn--navy" href={`${REPO}/blob/main/docs/flows.md`} target="_blank" rel="noreferrer">{"THE FLOW MATRIX"}</a><Link to="/stats" className="m-btn m-btn--sm m-btn--ghost">{"ALL STATS"}</Link></div>}>
+            <p className="m-small">{"Send with a memo, FX, swaps, vault deposits, Aave V4 and Morpho borrow and repay, CCTP out, Gateway deposits, payouts, invoices and agent sessions: each built by the same code the API serves and run as one Multicall3From call on Arc. The refusals (beta cap, strangers, over-cap agents, the emergency stop) are on-chain errors from the contracts themselves."}</p>
+          </Card>
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <EcosystemStats data={eco.data} />
+        </div>
       </section>
 
       <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="better-together">
         <div className="m-center">
           <span className="m-kick">{"POWERED BY CIRCLE"}</span>
           <h2 id="better-together" className="m-h2" style={{ marginTop: 8 }}>{"Better together with Circle"}</h2>
-          <p className="m-sub" style={{ marginTop: 8 }}>{"Lykia is built on Circle's products and uses them wherever they exist. Your agent runs on a Circle wallet; Lykia's Fence checks every step before it gets there."}</p>
+          <p className="m-sub" style={{ marginTop: 8 }}>{"Wherever Circle already runs something, Lykia uses it instead of rebuilding it, and adds what an agent still needs on top: routing to every Arc protocol and a Fence that understands DeFi."}</p>
         </div>
         <ul className="together" aria-label="Which Circle product each Lykia feature uses">
           {TOGETHER.map(([feature, product, line]) => (
@@ -210,33 +231,49 @@ export default function LandingPage() {
             </li>
           ))}
         </ul>
-        <p className="m-small m-muted m-center" style={{ marginTop: 12 }}>{"Built on Arc Network · Powered by Circle. Lykia is independent: not affiliated with or endorsed by Circle or Arc."}</p>
+        <p className="m-center" style={{ marginTop: 14 }}>
+          <Link to="/app/circle" className="m-btn m-btn--sm m-btn--sea">{"LIVE STATUS OF EACH CIRCLE PRODUCT"}</Link>
+        </p>
       </section>
 
-      <section className="m-wrap" style={{ marginTop: 48 }}>
-        <FeesCard />
-      </section>
+      <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="lp-build">
+        <div className="m-center">
+          <span className="m-kick">{"FOR BUILDERS"}</span>
+          <h2 id="lp-build" className="m-h2" style={{ marginTop: 8 }}>{"The engine behind this app is yours to call"}</h2>
+        </div>
+        <div className="m-grid-2" style={{ marginTop: 24 }}>
+          <Card title={"Quote, check, build"} kicker={"REST · SSE"}>
+            <pre className="m-code">{`curl -X POST $LYKIA/v1/aggregator/quote \\
+  -H 'content-type: application/json' \\
+  -d '{"tokenIn":"USDC","tokenOut":"EURC",
+       "amount":"100","taker":"0xYou"}'
 
-      <section className="m-wrap" style={{ marginTop: 48 }}>
-        <div className="m-grid-2">
-          <Card title={"For builders"} kicker="REST · SSE · MCP · x402 · SDK" footer={<Link to="/build" className="m-btn m-btn--sea">{"GET A KEY"}</Link>}>
-            <pre className="m-code">{`curl -X POST $LYKIA/v1/agent/chat \\
-  -H 'Accept: text/event-stream' \\
-  -d '{"message":"put half my USDC to work",
-       "environment":"mainnet"}'
-
-event: proposal
-data: {"decision":"allow","steps":[...]}`}</pre>
+# then POST /v1/aggregator/build with the quote id:
+# unsigned calls, simulated, Fence verdict attached`}</pre>
           </Card>
-          <Card title={"Live proof"} kicker={"READ FROM ARC RIGHT NOW"}>
-            <div className="m-grid-2" style={{ gap: 8 }}>
-              <Stat label={"BLOCK"} value={pulse ? `#${pulse.block.toLocaleString("en-US")}` : "…"} />
-              <Stat label={"BLOCK TIME"} value={pulse?.blockTimeMs ? `${Math.round(pulse.blockTimeMs)} ms` : "…"} />
-              <Stat label="TRANSFER" value={pulse?.transferCostUsd ? `$${Number(pulse.transferCostUsd).toFixed(4)}` : "…"} />
-              <Stat label={"FINALITY"} value={<Tag tone="ok">DETERMINISTIC</Tag>} />
-            </div>
+          <Card title={"Entry points"} kicker={"PICK ONE"}>
+            <ul className="lp-entry">
+              <li><a href={API_REFERENCE} target="_blank" rel="noreferrer"><b>{"API reference"}</b></a><span className="m-small m-muted">{"OpenAPI 3.1, test and live keys, signed webhooks"}</span></li>
+              <li><Link to="/build"><b>{"MCP server and agent tools"}</b></Link><span className="m-small m-muted">{"Plan and check moves from any agent framework"}</span></li>
+              <li><a href={`${REPO}/tree/main/packages/sdk`} target="_blank" rel="noreferrer"><b>{"SDKs"}</b></a><span className="m-small m-muted">{"TypeScript and Python, plus a CLI"}</span></li>
+              <li><a href={`${REPO}/tree/main/packages/widget`} target="_blank" rel="noreferrer"><b>{"Widget and embed"}</b></a><span className="m-small m-muted">{"React components, or one script tag"}</span></li>
+              <li><a href={`${REPO}/blob/main/docs/integrate-your-protocol.md`} target="_blank" rel="noreferrer"><b>{"Integrate your protocol"}</b></a><span className="m-small m-muted">{"One typed adapter makes it routable"}</span></li>
+            </ul>
           </Card>
         </div>
+        <div style={{ marginTop: 16 }}>
+          <FeesCard compact />
+        </div>
+      </section>
+
+      <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="lp-beta">
+        <h2 id="lp-beta" className="sr-only">{"Beta status"}</h2>
+        <BetaRibbon inline />
+        <p className="m-small m-muted">
+          {"Lykia is an independent, open-source (MIT) project by one developer, live on Arc mainnet in beta. Its contracts have a published "}
+          <a href={`${REPO}/blob/main/docs/security/self-review.md`} target="_blank" rel="noreferrer">{"self-review"}</a>
+          {" but no paid audit yet, so the caps above apply to everyone, above any Fence. Not affiliated with or endorsed by Circle or Arc."}
+        </p>
       </section>
     </div>
   );

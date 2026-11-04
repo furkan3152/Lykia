@@ -51,7 +51,7 @@ export function Rule() {
 export function PageHead({ kicker, title, sub, medal = true, mood = "watching", children }: { kicker: string; title: React.ReactNode; sub?: React.ReactNode; medal?: boolean; mood?: FaceMood; children?: React.ReactNode }) {
   return (
     <header className="m-head m-wrap">
-      {medal ? <Medallion size={128} mood={mood} /> : null}
+      {medal ? <Medallion size={88} mood={mood} /> : null}
       <div>
         <span className="m-kick">{kicker}</span>
       </div>

@@ -27,7 +27,7 @@ const SDK = `import { Lykia } from "@lykia/sdk";
 
 const lykia = new Lykia({ apiKey: process.env.LYKIA_KEY });
 const plan = await lykia.intents.create({
-  text: "put half my USDC on the greenest pasture",
+  text: "put half my USDC to work",
   owner, environment: "mainnet",
 });
 console.log(plan.outrun.fees); // Lykia fee totals, e.g. ["1 USDC"]
@@ -61,7 +61,7 @@ export default function BuildPage() {
   };
   return (
     <div>
-      <PageHead kicker={"BUILD · API · MCP · SDK"} title={<>Put Lyko in <em>your product.</em></>} sub={"Add AI to your Arc app in three steps: a React widget, one script tag, headless hooks, agent tools or MCP. Your brand, your modules, your fee. The server never signs."} mood="happy">
+      <PageHead kicker={"BUILD · API · MCP · SDK"} title={<>The same engine, <em>in your product.</em></>} sub={"Routing across Arc protocols and Circle rails, Fence checks and the assistant behind Lykia, as a REST API, an MCP server, SDKs and drop-in components. Your brand, your fee. The server never signs."} mood="happy">
         <div className="flex justify-center gap-2" style={{ marginTop: 18 }}>
           {siwe.signedIn ? <Tag tone="ok">SIGNED IN · {siwe.session?.roles.join(", ").toUpperCase()}</Tag> : <Button onClick={() => void siwe.signIn()} disabled={siwe.busy}>{"SIGN IN ON ARC (SIWE)"}</Button>}
           {siwe.signedIn && !siwe.session?.roles.includes("developer") ? <Button tone="sea" onClick={() => register.mutate()}>{"BECOME A DEVELOPER"}</Button> : null}

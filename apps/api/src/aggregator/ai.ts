@@ -18,6 +18,8 @@ import type { AppContext } from "../context.js";
 import { agentServices } from "../agents/index.js";
 import { textOf, toolCallsOf, type LlmClient } from "../agents/llm.js";
 import { compileGoals } from "../engine/api.js";
+import { isGoalLanguage } from "../compiler/lexicon.js";
+import { compileIntent, type CompileResult } from "../compiler/service.js";
 import type { RouteSearchResult, ScoredRoute } from "../engine/search.js";
 import { getProfile } from "../personal/profile.js";
 import { projectOf } from "../platform/projects.js";
@@ -152,10 +154,35 @@ export async function explainRoute(llm: LlmClient | null, input: { readonly rout
   return { text: parts.filter(Boolean).join(" ") || "Nothing to explain: the route is empty.", source: "deterministic" };
 }
 
+/** /ai/route for goal language: the intent compiler's program, plan and drafts in the route response's shape. */
+function compiledRoute(input: AiRouteInput, compiled: CompileResult) {
+  const best = (compiled.now?.search?.best ?? null) as ScoredRoute | null;
+  const understood: Understood = { actions: compiled.now?.actions ?? [], clarify: compiled.questions.map((q) => q.text), source: compiled.source, language: compiled.language, note: compiled.note ?? "Goal language: compiled as a lykia.program/v1." };
+  const status = compiled.status === "refused" ? ("refused" as const) : compiled.status === "needs-input" ? ("clarify" as const) : best ? ("routed" as const) : compiled.now?.search ? ("no-route" as const) : ("compiled" as const);
+  return {
+    status,
+    text: input.text,
+    understood,
+    actions: understood.actions,
+    clarify: understood.clarify,
+    search: compiled.now?.search ?? null,
+    best,
+    explain: { summary: compiled.why.summary, why: compiled.why.tradeoffs.join(" "), steps: compiled.now?.parts.map((p) => p.rationale) ?? [], couldFail: best?.explanation.couldFail.slice(0, 6) ?? [], fence: compiled.now?.verdict.reasons ?? [], source: compiled.source, assumptions: compiled.why.assumptions, rejected: compiled.why.rejected, deferred: compiled.why.deferred },
+    compiled,
+    build: null,
+  };
+}
+
 export async function aiRoute(ctx: AppContext, input: AiRouteInput, http: Request | null = null) {
   const llm = agentServices(ctx).llm();
+  const compileInput = { text: input.text, owner: input.owner, ...(input.environment ? { environment: input.environment } : {}), ...(input.constraints ? { constraints: input.constraints } : {}) };
+  // Several goals, time or abstract wording: the intent compiler, not a one-shot action list.
+  if (isGoalLanguage(input.text)) return compiledRoute(input, await compileIntent(ctx, compileInput, http));
   const understood = await understand(llm, input.text);
   if (understood.clarify.length > 0 || understood.actions.length === 0) {
+    // A second chance: the compiler proposes defaults and asks precise questions instead of a generic one.
+    const compiled = await compileIntent(ctx, compileInput, http).catch(() => null);
+    if (compiled && (compiled.now || compiled.scheduled.length > 0 || compiled.status === "refused" || compiled.questions.length > 0)) return compiledRoute(input, compiled);
     return { status: "clarify" as const, text: input.text, understood, clarify: understood.clarify.length > 0 ? understood.clarify : ["What should Lykia do? Name the token, the amount and the action."], search: null, best: null, explain: null, build: null };
   }
   const project = http ? projectOf(http) : null;

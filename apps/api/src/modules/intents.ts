@@ -94,6 +94,9 @@ export const intentsModule: ApiModule = {
           if (screened?.result === "DENIED") {
             fence = { ...fence, recipients: { ...fence.recipients, deny: [...(fence.recipients?.deny ?? []), address as Address] } };
             notes.push(`${address} was denied by Circle Compliance screening${screened.ruleName ? ` (${screened.ruleName})` : ""}.`);
+          } else if (!screened || screened.result === "UNKNOWN") {
+            // Never read silence as approval: say the recipient was not screened, and why.
+            notes.push(`${address} was not screened by Circle Compliance${screened?.reason ? ` (${screened.reason})` : ""}.`);
           }
         }
       }
@@ -159,7 +162,7 @@ export const intentsModule: ApiModule = {
       const { doc } = await services(ctx).intents.load(id);
       const entry = doc.cctp?.[sid];
       if (!entry) throw new LykiaHttpError("NOT_FOUND", 404, "No CCTP attestation for that step yet.");
-      res.json({ stepId: sid, ...entry, note: "Call receiveMessage(message, attestation) on the destination MessageTransmitterV2 to mint, or let any relayer do it." });
+      res.json({ stepId: sid, ...entry, note: entry.forwarded ? "Circle's Forwarding Service minted on the destination; nothing to do." : "Call receiveMessage(message, attestation) on the destination MessageTransmitterV2 to mint, or let any relayer do it." });
     });
 
     router.post("/intents/:id/stop", async (req, res) => {

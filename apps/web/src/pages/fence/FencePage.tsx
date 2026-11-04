@@ -45,7 +45,7 @@ export default function FencePage() {
 
   return (
     <div>
-      <PageHead kicker={"THE FENCE · RULES AROUND YOUR AGENTS"} title={<>Build your <em>fence.</em></>} sub={"Post height is a cap, gates are allowed venues. Missing facts deny; the Whistle stops new risk while moves home always pass."} mood={whistle ? "resting" : "watching"}>
+      <PageHead kicker={"RULES · FENCE"} title={<>Your rules, <em>checked on every step.</em></>} sub={"The Fence is the policy every plan must pass: caps, allowed recipients, protocols and tokens, slippage, health factor and FX band. Missing facts deny. The Whistle is the emergency stop: it blocks new risk, while moves that bring money home always pass."} mood={whistle ? "resting" : "watching"}>
         <div className="flex justify-center gap-2 flex-wrap" style={{ marginTop: 18 }}>
           {(Object.keys(FENCE_TEMPLATES) as FenceTemplateKey[]).map((k) => (
             <Button key={k} tone="ghost" size="sm" onClick={() => setForm(fenceToForm(FENCE_TEMPLATES[k]))}>
@@ -87,7 +87,7 @@ export default function FencePage() {
               <Field label={"Max slippage (bps)"} error={issueFor("limits.maxSlippageBps")}><Input inputMode="numeric" value={form.maxSlippageBps} onChange={(e) => set("maxSlippageBps", e.target.value)} /></Field>
               <Field label={"Min health factor"} error={issueFor("lending.minHealthFactor")}><Input inputMode="decimal" value={form.minHealthFactor} onChange={(e) => set("minHealthFactor", e.target.value)} placeholder="1.5" /></Field>
               <Field label={"FX band (bps)"} error={issueFor("fx.maxDeviationBps")}><Input inputMode="numeric" value={form.fxBandBps} onChange={(e) => set("fxBandBps", e.target.value)} /></Field>
-              <Field label="Scent">
+              <Field label="Token check">
                 <Select value={form.scent} onChange={(e) => set("scent", e.target.value as ScentRequirement)}>
                   <option value="verified">verified only</option>
                   <option value="no-red-flags">no red flags</option>

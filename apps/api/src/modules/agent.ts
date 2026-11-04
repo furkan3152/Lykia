@@ -143,7 +143,7 @@ export const agentModule: ApiModule = {
           proposals = result.proposals;
           stopReason = result.stopReason;
         } else {
-          const result = await runDeterministicTurn({ ctx, environment, owner, fence, pack, message, emit });
+          const result = await runDeterministicTurn({ ctx, environment, owner, fence, pack, message, emit, ownerVerified: proof !== null, ...(proof ? { actor: proof } : {}) });
           text = result.text;
           proposals = result.proposals;
           stopReason = result.stopReason;

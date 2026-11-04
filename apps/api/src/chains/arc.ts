@@ -104,7 +104,8 @@ export class ArcChains {
     const transport =
       this.options.transport?.(network) ??
       fallback(
-        network.rpcUrls.map((url) => http(url, { timeout: this.options.timeoutMs ?? RPC_TIMEOUT_MS, retryCount: this.options.retryCount ?? RPC_RETRY_COUNT })),
+        // Configured endpoints first, then Arc's documented keyless providers (the primary can answer -32014 near the head).
+        [...network.rpcUrls, ...(network.fallbackRpcUrls ?? []).filter((u) => !network.rpcUrls.includes(u))].map((url) => http(url, { timeout: this.options.timeoutMs ?? RPC_TIMEOUT_MS, retryCount: this.options.retryCount ?? RPC_RETRY_COUNT })),
         { retryCount: 0 },
       );
     const client = createPublicClient({ chain: defineArcChain(network), transport, batch: { multicall: { wait: 16 } } }) as PublicClient;

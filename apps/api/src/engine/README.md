@@ -27,6 +27,12 @@ compileGoals("convert 100");
 
 Result: `{ actions, standing, clarify, clarifyChoices }`.
 
+Requests with several goals, a time dimension or abstract wording ("keep
+three months of payroll liquid and put the rest to work somewhere safe") go
+to the intent compiler instead (`src/compiler/`, `POST /v1/ai/compile`): a
+typed `lykia.program/v1`, resolved against live balances into these same plan
+actions plus drafts for later. See `docs/intents.md`.
+
 ### `planActions(intents, input) => Promise<CreateIntentResponse>`
 
 Equivalent to `IntentService.create`. It reads balances and prices, routes

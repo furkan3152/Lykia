@@ -55,7 +55,7 @@ function SnapshotView({ s }: { s: FlockSnapshot }) {
       </div>
       <Card title={"Holdings"} kicker={`ARC ${s.environment.toUpperCase()} · ${new Date(s.at).toLocaleTimeString()}`}>
         {s.holdings.length === 0 ? (
-          <EmptyState mood="sleeping" title={"The pasture is empty"}>{"No registry tokens at this address."}</EmptyState>
+          <EmptyState mood="sleeping" title={"Nothing here yet"}>{"No known tokens at this address. Fund it with USDC, or check the address and network."}</EmptyState>
         ) : (
           <div style={{ overflowX: "auto" }}>
           <table className="m-table">
@@ -118,11 +118,11 @@ export default function FlockPage() {
   const [revoking, setRevoking] = useState<string | null>(null);
   const revoke = async (id: string, txs: readonly UnsignedTransaction[]) => {
     if (!lykiaWallet.connected) return openModal();
-    if (address && lykiaWallet.address && address.toLowerCase() !== lykiaWallet.address.toLowerCase()) return toast.warning("This is someone else's flock", { description: "Only the connected wallet can sign its own fixes.", from: "LYKO" });
+    if (address && lykiaWallet.address && address.toLowerCase() !== lykiaWallet.address.toLowerCase()) return toast.warning("This is someone else's portfolio", { description: "Only the connected wallet can sign its own fixes.", from: "LYKO" });
     setRevoking(id);
     try {
       await lykiaWallet.send(txs);
-      toast.success("Fix signed", { description: "Final on Arc; Lyko re-counts the flock.", from: "LYKO" });
+      toast.success("Fix signed", { description: "Final on Arc; your holdings refresh.", from: "LYKO" });
       void qc.invalidateQueries({ queryKey: ["insights"] });
     } catch (e) {
       toast.error("Not signed", { description: describeError(e), from: "LYKO" });
@@ -136,7 +136,7 @@ export default function FlockPage() {
 
   return (
     <div>
-      <PageHead kicker={"FLOCK · EVERYTHING ON ARC"} title={<>Count your <em>flock.</em></>} sub={"Wallet, Gateway and venues, mainnet and testnet side by side. Anything without a price reads \"unpriced\", never zero."} mood="watching">
+      <PageHead kicker={"PORTFOLIO · HOLDINGS"} title={<>Everything you hold <em>on Arc.</em></>} sub={"Wallet, Circle Gateway balance and protocol positions, mainnet and testnet side by side. Anything without a price reads \"unpriced\", never zero."} mood="watching">
         <div className="flex justify-center gap-3 flex-wrap" style={{ marginTop: 18 }}>
           <Toggle light label="Scope" value={scope} onChange={setScope} options={[{ value: "both", label: "BOTH NETWORKS" }, { value: "one", label: environment.toUpperCase() }]} />
           {address ? <Tag tone={param || as ? "ochre" : "ghost"}>{param || as ? "VIEW ONLY · " : ""}{address.slice(0, 6)}…{address.slice(-4)}</Tag> : null}
@@ -144,8 +144,8 @@ export default function FlockPage() {
       </PageHead>
       <section className="m-wrap" style={{ marginTop: 28 }}>
         {!address ? (
-          <Card title={"Whose flock?"} kicker={"CONNECT A WALLET OR PASTE AN ADDRESS"}>
-            <EmptyState mood="sleeping" title={"Lyko is asleep"}>{"Give him an address and he counts the flock."}</EmptyState>
+          <Card title={"Whose portfolio?"} kicker={"CONNECT A WALLET OR PASTE AN ADDRESS"}>
+            <EmptyState mood="sleeping" title={"No address yet"}>{"Connect a wallet, or paste any Arc address to read its holdings."}</EmptyState>
             <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (/^0x[0-9a-fA-F]{40}$/u.test(draft)) navigate(`/app/flock/${draft}`); }}>
               <Input placeholder="0x…" value={draft} onChange={(e) => setDraft(e.target.value)} />
               <Button type="submit" tone="sea">{"COUNT"}</Button>

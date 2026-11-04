@@ -300,7 +300,7 @@
       "name": "Agent",
       "item": [
         {
-          "name": "Agent automations",
+          "name": "Agent automations (the owner's session or a secret key with the agents scope)",
           "request": {
             "method": "GET",
             "header": [
@@ -322,9 +322,16 @@
                 "v1",
                 "agent",
                 "automations"
+              ],
+              "query": [
+                {
+                  "key": "owner",
+                  "value": "",
+                  "disabled": false
+                }
               ]
             },
-            "description": "Agent automations\n\nAuth: key."
+            "description": "Agent automations (the owner's session or a secret key with the agents scope)\n\nAuth: session."
           }
         },
         {
@@ -356,7 +363,7 @@
           }
         },
         {
-          "name": "Conversation threads",
+          "name": "Conversation threads (the owner's session or a secret key with the agents scope)",
           "request": {
             "method": "GET",
             "header": [
@@ -378,9 +385,16 @@
                 "v1",
                 "agent",
                 "threads"
+              ],
+              "query": [
+                {
+                  "key": "owner",
+                  "value": "",
+                  "disabled": false
+                }
               ]
             },
-            "description": "Conversation threads\n\nAuth: key."
+            "description": "Conversation threads (the owner's session or a secret key with the agents scope)\n\nAuth: session."
           }
         },
         {
@@ -460,7 +474,7 @@
                 }
               }
             },
-            "description": "Create an automation\n\nAuth: key, scope: automation."
+            "description": "Create an automation\n\nAuth: key, scope: agents."
           }
         },
         {
@@ -500,7 +514,7 @@
                 }
               ]
             },
-            "description": "Disable an automation\n\nAuth: key, scope: automation."
+            "description": "Disable an automation\n\nAuth: key, scope: agents."
           }
         },
         {
@@ -540,7 +554,7 @@
                 }
               ]
             },
-            "description": "Enable an automation\n\nAuth: key, scope: automation."
+            "description": "Enable an automation\n\nAuth: key, scope: agents."
           }
         },
         {
@@ -573,7 +587,7 @@
                 "run"
               ]
             },
-            "description": "Run due automations now\n\nAuth: key, scope: automation."
+            "description": "Run due automations now\n\nAuth: key, scope: agents."
           }
         },
         {
@@ -607,7 +621,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"text\": \"\"\n}",
+              "raw": "{}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1340,6 +1354,47 @@
     {
       "name": "AI routing",
       "item": [
+        {
+          "name": "Goal language -> lykia.program/v1 -> plan for now + drafts for later",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/ai/compile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "ai",
+                "compile"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "The intent compiler. Reads several goals, time (every month, if BTC goes above) and abstract wording (safe, the rest, a third, out within a day) into a typed, hashed program; resolves shares, remainders and reserves against the owner's balances (or what-if balances); compiles one plan for now (route-searched under the Fence, the program digest pinned in the Fence facts) plus automation, order, alert and standing-order drafts with links to their prefilled forms; and explains assumptions, trade-offs, rejected alternatives and what is deferred. overrides change an assumption by id. Nothing is signed or saved; plan: true stores the plan for signing.\n\nAuth: public, scope: quote."
+          }
+        },
         {
           "name": "Explain a route or a quote in plain words",
           "request": {
@@ -2581,6 +2636,42 @@
           }
         },
         {
+          "name": "A CCTP burn from Arc: attestation, forwarding state, destination mint",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/circle/cctp/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "circle",
+                "cctp",
+                "status"
+              ],
+              "query": [
+                {
+                  "key": "environment",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "A CCTP burn from Arc: attestation, forwarding state, destination mint\n\nAuth: public."
+          }
+        },
+        {
           "name": "Compliance screening of an address",
           "request": {
             "method": "GET",
@@ -2642,6 +2733,49 @@
               ]
             },
             "description": "Unified Gateway balance\n\nAuth: key."
+          }
+        },
+        {
+          "name": "Gateway's record of a transfer, forwarded mints included",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/circle/gateway/transfers/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "circle",
+                "gateway",
+                "transfers",
+                ":id"
+              ],
+              "query": [
+                {
+                  "key": "environment",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Gateway's record of a transfer, forwarded mints included\n\nAuth: public."
           }
         },
         {
@@ -2820,6 +2954,42 @@
               ]
             },
             "description": "Every Circle product live on Arc and how Lykia uses it\n\nAuth: public."
+          }
+        },
+        {
+          "name": "USYC entitlement of a wallet on Arc (Entitlements.canCall on the Teller)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/circle/usyc/eligibility",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "circle",
+                "usyc",
+                "eligibility"
+              ],
+              "query": [
+                {
+                  "key": "environment",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "USYC entitlement of a wallet on Arc (Entitlements.canCall on the Teller)\n\nAuth: public."
           }
         },
         {
@@ -3319,6 +3489,99 @@
           }
         },
         {
+          "name": "StableFX taker funding: hand over the signed Permit2 data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/circle/stablefx/fund",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "circle",
+                "stablefx",
+                "fund"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "StableFX taker funding: hand over the signed Permit2 data\n\nAuth: key."
+          }
+        },
+        {
+          "name": "StableFX taker funding: Permit2 typed data to sign",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/circle/stablefx/funding/presign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "circle",
+                "stablefx",
+                "funding",
+                "presign"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "StableFX taker funding: Permit2 typed data to sign\n\nAuth: key."
+          }
+        },
+        {
           "name": "StableFX quote (USDC/EURC)",
           "request": {
             "method": "POST",
@@ -3408,6 +3671,52 @@
               }
             },
             "description": "StableFX trade\n\nAuth: key."
+          }
+        },
+        {
+          "name": "USYC subscribe or redeem for an entitled wallet: Fence verdict and unsigned calls",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/circle/usyc/prepare",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "circle",
+                "usyc",
+                "prepare"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "USYC subscribe or redeem for an entitled wallet: Fence verdict and unsigned calls\n\nAuth: key."
           }
         },
         {

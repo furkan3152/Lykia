@@ -5,7 +5,7 @@ import type { RouteId, RouteKind } from "../app/routes/routeTable";
 import { useUiStore } from "../app/state/uiStore";
 import { Medallion, MeanderBand, Toggle } from "../mosaic";
 import { usePalette } from "./palette";
-import { NAV } from "./nav";
+import { AREAS, areaOf } from "./nav";
 import { YouMenu } from "./YouMenu";
 
 const WalletButton = React.lazy(() => import("./WalletButton"));
@@ -14,6 +14,7 @@ export function Header({ kind, routeId }: { readonly kind: RouteKind; readonly r
   const mode = useUiStore((s) => s.mode);
   const setMode = useUiStore((s) => s.setMode);
   const openPalette = usePalette((s) => s.open);
+  const current = areaOf(routeId)?.id;
   return (
     <header className="m-header">
       <div className="m-wrap--wide m-wrap m-header__in">
@@ -22,15 +23,15 @@ export function Header({ kind, routeId }: { readonly kind: RouteKind; readonly r
           LYKIA
         </Link>
         <nav className="m-nav" aria-label="Main">
-          {NAV.map((item) => (
-            <Link key={item.id} to={item.href} aria-current={item.match.includes(routeId) ? "page" : undefined}>
-              {(item.en).toUpperCase()}
+          {AREAS.map((area) => (
+            <Link key={area.id} to={area.href} title={area.blurb} aria-current={area.id === current ? "page" : undefined}>
+              {area.label.toUpperCase()}
             </Link>
           ))}
         </nav>
         <div className="m-header__act">
-          <button type="button" className="m-askbtn" onClick={() => openPalette()} aria-label="Ask Lyko or run a command">
-            <span>{"ASK"}</span>
+          <button type="button" className="m-askbtn" onClick={() => openPalette()} aria-label="Search pages, run a command or ask">
+            <span>{"SEARCH"}</span>
             <kbd>⌘K</kbd>
           </button>
           <span className="m-netwrap">

@@ -11,6 +11,9 @@ import { LYKO_LINES, type Address, type ArcEnvironment, type Fence, type PackAge
 import type { AgentProposal } from "@lykia/core/api/agents";
 import type { AppContext } from "../context.js";
 import { readWithMemory } from "../personal/reader.js";
+import { isGoalLanguage } from "../compiler/lexicon.js";
+import { compileIntent } from "../compiler/service.js";
+import { deliver } from "../compiler/deliver.js";
 import { planActions } from "./engine.js";
 import { mergeProposals, specialistFor, type Emit, type SpecialistRole, type TurnResult } from "./orchestrator.js";
 
@@ -49,10 +52,43 @@ export interface DeterministicInput {
   readonly pack: readonly PackAgent[];
   readonly message: string;
   readonly emit: Emit;
+  /** Proven control of the owner (SIWE session or secret key): compiled drafts are saved, not only linked. */
+  readonly ownerVerified?: boolean;
+  readonly actor?: { readonly developer: string; readonly via: "session" | "secret" };
+}
+
+/** Goal language without a model: the intent compiler's lexicon, one plan for now, drafts for later. */
+async function compiledTurn(input: DeterministicInput): Promise<TurnResult> {
+  const { emit } = input;
+  const owner = input.owner as Address;
+  emit("task", { agent: "Lyko", role: "orchestrator", task: "compile the goal" });
+  const result = await compileIntent(input.ctx, { text: input.message, owner, environment: input.environment, fence: input.fence, search: false, reader: "deterministic" });
+  const verified = input.ownerVerified === true ? (input.actor ?? { developer: owner.toLowerCase(), via: "session" as const }) : null;
+  const delivered = await deliver({ ctx: input.ctx, environment: input.environment, owner, fence: input.fence, verified, agent: { name: "Lyko", role: "orchestrator" }, proposedByAgent: false }, result);
+  emit("tool", { agent: "Lyko", name: "compile_goal", ok: result.status !== "refused", summary: result.why.summary });
+  for (const d of delivered.drafts) emit("draft", d);
+  emit("program", delivered.view);
+  if (delivered.proposal) emit("proposal", delivered.proposal);
+  const v = delivered.view;
+  if (result.questions.length > 0) emit("clarify", { question: result.questions[0]!.text, options: [...(result.questions[0]!.choices ?? [])] });
+  const lines: string[] = [];
+  if (result.status === "refused") lines.push(`I won't do that: ${v.refusals.join(" ")}`);
+  else {
+    if (v.now) lines.push(`Now: ${v.now.steps.map((st) => st.summary).join("; ")}.`);
+    if (v.scheduled.length > 0) lines.push(`Later: ${v.scheduled.map((sch) => sch.summary).join("; ")}.`);
+    if (v.assumptions.length > 0) lines.push(`I assumed ${v.assumptions.length} thing${v.assumptions.length === 1 ? "" : "s"} you can change below.`);
+    if (v.refusals.length > 0) lines.push(`Left out: ${v.refusals.join(" ")}`);
+    if (delivered.planError) lines.push(`The plan for now could not be built: ${delivered.planError}`);
+    if (result.questions.length > 0) lines.push(result.questions[0]!.text);
+  }
+  const text = lines.join(" ") || result.why.summary;
+  emit("text", { text });
+  return { text, proposals: delivered.proposal ? [delivered.proposal] : [], stopReason: result.questions.length > 0 ? "clarify" : "end_turn", delegations: 0, modelCalls: 0 };
 }
 
 export async function runDeterministicTurn(input: DeterministicInput): Promise<TurnResult> {
   const { emit } = input;
+  if (input.owner && isGoalLanguage(input.message)) return compiledTurn(input);
   const parsed = await readWithMemory(input.ctx, input.owner, input.message);
   const done = (text: string, proposals: AgentProposal[], stopReason: TurnResult["stopReason"] = "end_turn") => {
     for (const p of proposals) emit("proposal", p);

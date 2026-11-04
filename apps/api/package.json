@@ -18,7 +18,8 @@
     "smoke": "tsx src/scripts/smoke.ts",
     "smoke:e2e": "tsx src/scripts/e2e.ts",
     "prove": "tsx src/scripts/prove.ts",
-    "openapi": "tsx src/scripts/openapi.ts"
+    "openapi": "tsx src/scripts/openapi.ts",
+    "eval:intents": "tsx src/evals/run.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.134.0",

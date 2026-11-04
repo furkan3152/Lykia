@@ -30,22 +30,28 @@ outside it. That one sentence covers both Scent and the Fence.
 
 ## Vocabulary
 
-The product language is English. Every surface uses these words:
+The product language is English. Only **Fence** and **Tag** appear as
+product terms in navigation; the rest are internal or lore names, and the
+interface uses the plain word next to them (see
+[product.md](product.md#vocabulary)):
 
 | Word | Meaning |
 |---|---|
 | Fence | The rules around an agent or an owner. |
 | Tag | An agent's on-chain identity: its ERC-8004 identity plus the hash of the Fence it follows. |
-| Whistle | Stops every new risk. Moves that bring value home still pass. |
-| Flock | Everything the owner holds on Arc, in one balance sheet. |
-| Scent | What can be proven about a token before anyone touches it. |
-| Outrun | The path of a plan, drawn as an arc. |
+| Whistle | The emergency stop: stops every new risk. Moves that bring value home still pass. |
+| Flock | Everything the owner holds on Arc (shown as "Portfolio"). |
+| Scent | What can be proven about a token before anyone touches it (shown as "Token check"). |
+| Outrun | The path of a plan, drawn as an arc (shown as "Plan"). |
 | Fold | Where the money ends up when the plan is done. |
 
 The interface is English only. The deterministic reader understands English
 sentences; with the model on, Lyko replies in the language the user writes in.
 
 ## Easter eggs
+
+They never appear in navigation or on the way to a core task; you find them
+by typing them.
 
 - **Sheepdog commands.** These are real commands: "come bye", "away to me",
   "walk up", "lie down", "that'll do" and "look back".

@@ -3,7 +3,6 @@ import { ALERT_KINDS, describeAlert, type AlertChannel, type AlertFiring, type A
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { DeskTabs } from "../../features/desk/DeskTabs";
 import { ALERT_TOKENS, alertFormFromSearch } from "../../features/desk/drafts";
 import { useSiwe } from "../../features/session/useSiwe";
 import { apiFetch, apiGet, apiPost, describeError } from "../../lib/api";
@@ -16,7 +15,7 @@ const KIND_LABEL: Record<AlertKind, string> = {
   "health-below": "Health factor below",
   "transfer-in": "Incoming transfer",
   "transfer-out": "Outgoing transfer",
-  "scent-warning": "Scent warning in my flock",
+  "scent-warning": "Token-check warning on something I hold",
   "order-filled": "Order executed",
 };
 const TOKEN_FOR = ALERT_TOKENS;
@@ -77,9 +76,7 @@ export default function AlertsPage() {
 
   return (
     <div>
-      <PageHead kicker={"DESK · ALERTS"} title={<>Lyko <em>barks</em> for you.</>} sub={"Price levels on Chainlink, health factors, big transfers, Scent warnings in your flock and executed orders. Delivered to the inbox here, your developer webhooks (alert.fired) and Telegram. Alerts never move money."} mood="alert">
-        <DeskTabs />
-      </PageHead>
+      <PageHead kicker={"AUTOMATE · ALERTS"} title={<>Be told, <em>never moved.</em></>} sub={"Price levels on Chainlink, health factors, big transfers, token-check warnings on what you hold and executed orders. Delivered to the inbox here, your developer webhooks (alert.fired) and Telegram. Alerts never move money."} mood="alert" />
       <section className="m-wrap" style={{ marginTop: 28 }}>
         {!enabled ? (
           <Card title={"Sign in first"}>

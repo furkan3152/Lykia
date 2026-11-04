@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { navigate } from "../../app/routes/history";
-import { DeskTabs } from "../../features/desk/DeskTabs";
 import { usd } from "../../features/desk/format";
 import { apiGet, describeError } from "../../lib/api";
 import { Button, Card, Input, PageHead, Skeleton, Stat, Tag } from "../../mosaic";
@@ -75,9 +74,7 @@ export default function MarketsPage() {
   const hedgeable = selected === "BTC-USD" || selected === "EUR-USD";
   return (
     <div>
-      <PageHead kicker={"DESK · PERPS MARKETS"} title={<>Read the <em>perps.</em></>} sub={"Live perpetuals data from Extended, whose USDC collateral sits on Arc. Trading happens on Extended's own engine with an Extended account; Lykia shows the market and lets you hedge on Arc itself with conditional orders."} mood="watching">
-        <DeskTabs />
-      </PageHead>
+      <PageHead kicker={"MORE · PERPS MARKETS · READ ONLY"} title={<>Read the <em>perps.</em></>} sub={"Live perpetuals data from Extended, whose USDC collateral sits on Arc. Trading happens on Extended's own engine with an Extended account; Lykia shows the market and lets you hedge on Arc itself with conditional orders."} mood="watching" />
       <section className="m-wrap" style={{ marginTop: 28 }}>
         <div className="m-grid-2 m-grid-2--l">
           <Card title={selected} kicker={m ? `${m.category.toUpperCase()} · UP TO ${Number(m.maxLeverage ?? 0)}× ON EXTENDED` : "…"}>

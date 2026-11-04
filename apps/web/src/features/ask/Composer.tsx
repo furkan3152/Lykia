@@ -65,7 +65,7 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
           rows={1}
           value={text}
           aria-label="Ask Lyko"
-          placeholder={placeholder ?? ("Keep 5,000 USDC for payroll, put the rest on the greenest pasture…")}
+          placeholder={placeholder ?? ("Keep 5,000 USDC for payroll, put the rest in the best vault…")}
           onChange={(e) => {
             setText(e.target.value);
             setCaret(e.target.selectionStart ?? e.target.value.length);
@@ -119,7 +119,7 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
         </Button>
       ) : (
         <Button onClick={send} disabled={!text.trim()}>
-          {"HERD IT"}
+          {"PLAN IT"}
         </Button>
       )}
     </div>

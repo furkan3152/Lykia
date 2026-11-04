@@ -56,8 +56,8 @@ describe("Circle products", () => {
       return json({ transferId: "t1", attestation: "0xaa", signature: "0xbb" });
     }), { environment: "testnet", destination: "base", burnIntents: draft.burnIntents, signatures: [signature] });
     assert.equal((sent as unknown[]).length, 1);
-    assert.equal(result.mint.chainId, 84532);
-    assert.deepEqual(decodeFunctionData({ abi: GATEWAY_MINTER_ABI, data: result.mint.data as Hex }).args, ["0xaa", "0xbb"]);
+    assert.equal(result.mint!.chainId, 84532);
+    assert.deepEqual(decodeFunctionData({ abi: GATEWAY_MINTER_ABI, data: result.mint!.data as Hex }).args, ["0xaa", "0xbb"]);
   });
 
   it("CCTP: live fees and a forwarded burn whose maxFee covers the forwarding fee", async () => {
@@ -66,12 +66,16 @@ describe("Circle products", () => {
       return json([{ finalityThreshold: 1000, minimumFee: 1, forwardFee: { low: 50000, med: 53703, high: 60000 } }, { finalityThreshold: 2000, minimumFee: 0, forwardFee: { low: 50000, med: 53703, high: 60000 } }]);
     });
     assert.equal((await cctpFees(fees, "mainnet", 6, true))[0]?.forwardFee?.med, "53703");
+    // Fast Transfer is N/A from Arc: the burn uses the standard threshold (0 bps) and only the forwarding fee applies.
     const r = await forwardedBridge(fees, { environment: "mainnet", owner: account.address, recipient: RECIPIENT, destination: "base", amountUnits: 10_000_000n, fast: true });
-    assert.equal(r.maxFee, String(1_000n + 53_703n));
-    assert.equal(r.burn, String(10_000_000n + 54_703n));
+    assert.equal(r.maxFee, String(53_703n));
+    assert.equal(r.burn, String(10_000_000n + 53_703n));
+    assert.equal(r.finalityThreshold, 2000);
+    assert.ok(r.notes[0]!.includes("not applicable from Arc"));
     const call = decodeFunctionData({ abi: TOKEN_MESSENGER_HOOK_ABI, data: r.transactions[1]!.data });
     assert.equal(call.args[7], FORWARDING_HOOK_DATA);
     assert.equal(call.args[1], 6);
+    assert.equal(call.args[6], 2000);
   });
 
   it("Marketplace discovery keeps the Arc payment option", async () => {

@@ -7,7 +7,6 @@ import { useState } from "react";
 
 import { navigate } from "../../app/routes/history";
 import { isSnapshot, useFlock } from "../../features/data/hooks";
-import { DeskTabs } from "../../features/desk/DeskTabs";
 import { usd } from "../../features/desk/format";
 import { applyShocks, SHOCKED, shockedHealth, type Shocks } from "../../features/desk/whatif";
 import { useLykiaWallet } from "../../features/wallet/useLykiaWallet";
@@ -37,9 +36,7 @@ export default function WhatIfPage() {
   const movers = result ? result.rows.filter((r) => r.after !== r.before).sort((a, b) => Math.abs(b.after - b.before) - Math.abs(a.after - a.before)) : [];
   return (
     <div>
-      <PageHead kicker={"DESK · WHAT-IF"} title={<>Shake the <em>pasture.</em></>} sub={"Move cirBTC and EURC and watch your flock's value and health factors respond, with every dollar of the move explained by the holding that carries it. Computed in your browser from live balances."} mood="watching">
-        <DeskTabs />
-      </PageHead>
+      <PageHead kicker={"PORTFOLIO · WHAT-IF"} title={<>Stress-test <em>your portfolio.</em></>} sub={"Move cirBTC and EURC and watch your portfolio's value and health factors respond, with every dollar of the move explained by the holding that carries it. Computed in your browser from live balances."} mood="watching" />
       <section className="m-wrap" style={{ marginTop: 28 }}>
         <div className="m-grid-2 m-grid-2--r">
           <Card title={"Shocks"} kicker={"PRICE MOVES IN %"}>
@@ -54,7 +51,7 @@ export default function WhatIfPage() {
             </div>
           </Card>
           <Card title={"Result"} kicker={snap ? `ARC ${environment.toUpperCase()} · BLOCK ${snap.block ?? "?"}` : "…"} tone="sea">
-            {!target ? <EmptyState mood="happy" title={"No flock yet"}>{"Connect a wallet or paste an address."}</EmptyState> : flock.isLoading ? <Skeleton h={200} /> : flock.isError ? <p className="m-note m-note--bad">{describeError(flock.error)}</p> : result ? (
+            {!target ? <EmptyState mood="happy" title={"No portfolio yet"}>{"Connect a wallet or paste an address."}</EmptyState> : flock.isLoading ? <Skeleton h={200} /> : flock.isError ? <p className="m-note m-note--bad">{describeError(flock.error)}</p> : result ? (
               <>
                 <div className="m-grid-3" style={{ gap: 8 }}>
                   <Stat label="Now" value={<span className="num">{usd(result.before)}</span>} />

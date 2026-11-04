@@ -65,37 +65,37 @@ export interface RouteDefinition {
   readonly load: () => Promise<PageModule>;
 }
 
-const BRAND_TITLE = "Lykia — Arc gives agents money. Lyko keeps them in line.";
+const BRAND_TITLE = "Lykia — the policy layer for money that agents and apps move";
 const BRAND_DESCRIPTION =
-  "Lykia is the agent and stablecoin desk built on Arc Network: ask once, get a plan across Arc venues checked by your Fence, signed in your own wallet and final in under a second. Lyko, the shepherd dog, keeps the wolves out.";
+  "Say the outcome; Lykia compiles it into a route across Arc protocols and Circle rails, the Fence checks every step against your rules, and you or your agent sign it. The same engine is an API for every builder. Built on Arc Network, powered by Circle.";
 const PRIVATE_ROBOTS = "noindex,nofollow";
 
 const page = (id: RouteId, pattern: string, kind: RouteKind, title: string, description: string, load: () => Promise<PageModule>, extra: Partial<RouteDefinition> = {}): RouteDefinition => ({ id, pattern, kind, title, description, load, ...extra });
 
 export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze({
   landing: page("landing", "/", "site", BRAND_TITLE, BRAND_DESCRIPTION, () => import("../../pages/landing/LandingPage")),
-  ask: page("ask", "/app/ask/:threadId?", "app", "Ask Lyko", "Ask once in plain words: Lyko and the Pack plan it across Arc, the Fence checks it, you sign once.", () => import("../../pages/ask/AskPage")),
+  ask: page("ask", "/app/ask/:threadId?", "app", "Ask", "Say the outcome in plain words: Lykia plans it across Arc protocols and Circle rails, the Fence checks every step, you sign once.", () => import("../../pages/ask/AskPage")),
   move: page("move", "/app/move/:tab?", "app", "Move", "Send, receive, swap, earn, borrow and bridge: the best route, checked by your Fence and simulated before you sign.", () => import("../../pages/move/MovePage"), { robots: PRIVATE_ROBOTS }),
-  flock: page("flock", "/app/flock/:address?", "app", "Flock", "Everything you hold on Arc mainnet and testnet in one pasture: wallet, Gateway and venues.", () => import("../../pages/flock/FlockPage"), { robots: PRIVATE_ROBOTS }),
-  pastures: page("pastures", "/app/pastures", "app", "Greener pastures", "Live yields on Arc venues, grass height by rate, with risk tier and source.", () => import("../../pages/pastures/PasturesPage")),
-  pack: page("pack", "/app/pack/:id?", "app", "Pack", "Your agents and their pups: spawn sub-agents whose Fence stays inside yours, carve budgets, bind sessions on chain.", () => import("../../pages/pack/PackPage")),
-  fence: page("fence", "/app/fence", "app", "Fence", "The rules around your agents: caps, recipients, venues, tokens, slippage, health factor, FX band, Scent and the Whistle.", () => import("../../pages/fence/FencePage")),
-  scent: page("scent", "/app/scent/:token?", "app", "Scent", "What can be proven about a token on Arc before anyone touches it. Never \"safe\".", () => import("../../pages/scent/ScentPage")),
+  flock: page("flock", "/app/flock/:address?", "app", "Portfolio", "Everything you hold on Arc mainnet and testnet in one view: wallet, Circle Gateway balance and protocol positions.", () => import("../../pages/flock/FlockPage"), { robots: PRIVATE_ROBOTS }),
+  pastures: page("pastures", "/app/pastures", "app", "Yields", "Live USDC and EURC rates on Arc lending and vault protocols, with risk tier and source.", () => import("../../pages/pastures/PasturesPage")),
+  pack: page("pack", "/app/pack/:id?", "app", "Agents", "Your agents and sub-agents: each with a Fence that stays inside yours and a budget carved from yours, optionally bound on chain.", () => import("../../pages/pack/PackPage")),
+  fence: page("fence", "/app/fence", "app", "Fence", "Your rules for money: caps, recipients, protocols, tokens, slippage, health factor, FX band and an emergency stop. Every plan is checked against it.", () => import("../../pages/fence/FencePage")),
+  scent: page("scent", "/app/scent/:token?", "app", "Token check", "What can be proven about a token on Arc before anyone touches it. Never \"safe\".", () => import("../../pages/scent/ScentPage")),
   tag: page("tag", "/app/tag/:agentId?", "app", "Tag", "Agent Tags on Arc: an ERC-8004 identity that pins the Fence it obeys.", () => import("../../pages/tag/TagPage")),
-  outrun: page("outrun", "/app/outrun/:id", "app", "Outrun", "Where the money is, step by step, from start to the Fold.", () => import("../../pages/outrun/OutrunPage"), { robots: PRIVATE_ROBOTS }),
-  you: page("you", "/app/you", "app", "You", "Your Lykia: language, currency, risk, venues, Lyko's persona and look, quiet hours and notifications.", () => import("../../pages/you/YouPage"), { robots: PRIVATE_ROBOTS }),
-  memory: page("memory", "/app/memory", "app", "Lyko remembers", "Intent history, learned preferences, named contacts and recurring patterns, all editable and forgettable.", () => import("../../pages/memory/MemoryPage"), { robots: PRIVATE_ROBOTS }),
+  outrun: page("outrun", "/app/outrun/:id", "app", "Plan", "Where the money is, step by step, from the first call to where it ends up.", () => import("../../pages/outrun/OutrunPage"), { robots: PRIVATE_ROBOTS }),
+  you: page("you", "/app/you", "app", "Settings", "Currency, risk, protocols, the assistant's voice and look, quiet hours and notifications.", () => import("../../pages/you/YouPage"), { robots: PRIVATE_ROBOTS }),
+  memory: page("memory", "/app/memory", "app", "Memory", "Intent history, learned preferences, named contacts and recurring patterns, all editable and forgettable.", () => import("../../pages/memory/MemoryPage"), { robots: PRIVATE_ROBOTS }),
   circle: page("circle", "/app/circle", "app", "Circle", "Circle's products on Arc: Gateway unified balance, CCTP, StableFX, agent wallets, compliance, nanopayments and USYC.", () => import("../../pages/circle/CirclePage")),
   orders: page("orders", "/app/orders", "app", "Orders", "Conditional orders on Arc: limit, stop-loss, take-profit, DCA and TWAP, signed once and executed by keepers.", () => import("../../pages/orders/OrdersPage")),
   markets: page("markets", "/app/markets", "app", "Perps markets", "Live perpetuals data from Extended, whose collateral sits on Arc: price, funding, open interest, candles and the book.", () => import("../../pages/markets/MarketsPage")),
-  discover: page("discover", "/app/discover", "app", "Launch radar", "New pools on Arc's AMMs with each token's trust verdict, and the launchpads building on Arc.", () => import("../../pages/discover/DiscoverPage")),
-  alerts: page("alerts", "/app/alerts", "app", "Alerts", "Price, health factor, transfer, Scent and fill alerts, delivered to the inbox, webhooks and Telegram.", () => import("../../pages/alerts/AlertsPage"), { robots: PRIVATE_ROBOTS }),
+  discover: page("discover", "/app/discover", "app", "New pools", "New pools on Arc's exchanges with each token's check result, and the launchpads building on Arc.", () => import("../../pages/discover/DiscoverPage")),
+  alerts: page("alerts", "/app/alerts", "app", "Alerts", "Price, health factor, transfer, token-check and fill alerts, delivered to the inbox, webhooks and Telegram.", () => import("../../pages/alerts/AlertsPage"), { robots: PRIVATE_ROBOTS }),
   automations: page("automations", "/app/automations", "app", "Automations", "Schedules, price feeds, balances and payout events that re-plan a sentence under your Fence or notify your webhooks.", () => import("../../pages/automations/AutomationsPage"), { robots: PRIVATE_ROBOTS }),
   activity: page("activity", "/app/activity", "app", "Activity", "Every intent, order and alert in one trail.", () => import("../../pages/activity/ActivityPage"), { robots: PRIVATE_ROBOTS }),
-  whatif: page("whatif", "/app/whatif", "app", "What-if", "Shock cirBTC and EURC and see your flock's value and health factors move, with the PnL explained.", () => import("../../pages/whatif/WhatIfPage"), { robots: PRIVATE_ROBOTS }),
+  whatif: page("whatif", "/app/whatif", "app", "What-if", "Shock cirBTC and EURC and see your portfolio's value and health factors move, with the PnL explained.", () => import("../../pages/whatif/WhatIfPage"), { robots: PRIVATE_ROBOTS }),
   pay: page("pay", "/pay/:id", "app", "Pay", "Pay an invoice or payment link on Arc: the amount, the line items and Lykia's fee shown before your wallet signs.", () => import("../../pages/pay/PayPage"), { robots: PRIVATE_ROBOTS }),
-  security: page("security", "/app/security", "app", "Security", "Six layers between the flock and the wolves: pre-sign simulation, address protection, approval hygiene, agent monitors, circuit breakers and the audit log.", () => import("../../pages/security/SecurityPage"), { robots: PRIVATE_ROBOTS }),
-  build: page("build", "/build", "app", "Build", "Keys, usage, webhooks, your fee, the playground, MCP, the SDK and the integration program for Arc protocols.", () => import("../../pages/build/BuildPage")),
+  security: page("security", "/app/security", "app", "Security", "Six checks between a plan and your wallet: pre-sign simulation, address protection, approval hygiene, agent monitors, circuit breakers and the audit log.", () => import("../../pages/security/SecurityPage"), { robots: PRIVATE_ROBOTS }),
+  build: page("build", "/build", "app", "Build", "The engine behind Lykia as an API: keys, usage, webhooks, your fee, the playground, MCP, the SDKs and protocol integration.", () => import("../../pages/build/BuildPage")),
   ecosystem: page("ecosystem", "/ecosystem", "site", "Ecosystem", "Every Arc protocol routable on Lykia, linked to its official Arc ecosystem entry, with Circle's products, TVL and the value Lykia routes, live.", () => import("../../pages/ecosystem/EcosystemPage")),
   stats: page("stats", "/stats", "site", "Stats", "Lykia in numbers: on-chain counts on Arc mainnet, value routed, protocols routable and integrators. Public, aggregate, sourced.", () => import("../../pages/stats/StatsPage")),
   legal: page("legal", "/legal/:doc?", "site", "Notice, risks and privacy", "Lykia's draft software notice and risk disclosure (open source, non-custodial, no warranty, beta caps) and privacy note.", () => import("../../pages/legal/LegalPage")),
@@ -107,7 +107,7 @@ export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze(
   notFound: page("notFound", "/*", "site", "Page not found", BRAND_DESCRIPTION, () => import("../../pages/notFound/NotFoundPage"), { robots: "noindex,follow" }),
 });
 
-/** Matching order: specific routes first, the catch-alls last. `/app` itself is Ask Lyko. */
+/** Matching order: specific routes first, the catch-alls last. `/app` itself is Ask. */
 const ORDER: readonly RouteId[] = ["landing", "ask", "move", "flock", "pastures", "pack", "fence", "scent", "tag", "outrun", "you", "memory", "circle", "orders", "markets", "discover", "alerts", "automations", "activity", "whatif", "security", "pay", "build", "ecosystem", "stats", "legal", "owner", "kit", "lykaion", "developers", "appNotFound", "notFound"];
 
 let compiled: ReadonlyArray<readonly [RouteDefinition, CompiledPattern]> | null = null;

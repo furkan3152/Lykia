@@ -27,7 +27,7 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     id: "cctp",
     name: "Circle CCTP V2",
     category: "bridge",
-    summary: "Burn USDC on Arc, mint native USDC on another chain. Fast transfer when the fee allows.",
+    summary: "Burn USDC on Arc, mint native USDC on another chain; Circle's Forwarding Service can submit the mint. From Arc it is a Standard Transfer (0 bps, ~0.5 s attestation); Fast Transfer is N/A from Arc.",
     docs: "https://developers.circle.com/cctp",
     deployments: {
       mainnet: { status: "live", contracts: { tokenMessengerV2: C.tokenMessengerV2.addresses.mainnet!, messageTransmitterV2: C.messageTransmitterV2.addresses.mainnet! }, evidence: CHECKED },

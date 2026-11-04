@@ -56,6 +56,8 @@ export interface FenceFacts {
   /** Spend so far (USD); null = unknown. Absent = no daily/weekly caps to check. */
   readonly spent?: { readonly dayUsd: string | null; readonly weekUsd: string | null };
   readonly now: number;
+  /** The `lykia.program/v1` digest the plan was compiled from: pinned in factsDigest, so the verdict commits to the program. */
+  readonly program?: Sha256Digest;
 }
 
 export type FenceRule =

@@ -28,7 +28,7 @@ export default function StatsPage() {
   return (
     <div>
       <header className="m-head m-wrap">
-        <span className="m-kick">{"BUILT ON ARC NETWORK · POWERED BY CIRCLE"}</span>
+        <span className="m-kick">{"BUILD · STATS"}</span>
         <h1 className="m-title">
           Lykia, in <em>numbers.</em>
         </h1>
@@ -46,7 +46,7 @@ export default function StatsPage() {
         <div className="m-grid-4" style={{ marginTop: 12 }}>
           <Stat label="DEVELOPER KEYS" value={s ? n(s.platform.developerKeys) : "…"} />
           <Stat label="INTEGRATORS" value={s ? n(s.platform.integrators) : "…"} hint="projects embedding Lykia" />
-          <Stat label="AGENTS" value={s ? n(s.platform.agents) : "…"} hint="Pack agents" />
+          <Stat label="AGENTS" value={s ? n(s.platform.agents) : "…"} hint="registered agents" />
           <Stat label="VERDICTS INDEXED" value={s ? n(s.onchain.verdictsIndexed) : "…"} hint="Fence verdicts" />
         </div>
       </section>

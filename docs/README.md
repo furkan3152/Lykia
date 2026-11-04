@@ -1,21 +1,33 @@
 # Lykia documentation
 
+Lykia is the policy layer for money that agents and apps move on Arc: say
+the outcome, Lykia compiles it into a route across Arc protocols and Circle
+rails, the Fence checks every step, and the same engine is an API for every
+builder. Start with [product.md](product.md) for the story and the app's
+structure.
+
+## Start here
+
+- [Product: story, pillars and structure](product.md)
+- [Mainnet flow proofs](flows.md): every flow simulated on Arc mainnet
+- [Circle integration](circle/README.md): which Circle product each feature uses
+
 ## Concepts
 
 - [Fence](fence.md): the typed policy every plan is checked against
-- [Pack](pack.md): agents and sub-agents with nested Fences and budgets
+- [Agents and sub-agents](pack.md): nested Fences and budgets (the API calls them the Pack)
 - [Tag](tag.md): agent identity on ERC-8004 and policy verdict attestations
 - [Knowledge model and routing](knowledge.md)
+- [The intent compiler: goals, time and abstract wording](intents.md)
 - [Memory](memory.md)
 - [Fees](fees.md)
-- [Mainnet flow proofs](flows.md)
 
 ## Building on Lykia
 
 - [Developer platform](platform/README.md): keys, webhooks, SDKs, CLI and
   every API family
 - [Integrating a protocol](integrate-your-protocol.md)
-- [Circle integration](circle/README.md)
+- [Circle products in Lykia](circle.md) (endpoint-level detail)
 - [Hosting](hosting.md)
 
 ## Security
@@ -28,6 +40,5 @@
 
 ## Project
 
-- [Positioning](positioning.md)
-- [Brand](brand.md)
+- [Positioning](positioning.md) and [brand](brand.md)
 - [Software notice](legal/software-notice.md) and [privacy note](legal/privacy-note.md)

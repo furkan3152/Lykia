@@ -28,7 +28,7 @@ export default function ScentPage() {
   const level = r?.level ?? (report.isLoading ? "unknown" : "idle");
   return (
     <div>
-      <PageHead kicker={"SCENT · BEFORE ANYONE TOUCHES IT"} title={<>Let Lyko <em>sniff it.</em></>} sub={"Registry, bytecode, proxies, privileges, owner and a simulated transfer. Even the best result is not \"safe\"; it is \"no red flags found\"."} mood={level === "danger" ? "growling" : level === "caution" ? "alert" : "watching"}>
+      <PageHead kicker={"RULES · TOKEN CHECK"} title={<>Check a token <em>before you touch it.</em></>} sub={"Registry, bytecode, proxies, privileges, owner and a simulated transfer (Lyko calls it the Scent). Even the best result is not \"safe\"; it is \"no red flags found\"."} mood={level === "danger" ? "growling" : level === "caution" ? "alert" : "watching"}>
         <form className="flex gap-2 justify-center" style={{ marginTop: 18, maxWidth: 620, marginInline: "auto" }} onSubmit={(e) => { e.preventDefault(); if (/^0x[0-9a-fA-F]{40}$/u.test(draft.trim())) navigate(`/app/scent/${draft.trim()}`); }}>
           <Input placeholder="0x… token address" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Token address" />
           <Button type="submit">{"SNIFF"}</Button>
@@ -48,7 +48,7 @@ export default function ScentPage() {
       <section className="m-wrap" style={{ marginTop: 28 }}>
         {!token ? (
           <Card title={"Give him a token"}>
-            <EmptyState mood="happy" title={"Nose ready"}>{"Paste an address, or try one of these:"}</EmptyState>
+            <EmptyState mood="happy" title={"Paste a token address"}>{"Paste an address, or try one of these:"}</EmptyState>
             <div className="m-chips">{EXAMPLES.map(([n, a]) => <button key={a} type="button" className="m-chip" onClick={() => navigate(`/app/scent/${a}`)}>{n}</button>)}</div>
           </Card>
         ) : report.isLoading ? <Skeleton h={240} /> : report.isError ? (
@@ -66,7 +66,7 @@ export default function ScentPage() {
               </table>
             </Card>
             <Card title={"Wolves"} kicker={`${r.wolves.length} FOUND`} tone={r.wolves.length ? "terra" : "sea"}>
-              {r.wolves.length === 0 ? <EmptyState mood="proud" title={"No wolves"}>{"That is not \"safe\"; it means everything provable was checked."}</EmptyState> : r.wolves.map((w) => (
+              {r.wolves.length === 0 ? <EmptyState mood="proud" title={"No red flags found"}>{"That is not \"safe\"; it means everything provable was checked."}</EmptyState> : r.wolves.map((w) => (
                 <div key={w} className="m-row"><Tag tone="wolf">{w}</Tag><div><b>{WOLVES[w as WolfKind].name}</b><p className="m-small m-muted">{WOLVES[w as WolfKind].line}</p></div></div>
               ))}
               {"warning" in r.trust ? <p className="m-note" style={{ marginTop: 8 }}>{r.trust.warning}</p> : null}

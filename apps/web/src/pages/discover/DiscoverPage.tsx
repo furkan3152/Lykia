@@ -3,7 +3,6 @@ import { networkFor } from "@lykia/core";
 import { useQuery } from "@tanstack/react-query";
 
 import { navigate } from "../../app/routes/history";
-import { DeskTabs } from "../../features/desk/DeskTabs";
 import { short } from "../../features/desk/format";
 import { apiGet, describeError } from "../../lib/api";
 import { useEnvironment } from "../../lib/environment";
@@ -21,13 +20,11 @@ export default function DiscoverPage() {
   const r = radar.data;
   return (
     <div>
-      <PageHead kicker={"DESK · LAUNCH RADAR"} title={<>What just <em>hatched.</em></>} sub={"New pools on Uniswap, Aerodrome, Synthra, SushiSwap and Archery, read from factory events on Arc, with Lykia's trust verdict for each token. New is not good: let Lyko sniff anything unverified before you touch it."} mood="alert">
-        <DeskTabs />
-      </PageHead>
+      <PageHead kicker={"MORE · NEW POOLS"} title={<>New pools <em>on Arc.</em></>} sub={"New pools on Uniswap, Aerodrome, Synthra, SushiSwap and Archery, read from factory events on Arc, with Lykia's token check for each one. New is not good: check anything unverified before you touch it."} mood="alert" />
       <section className="m-wrap" style={{ marginTop: 28 }}>
         <Card title={"New pools"} kicker={r ? `BLOCKS ${Number(r.fromBlock).toLocaleString("en-US")}–${Number(r.toBlock).toLocaleString("en-US")}` : "…"}>
           {radar.isLoading ? <Skeleton h={220} /> : radar.isError ? <p className="m-note m-note--bad">{describeError(radar.error)}</p> : !r?.pools.length ? (
-            <EmptyState mood="watching" title={"Quiet pasture"}>{r?.notes[0] ?? "No new pools in the scanned window."}</EmptyState>
+            <EmptyState mood="watching" title={"No new pools"}>{r?.notes[0] ?? "No new pools in the scanned window."}</EmptyState>
           ) : (
             <div className="m-scroll-x">
               <table className="m-table">

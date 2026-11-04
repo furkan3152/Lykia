@@ -1,13 +1,16 @@
 /**
- * ⌘K: the whistle box. One line can be a sheepdog command, a hidden word,
- * a page, a token, an agent id, or a question for Lyko (which morphs into
- * the Ask Lyko conversation).
+ * ⌘K: search and ask. One line can be a page, a token address, an agent id,
+ * or a question (which morphs into the Ask conversation). Sheepdog commands
+ * and hidden words still work; they are tucked away so they never compete
+ * with the core tasks.
  */
-import { COMMANDS, EASTER_EGGS, type CommandWord } from "@lykia/core";
+import { COMMANDS, type CommandWord } from "@lykia/core";
 import { useEffect, useRef, useState } from "react";
 
 import { konamiStep, resolveInput } from "../lib/commands";
 import { Frame, LykoFace, toast } from "../mosaic";
+import { navigate } from "../app/routes/history";
+import { AREAS } from "./nav";
 import { handleLine, usePalette } from "./palette";
 
 export function CommandPalette() {
@@ -61,16 +64,16 @@ export function CommandPalette() {
   const r = resolveInput(text);
   return (
     <div className="m-scrim" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()} style={{ placeItems: "start center", paddingTop: "14vh" }}>
-      <Frame className="m-modal vt-composer" role="dialog" aria-modal="true" aria-label="Ask Lyko">
+      <Frame className="m-modal vt-composer" role="dialog" aria-modal="true" aria-label="Search or ask">
         <div className="m-composer">
           <LykoFace mood={r.kind === "command" ? "alert" : "watching"} scale={1.6} />
           <div style={{ flex: 1 }}>
-            <span className="m-composer__meta">{"ASK LYKO · COMMANDS WORK TOO"}</span>
+            <span className="m-composer__meta">{"ASK, PASTE A TOKEN ADDRESS OR TYPE A PAGE"}</span>
             <textarea
               ref={ref}
               rows={1}
               value={text}
-              placeholder={"Put 100 USDC on the greenest pasture…"}
+              placeholder={"Put 100 USDC in the best vault…"}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Escape") close();
@@ -86,17 +89,32 @@ export function CommandPalette() {
           </button>
         </div>
         <div style={{ padding: "8px 14px 14px", borderTop: "2px dashed var(--grout)" }}>
-          <p className="m-kick" style={{ marginBottom: 6 }}>
-            {r.kind === "command" ? r.meaning : r.kind === "egg" ? "…" : "SHEPHERD COMMANDS"}
-          </p>
+          <p className="m-kick" style={{ marginBottom: 6 }}>{r.kind === "command" ? r.meaning : "JUMP TO"}</p>
           <div className="m-chips" style={{ justifyContent: "flex-start", marginTop: 0 }}>
-            {(Object.keys(COMMANDS) as CommandWord[]).map((w) => (
-              <button key={w} type="button" className="m-chip" onClick={() => setText(w)}>
-                {w}
+            {AREAS.flatMap((a) => a.sections).map((sec) => (
+              <button
+                key={sec.id}
+                type="button"
+                className="m-chip"
+                onClick={() => {
+                  close();
+                  navigate(sec.href);
+                }}
+              >
+                {sec.label}
               </button>
             ))}
           </div>
-          <p className="m-small m-muted mt-2">{Object.keys(EASTER_EGGS).length} hidden words live in the valley.</p>
+          <details className="mt-2">
+            <summary className="m-small m-muted" style={{ cursor: "pointer" }}>{"Shepherd commands"}</summary>
+            <div className="m-chips" style={{ justifyContent: "flex-start", marginTop: 6 }}>
+              {(Object.keys(COMMANDS) as CommandWord[]).map((w) => (
+                <button key={w} type="button" className="m-chip" title={COMMANDS[w].meaning} onClick={() => setText(w)}>
+                  {w}
+                </button>
+              ))}
+            </div>
+          </details>
         </div>
       </Frame>
     </div>

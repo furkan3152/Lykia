@@ -16,6 +16,14 @@ export const TOKEN_MESSENGER_V2_ABI = parseAbi([
   "function depositForBurn(uint256 amount, uint32 destinationDomain, bytes32 mintRecipient, address burnToken, bytes32 destinationCaller, uint256 maxFee, uint32 minFinalityThreshold)",
 ]);
 
+/** depositForBurnWithHook: the burn carries hook data (Circle's Forwarding Service reads it). */
+export const TOKEN_MESSENGER_HOOK_ABI = parseAbi([
+  "function depositForBurnWithHook(uint256 amount, uint32 destinationDomain, bytes32 mintRecipient, address burnToken, bytes32 destinationCaller, uint256 maxFee, uint32 minFinalityThreshold, bytes hookData)",
+]);
+
+/** Forwarding Service hook, version 0: "cctp-forward" in 24 bytes, version 0, no extra data (developers.circle.com/cctp/concepts/forwarding-service). */
+export const CCTP_FORWARDING_HOOK_DATA = "0x636374702d666f72776172640000000000000000000000000000000000000000" as const;
+
 export const GATEWAY_WALLET_ABI = parseAbi(["function deposit(address token, uint256 value)"]);
 
 export const QUOTER_V2_ABI = parseAbi([

@@ -3,7 +3,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { navigate } from "../../app/routes/history";
-import { DeskTabs } from "../../features/desk/DeskTabs";
 import { useSiwe } from "../../features/session/useSiwe";
 import { apiFetch, apiGet, apiPost, describeError } from "../../lib/api";
 import { useEnvironment } from "../../lib/environment";
@@ -25,9 +24,7 @@ export default function ActivityPage() {
   const go = (i: Item) => navigate(i.type === "intent" ? `/app/outrun/${i.id}` : i.link.startsWith("/app") ? i.link : i.type === "order" ? "/app/orders" : "/app/alerts");
   return (
     <div>
-      <PageHead kicker={"DESK · ACTIVITY"} title={<>The whole <em>trail.</em></>} sub={"Every intent with its step progress, every conditional order with its live status, every alert that fired. Track any Arc transaction and keep a watchlist of addresses."} mood="watching">
-        <DeskTabs />
-      </PageHead>
+      <PageHead kicker={"AUTOMATE · ACTIVITY"} title={<>The whole <em>trail.</em></>} sub={"Every intent with its step progress, every conditional order with its live status, every alert that fired. Track any Arc transaction and keep a watchlist of addresses."} mood="watching" />
       <section className="m-wrap" style={{ marginTop: 28 }}>
         {!siwe.signedIn ? (
           <Card title={"Sign in first"}>
@@ -108,7 +105,7 @@ function Watchlist() {
       {list.data?.items.map((w) => (
         <div key={w.address} className="m-row">
           <div style={{ flex: 1, minWidth: 0 }}><b className="m-small">{w.label || "Unnamed"}</b><p className="m-small m-muted num">{`${w.address.slice(0, 8)}…${w.address.slice(-6)}`}</p></div>
-          <Button size="sm" tone="ghost" onClick={() => navigate(`/app/flock/${w.address}`)}>{"FLOCK"}</Button>
+          <Button size="sm" tone="ghost" onClick={() => navigate(`/app/flock/${w.address}`)}>{"PORTFOLIO"}</Button>
           <Button size="sm" tone="ghost" onClick={() => void run(() => apiFetch(`/v1/watch/${w.address}`, { method: "DELETE" }))}>{"REMOVE"}</Button>
         </div>
       ))}

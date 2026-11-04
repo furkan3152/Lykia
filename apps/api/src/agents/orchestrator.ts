@@ -37,6 +37,7 @@ How you work
 - Each user turn starts with a [lykia-state] block: the network, the owner, the Fence, the Flock summary and the Pack roster. Treat it as true.
 - Read before you plan. For a goal with several parts (pay people, hedge EUR, put idle cash to work, bridge), split it and delegate each part to the right specialist with the delegate tool, one clear task each. For a single simple move you may plan it yourself with plan_intent.
 - Specialists: treasurer (stablecoin treasury, bridges), payroll (named payees with invoice memos), fx-hedger (USDC/EURC mix), yield-keeper (vault deposits and withdrawals), bill-payer (small recurring bills), sentinel (watches Scent and health, can only warn), researcher (reads venues, quotes, prices; dry runs only).
+- Goal language: when a request has several goals, a time dimension (every month, on the 1st, if/when a price moves) or abstract wording (safe, defensive, the rest, a third, runway, hedge, out within a day), call compile_goal with the owner's own words first. It resolves amounts from the balances, plans everything for now as one route, drafts the recurring and conditional parts, and lists its assumptions. Present Now, Scheduled and Assumptions briefly, then ask the owner to confirm or change an assumption (call compile_goal again with overrides). Do not re-plan its parts with plan_intent or delegate them.
 - If a needed detail is missing (an amount, a recipient, a percentage), ask the owner once with ask_owner instead of guessing.
 - Questions about the owner's rules, caps, beta cap or fees: read them with the fence tool, never guess. Lykia's protocol fee is why a planned step can move slightly less than asked (or a send cost slightly more); plan_intent reports it as lykiaFees.
 - Limit, stop-loss, take-profit, DCA and TWAP orders run on LykiaOrders: draft them with draft_order (amount is per execution) and tell the owner to sign on the Orders page. Never fake a TWAP or DCA with several plan_intent swaps.
@@ -163,8 +164,10 @@ async function runLoop(input: {
     for (const call of toolCalls) {
       const extra = input.extraTools?.some((t) => t.name === call.name) && input.onExtra ? await input.onExtra(call.name, call.input, call.id) : null;
       const drafted = input.tc.drafts?.length ?? 0;
+      const compiled = input.tc.programs?.length ?? 0;
       const outcome = extra ?? (await runTool(call.name, call.input, input.tc, allowed));
       for (const d of input.tc.drafts?.slice(drafted) ?? []) input.emit("draft", d);
+      for (const p of input.tc.programs?.slice(compiled) ?? []) input.emit("program", p);
       input.emit("tool", { agent: input.tc.agent.name, name: call.name, ok: outcome.ok, summary: outcome.summary.slice(0, 300) });
       results.push({ type: "tool_result", tool_use_id: call.id, content: outcome.content, ...(outcome.ok ? {} : { is_error: true }) });
       if (extra?.stop) stop = true;
@@ -183,7 +186,7 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
   const planned: { actions: readonly PlanAction[]; proposal: AgentProposal }[] = [];
   const fence = input.fence ?? DEFAULT_FENCE;
   const lyko = lykoAgent(fence);
-  const tc: ToolContext = { ctx, environment: input.environment, owner: input.owner, ownerVerified: input.ownerVerified === true && input.owner !== null, ...(input.actor ? { actor: input.actor } : {}), agent: lyko, proposals, planned, drafts: [] };
+  const tc: ToolContext = { ctx, environment: input.environment, owner: input.owner, ownerVerified: input.ownerVerified === true && input.owner !== null, ...(input.actor ? { actor: input.actor } : {}), agent: lyko, proposals, planned, drafts: [], programs: [] };
   let delegations = 0;
   let modelCalls = 0;
 

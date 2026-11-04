@@ -18,6 +18,8 @@ export interface PlanRequest {
   readonly proposedByAgent: boolean;
   readonly signer?: "wallet" | "agent";
   readonly agent?: { readonly address: Address; readonly agentId?: string };
+  /** Digest of the compiled program (lykia.program/v1) the actions came from; pinned in the Fence facts. */
+  readonly program?: `sha256:${string}`;
 }
 
 export type PlanOutcome =
@@ -65,6 +67,7 @@ export async function planActions(ctx: AppContext, rawActions: readonly PlanActi
       ...(request.agent ? { agent: request.agent } : {}),
       ...(request.fence.mode === "dry-run" || request.owner.toLowerCase() === SAMPLE_OWNER ? { dryRun: true } : {}),
       ...(request.proposedByAgent ? { proposedByAgent: true } : {}),
+      ...(request.program ? { program: request.program } : {}),
       preferences: await getProfile(ctx, request.owner).then((p) => ({ favorites: p.venues.favorites, blocked: p.venues.blocked, maxRisk: p.risk })).catch(() => ({})),
     });
     return { kind: "planned", result, actions };

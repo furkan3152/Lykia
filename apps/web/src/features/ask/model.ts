@@ -2,7 +2,7 @@
  * The conversation model (pure): folds chat events into messages, so the
  * store, the tests and the replay of a stored thread share one reducer.
  */
-import type { AgentProposal, ChatDraftLink, ChatEvent } from "@lykia/core/api/agents";
+import type { AgentProposal, ChatDraftLink, ChatEvent, ChatProgramView } from "@lykia/core/api/agents";
 
 export interface TrailItem {
   readonly label: string;
@@ -20,6 +20,8 @@ export interface ChatMessage {
   readonly clarify: { readonly question: string; readonly options: readonly string[] } | null;
   /** Alerts and automations Lyko saved, or links to their prefilled forms. */
   readonly drafts?: readonly ChatDraftLink[];
+  /** A compiled program (goal language): Now, Scheduled, Assumptions and the why. */
+  readonly program?: ChatProgramView;
   readonly streaming: boolean;
   readonly error?: string;
 }
@@ -69,6 +71,8 @@ export function reduce(c: Conversation, e: ChatEvent): Conversation {
       return patchLast(c, (m) => ({ ...m, clarify: e.data }));
     case "draft":
       return draftLinkOk(e.data) ? patchLast(c, (m) => ({ ...m, drafts: [...(m.drafts ?? []), e.data] })) : c;
+    case "program":
+      return programViewOk(e.data) ? patchLast(c, (m) => ({ ...m, program: e.data })) : c;
     case "text":
       return patchLast(c, (m) => ({ ...m, text: m.text + e.data.text }));
     case "error":
@@ -78,6 +82,12 @@ export function reduce(c: Conversation, e: ChatEvent): Conversation {
     default:
       return c;
   }
+}
+
+/** A program view is shown only when its shape is sane and every link stays inside the app. */
+export function programViewOk(v: ChatProgramView): boolean {
+  if (!v || typeof v.programHash !== "string" || !Array.isArray(v.scheduled) || !Array.isArray(v.assumptions)) return false;
+  return v.scheduled.every((s) => typeof s.href === "string" && /^\/app\/[a-z]+(?:\?draft=[A-Za-z0-9_-]+)?$/u.test(s.href));
 }
 
 /** Only in-app links to the Alerts or Automations page are shown as buttons. */

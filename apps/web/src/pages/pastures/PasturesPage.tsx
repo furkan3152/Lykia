@@ -35,7 +35,7 @@ export default function PasturesPage() {
   const n = Math.max(1, rows.length);
   return (
     <div>
-      <PageHead kicker={"PASTURES · LIVE YIELDS"} title={<>Greener <em>pastures.</em></>} sub={"Every venue is a pen; grass height is its rate. The strip under each pen is risk: green low, ochre medium, terracotta high. The source is always named."} mood="happy">
+      <PageHead kicker={"PORTFOLIO · YIELDS"} title={<>Where stablecoins <em>earn on Arc.</em></>} sub={"Live rates from Arc lending and vault protocols. In the picture each protocol is a pen and grass height is its rate. The strip under each pen is risk: green low, ochre medium, terracotta high. The source is always named."} mood="happy">
         <div className="flex justify-center gap-3" style={{ marginTop: 18 }}>
           <Toggle light label="Asset" value={asset} onChange={setAsset} options={[{ value: "USDC", label: "USDC" }, { value: "EURC", label: "EURC" }]} />
         </div>
@@ -75,7 +75,7 @@ export default function PasturesPage() {
               </table>
             )}
           </Card>
-          <Card title={"Herd there"} kicker={"ONE SENTENCE · FENCE-CHECKED"} footer={best ? <Button onClick={() => { begin(`Put half my ${asset} on the greenest pasture`); navigate("/app"); }}>{"PLAN IT"}</Button> : undefined}>
+          <Card title={"Plan it"} kicker={"ONE SENTENCE · FENCE-CHECKED"} footer={best ? <Button onClick={() => { begin(`Put half my ${asset} to work`); navigate("/app"); }}>{"PLAN IT"}</Button> : undefined}>
             <p>{best ? (`The greenest pen right now is ${best.label} (${best.apy?.toFixed(2)}%). Lyko builds the plan, the Fence checks its risk and your caps, you sign once.`) : "…"}</p>
             <p className="m-note" style={{ marginTop: 10 }}>{"Rates are read, never promised; an unreadable rate says \"n/a\"."}</p>
           </Card>

@@ -20,6 +20,12 @@ export interface ArcNetwork {
   /** CCTP domain of Arc (the same on both environments). */
   readonly cctpDomain: number;
   readonly rpcUrls: readonly string[];
+  /**
+   * Keyless node-provider endpoints Arc documents (docs.arc.io/arc/references/rpc-endpoints),
+   * used after the primary: the primary is load-balanced and can answer -32014 for a block
+   * at the head that one backend has not imported yet.
+   */
+  readonly fallbackRpcUrls: readonly string[];
   readonly explorerUrl: string;
   readonly faucetUrl: string | null;
   /** Gas is paid in native USDC (18 decimals). */
@@ -34,6 +40,26 @@ export interface ArcNetwork {
 
 export const ARC_CCTP_DOMAIN = 26;
 
+/**
+ * Emitter of Arc's EIP-7708 native `Transfer` logs (18 decimals): every
+ * explicit USDC movement, native sends included. The ERC-20 face at 0x3600…
+ * logs only ERC-20 calls (6 decimals), so a plain native send appears only
+ * here; never count both for one movement.
+ * https://docs.arc.io/arc/references/usdc-system-events
+ */
+export const ARC_NATIVE_TRANSFER_EMITTER = "0xffffFFFfFFffffffffffffffFfFFFfffFFFfFFfE" as const;
+
+/**
+ * CCTP V2 with Arc as the source chain, per Circle's tables
+ * (developers.circle.com/cctp/concepts/supported-chains-and-domains, /fees,
+ * /finality-and-block-confirmations): Arc attests after 1 block (~0.5 s), so
+ * Fast Transfer is "N/A" from Arc and a Standard Transfer costs 0 bps.
+ * Upfront fees and the Forwarding Service are supported. Inbound transfers
+ * from slow-finality chains (Ethereum, Base, Arbitrum, ...) can use Fast
+ * Transfer; that fee is the source chain's.
+ */
+export const ARC_CCTP_SOURCE = { fastTransfer: false, standardFeeBps: 0, attestationSeconds: 0.5, upfrontFees: true, forwarding: true } as const;
+
 const NATIVE = { name: "USDC", symbol: "USDC", decimals: 18 } as const;
 
 export const NETWORKS: Readonly<Record<ArcNetworkKey, ArcNetwork>> = {
@@ -45,6 +71,7 @@ export const NETWORKS: Readonly<Record<ArcNetworkKey, ArcNetwork>> = {
     caip2: "eip155:5042",
     cctpDomain: ARC_CCTP_DOMAIN,
     rpcUrls: ["https://rpc.mainnet.arc.io"],
+    fallbackRpcUrls: ["https://rpc.drpc.mainnet.arc.io", "https://rpc.quicknode.mainnet.arc.io", "https://rpc.blockdaemon.mainnet.arc.io"],
     explorerUrl: "https://explorer.arc.io",
     faucetUrl: null,
     nativeCurrency: NATIVE,
@@ -61,6 +88,7 @@ export const NETWORKS: Readonly<Record<ArcNetworkKey, ArcNetwork>> = {
     caip2: "eip155:5042002",
     cctpDomain: ARC_CCTP_DOMAIN,
     rpcUrls: ["https://rpc.testnet.arc.io"],
+    fallbackRpcUrls: ["https://rpc.drpc.testnet.arc.io", "https://rpc.quicknode.testnet.arc.io", "https://rpc.blockdaemon.testnet.arc.io"],
     explorerUrl: "https://explorer.testnet.arc.io",
     faucetUrl: "https://faucet.circle.com",
     nativeCurrency: NATIVE,
@@ -118,18 +146,25 @@ export interface CctpDestination {
   readonly vm: "evm" | "solana";
   readonly chainIds: { readonly mainnet: number | null; readonly testnet: number | null };
   readonly aliases: readonly string[];
+  /** Circle's Forwarding Service delivers the destination mint (developers.circle.com/cctp/concepts/supported-chains-and-domains). */
+  readonly forwarding: boolean;
 }
 
 export const CCTP_DESTINATIONS: readonly CctpDestination[] = [
-  { key: "ethereum", name: "Ethereum", domain: 0, vm: "evm", chainIds: { mainnet: 1, testnet: 11155111 }, aliases: ["eth", "mainnet ethereum", "sepolia"] },
-  { key: "avalanche", name: "Avalanche", domain: 1, vm: "evm", chainIds: { mainnet: 43114, testnet: 43113 }, aliases: ["avax", "fuji"] },
-  { key: "optimism", name: "OP Mainnet", domain: 2, vm: "evm", chainIds: { mainnet: 10, testnet: 11155420 }, aliases: ["op", "op mainnet"] },
-  { key: "arbitrum", name: "Arbitrum", domain: 3, vm: "evm", chainIds: { mainnet: 42161, testnet: 421614 }, aliases: ["arb", "arbitrum one"] },
-  { key: "solana", name: "Solana", domain: 5, vm: "solana", chainIds: { mainnet: null, testnet: null }, aliases: ["sol"] },
-  { key: "base", name: "Base", domain: 6, vm: "evm", chainIds: { mainnet: 8453, testnet: 84532 }, aliases: ["base mainnet"] },
-  { key: "polygon", name: "Polygon PoS", domain: 7, vm: "evm", chainIds: { mainnet: 137, testnet: 80002 }, aliases: ["matic", "pol"] },
-  { key: "unichain", name: "Unichain", domain: 10, vm: "evm", chainIds: { mainnet: 130, testnet: 1301 }, aliases: ["uni"] },
-  { key: "linea", name: "Linea", domain: 11, vm: "evm", chainIds: { mainnet: 59144, testnet: 59141 }, aliases: [] },
+  { key: "ethereum", name: "Ethereum", domain: 0, vm: "evm", chainIds: { mainnet: 1, testnet: 11155111 }, aliases: ["eth", "mainnet ethereum", "sepolia"], forwarding: true },
+  { key: "avalanche", name: "Avalanche", domain: 1, vm: "evm", chainIds: { mainnet: 43114, testnet: 43113 }, aliases: ["avax", "fuji"], forwarding: true },
+  { key: "optimism", name: "OP Mainnet", domain: 2, vm: "evm", chainIds: { mainnet: 10, testnet: 11155420 }, aliases: ["op", "op mainnet"], forwarding: true },
+  { key: "arbitrum", name: "Arbitrum", domain: 3, vm: "evm", chainIds: { mainnet: 42161, testnet: 421614 }, aliases: ["arb", "arbitrum one"], forwarding: true },
+  { key: "solana", name: "Solana", domain: 5, vm: "solana", chainIds: { mainnet: null, testnet: null }, aliases: ["sol"], forwarding: true },
+  { key: "base", name: "Base", domain: 6, vm: "evm", chainIds: { mainnet: 8453, testnet: 84532 }, aliases: ["base mainnet"], forwarding: true },
+  { key: "polygon", name: "Polygon PoS", domain: 7, vm: "evm", chainIds: { mainnet: 137, testnet: 80002 }, aliases: ["matic", "pol"], forwarding: true },
+  { key: "unichain", name: "Unichain", domain: 10, vm: "evm", chainIds: { mainnet: 130, testnet: 1301 }, aliases: ["uni"], forwarding: true },
+  { key: "linea", name: "Linea", domain: 11, vm: "evm", chainIds: { mainnet: 59144, testnet: 59141 }, aliases: [], forwarding: true },
+  // Also Gateway chains: chain ids and USDC addresses match apps/api/src/circle/chains.ts (Circle's published tables).
+  { key: "sonic", name: "Sonic", domain: 13, vm: "evm", chainIds: { mainnet: 146, testnet: 14601 }, aliases: [], forwarding: true },
+  { key: "worldchain", name: "World Chain", domain: 14, vm: "evm", chainIds: { mainnet: 480, testnet: 4801 }, aliases: ["world chain"], forwarding: true },
+  { key: "sei", name: "Sei", domain: 16, vm: "evm", chainIds: { mainnet: 1329, testnet: 1328 }, aliases: [], forwarding: true },
+  { key: "hyperevm", name: "HyperEVM", domain: 19, vm: "evm", chainIds: { mainnet: 999, testnet: 998 }, aliases: ["hyperliquid evm"], forwarding: true },
 ];
 
 export function findCctpDestination(input: string): CctpDestination | null {

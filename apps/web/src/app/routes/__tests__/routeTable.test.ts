@@ -48,6 +48,11 @@ describe("route table", () => {
       ["/app/activity", "activity"],
       ["/app/whatif", "whatif"],
       ["/app/security", "security"],
+      ["/app/move", "move"],
+      ["/app/move/swap", "move"],
+      ["/stats", "stats"],
+      ["/legal/privacy", "legal"],
+      ["/pay/inv_1", "pay"],
       ["/owner", "owner"],
       ["/kit", "kit"],
       ["/lykaion", "lykaion"],
@@ -64,6 +69,22 @@ describe("route table", () => {
     assert.equal(documentTitle(ROUTES.fence), "Fence · Lykia");
     assert.equal(routeHref("scent", { token: "0x1" }), "/app/scent/0x1");
     assert.equal(robotsFor(ROUTES.lykaion), "noindex,nofollow");
-    for (const route of Object.values(ROUTES)) if (route.id !== "landing") assert.doesNotMatch(route.title, /\bArc\b/u, route.id);
+    for (const route of Object.values(ROUTES)) assert.doesNotMatch(route.title, /\bArc\b/u, route.id);
+  });
+
+  it("titles pages in plain words, matching the navigation", () => {
+    const titles: ReadonlyArray<readonly [keyof typeof ROUTES, string]> = [
+      ["ask", "Ask"],
+      ["flock", "Portfolio"],
+      ["pastures", "Yields"],
+      ["pack", "Agents"],
+      ["scent", "Token check"],
+      ["outrun", "Plan"],
+      ["you", "Settings"],
+      ["memory", "Memory"],
+      ["discover", "New pools"],
+    ];
+    for (const [id, title] of titles) assert.equal(ROUTES[id].title, title, id);
+    for (const route of Object.values(ROUTES)) assert.ok(route.description.length > 0 && route.description.length <= 300, route.id);
   });
 });

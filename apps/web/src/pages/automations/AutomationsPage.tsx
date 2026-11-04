@@ -3,7 +3,6 @@ import { AUTOMATION_EVENTS, PRICE_FEEDS, WEEKDAYS, type AutomationListEntry } fr
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { DeskTabs } from "../../features/desk/DeskTabs";
 import { automationFormFromSearch, automationRequest, emptyAutomationForm, type AutomationForm, type TriggerType } from "../../features/desk/drafts";
 import { useSiwe } from "../../features/session/useSiwe";
 import { apiFetch, apiGet, apiPost, describeError } from "../../lib/api";
@@ -67,9 +66,7 @@ export default function AutomationsPage() {
 
   return (
     <div>
-      <PageHead kicker={"DESK · AUTOMATIONS"} title={<>Lyko <em>keeps watch</em> on a timer.</>} sub={"A schedule, a Chainlink price, a wallet balance or a payout event re-plans one sentence under your Fence, or notifies your webhooks. Every fire is a proposal you sign; nothing moves on its own."} mood="alert">
-        <DeskTabs />
-      </PageHead>
+      <PageHead kicker={"AUTOMATE · AUTOMATIONS"} title={<>Re-plan a sentence <em>when something happens.</em></>} sub={"A schedule, a Chainlink price, a wallet balance or a payout event re-plans one sentence under your Fence, or notifies your webhooks. Every fire is a proposal you sign; nothing moves on its own."} mood="alert" />
       <section className="m-wrap" style={{ marginTop: 28 }}>
         {!enabled ? (
           <Card title={"Sign in first"}>

@@ -16,13 +16,56 @@ export type ChatEvent =
   | { readonly event: "proposal"; readonly data: AgentProposal }
   | { readonly event: "clarify"; readonly data: { readonly question: string; readonly options: readonly string[] } }
   | { readonly event: "draft"; readonly data: ChatDraftLink }
+  | { readonly event: "program"; readonly data: ChatProgramView }
   | { readonly event: "text"; readonly data: { readonly text: string } }
   | { readonly event: "error"; readonly data: { readonly code: string; readonly message: string } }
   | { readonly event: "done"; readonly data: { readonly threadId: string; readonly stopReason: string } };
 
 export type ChatEventName = ChatEvent["event"];
 
-export const CHAT_EVENT_NAMES: readonly ChatEventName[] = ["thread", "reading", "thinking-summary", "task", "tool", "proposal", "clarify", "draft", "text", "error", "done"];
+export const CHAT_EVENT_NAMES: readonly ChatEventName[] = ["thread", "reading", "thinking-summary", "task", "tool", "proposal", "clarify", "draft", "program", "text", "error", "done"];
+
+/**
+ * A compiled program (lykia.program/v1) as the chat shows it: Now (the
+ * signable plan), Scheduled (drafts), Assumptions (each with the values the
+ * owner can switch to, sent back to POST /v1/ai/compile as overrides), each
+ * part with its Fence verdict, plus the why.
+ */
+export interface ChatProgramView {
+  readonly programHash: string;
+  readonly resolutionHash: string;
+  readonly status: "ready" | "needs-input" | "refused";
+  readonly source: "llm" | "deterministic";
+  /** The owner's words, to recompile with overrides. */
+  readonly text: string;
+  readonly overrides: Readonly<Record<string, string>>;
+  readonly summary: string;
+  readonly goals: readonly string[];
+  readonly hypothetical: boolean;
+  readonly now: {
+    readonly steps: readonly { readonly summary: string; readonly rationale: string }[];
+    readonly decision: "allow" | "confirm" | "deny" | "unknown";
+    readonly reasons: readonly string[];
+    readonly intentId: string | null;
+  } | null;
+  readonly scheduled: readonly {
+    readonly kind: "automation" | "order" | "alert" | "standing" | "budget";
+    readonly summary: string;
+    readonly rationale: string;
+    readonly href: string;
+    readonly saved: boolean;
+    readonly decision: "allow" | "confirm" | "deny" | "unknown";
+    readonly reasons: readonly string[];
+  }[];
+  readonly assumptions: readonly { readonly id: string; readonly text: string; readonly value: string; readonly options: readonly string[] }[];
+  readonly questions: readonly string[];
+  readonly refusals: readonly string[];
+  readonly blockers: readonly string[];
+  readonly kept: readonly string[];
+  readonly fees: string | null;
+  readonly tradeoffs: readonly string[];
+  readonly rejected: readonly { readonly option: string; readonly reason: string }[];
+}
 
 /**
  * An alert or automation Lyko set up in chat. saved: true means it was saved

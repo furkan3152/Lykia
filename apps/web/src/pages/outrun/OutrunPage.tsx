@@ -7,7 +7,7 @@ export default function OutrunPage() {
   const id = useRouteParam("id") ?? null;
   return (
     <div>
-      <PageHead kicker={`OUTRUN · ${id ?? ""}`} title={<>Where is the <em>money?</em></>} sub={"Every stop carries a Lycian Way name. On Arc each step is final the moment its receipt exists."} mood="herding" />
+      <PageHead kicker={`PLAN · ${id ?? ""}`} title={<>Where is the <em>money?</em></>} sub={"Each step of the plan, from the first call to where the money ends up. On Arc each step is final the moment its receipt exists."} mood="herding" />
       <section className="m-wrap" style={{ marginTop: 28, maxWidth: 820 }}>
         <Frame>
           <RouteArtifact intentId={id} />

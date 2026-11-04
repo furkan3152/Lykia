@@ -1,7 +1,8 @@
 /**
  * Arc's system and Circle contracts, per environment. Each address was
  * checked with `eth_getCode` (non-empty) against Arc's public RPC on
- * 2026-11-01 and matches docs.arc.io/arc/references/contract-addresses.
+ * 2026-11-01 (re-checked 2026-11-04, both environments) and matches
+ * docs.arc.io/arc/references/contract-addresses.
  * Anything not listed here is not trusted by name.
  */
 import type { ArcEnvironment } from "./networks.js";
@@ -21,6 +22,9 @@ export type ArcContractKey =
   | "tokenMessengerV2"
   | "messageTransmitterV2"
   | "tokenMinterV2"
+  | "tokenMessengerWithFees"
+  | "messageV2"
+  | "crossChainTokenService"
   | "gatewayWallet"
   | "gatewayMinter"
   | "identityRegistry"
@@ -45,7 +49,7 @@ export const ARC_CONTRACTS: Readonly<Record<ArcContractKey, ArcContract>> = {
   usdc: {
     key: "usdc",
     name: "USDC",
-    role: "Gas token and the unit of account. ERC-20 face uses 6 decimals, native face 18.",
+    role: "Gas token and the unit of account. One balance: the ERC-20 interface uses 6 decimals, the native (gas) interface 18.",
     standard: "ERC-20 / EIP-3009 / EIP-2612",
     addresses: { mainnet: "0x3600000000000000000000000000000000000000", testnet: "0x3600000000000000000000000000000000000000" },
     docs: "https://docs.arc.io/arc/references/contract-addresses",
@@ -101,7 +105,7 @@ export const ARC_CONTRACTS: Readonly<Record<ArcContractKey, ArcContract>> = {
     name: "StableFX FxEscrow",
     role: "On-chain settlement of StableFX RFQ trades (USDC <-> EURC).",
     addresses: { mainnet: "0xe2E5F173576B513d994073CCbDaCBE027d43DFe6", testnet: "0xd68256f4D69C6BbEcB873D8588AE0Dc6B8E22E10" },
-    docs: "https://developers.circle.com/stablefx",
+    docs: "https://docs.arc.io/arc/references/contract-addresses",
   },
   permit2: {
     key: "permit2",
@@ -131,6 +135,27 @@ export const ARC_CONTRACTS: Readonly<Record<ArcContractKey, ArcContract>> = {
     addresses: { mainnet: "0xfd78EE919681417d192449715b2594ab58f5D002", testnet: "0xb43db544E2c27092c107639Ad201b3dEfAbcF192" },
     docs: "https://developers.circle.com/cctp",
   },
+  tokenMessengerWithFees: {
+    key: "tokenMessengerWithFees",
+    name: "CCTP TokenMessengerWithFees",
+    role: "CCTP burns with upfront fees paid on Arc (the recipient gets the exact amount); listed for recognition, Lykia burns through TokenMessengerV2.",
+    addresses: { mainnet: "0x71f54F818671cD0D7ea140Da213e5C8b5C92a408", testnet: "0x8745D906D67C346E5eb1aEEED38Eb87F34DF0C0A" },
+    docs: "https://docs.arc.io/arc/references/contract-addresses",
+  },
+  messageV2: {
+    key: "messageV2",
+    name: "CCTP MessageV2",
+    role: "CCTP V2 message library (read-only for Lykia).",
+    addresses: { mainnet: "0xec546b6B005471ECf012e5aF77FBeC07e0FD8f78", testnet: "0xbaC0179bB358A8936169a63408C8481D582390C4" },
+    docs: "https://docs.arc.io/arc/references/contract-addresses",
+  },
+  crossChainTokenService: {
+    key: "crossChainTokenService",
+    name: "CCTP CrossChainTokenService",
+    role: "CCTP expanded assets (lock-and-mint for third-party tokens); recognised, not used by Lykia.",
+    addresses: { mainnet: "0x431871229103b780868f8C6BB820cd16ECf942BC", testnet: "0x63753E722bd2C2A5DF6EE19C5106662208B81077" },
+    docs: "https://docs.arc.io/arc/references/contract-addresses",
+  },
   gatewayWallet: {
     key: "gatewayWallet",
     name: "Gateway Wallet",
@@ -159,7 +184,7 @@ export const ARC_CONTRACTS: Readonly<Record<ArcContractKey, ArcContract>> = {
     role: "Feedback on agents; Lykia reads it into the Tag's standing.",
     standard: "ERC-8004",
     addresses: { mainnet: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63", testnet: "0x8004B663056A597Dffe9eCcC1965A193B7388713" },
-    docs: "https://eips.ethereum.org/EIPS/eip-8004",
+    docs: "https://docs.arc.io/arc/references/contract-addresses",
   },
   validationRegistry: {
     key: "validationRegistry",

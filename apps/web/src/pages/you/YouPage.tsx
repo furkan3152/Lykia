@@ -22,10 +22,10 @@ import { bay, BAY_H, BAY_W } from "../../mosaic/scenes";
 import { COATS, COLLAR_COLOURS, LYKO_SIT, LYKO_TROT, type CoatVariant } from "../../mosaic/sprites";
 
 const WIDGET_NAMES: Record<Widget, { en: string; }> = {
-  flock: { en: "Flock", },
-  insights: { en: "Lyko noticed", },
-  outruns: { en: "Outruns", },
-  pack: { en: "Pack", },
+  flock: { en: "Portfolio", },
+  insights: { en: "Insights", },
+  outruns: { en: "Recent plans", },
+  pack: { en: "Agents", },
   pulse: { en: "Arc pulse", },
   standing: { en: "Standing orders", },
 };
@@ -77,7 +77,7 @@ export default function YouPage() {
 
   return (
     <div>
-      <PageHead kicker={"YOU · MAKE IT YOURS"} title={<>Lyko is <em>your</em> dog.</>} sub={"Language, currency, risk, venues, Lyko's voice and look. Kept on this device, synced to your account when you are signed in."} mood="happy">
+      <PageHead kicker={"SETTINGS"} title={<>Make it <em>yours.</em></>} sub={"Currency, risk, protocols, the assistant's voice and Lyko's look. Kept on this device, synced to your account when you are signed in."} mood="happy">
         <div className="flex justify-center gap-2 flex-wrap" style={{ marginTop: 16 }}>
           <Tag tone={synced === "synced" ? "ok" : synced === "soon" ? "ochre" : "ghost"}>{synced === "synced" ? "SYNCED" : synced === "soon" ? "SYNC COMING SOON · SAVED HERE" : "SAVED ON THIS DEVICE"}</Tag>
           {!siwe.signedIn ? <Button size="sm" tone="sea" onClick={() => void siwe.signIn()}>{"SIGN IN TO SYNC"}</Button> : null}

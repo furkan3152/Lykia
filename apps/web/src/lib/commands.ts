@@ -5,7 +5,7 @@
  */
 import { COMMANDS, EASTER_EGGS, commandOf, easterEggOf, type CommandAction, type CommandWord, type EasterEggWord } from "@lykia/core";
 
-export type Destination = "ask" | "flock" | "pastures" | "pack" | "fence" | "scent" | "tag" | "build" | "landing";
+export type Destination = "ask" | "flock" | "move" | "pastures" | "pack" | "fence" | "scent" | "tag" | "orders" | "settings" | "build" | "landing";
 
 export type Resolution =
   | { readonly kind: "empty" }
@@ -18,12 +18,15 @@ export type Resolution =
 
 const PAGE_WORDS: ReadonlyArray<readonly [Destination, readonly string[]]> = [
   ["ask", ["deck", "app", "ask", "chat", "ask lyko"]],
-  ["flock", ["flock", "portfolio", "balances"]],
+  ["flock", ["flock", "portfolio", "balances", "holdings"]],
+  ["move", ["move", "send", "swap", "bridge"]],
   ["pastures", ["pastures", "earn", "yield", "yields"]],
-  ["pack", ["pack", "agents", "pups", "sub-agents"]],
+  ["pack", ["pack", "agents", "agent", "pups", "sub-agents"]],
   ["fence", ["fence", "rules", "rule book", "whistle"]],
   ["scent", ["scent", "sniff", "shield", "token check"]],
-  ["tag", ["tag", "licence", "license", "agent id", "erc-8004", "erc8004"]],
+  ["orders", ["orders", "automate", "automations", "alerts", "activity"]],
+  ["settings", ["settings", "preferences", "you"]],
+  ["tag", ["tag", "tags", "licence", "license", "agent id", "erc-8004", "erc8004"]],
   ["build", ["build", "developers", "api", "mcp", "x402", "docs", "keys"]],
   ["landing", ["valley", "about"]],
 ];

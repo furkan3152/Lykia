@@ -3,7 +3,6 @@ import { ORDER_KINDS, type OrderKind, type OrderView, type SignedOrderStruct } f
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { DeskTabs } from "../../features/desk/DeskTabs";
 import { useLykiaWallet, type WalletTx } from "../../features/wallet/useLykiaWallet";
 import { apiGet, apiPost, describeError } from "../../lib/api";
 import { useEnvironment } from "../../lib/environment";
@@ -127,9 +126,7 @@ export default function OrdersPage() {
 
   return (
     <div>
-      <PageHead kicker={"DESK · CONDITIONAL ORDERS"} title={<>Set it, <em>sign once.</em></>} sub={"Limit, stop-loss, take-profit, DCA and TWAP on Arc. Your funds stay in your wallet behind an allowance; keepers execute when Chainlink says the condition holds, and the contract checks every term you signed."} mood="watching">
-        <DeskTabs />
-      </PageHead>
+      <PageHead kicker={"AUTOMATE · ORDERS"} title={<>Set it, <em>sign once.</em></>} sub={"Limit, stop-loss, take-profit, DCA and TWAP on Arc. Your funds stay in your wallet behind an allowance; keepers execute when Chainlink says the condition holds, and the contract checks every term you signed."} mood="watching" />
       <section className="m-wrap" style={{ marginTop: 28 }}>
         <div className="m-grid-2 m-grid-2--r">
           <Card title={"New order"} kicker={config.data ? `FEE ${config.data.feeBps / 100}% · KEEPER ${config.data.keeper.toUpperCase()}` : "…"}
@@ -160,7 +157,7 @@ export default function OrdersPage() {
           </Card>
           <Card title={"Your orders"} kicker={`ARC ${environment.toUpperCase()}`}>
             {!owner ? <EmptyState mood="happy" title={"No wallet"}>{"Connect a wallet to see your orders."}</EmptyState> : orders.isLoading ? <Skeleton h={160} /> : orders.isError ? <p className="m-note m-note--bad">{describeError(orders.error)}</p> : !orders.data?.orders.length ? (
-              <EmptyState mood="watching" title={"Nothing armed"}>{"A stop-loss on cirBTC is a good first order."}</EmptyState>
+              <EmptyState mood="watching" title={"No orders yet"}>{"Use the form above: a stop-loss on cirBTC is a good first order."}</EmptyState>
             ) : orders.data.orders.map((o) => (
               <div key={o.hash} className="m-row" style={{ flexWrap: "wrap" }}>
                 <Tag tone={STATUS_TONE[o.status]}>{o.status}</Tag>

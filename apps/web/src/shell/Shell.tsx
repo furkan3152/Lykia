@@ -4,6 +4,7 @@ import type { RouteId, RouteKind } from "../app/routes/routeTable";
 import { useLykiaStore, whistleOn } from "../lib/lykiaStore";
 import { useProfile } from "../lib/profile";
 import { BetaRibbon } from "../features/ecosystem/BetaRibbon";
+import { AreaTabs } from "./AreaTabs";
 import { Footer } from "./Footer";
 import { Header } from "./Header";
 import { MobileTabs } from "./MobileTabs";
@@ -29,6 +30,7 @@ export function Shell({ kind, routeId, children }: { readonly kind: RouteKind; r
       </a>
       <PulseDriver />
       <Header kind={kind} routeId={routeId} />
+      <AreaTabs routeId={routeId} />
       {!full ? <PulseStrip /> : null}
       {kind === "app" && !full ? <BetaRibbon /> : null}
       <main id="main" style={{ minHeight: full ? undefined : "60vh" }}>

@@ -15,7 +15,7 @@ export default function SecurityPage() {
   const address = siwe.address ?? undefined;
   return (
     <div>
-      <PageHead kicker="FENCE · SECURITY" title={<>Six layers between the flock and the <em>wolves</em>.</>} sub="Every step is decoded, simulated and diffed against its plan before it reaches your wallet. Recipients are checked for look-alikes and blocklists, approvals stay exact, agents are watched, and venues trip a breaker when they look wrong. Every decision lands in a hash-chained audit log." mood={status.data?.halted ? "growling" : "watching"} />
+      <PageHead kicker="RULES · SECURITY" title={<>Six checks before anything <em>reaches your wallet.</em></>} sub="Every step is decoded, simulated and diffed against its plan before it reaches your wallet. Recipients are checked for look-alikes and blocklists, approvals stay exact, agents are watched, and venues trip a breaker when they look wrong. Every decision lands in a hash-chained audit log." mood={status.data?.halted ? "growling" : "watching"} />
       <section className="m-wrap" style={{ marginTop: 28, display: "grid", gap: 24 }}>
         <LayerGrid status={status.data} />
         <div className="m-grid-2">

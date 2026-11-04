@@ -35,7 +35,7 @@ import type { ArcChains } from "../chains/arc.js";
 import type { FetchLike } from "../health/dependencies.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { ERC4626_ABI } from "../flock/flock.js";
-import { GATEWAY_WALLET_ABI, PERMIT2_ABI, PRACTICE_LENDING_ABI, PRACTICE_SWAP_ABI, QUOTER_V2_PATH_ABI, TOKEN_MESSENGER_V2_ABI } from "./abis.js";
+import { CCTP_FORWARDING_HOOK_DATA, GATEWAY_WALLET_ABI, PERMIT2_ABI, PRACTICE_LENDING_ABI, PRACTICE_SWAP_ABI, QUOTER_V2_PATH_ABI, TOKEN_MESSENGER_HOOK_ABI, TOKEN_MESSENGER_V2_ABI } from "./abis.js";
 import { aaveCalls } from "./venues/aave.js";
 import { MORPHO_BLUE, morphoCalls, morphoMarkets, readMorphoPosition } from "./venues/morphoBlue.js";
 import { quoteV3Single, quoteV4, uniswapCalls, v3Contracts, v4Contracts } from "./venues/uniswap.js";
@@ -159,19 +159,15 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
     case "bridge": {
       const messenger = contractAddress("tokenMessengerV2", ctx.environment) as Address;
       const amount = big("amount");
+      // forward = "1": the burn carries Circle's Forwarding Service hook and maxFee covers its fee, so Circle mints on the destination.
+      const args = [amount, Number(p.domain), addressToBytes32(p.recipient as Address), p.token as Address, pad("0x00", { size: 32 }), big("maxFee"), CCTP_STANDARD_FINALITY] as const;
+      const data =
+        p.forward === "1"
+          ? encodeFunctionData({ abi: TOKEN_MESSENGER_HOOK_ABI, functionName: "depositForBurnWithHook", args: [...args, CCTP_FORWARDING_HOOK_DATA] })
+          : encodeFunctionData({ abi: TOKEN_MESSENGER_V2_ABI, functionName: "depositForBurn", args });
       return {
         approvals: await needApproval(p.token as Address, messenger, amount, "USDC", "CCTP"),
-        calls: [
-          {
-            to: messenger,
-            data: encodeFunctionData({
-              abi: TOKEN_MESSENGER_V2_ABI,
-              functionName: "depositForBurn",
-              args: [amount, Number(p.domain), addressToBytes32(p.recipient as Address), p.token as Address, pad("0x00", { size: 32 }), big("maxFee"), CCTP_STANDARD_FINALITY],
-            }),
-            label: `Bridge ${p.display} to ${p.destinationName} over CCTP`,
-          },
-        ],
+        calls: [{ to: messenger, data, label: `Bridge ${p.display} to ${p.destinationName} over CCTP${p.forward === "1" ? " (Circle forwards the mint)" : ""}` }],
       };
     }
     case "gateway": {

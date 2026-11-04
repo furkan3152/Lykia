@@ -55,6 +55,7 @@ import { systemClock } from "../clock.js";
 import { ERC4626_ABI, morphoVaults } from "../flock/flock.js";
 import { ADAPTER_VENUE, cctpFeeBps, manifestStep, noRoute, stepKindOf, type AdapterId, type StepPlan } from "./adapters.js";
 import { PRACTICE_LENDING_ABI } from "./abis.js";
+import { forwardedRouteFee } from "../circle/cctp.js";
 import { VenueRouter, type Candidate, type VenuePrefs } from "./router.js";
 import { legsAllowlisted, ROUTER_LEG_ADAPTERS, type RouterLeg } from "./lykiaRouter.js";
 import { aavePositions, aaveSpokes, projectAaveHealth, readAaveAccount, wadToRatio } from "./venues/aave.js";
@@ -103,6 +104,8 @@ export interface PlanInput {
   readonly preferences?: VenuePrefs;
   /** The embedding project's fee, paid to its address beside Lykia's fee (capped at MAX_INTEGRATOR_FEE_BPS). */
   readonly integrator?: IntegratorFeePolicy;
+  /** Digest of the compiled program (lykia.program/v1) this plan came from; pinned in the Fence facts. */
+  readonly program?: `sha256:${string}`;
 }
 
 export interface PlanResult {
@@ -316,6 +319,7 @@ export class Planner {
       steps: steps.map((s, i) => ({ id: s.id, kind: s.kind, venue: s.venue, ...(drafts[i] as Draft).fact })),
       spent: input.spent,
       now: input.now,
+      ...(input.program ? { program: input.program } : {}),
     };
     const verdict = evaluateFence(fence, facts, this.deps.beta ? { beta: this.deps.beta } : {});
     const graph: IntentGraph = {
@@ -385,17 +389,21 @@ export class Planner {
         book.spend("USDC", gross, "bridge");
         const fee = book.fee("USDC", gross, "input", "bridge");
         const units = gross - feeUnits(fee);
-        const feeBps = await cctpFeeBps(this.deps.fetch, env, dest.domain);
         const warnings: string[] = [];
-        if (feeBps === null) warnings.push("The CCTP fee could not be read; the burn allows no fee (standard transfer).");
-        const maxFee = feeBps ? (units * BigInt(Math.ceil(feeBps * 100)) + 999_999n) / 1_000_000n : 0n;
+        // Circle's Forwarding Service mints on the destination (no gas needed there); maxFee then covers its fee.
+        const forwarded = dest.forwarding ? await forwardedRouteFee(this.deps.fetch, env, dest.domain, units) : null;
+        const feeBps = forwarded ? null : await cctpFeeBps(this.deps.fetch, env, dest.domain);
+        if (!forwarded) warnings.push(`Circle's forwarding fee could not be read, so the mint on ${dest.name} is not forwarded: after attestation, call receiveMessage on ${dest.name} (GET /v1/intents/:id/steps/:sid/attestation).`);
+        if (!forwarded && feeBps === null) warnings.push("The CCTP fee could not be read; the burn allows no fee (standard transfer).");
+        const maxFee = forwarded ? forwarded.maxFee : feeBps ? (units * BigInt(Math.ceil(feeBps * 100)) + 999_999n) / 1_000_000n : 0n;
+        if (maxFee >= units) throw noRoute(`Bridging ${book.display("USDC", units)} costs at least ${book.display("USDC", maxFee)} in CCTP fees; send more.`);
         const amount = book.amount("USDC", units);
         const display = book.display("USDC", units);
         return [{
           adapter: "bridge",
           fx: false,
-          summary: `Bridge ${display} to ${dest.name} over CCTP`,
-          params: { token: amount.token, amount: units.toString(), domain: String(dest.domain), recipient, maxFee: maxFee.toString(), destinationName: dest.name, destination: dest.key, display, decimals: "6", ...feeParams(fee) },
+          summary: `Bridge ${display} to ${dest.name} over CCTP${forwarded ? " (Circle forwards the mint)" : ""}`,
+          params: { token: amount.token, amount: units.toString(), domain: String(dest.domain), recipient, maxFee: maxFee.toString(), destinationName: dest.name, destination: dest.key, display, decimals: "6", ...(forwarded ? { forward: "1" } : {}), ...feeParams(fee) },
           inputs: [book.amount("USDC", gross)],
           outputs: [{ ...book.amount("USDC", units - maxFee), symbol: `USDC@${dest.key}` }],
           fee,
