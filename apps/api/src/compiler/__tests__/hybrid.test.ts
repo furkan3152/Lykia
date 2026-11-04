@@ -177,3 +177,35 @@ describe("hybrid reading: keep the rest liquid", () => {
     assert.equal(out.program.elements.some((e) => e.kind === "earn"), program.elements.some((e) => e.kind === "earn"));
   });
 });
+
+describe("hybrid reading: grounding", () => {
+  it("turns an invented reserve amount into a question", () => {
+    const text = "Keep enough for payroll and put the rest to work.";
+    const reserve = readProgramDetailed("Keep 1200 USDC liquid.").program.elements.find((e) => e.kind === "reserve");
+    const earn = readProgramDetailed("Put the rest to work at low risk.").program.elements.find((e) => e.kind === "earn");
+    assert.ok(reserve && earn);
+    const model: Program = { ...readProgramDetailed(text).program, elements: [{ ...reserve, id: "e1", quote: "Keep enough for payroll" }, { ...earn, id: "e2" }], questions: [] };
+    const out = reconcile(model, "en");
+    assert.equal(out.program.elements.some((e) => e.kind === "reserve"), false);
+    assert.ok(out.program.questions.length > 0);
+  });
+
+  it("keeps amounts the owner wrote, including 1,000 and 1k", () => {
+    const reserve = readProgramDetailed("Keep 1000 USDC liquid.").program.elements.find((e) => e.kind === "reserve");
+    assert.ok(reserve);
+    for (const text of ["Keep 1,000 USDC liquid.", "Keep 1k USDC liquid."]) {
+      const model: Program = { ...readProgramDetailed(text).program, elements: [{ ...reserve, id: "e1" }], questions: [] };
+      assert.equal(reconcile(model, "en").program.elements.some((e) => e.kind === "reserve"), true, text);
+    }
+  });
+
+  it("asks instead of guessing when no goal is named", () => {
+    const earn = readProgramDetailed("Put the rest to work at low risk.").program.elements.find((e) => e.kind === "earn");
+    assert.ok(earn);
+    const text = "Do something smart with my money.";
+    const model: Program = { ...readProgramDetailed(text).program, elements: [{ ...earn, id: "e1" }], questions: [] };
+    const out = reconcile(model, "en");
+    assert.equal(out.program.elements.filter((e) => e.kind !== "refuse").length, 0);
+    assert.ok(out.program.questions.length > 0);
+  });
+});

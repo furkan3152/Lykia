@@ -244,7 +244,10 @@ export interface Reconciled {
 }
 
 /** The model's (already validated, grounded and guarded) program reconciled with the lexicon, then stripped of injected data. */
-export function reconcile(model: Program, language: string | null): Reconciled {
+export function reconcile(rawModel: Program, language: string | null): Reconciled {
+  // Ground the model's own reading first: the lexicon's deterministic defaults are never second-guessed.
+  const grounded = groundAmounts(rawModel);
+  const model = grounded.program;
   const english = (language ?? model.language) === "en";
   const lex = english ? lexiconReading(model.text) : null;
   let program: Program;
@@ -258,14 +261,68 @@ export function reconcile(model: Program, language: string | null): Reconciled {
   } else program = completeDefaults(model);
   const kept = respectKeepLiquid(program);
   program = kept.program;
+  const vague = english && strategy === "model" ? askWhenVague(program) : { program, asked: false };
+  program = vague.program;
   const stripped = stripInjected(program);
   const notes = [
+    grounded.dropped > 0 ? "Amounts the owner did not state were turned into questions." : null,
+    vague.asked ? "The request names no goal, so Lykia asks before planning." : null,
     kept.dropped > 0 ? "The owner asked to keep the rest liquid, so no earn step was added for it." : null,
     strategy === "lexicon" ? "The deterministic lexicon read every clause, so its amounts and documented defaults were used; the model added refusals and preferences." : null,
     strategy === "union" ? "The model's reading was merged with the deterministic lexicon's for the clauses it recognised." : null,
     stripped.dropped > 0 ? `${stripped.dropped} element${stripped.dropped === 1 ? "" : "s"} read from injected data ${stripped.dropped === 1 ? "was" : "were"} dropped.` : null,
   ].filter((n): n is string => n !== null);
   return { program: stripped.program, strategy, note: notes.length > 0 ? notes.join(" ") : null };
+}
+
+/** Every number written in the owner's text, normalised ("1,000" and "1k" read as 1000). */
+function numbersIn(text: string): Set<string> {
+  const out = new Set<string>();
+  for (const m of text.matchAll(/(\d[\d,]*(?:\.\d+)?)\s*(k\b)?/giu)) {
+    const raw = (m[1] ?? "").replace(/,/gu, "");
+    const value = Number(raw) * (m[2] ? 1000 : 1);
+    if (Number.isFinite(value)) out.add(String(value));
+  }
+  return out;
+}
+
+function stated(amount: string, numbers: Set<string>): boolean {
+  const value = Number(amount);
+  return Number.isFinite(value) && numbers.has(String(value));
+}
+
+/**
+ * A model may not invent an amount: an exact amount or a runway figure that does not appear in the
+ * owner's words is dropped and asked about instead. Shares, "the rest" and documented defaults stay.
+ */
+export function groundAmounts(program: Program): { program: Program; dropped: number } {
+  const numbers = numbersIn(program.text);
+  const questions = [...program.questions];
+  const elements = program.elements.filter((e) => {
+    const q = "quantity" in e ? e.quantity : null;
+    if (!q) return true;
+    const invented = (q.type === "exact" && !stated(q.amount, numbers)) || (q.type === "runway" && !stated(q.perPeriod, numbers));
+    if (invented) {
+      const what = e.quote ? `\u201c${e.quote}\u201d` : `the ${e.kind} step`;
+      const question = `How much should ${what} use? Give an amount, for example 1200 USDC, or a share such as 30%.`;
+      if (questions.length < PROGRAM_LIMITS.questions && !questions.includes(question)) questions.push(question);
+    }
+    return !invented;
+  });
+  const dropped = program.elements.length - elements.length;
+  return dropped === 0 ? { program, dropped } : { program: { ...program, elements, questions }, dropped };
+}
+
+const GOAL_WORDS = /\b(?:keep|reserve|save|saving|savings|earn|yield|interest|invest|work|deposit|vault|lend|hedge|euros?|eurc|convert|swap|exchange|pay|payroll|send|transfer|bridge|move|withdraw|repay|protect|defensive|safe|liquid|runway|dca|buy|sell|alert|notify|budget|sweep|split|allocate|diversify|rebalance)\b/iu;
+
+/** A request that names no goal at all ("do something smart with my money") is asked about, never guessed. */
+export function askWhenVague(program: Program): { program: Program; asked: boolean } {
+  if (GOAL_WORDS.test(program.text) || program.elements.length === 0) return { program, asked: false };
+  const acting = program.elements.filter((e) => e.kind !== "refuse");
+  if (acting.length === 0) return { program, asked: false };
+  const question = "What would you like your money to do: stay liquid, earn yield, hedge into euros, or pay someone? An amount or a share helps too.";
+  const questions = program.questions.includes(question) ? program.questions : [...program.questions, question].slice(0, PROGRAM_LIMITS.questions);
+  return { program: { ...program, elements: program.elements.filter((e) => e.kind === "refuse"), questions }, asked: true };
 }
 
 /** "Keep the rest liquid" / "leave the remainder in USDC": what is left must not be put to work. */
