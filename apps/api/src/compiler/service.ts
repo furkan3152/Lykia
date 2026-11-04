@@ -6,8 +6,9 @@
  *         Fence verdicts, round-trip of every automation sentence
  *
  * Reading: the model (any language, one structured tool call, validated and
- * repaired once) when one is configured, else the deterministic English
- * lexicon. Resolution reads the owner's Flock, prices and contacts (or
+ * repaired once) when one is configured, reconciled with the deterministic
+ * English lexicon (hybrid.ts), else the lexicon alone; injected data never
+ * becomes an element either way. Resolution reads the owner's Flock, prices and contacts (or
  * what-if balances the caller passes, flagged as hypothetical). The plan for
  * now goes through the real route search under the owner's Fence, tightened
  * by the program's venue policy, with the program digest pinned in the Fence
@@ -50,7 +51,7 @@ import { memoryService } from "../personal/memory.js";
 import { getProfile } from "../personal/profile.js";
 import { projectOf } from "../platform/projects.js";
 import { services } from "../services.js";
-import { readProgram } from "./lexicon.js";
+import { lexiconReading, readDeterministic, reconcile } from "./hybrid.js";
 import { readProgramWithModel } from "./llm.js";
 
 export const SAMPLE_OWNER = "0x000000000000000000000000000000000000dead";
@@ -123,21 +124,33 @@ export interface CompileResult {
   readonly pin: { readonly programHash: string; readonly resolutionHash: string; readonly fenceHash: string | null; readonly verdictDigest: string | null; readonly digest: string };
 }
 
-/** Words to a program: the model when configured (any language), else the English lexicon. */
+/**
+ * Words to a program: the model when configured (any language), reconciled
+ * with the deterministic lexicon (hybrid.ts), else the English lexicon.
+ * Every path goes through the deterministic guard.
+ */
 export async function readGoal(llm: LlmClient | null, text: string, contacts: readonly { name: string; address: string }[] = [], reader: CompileInput["reader"] = "auto"): Promise<{ program: Program; source: "llm" | "deterministic"; note: string | null; language: string | null }> {
   if (llm && reader !== "deterministic") {
     try {
       const result = await readProgramWithModel(llm, text, contacts);
-      if (result.program) return { program: result.program, source: "llm", note: result.repaired ? "The model's first program did not validate; it repaired it once." : null, language: result.language };
+      if (result.program) {
+        const merged = reconcile(result.program, result.language);
+        const note = [result.repaired ? "The model's first program did not validate; it repaired it once." : null, merged.note].filter(Boolean).join(" ") || null;
+        return { program: merged.program, source: "llm", note, language: result.language };
+      }
       const issues = result.issues.slice(0, 3).map((i) => `${i.path}: ${i.message}`).join(" ");
+      if (result.language === "en") {
+        const lex = lexiconReading(text);
+        if (lex.understood && lex.complete) return { program: readDeterministic(text), source: "deterministic", note: `The model's program did not validate after one repair (${issues}); the English lexicon read every clause instead.`, language: "en" };
+      }
       const base = emptyProgram(text, result.language);
       return { program: { ...base, questions: ["I could not turn that into a plan I can verify. Could you say it again with the amounts, tokens and recipients spelled out?"] }, source: "llm", note: `The model's program did not validate after one repair (${issues}).`, language: result.language };
     } catch (error) {
-      const fallback = readProgram(text);
+      const fallback = readDeterministic(text);
       return { program: fallback, source: "deterministic", note: `The model did not answer (${error instanceof Error ? error.message.slice(0, 100) : "error"}); the English lexicon read it.`, language: "en" };
     }
   }
-  return { program: readProgram(text), source: "deterministic", note: llm ? null : "No model is configured: the deterministic lexicon reads English goal language.", language: "en" };
+  return { program: readDeterministic(text), source: "deterministic", note: llm ? null : "No model is configured: the deterministic lexicon reads English goal language.", language: "en" };
 }
 
 /** The owner's state the resolver needs: wallet balances, positions, prices, venue facts, fee, beta cap, contacts. */
@@ -227,7 +240,7 @@ async function fenceFor(ctx: AppContext, input: CompileInput, http: Request | nu
  * evaluation suite and tests use it; the result has the HTTP shape.
  */
 export function compileOffline(text: string, state: ProgramState, options: { readonly overrides?: Readonly<Record<string, string>>; readonly program?: Program } = {}): CompileResult {
-  const program = options.program ?? readProgram(text);
+  const program = options.program ?? readDeterministic(text);
   const compiled = compileProgram(program, state, options.overrides ? { overrides: options.overrides } : {});
   const offline: VerdictBrief = { decision: "unknown", reasons: ["Offline: the route search and the Fence run when the plan is made."], digest: null };
   const scheduled = compiled.scheduled.map((d) => ({ ...d, ...linkOf(d), ...(d.kind === "automation" && d.draft.action.type === "plan" ? { roundTrip: roundTrip(d.draft.action.sentence, d.actions) } : {}), verdict: offline }) as CheckedDraft);

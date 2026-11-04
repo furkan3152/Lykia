@@ -57,6 +57,10 @@ interface Ctx {
   prefs: { -readonly [K in keyof ProgramPreferences]: ProgramPreferences[K] };
   conflicts: ProgramConflict[];
   questions: string[];
+  /** Questions about clauses the lexicon could not read (the sentence reader's clarifications), as opposed to hard facts it will not guess. */
+  soft: string[];
+  /** Clauses the lexicon skipped without reading anything from them. */
+  unread: string[];
   goals: string[];
   untrusted: boolean;
   /** "my payroll is 400 USDC a month": a monthly cost a later "keep 3 months" can use. */
@@ -75,6 +79,10 @@ const goal = (c: Ctx, g: string) => {
 };
 const question = (c: Ctx, q: string) => {
   if (!c.questions.includes(q) && c.questions.length < PROGRAM_LIMITS.questions) c.questions.push(q);
+};
+const softQuestion = (c: Ctx, q: string) => {
+  question(c, q);
+  if (!c.soft.includes(q)) c.soft.push(q);
 };
 
 /* --------------------------------------------------------------- numbers */
@@ -291,11 +299,15 @@ function refuse(c: Ctx, code: Extract<ProgramElement, { kind: "refuse" }>["code"
   c.elements.push({ id: id(c), kind: "refuse", code, detail, quote: clip(quote) });
 }
 
+/** Phrases that try to override Lykia's rules (English), and common Spanish, German, French and Turkish ones. */
+export const INJECTION_MARKER = /\b(?:ignore|disregard|forget)\s+(?:all\s+|any\s+|the\s+|your\s+)?(?:previous|prior|above|earlier|system|safety)?\s*(?:instructions|rules|prompts?|guidelines|messages)\b|\bsystem\s*(?:prompt|message|override)\b|\byou are now\b|\b(?:developer|admin|god|debug|jailbreak|dan)\s+mode\b|\bnew instructions\s*:|<\/?(?:system|tool_data|instructions)\b|\bact as (?:an?\s+)?(?:admin|root|unrestricted)\b|\bpretend (?:you|the fence)\b/iu;
+export const FOREIGN_INJECTION_MARKER = /\b(?:ignora|olvida)\s+(?:todas\s+)?las\s+instrucciones\b|\bignoriere\s+(?:alle\s+)?(?:vorherigen\s+)?(?:anweisungen|regeln)\b|\bignore[sz]?\s+(?:toutes\s+)?les\s+instructions\b|\btalimatlar\u0131\s+(?:yok\s+say|unut)/iu;
+
 /** Rule overrides anywhere in the text. They are refused and mark the program untrusted. */
 function guard(c: Ctx): void {
   const t = c.text;
-  const injection = /\b(?:ignore|disregard|forget)\s+(?:all\s+|any\s+|the\s+|your\s+)?(?:previous|prior|above|earlier|system|safety)?\s*(?:instructions|rules|prompts?|guidelines|messages)\b|\bsystem\s*(?:prompt|message|override)\b|\byou are now\b|\b(?:developer|admin|god|debug|jailbreak|dan)\s+mode\b|\bnew instructions\s*:|<\/?(?:system|tool_data|instructions)\b|\bact as (?:an?\s+)?(?:admin|root|unrestricted)\b|\bpretend (?:you|the fence)\b/iu.exec(t);
-  const foreign = /\b(?:ignora|olvida)\s+(?:todas\s+)?las\s+instrucciones\b|\bignoriere\s+(?:alle\s+)?(?:vorherigen\s+)?(?:anweisungen|regeln)\b|\bignore[sz]?\s+(?:toutes\s+)?les\s+instructions\b|\btalimatlar\u0131\s+(?:yok\s+say|unut)/iu.exec(t);
+  const injection = INJECTION_MARKER.exec(t);
+  const foreign = FOREIGN_INJECTION_MARKER.exec(t);
   if (injection || foreign) {
     c.untrusted = true;
     refuse(c, "injection", "Instructions that try to override Lykia's rules are ignored; only the owner's own request is planned, and no payment to an outside address in this message is.", (injection ?? foreign)![0]);
@@ -736,7 +748,7 @@ function fallback(c: Ctx, clause: string, when?: When): boolean {
     }
   } else for (const a of parsed.actions) elements.push(toElement(a, when));
   if (elements.length === 0) {
-    if (parsed.clarify.length > 0 && STARTER.test(clause)) for (const q of parsed.clarify) question(c, q);
+    if (parsed.clarify.length > 0 && STARTER.test(clause)) for (const q of parsed.clarify) softQuestion(c, q);
     return parsed.clarify.length > 0 && STARTER.test(clause);
   }
   for (const e of elements) {
@@ -747,7 +759,7 @@ function fallback(c: Ctx, clause: string, when?: When): boolean {
     c.elements.push(e);
     if ("token" in e && typeof e.token === "string") c.lastToken = e.token;
   }
-  if (parsed.clarify.length > 0) for (const q of parsed.clarify) question(c, q);
+  if (parsed.clarify.length > 0) for (const q of parsed.clarify) softQuestion(c, q);
   return true;
 }
 
@@ -797,17 +809,32 @@ function hedgeTemplateConditional(c: Ctx, rest: string, when: When): boolean {
 
 /* --------------------------------------------------------------- program */
 
+/** The question the lexicon asks when it read nothing it can act on. */
+export const NOTHING_READ = "What should Lykia do? For example: keep 1000 USDC liquid and put the rest to work, convert 20% to EURC, or pay 0x… 50 USDC every month.";
+
 /** Reads English goal language into a program. Deterministic; never throws on odd input. */
 export function readProgram(raw: string, options: LexiconOptions = {}): Program {
+  return readProgramDetailed(raw, options).program;
+}
+
+/**
+ * The lexicon's reading with what it could not read: `soft` lists the
+ * questions about clauses it did not understand (as opposed to hard facts,
+ * such as an address or a missing amount, it will not guess), and `unread`
+ * the clauses it skipped without reading anything from them.
+ */
+export function readProgramDetailed(raw: string, options: LexiconOptions = {}): { readonly program: Program; readonly soft: readonly string[]; readonly unread: readonly string[] } {
   const text = englishThousands(raw.replace(/[‘’]/gu, "'").replace(/[“”]/gu, '"').trim()).slice(0, PROGRAM_LIMITS.text);
-  const c: Ctx = { text, elements: [], prefs: {}, conflicts: [], questions: [], goals: [], untrusted: false, costs: null, riskSignals: { low: null, high: null }, anchor: false, lastToken: "USDC", n: 0 };
+  const c: Ctx = { text, elements: [], prefs: {}, conflicts: [], questions: [], soft: [], unread: [], goals: [], untrusted: false, costs: null, riskSignals: { low: null, high: null }, anchor: false, lastToken: "USDC", n: 0 };
   guard(c);
   if (/\d,\d/u.test(text)) {
     // "1,5" is one and a half in many locales and a thousands separator elsewhere: never guessed.
     question(c, "Use a dot for decimals (1.5) and no thousands separators (1500).");
-    return { schema: PROGRAM_SCHEMA, text, language: "en", goals: [], elements: c.elements, preferences: {}, conflicts: [], questions: c.questions, ...(c.untrusted ? { untrusted: true } : {}) };
+    return { program: { schema: PROGRAM_SCHEMA, text, language: "en", goals: [], elements: c.elements, preferences: {}, conflicts: [], questions: c.questions, ...(c.untrusted ? { untrusted: true } : {}) }, soft: [], unread: [] };
   }
+  const footprint = () => JSON.stringify([c.prefs, c.riskSignals, c.anchor, c.costs, c.elements.length, c.questions.length, c.conflicts.length, c.goals.length]);
   for (const clause of goalClauses(text)) {
+    const before = footprint();
     riskSignals(c, clause);
     if (costFact(c, clause)) continue;
     // A clause about a venue or token Lykia refused is not planned somewhere else instead.
@@ -818,6 +845,9 @@ export function readProgram(raw: string, options: LexiconOptions = {}): Program 
     if (c.elements.some((e) => e.kind === "refuse" && clause.toLowerCase().includes(e.quote.toLowerCase().slice(0, 12)))) continue;
     if (/^(?:i|we)\s+(?:run|own|have|am|are|manage|work)\b/iu.test(clause) && !/\d/u.test(clause)) continue;
     fallback(c, clause);
+    // Nothing in the clause changed the reading: the lexicon did not understand it.
+    // Preference wording repeated ("nothing risky" after "be defensive") and lone words ("SYSTEM") count as read.
+    if (footprint() === before && !PREFERENCE.test(clause) && !INJECTION_MARKER.test(clause) && /\s/u.test(clause.trim())) c.unread.push(clip(clause));
   }
 
   // Risk: the safer reading wins when both are said.
@@ -846,7 +876,7 @@ export function readProgram(raw: string, options: LexiconOptions = {}): Program 
     c.elements.push({ id: id(c), kind: "convert", from: "USDC", to: "EURC", quantity: { type: "share", bps: 2000, of: "available" }, purpose: "hedge", quote: "", assumed: "No share was given for the hedge, so 20% of what is available goes to EURC." });
   }
   if (acting.length === 0 && c.elements.every((e) => e.kind !== "refuse") && c.questions.length === 0 && c.elements.length === 0) {
-    question(c, "What should Lykia do? For example: keep 1000 USDC liquid and put the rest to work, convert 20% to EURC, or pay 0x… 50 USDC every month.");
+    softQuestion(c, NOTHING_READ);
   }
   // A borrow next to "no leverage".
   if (c.prefs.leverage === false && c.elements.some((e) => e.kind === "action" && e.action.verb === "borrow")) {
@@ -855,7 +885,7 @@ export function readProgram(raw: string, options: LexiconOptions = {}): Program 
   }
 
   const preferences: ProgramPreferences = { ...c.prefs, ...(options.timezone && !c.prefs.timezone ? {} : {}) };
-  return {
+  const program: Program = {
     schema: PROGRAM_SCHEMA,
     text,
     language: "en",
@@ -866,6 +896,7 @@ export function readProgram(raw: string, options: LexiconOptions = {}): Program 
     questions: c.questions,
     ...(c.untrusted ? { untrusted: true } : {}),
   };
+  return { program, soft: c.soft.filter((q) => c.questions.includes(q)), unread: c.unread };
 }
 
 /** Several goals, a time dimension or abstract wording: worth compiling rather than reading as one command. */

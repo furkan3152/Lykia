@@ -84,7 +84,40 @@ until it passes three checks:
 
 When a check fails, the issues go back to the model once as a tool error and
 it repairs its program. If the repair fails too, the compiler asks the owner
-to restate the request instead of guessing.
+to restate the request instead of guessing (or, for English the lexicon
+read in full, uses the lexicon's program).
+
+The system prompt and the `propose_program` schema carry a short example of
+every element kind and the lexicon's documented defaults, with the rule
+"prefer an explicit assumption over a question when a documented default
+exists": defensive savings get a 10% liquid reserve, a 20% EURC hedge and the
+rest earning in the low-risk tier; day 29 to 31 of a month is written as said
+(the resolver runs it on the 28th and says so); a stop-loss or take-profit
+with no size sells all of the holding; a DCA or schedule never asks when to
+start; "keep my health above 1.8" is an alert marked as an assumption.
+
+**Hybrid reading** (`apps/api/src/compiler/hybrid.ts`). A small, fast model
+drifts: it asks a question a default answers, drops an element or forgets an
+assumption. So the deterministic lexicon reads the text too, and the two are
+reconciled:
+
+| Case | Result |
+|---|---|
+| English, and the lexicon read every clause (elements, or hard-fact questions such as a missing address) | The lexicon's program. The model adds refusals, the untrusted flag and preferences the lexicon left open, never a looser one (no `risk: high`, no `leverage: true`). A clause the model refused (unknown venue, unsafe, ...) loses the lexicon's element too. |
+| English, and the lexicon read part of the text | The model's program. A model element of the same kind for the same words is replaced by the lexicon's (its amounts, defaults and schedules win), lexicon elements the model missed are added, and the lexicon's hard-fact questions are kept. |
+| Other languages, or nothing the lexicon could read | The model's program. An abstract savings goal (hedge or liquidity wished, no stated moves) is completed with the lexicon's defensive defaults, each an assumption the owner can drop. |
+
+The lexicon reports what it could not read (`readProgramDetailed`: questions
+about clauses it did not understand, and clauses it skipped), so "read every
+clause" is a fact, not a guess.
+
+**Injected data never becomes an action.** Text after an override marker
+("new instructions:", "ignore previous instructions", "SYSTEM:", the Spanish,
+German, French and Turkish phrasings) or inside tool and system tags
+(`<tool_data>…</tool_data>`) is data. `stripInjected` drops every element read
+from it and every payment to an address that appears only there, for the
+model's program and the lexicon's alike; refusals stay, and the owner's own
+words before the marker are still planned.
 
 **Without a model**, the abstract-concept lexicon (`apps/api/src/compiler/lexicon.ts`)
 reads English goal language deterministically. It splits the text into
@@ -324,4 +357,8 @@ Results on 4 November 2026:
 | Live model path | not scored yet: `/v1/ai/compile` must be deployed with a model key | |
 
 The offline run is also a test (`compiler.test.ts`), so a lexicon change that
-breaks a case fails `npm test`.
+breaks a case fails `npm test`. `hybrid.test.ts` replays model programs of the
+kinds the first live run produced (questions a default answers, a missing
+earn or order, a missing assumption, a payment read from injected data, a
+payment with fewer addresses than people) through the hybrid reader with a
+scripted client, and checks that each now passes its case's rubric.
