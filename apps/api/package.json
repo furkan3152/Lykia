@@ -19,7 +19,8 @@
     "smoke:e2e": "tsx src/scripts/e2e.ts",
     "prove": "tsx src/scripts/prove.ts",
     "openapi": "tsx src/scripts/openapi.ts",
-    "eval:intents": "tsx src/evals/run.ts"
+    "eval:intents": "tsx src/evals/run.ts",
+    "seed:league": "tsx src/scripts/seedLeague.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.134.0",

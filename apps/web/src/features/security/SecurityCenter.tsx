@@ -73,7 +73,7 @@ export function KillSwitch({ status }: { status: SecurityStatus | undefined }) {
   };
   const halted = status?.halted ?? false;
   return (
-    <Card title="Kill switch" kicker="ADMIN" tone="night">
+    <Card title="The Whistle · kill switch" kicker="ADMIN · AUDITED" tone="night">
       <div style={{ display: "grid", gap: 10 }}>
         <Field label="Reason (recorded in the platform audit chain)"><Input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} /></Field>
         <Button tone={halted ? "sea" : "terra"} disabled={busy || reason.trim().length < 3} onClick={() => void act(() => apiPost("/v1/security/halt", { halt: !halted, reason: reason.trim() }), halted ? "Routing resumed" : "Routing halted")}>{halted ? "RESUME ROUTING" : "HALT ALL ROUTING"}</Button>
@@ -216,8 +216,8 @@ export function SecurityAlerts({ enabled, address }: { enabled: boolean; address
   );
 }
 
-export function AuditLog({ enabled, address, admin }: { enabled: boolean; address: string | undefined; admin: boolean }) {
-  const [chain, setChain] = useState<"owner" | "platform">("owner");
+export function AuditLog({ enabled, address, admin, initialChain = "owner" }: { enabled: boolean; address: string | undefined; admin: boolean; initialChain?: "owner" | "platform" }) {
+  const [chain, setChain] = useState<"owner" | "platform">(initialChain);
   const q = useQuery({ queryKey: ["security-audit", address, chain], enabled, queryFn: ({ signal }) => apiGet<{ entries: AuditEntry[]; verified: { ok: boolean; brokenAt: number | null } }>("/v1/security/audit", { signal, query: { chain, limit: 200 } }) });
   const exportLog = async () => {
     try {
@@ -255,7 +255,7 @@ export function AuditLog({ enabled, address, admin }: { enabled: boolean; addres
               <tr key={e.seq}>
                 <td className="num">{e.seq}</td>
                 <td className="m-small">{new Date(e.at).toLocaleString("en-US")}</td>
-                <td><Tag tone={e.kind === "blocked" || e.kind === "halt" || e.kind === "pause" ? "bad" : "ghost"}>{e.kind}</Tag></td>
+                <td><Tag tone={e.kind === "blocked" || e.kind === "halt" || e.kind === "pause" ? "bad" : e.kind === "league" ? "ochre" : "ghost"}>{e.kind}</Tag></td>
                 <td className="m-small">{e.subject.length > 24 ? short(e.subject) : e.subject}</td>
                 <td className="m-small num" title={e.hash}>{e.hash.slice(7, 17)}</td>
               </tr>

@@ -116,6 +116,9 @@
       "name": "Language"
     },
     {
+      "name": "League"
+    },
+    {
       "name": "Logs",
       "description": "Request logs per key and project."
     },
@@ -19210,6 +19213,1464 @@
                 "required": [
                   "text"
                 ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/league": {
+      "get": {
+        "operationId": "getAdminLeague",
+        "summary": "Admin: every League entry, requests first, and which official cities exist",
+        "tags": [
+          "League"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "x-lykia-scope": "admin",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ]
+      }
+    },
+    "/v1/admin/league/seed": {
+      "post": {
+        "operationId": "postAdminLeagueSeed",
+        "summary": "Admin: create the official cities that are missing (idempotent, owned by the first admin address)",
+        "tags": [
+          "League"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "owner": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "cities": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "outcome": {
+                            "type": "string",
+                            "enum": [
+                              "created",
+                              "present",
+                              "missing"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "projectId",
+                          "name",
+                          "outcome"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "owner",
+                    "cities"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "x-lykia-scope": "admin",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ]
+      }
+    },
+    "/v1/league": {
+      "get": {
+        "operationId": "getLeague",
+        "summary": "The League: listed cities (Lykia's sub-products and approved community projects) with their public project view and live usage",
+        "tags": [
+          "League"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cities": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "slug": {
+                            "type": "string"
+                          },
+                          "league": {
+                            "type": "object",
+                            "properties": {
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "official",
+                                  "community"
+                                ]
+                              },
+                              "state": {
+                                "type": "string",
+                                "enum": [
+                                  "live",
+                                  "coming",
+                                  "paused"
+                                ]
+                              },
+                              "featured": {
+                                "type": "boolean"
+                              },
+                              "slug": {
+                                "type": "string"
+                              },
+                              "emblem": {
+                                "type": "string",
+                                "enum": [
+                                  "lighthouse",
+                                  "temple",
+                                  "prow",
+                                  "lyre",
+                                  "triskeles",
+                                  "flame"
+                                ]
+                              },
+                              "tagline": {
+                                "type": "string"
+                              },
+                              "category": {
+                                "type": "string",
+                                "enum": [
+                                  "payments",
+                                  "agents",
+                                  "trading",
+                                  "treasury",
+                                  "commerce",
+                                  "tools"
+                                ]
+                              },
+                              "codename": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "codenameNote": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "note": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "does": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "pages": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "label": {
+                                      "type": "string"
+                                    },
+                                    "href": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "label",
+                                    "href"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "status",
+                              "state",
+                              "featured",
+                              "slug",
+                              "emblem",
+                              "tagline",
+                              "category",
+                              "codename",
+                              "codenameNote",
+                              "note",
+                              "does",
+                              "pages"
+                            ]
+                          },
+                          "project": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "modules": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "network": {
+                                "type": "string",
+                                "enum": [
+                                  "mainnet",
+                                  "testnet"
+                                ]
+                              },
+                              "assistantName": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "modules",
+                              "network",
+                              "assistantName"
+                            ]
+                          },
+                          "usage": {
+                            "type": "object",
+                            "properties": {
+                              "today": {
+                                "type": "object",
+                                "properties": {
+                                  "requests": {
+                                    "type": "integer"
+                                  },
+                                  "plans": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "required": [
+                                  "requests",
+                                  "plans"
+                                ]
+                              },
+                              "last7Days": {
+                                "type": "object",
+                                "properties": {
+                                  "requests": {
+                                    "type": "integer"
+                                  },
+                                  "plans": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "required": [
+                                  "requests",
+                                  "plans"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "today",
+                              "last7Days"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "slug",
+                          "league",
+                          "project",
+                          "usage"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "cities"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "public",
+        "security": [
+          {},
+          {
+            "LykiaKey": []
+          }
+        ]
+      }
+    },
+    "/v1/league/{id}": {
+      "put": {
+        "operationId": "putLeagueById",
+        "summary": "Admin: approve, reject, feature, unfeature, delist, relist, pause, resume or launch a city (audited)",
+        "tags": [
+          "League"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^prj_[a-z0-9]{12}$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "x-lykia-scope": "admin",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "approve",
+                      "reject",
+                      "feature",
+                      "unfeature",
+                      "delist",
+                      "relist",
+                      "pause",
+                      "resume",
+                      "launch"
+                    ]
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "action"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/league/{slug}": {
+      "get": {
+        "operationId": "getLeagueBySlug",
+        "summary": "One listed city",
+        "tags": [
+          "League"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{1,22}[a-z0-9]$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "slug": {
+                      "type": "string"
+                    },
+                    "league": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "official",
+                            "community"
+                          ]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "live",
+                            "coming",
+                            "paused"
+                          ]
+                        },
+                        "featured": {
+                          "type": "boolean"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "emblem": {
+                          "type": "string",
+                          "enum": [
+                            "lighthouse",
+                            "temple",
+                            "prow",
+                            "lyre",
+                            "triskeles",
+                            "flame"
+                          ]
+                        },
+                        "tagline": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": "string",
+                          "enum": [
+                            "payments",
+                            "agents",
+                            "trading",
+                            "treasury",
+                            "commerce",
+                            "tools"
+                          ]
+                        },
+                        "codename": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "codenameNote": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "note": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "does": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "pages": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "href"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "state",
+                        "featured",
+                        "slug",
+                        "emblem",
+                        "tagline",
+                        "category",
+                        "codename",
+                        "codenameNote",
+                        "note",
+                        "does",
+                        "pages"
+                      ]
+                    },
+                    "project": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "modules": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "network": {
+                          "type": "string",
+                          "enum": [
+                            "mainnet",
+                            "testnet"
+                          ]
+                        },
+                        "assistantName": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "modules",
+                        "network",
+                        "assistantName"
+                      ]
+                    },
+                    "usage": {
+                      "type": "object",
+                      "properties": {
+                        "today": {
+                          "type": "object",
+                          "properties": {
+                            "requests": {
+                              "type": "integer"
+                            },
+                            "plans": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "requests",
+                            "plans"
+                          ]
+                        },
+                        "last7Days": {
+                          "type": "object",
+                          "properties": {
+                            "requests": {
+                              "type": "integer"
+                            },
+                            "plans": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "requests",
+                            "plans"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "today",
+                        "last7Days"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "slug",
+                    "league",
+                    "project",
+                    "usage"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "public",
+        "security": [
+          {},
+          {
+            "LykiaKey": []
+          }
+        ]
+      }
+    },
+    "/v1/league/by-host": {
+      "get": {
+        "operationId": "getLeagueByHost",
+        "summary": "A listed city by one of its verified custom domains",
+        "tags": [
+          "League"
+        ],
+        "parameters": [
+          {
+            "name": "host",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 253,
+              "pattern": "^[a-z0-9.-]+$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "slug": {
+                      "type": "string"
+                    },
+                    "league": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "official",
+                            "community"
+                          ]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "live",
+                            "coming",
+                            "paused"
+                          ]
+                        },
+                        "featured": {
+                          "type": "boolean"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "emblem": {
+                          "type": "string",
+                          "enum": [
+                            "lighthouse",
+                            "temple",
+                            "prow",
+                            "lyre",
+                            "triskeles",
+                            "flame"
+                          ]
+                        },
+                        "tagline": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": "string",
+                          "enum": [
+                            "payments",
+                            "agents",
+                            "trading",
+                            "treasury",
+                            "commerce",
+                            "tools"
+                          ]
+                        },
+                        "codename": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "codenameNote": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "note": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "does": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "pages": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "href"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "state",
+                        "featured",
+                        "slug",
+                        "emblem",
+                        "tagline",
+                        "category",
+                        "codename",
+                        "codenameNote",
+                        "note",
+                        "does",
+                        "pages"
+                      ]
+                    },
+                    "project": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "modules": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "network": {
+                          "type": "string",
+                          "enum": [
+                            "mainnet",
+                            "testnet"
+                          ]
+                        },
+                        "assistantName": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "modules",
+                        "network",
+                        "assistantName"
+                      ]
+                    },
+                    "usage": {
+                      "type": "object",
+                      "properties": {
+                        "today": {
+                          "type": "object",
+                          "properties": {
+                            "requests": {
+                              "type": "integer"
+                            },
+                            "plans": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "requests",
+                            "plans"
+                          ]
+                        },
+                        "last7Days": {
+                          "type": "object",
+                          "properties": {
+                            "requests": {
+                              "type": "integer"
+                            },
+                            "plans": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "requests",
+                            "plans"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "today",
+                        "last7Days"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "slug",
+                    "league",
+                    "project",
+                    "usage"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "public",
+        "security": [
+          {},
+          {
+            "LykiaKey": []
+          }
+        ]
+      }
+    },
+    "/v1/league/by-slug/{slug}": {
+      "get": {
+        "operationId": "getLeagueBySlugBySlug",
+        "summary": "A listed city by its project slug: what <slug>.<root domain> and /c/<slug> load",
+        "tags": [
+          "League"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{1,22}[a-z0-9]$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "slug": {
+                      "type": "string"
+                    },
+                    "league": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "official",
+                            "community"
+                          ]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "live",
+                            "coming",
+                            "paused"
+                          ]
+                        },
+                        "featured": {
+                          "type": "boolean"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "emblem": {
+                          "type": "string",
+                          "enum": [
+                            "lighthouse",
+                            "temple",
+                            "prow",
+                            "lyre",
+                            "triskeles",
+                            "flame"
+                          ]
+                        },
+                        "tagline": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": "string",
+                          "enum": [
+                            "payments",
+                            "agents",
+                            "trading",
+                            "treasury",
+                            "commerce",
+                            "tools"
+                          ]
+                        },
+                        "codename": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "codenameNote": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "note": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "does": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "pages": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string"
+                              },
+                              "href": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "href"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "state",
+                        "featured",
+                        "slug",
+                        "emblem",
+                        "tagline",
+                        "category",
+                        "codename",
+                        "codenameNote",
+                        "note",
+                        "does",
+                        "pages"
+                      ]
+                    },
+                    "project": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "modules": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "network": {
+                          "type": "string",
+                          "enum": [
+                            "mainnet",
+                            "testnet"
+                          ]
+                        },
+                        "assistantName": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "modules",
+                        "network",
+                        "assistantName"
+                      ]
+                    },
+                    "usage": {
+                      "type": "object",
+                      "properties": {
+                        "today": {
+                          "type": "object",
+                          "properties": {
+                            "requests": {
+                              "type": "integer"
+                            },
+                            "plans": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "requests",
+                            "plans"
+                          ]
+                        },
+                        "last7Days": {
+                          "type": "object",
+                          "properties": {
+                            "requests": {
+                              "type": "integer"
+                            },
+                            "plans": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "requests",
+                            "plans"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "today",
+                        "last7Days"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "slug",
+                    "league",
+                    "project",
+                    "usage"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "public",
+        "security": [
+          {},
+          {
+            "LykiaKey": []
+          }
+        ]
+      }
+    },
+    "/v1/projects/{id}/league/request": {
+      "post": {
+        "operationId": "postProjectsByIdLeagueRequest",
+        "summary": "Ask for a community listing of your project; an admin reviews it",
+        "tags": [
+          "League"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^prj_[a-z0-9]{12}$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "x-lykia-scope": "admin",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tagline": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 90
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "payments",
+                      "agents",
+                      "trading",
+                      "treasury",
+                      "commerce",
+                      "tools"
+                    ]
+                  },
+                  "emblem": {
+                    "type": "string",
+                    "enum": [
+                      "lighthouse",
+                      "temple",
+                      "prow",
+                      "lyre",
+                      "triskeles",
+                      "flame"
+                    ]
+                  },
+                  "slug": {
+                    "type": "string",
+                    "maxLength": 32
+                  },
+                  "codename": {
+                    "type": "string",
+                    "maxLength": 24
+                  }
+                },
+                "required": [
+                  "tagline",
+                  "category"
+                ],
+                "additionalProperties": false
               }
             }
           }

@@ -157,7 +157,7 @@ export default function AskPage() {
   const setMode = useUiStore((st) => st.setMode);
   const choose = (option: string) => {
     const action = clarifyAction(option);
-    if (action.kind === "owner") return navigate("/owner");
+    if (action.kind === "owner") return navigate("/letoon");
     if (action.kind === "mainnet") {
       setMode("mainnet");
       useAsk.getState().takePending();

@@ -19,8 +19,8 @@ export interface AutoPause<T extends Element> {
 }
 
 /**
- * Pauses looping motion in a section that is off screen or in a hidden tab
- * (ported from Kletia). It toggles `data-el-paused` on the element, which
+ * Pauses looping motion in a section that is off screen or in a hidden tab.
+ * It toggles `data-el-paused` on the element, which
  * pauses every CSS `.el-loop` inside it (global.css), and returns `active`
  * for JavaScript loops (rAF, WAAPI, timers).
  */

@@ -24,7 +24,7 @@ function reloadPage(): void {
 /**
  * Error boundary for lazily loaded surfaces (route chunks, the wallet stack).
  * A chunk that fails to download or a page that throws while rendering
- * degrades to `fallback` instead of unmounting the whole app. Ported from Kletia.
+ * degrades to `fallback` instead of unmounting the whole app.
  */
 export class LazyBoundary extends React.Component<LazyBoundaryProps, LazyBoundaryState> {
   override state: LazyBoundaryState = { failed: false, resetKey: this.props.resetKey };

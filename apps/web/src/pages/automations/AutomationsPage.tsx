@@ -66,7 +66,7 @@ export default function AutomationsPage() {
 
   return (
     <div>
-      <PageHead kicker={"AUTOMATE · AUTOMATIONS"} title={<>Re-plan a sentence <em>when something happens.</em></>} sub={"A schedule, a Chainlink price, a wallet balance or a payout event re-plans one sentence under your Fence, or notifies your webhooks. Every fire is a proposal you sign; nothing moves on its own."} mood="alert" />
+      <PageHead kicker={"HERDING · ROUNDS · AUTOMATIONS"} title={<>Re-plan a sentence <em>when something happens.</em></>} sub={"A schedule, a Chainlink price, a wallet balance or a payout event re-plans one sentence under your Fence, or notifies your webhooks. Every fire is a proposal you sign; nothing moves on its own."} mood="alert" />
       <section className="m-wrap" style={{ marginTop: 28 }}>
         {!enabled ? (
           <Card title={"Sign in first"}>

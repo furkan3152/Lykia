@@ -126,7 +126,7 @@ export default function OrdersPage() {
 
   return (
     <div>
-      <PageHead kicker={"AUTOMATE · ORDERS"} title={<>Set it, <em>sign once.</em></>} sub={"Limit, stop-loss, take-profit, DCA and TWAP on Arc. Your funds stay in your wallet behind an allowance; keepers execute when Chainlink says the condition holds, and the contract checks every term you signed."} mood="watching" />
+      <PageHead kicker={"HERDING · ORDERS"} title={<>Set it, <em>sign once.</em></>} sub={"Limit, stop-loss, take-profit, DCA and TWAP on Arc. Your funds stay in your wallet behind an allowance; keepers execute when Chainlink says the condition holds, and the contract checks every term you signed."} mood="watching" />
       <section className="m-wrap" style={{ marginTop: 28 }}>
         <div className="m-grid-2 m-grid-2--r">
           <Card title={"New order"} kicker={config.data ? `FEE ${config.data.feeBps / 100}% · KEEPER ${config.data.keeper.toUpperCase()}` : "…"}

@@ -36,7 +36,7 @@ export default function WhatIfPage() {
   const movers = result ? result.rows.filter((r) => r.after !== r.before).sort((a, b) => Math.abs(b.after - b.before) - Math.abs(a.after - a.before)) : [];
   return (
     <div>
-      <PageHead kicker={"PORTFOLIO · WHAT-IF"} title={<>Stress-test <em>your portfolio.</em></>} sub={"Move cirBTC and EURC and watch your portfolio's value and health factors respond, with every dollar of the move explained by the holding that carries it. Computed in your browser from live balances."} mood="watching" />
+      <PageHead kicker={"FLOCK · WHAT-IF · STRESS TEST"} title={<>Stress-test <em>your portfolio.</em></>} sub={"Move cirBTC and EURC and watch your portfolio's value and health factors respond, with every dollar of the move explained by the holding that carries it. Computed in your browser from live balances."} mood="watching" />
       <section className="m-wrap" style={{ marginTop: 28 }}>
         <div className="m-grid-2 m-grid-2--r">
           <Card title={"Shocks"} kicker={"PRICE MOVES IN %"}>

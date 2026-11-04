@@ -12,6 +12,7 @@ import {
   WELL_KNOWN_PROOF_PATH,
   buildProject,
   dnsProofName,
+  leagueSlug,
   publicProject,
   validateProjectInput,
   type IntegratorFeePolicy,
@@ -53,13 +54,38 @@ function issuesError(issues: readonly { path: string; message: string }[]): Lyki
   return new LykiaHttpError("INVALID_REQUEST", 400, `Invalid project: ${issues.map((i) => `${i.path}: ${i.message}`).join("; ")}`, { issues });
 }
 
+/** Every slug in use (a project's own, or its League listing's), except the given project's. */
+export async function takenSlugs(ctx: AppContext, except?: string): Promise<Set<string>> {
+  const out = new Set<string>();
+  for (const d of await projects(ctx).list({ limit: 10_000 })) {
+    if (d.value.id === except) continue;
+    if (d.value.slug) out.add(d.value.slug);
+    if (d.value.league?.slug) out.add(d.value.league.slug);
+  }
+  return out;
+}
+
+/** A free slug from a name: "acme-pay", then "acme-pay-2", "acme-pay-3"... */
+export function freeSlug(name: string, taken: ReadonlySet<string>): string {
+  const base = leagueSlug(name);
+  if (!taken.has(base)) return base;
+  for (let i = 2; i < 1000; i++) {
+    const next = `${base.slice(0, 24 - String(i).length - 1).replace(/-+$/u, "")}-${i}`;
+    if (!taken.has(next)) return next;
+  }
+  return `city-${randomHex(4)}`;
+}
+
 export async function createProject(ctx: AppContext, owner: string, input: ProjectInput): Promise<Project> {
   const issues = validateProjectInput(input);
   if (issues.length > 0) throw issuesError(issues);
   const who = owner.toLowerCase();
   const mine = (await projects(ctx).list({ limit: 1000 })).filter((d) => d.value.owner === who);
   if (mine.length >= MAX_PROJECTS_PER_DEVELOPER) throw new LykiaHttpError("PROJECT_LIMIT", 409, `At most ${MAX_PROJECTS_PER_DEVELOPER} projects per developer.`);
-  const project = autoVerifyLocal(buildProject(`prj_${randomHex(6)}`, who, input, new Date(ctx.clock.now()).toISOString()), ctx);
+  const taken = await takenSlugs(ctx);
+  if (input.slug && taken.has(input.slug)) throw new LykiaHttpError("SLUG_TAKEN", 409, `Another city already uses "${input.slug}".`);
+  const slug = input.slug ?? freeSlug(input.name, taken);
+  const project = autoVerifyLocal(buildProject(`prj_${randomHex(6)}`, who, { ...input, slug }, new Date(ctx.clock.now()).toISOString()), ctx);
   await projects(ctx).put(project.id, project);
   forgetProjectOrigins(ctx);
   return project;
@@ -98,7 +124,13 @@ export async function updateProject(ctx: AppContext, owner: string, id: string, 
   const input: ProjectInput = { ...patch, name: patch.name ?? previous.name };
   const issues = validateProjectInput(input);
   if (issues.length > 0) throw issuesError(issues);
-  const next = autoVerifyLocal(buildProject(previous.id, previous.owner, input, new Date(ctx.clock.now()).toISOString(), previous), ctx);
+  if (input.slug && input.slug !== previous.slug) {
+    if ((await takenSlugs(ctx, previous.id)).has(input.slug)) throw new LykiaHttpError("SLUG_TAKEN", 409, `Another city already uses "${input.slug}".`);
+    if (previous.league?.status === "official") throw new LykiaHttpError("ALREADY_OFFICIAL", 409, "An official city keeps its address.");
+  }
+  const built = autoVerifyLocal(buildProject(previous.id, previous.owner, input, new Date(ctx.clock.now()).toISOString(), previous), ctx);
+  // The League listing follows the project's address.
+  const next: Project = built.league && built.slug && built.league.slug !== built.slug ? { ...built, league: { ...built.league, slug: built.slug } } : built;
   await projects(ctx).put(next.id, next);
   forgetProjectOrigins(ctx);
   return next;

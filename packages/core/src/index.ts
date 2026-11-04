@@ -31,6 +31,7 @@ export * from "./devtools.js";
 export * from "./knowledge.js";
 export * from "./knowledgeData.js";
 export * from "./project.js";
+export * from "./league.js";
 export * from "./adapterManifest.js";
 export * from "./devflows.js";
 export * from "./drafts.js";

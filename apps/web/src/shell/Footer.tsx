@@ -12,13 +12,14 @@ export function Footer() {
         <div>
           <span className="m-footer__h">{"PRODUCT"}</span>
           {AREAS.map((a) => (
-            <Link key={a.id} to={a.href}>{a.label.toUpperCase()}</Link>
+            <Link key={a.id} to={a.href} title={a.blurb}>{`${a.label.toUpperCase()} · ${a.sub.toUpperCase()}`}</Link>
           ))}
         </div>
         <div>
           <span className="m-footer__h">{"PROOF"}</span>
-          <Link to="/stats">{"STATS"}</Link>
-          <Link to="/ecosystem">{"ECOSYSTEM"}</Link>
+          <Link to="/league">{"THE LEAGUE"}</Link>
+          <Link to="/stats">{"LEDGER · STATS"}</Link>
+          <Link to="/ecosystem">{"HARBOUR · ECOSYSTEM"}</Link>
           <a href={`${REPO}/blob/main/docs/flows.md`} target="_blank" rel="noreferrer">{"MAINNET FLOWS"}</a>
           <a href={`${REPO}/blob/main/docs/security/self-review.md`} target="_blank" rel="noreferrer">{"SELF-REVIEW"}</a>
           <a href={REPO} target="_blank" rel="noreferrer">{"SOURCE (MIT)"}</a>

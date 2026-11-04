@@ -84,6 +84,8 @@ export const adminModule: ApiModule = {
         model: ctx.config.agent.model,
         flags: await flags(ctx),
         packAgents: agents.length,
+        projects: (await ctx.store.collection("projects").list({ limit: 10_000 })).length,
+        developers: (await ctx.store.collection("developers").list({ limit: 10_000 })).length,
         deployments: (await listDeployments(ctx)).length,
       });
     });

@@ -4,7 +4,7 @@ import { Card, PageHead } from "../../mosaic";
 export default function CirclePage() {
   return (
     <div>
-      <PageHead kicker={"BUILD · CIRCLE ON ARC"} title={<>Circle products, <em>live status.</em></>} sub={"Every Circle product Lykia uses, with its status read live: works without a key, needs a key, or unavailable. Docs are one click away."} mood="happy" />
+      <PageHead kicker={"THE MINT · CIRCLE · RAILS ON ARC"} title={<>Circle products, <em>live status.</em></>} sub={"Every Circle product Lykia uses, with its status read live: works without a key, needs a key, or unavailable. Docs are one click away."} mood="happy" />
       <section className="m-wrap" style={{ marginTop: 28 }}>
         <CircleMarket />
       </section>

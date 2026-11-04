@@ -12,6 +12,7 @@
  */
 import type { NextFunction, Request, Response } from "express";
 import { API_KEY_HEADER, API_VERSION_HEADER, API_VERSIONS, type ApiKeyScope } from "@lykia/core/api/platform";
+import { cityPaused } from "@lykia/core";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { requestIdOf, sendError } from "../http/request.js";
@@ -155,6 +156,8 @@ export function developerGate(ctx: AppContext) {
       // A project key follows its project's verified origins; a plain publishable key its own list.
       const project = key.projectId ? await getProject(ctx, key.projectId) : null;
       if (key.projectId && !project) throw new LykiaHttpError("UNAUTHORIZED", 401, "This key's project no longer exists.");
+      // A city the League council paused answers reads only: nothing new is planned or sent through it.
+      if (project && cityPaused(project) && req.method !== "GET" && req.method !== "HEAD") throw new LykiaHttpError("CITY_PAUSED", 423, "This city is paused by the Lykia team. Reads still work; nothing new is planned or sent through it.");
       if (key.kind === "publishable") {
         const origin = req.get("origin");
         const allowed = project ? verifiedOrigins(project) : key.allowedOrigins;

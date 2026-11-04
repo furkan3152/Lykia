@@ -1,5 +1,5 @@
 /**
- * Same-document View Transitions with a safe fallback (ported from Kletia).
+ * Same-document View Transitions with a safe fallback.
  * Tiny and dependency free: the router and the theme toggle use it.
  */
 import { prefersReducedMotion } from "./useReducedMotion";

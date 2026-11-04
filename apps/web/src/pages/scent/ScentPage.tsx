@@ -28,7 +28,7 @@ export default function ScentPage() {
   const level = r?.level ?? (report.isLoading ? "unknown" : "idle");
   return (
     <div>
-      <PageHead kicker={"RULES · TOKEN CHECK"} title={<>Check a token <em>before you touch it.</em></>} sub={"Registry, bytecode, proxies, privileges, owner and a simulated transfer (Lyko calls it the Scent). Even the best result is not \"safe\"; it is \"no red flags found\"."} mood={level === "danger" ? "growling" : level === "caution" ? "alert" : "watching"}>
+      <PageHead kicker={"FENCE · SCENT · TOKEN CHECK"} title={<>Check a token <em>before you touch it.</em></>} sub={"Registry, bytecode, proxies, privileges, owner and a simulated transfer (Lyko calls it the Scent). Even the best result is not \"safe\"; it is \"no red flags found\"."} mood={level === "danger" ? "growling" : level === "caution" ? "alert" : "watching"}>
         <form className="flex gap-2 justify-center" style={{ marginTop: 18, maxWidth: 620, marginInline: "auto" }} onSubmit={(e) => { e.preventDefault(); if (/^0x[0-9a-fA-F]{40}$/u.test(draft.trim())) navigate(`/app/scent/${draft.trim()}`); }}>
           <Input placeholder="0x… token address" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Token address" />
           <Button type="submit">{"SNIFF"}</Button>

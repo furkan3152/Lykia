@@ -28,7 +28,7 @@ export default function StatsPage() {
   return (
     <div>
       <header className="m-head m-wrap">
-        <span className="m-kick">{"BUILD · STATS"}</span>
+        <span className="m-kick">{"THE MINT · LEDGER · STATS"}</span>
         <h1 className="m-title">
           Lykia, in <em>numbers.</em>
         </h1>

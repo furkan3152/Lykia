@@ -12,7 +12,8 @@ export function AreaTabs({ routeId }: { readonly routeId: RouteId }) {
       <div className="m-wrap m-wrap--wide m-subnav__in">
         {tabs.map((s) => (
           <Link key={s.id} to={s.href} className="m-subnav__tab" aria-current={sectionIsCurrent(s, routeId) ? "page" : undefined}>
-            {s.label.toUpperCase()}
+            <span className="m-subnav__l">{s.label.toUpperCase()}</span>
+            {s.sub.toLowerCase() !== s.label.toLowerCase() ? <span className="m-subnav__s">{s.sub}</span> : null}
           </Link>
         ))}
       </div>

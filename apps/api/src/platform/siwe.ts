@@ -35,13 +35,34 @@ export function siweDomains(ctx: AppContext): { readonly domains: readonly strin
 
 const fail = (code: string, message: string) => new LykiaHttpError(code, 401, message);
 
-export async function issueNonce(ctx: AppContext, input: { readonly address?: string; readonly chainId?: number }): Promise<SiweNonceResponse> {
+/** A League city's own host (<label>.<root domain>, https only): sign-in there names that host, so wallets show the page the user is on. */
+export function cityHost(ctx: AppContext, host: string): boolean {
+  const root = ctx.config.platform.rootDomain;
+  if (!root) return false;
+  const h = host.toLowerCase();
+  if (h === root || h === `www.${root}`) return true;
+  if (!h.endsWith(`.${root}`)) return false;
+  return /^[a-z][a-z0-9-]{1,22}[a-z0-9]$/u.test(h.slice(0, -(root.length + 1)));
+}
+
+function urlOrNull(value: string | undefined): URL | null {
+  if (!value) return null;
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
+}
+
+export async function issueNonce(ctx: AppContext, input: { readonly address?: string; readonly chainId?: number; readonly origin?: string }): Promise<SiweNonceResponse> {
   const nonce = generateSiweNonce();
   const now = ctx.clock.now();
   await ctx.store.collection("siwe_nonces").put(nonce, { issuedAt: now }, { ttlMs: NONCE_TTL_MS });
   const { domains, origins } = siweDomains(ctx);
-  const domain = domains[0] ?? "localhost";
-  const uri = origins.find((o) => new URL(o).host === domain) ?? origins[0] ?? `https://${domain}`;
+  const from = urlOrNull(input.origin);
+  const city = from && from.protocol === "https:" && cityHost(ctx, from.host) ? from : null;
+  const domain = city?.host ?? domains[0] ?? "localhost";
+  const uri = city?.origin ?? origins.find((o) => new URL(o).host === domain) ?? origins[0] ?? `https://${domain}`;
   const chainIds = siweChainIds();
   const message =
     input.address && input.chainId && chainIds.includes(input.chainId)
@@ -64,7 +85,7 @@ export async function verifySiwe(ctx: AppContext, message: string, signature: st
   }
   if (!parsed.address || !parsed.domain || !parsed.nonce || !parsed.uri || !parsed.chainId || parsed.version !== "1") throw fail("SIWE_INVALID", "The message is not a complete EIP-4361 sign-in message.");
   const { domains, origins } = siweDomains(ctx);
-  if (!domains.includes(parsed.domain.toLowerCase())) throw fail("SIWE_DOMAIN", `This message is for ${parsed.domain}, not for Lykia.`);
+  if (!domains.includes(parsed.domain.toLowerCase()) && !cityHost(ctx, parsed.domain)) throw fail("SIWE_DOMAIN", `This message is for ${parsed.domain}, not for Lykia.`);
   let uri: URL;
   try {
     uri = new URL(parsed.uri);

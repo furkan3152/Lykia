@@ -1,7 +1,8 @@
 /** Security center: the six layers between the flock and the wolves, in one place. */
 import { useQuery } from "@tanstack/react-query";
 
-import { AddressCheck, Approvals, AuditLog, KillSwitch, LayerGrid, Monitors, SecurityAlerts, VenueBreakers, type SecurityStatus } from "../../features/security/SecurityCenter";
+import { Link } from "../../app/routes/Link";
+import { AddressCheck, Approvals, AuditLog, LayerGrid, Monitors, SecurityAlerts, VenueBreakers, type SecurityStatus } from "../../features/security/SecurityCenter";
 import { useSiwe } from "../../features/session/useSiwe";
 import { apiGet } from "../../lib/api";
 import { useEnvironment } from "../../lib/environment";
@@ -15,7 +16,7 @@ export default function SecurityPage() {
   const address = siwe.address ?? undefined;
   return (
     <div>
-      <PageHead kicker="RULES · SECURITY" title={<>Six checks before anything <em>reaches your wallet.</em></>} sub="Every step is decoded, simulated and diffed against its plan before it reaches your wallet. Recipients are checked for look-alikes and blocklists, approvals stay exact, agents are watched, and venues trip a breaker when they look wrong. Every decision lands in a hash-chained audit log." mood={status.data?.halted ? "growling" : "watching"} />
+      <PageHead kicker="FENCE · WATCH · SECURITY" title={<>Six checks before anything <em>reaches your wallet.</em></>} sub="Every step is decoded, simulated and diffed against its plan before it reaches your wallet. Recipients are checked for look-alikes and blocklists, approvals stay exact, agents are watched, and venues trip a breaker when they look wrong. Every decision lands in a hash-chained audit log." mood={status.data?.halted ? "growling" : "watching"} />
       <section className="m-wrap" style={{ marginTop: 28, display: "grid", gap: 24 }}>
         <LayerGrid status={status.data} />
         <div className="m-grid-2">
@@ -33,7 +34,12 @@ export default function SecurityPage() {
           <div style={{ display: "grid", gap: 24, alignContent: "start" }}>
             <Approvals owner={address} environment={environment} />
             <VenueBreakers status={status.data} />
-            {admin ? <KillSwitch status={status.data} /> : null}
+            {admin ? (
+              <Card title="The Whistle for the whole platform" kicker="ADMIN" tone="night">
+                <p className="m-small">{"The platform kill switch and the venue breakers now live in Letoon, beside the League council and the flags. Every switch is checked on the server and written to the audit chain."}</p>
+                <div className="m-center" style={{ marginTop: 10 }}><Link to="/letoon/flags" className="m-btn m-btn--sm">{"OPEN LETOON"}</Link></div>
+              </Card>
+            ) : null}
           </div>
         </div>
         <AuditLog enabled={siwe.signedIn} address={address} admin={admin} />

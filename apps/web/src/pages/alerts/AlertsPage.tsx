@@ -76,7 +76,7 @@ export default function AlertsPage() {
 
   return (
     <div>
-      <PageHead kicker={"AUTOMATE · ALERTS"} title={<>Be told, <em>never moved.</em></>} sub={"Price levels on Chainlink, health factors, big transfers, token-check warnings on what you hold and executed orders. Delivered to the inbox here, your developer webhooks (alert.fired) and Telegram. Alerts never move money."} mood="alert" />
+      <PageHead kicker={"HERDING · BARKS · ALERTS"} title={<>Be told, <em>never moved.</em></>} sub={"Price levels on Chainlink, health factors, big transfers, token-check warnings on what you hold and executed orders. Delivered to the inbox here, your developer webhooks (alert.fired) and Telegram. Alerts never move money."} mood="alert" />
       <section className="m-wrap" style={{ marginTop: 28 }}>
         {!enabled ? (
           <Card title={"Sign in first"}>

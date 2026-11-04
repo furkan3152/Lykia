@@ -136,7 +136,7 @@ export default function FlockPage() {
 
   return (
     <div>
-      <PageHead kicker={"PORTFOLIO · HOLDINGS"} title={<>Everything you hold <em>on Arc.</em></>} sub={"Wallet, Circle Gateway balance and protocol positions, mainnet and testnet side by side. Anything without a price reads \"unpriced\", never zero."} mood="watching">
+      <PageHead kicker={"FLOCK · PORTFOLIO · HOLDINGS"} title={<>Everything you hold <em>on Arc.</em></>} sub={"Wallet, Circle Gateway balance and protocol positions, mainnet and testnet side by side. Anything without a price reads \"unpriced\", never zero."} mood="watching">
         <div className="flex justify-center gap-3 flex-wrap" style={{ marginTop: 18 }}>
           <Toggle light label="Scope" value={scope} onChange={setScope} options={[{ value: "both", label: "BOTH NETWORKS" }, { value: "one", label: environment.toUpperCase() }]} />
           {address ? <Tag tone={param || as ? "ochre" : "ghost"}>{param || as ? "VIEW ONLY · " : ""}{address.slice(0, 6)}…{address.slice(-4)}</Tag> : null}

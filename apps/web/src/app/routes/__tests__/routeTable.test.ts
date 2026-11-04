@@ -36,6 +36,11 @@ describe("route table", () => {
       ["/app/scent/0xabc", "scent"],
       ["/app/outrun/out_1", "outrun"],
       ["/build", "build"],
+      ["/mint", "mint"],
+      ["/mint/workshop", "mint"],
+      ["/league", "league"],
+      ["/league/agents", "city"],
+      ["/letoon", "letoon"],
       ["/ecosystem", "ecosystem"],
       ["/app/you", "you"],
       ["/app/memory", "memory"],
@@ -66,20 +71,20 @@ describe("route table", () => {
   it("keeps the brand out of Arc's name and titles pages", () => {
     assert.match(ROUTES.landing.title, /^Lykia/u);
     assert.equal(matchRoute("/app/ask/th_9").params.threadId, "th_9");
-    assert.equal(documentTitle(ROUTES.fence), "Fence · Lykia");
+    assert.equal(documentTitle(ROUTES.fence), "Fence · rules · Lykia");
     assert.equal(routeHref("scent", { token: "0x1" }), "/app/scent/0x1");
     assert.equal(robotsFor(ROUTES.lykaion), "noindex,nofollow");
     for (const route of Object.values(ROUTES)) assert.doesNotMatch(route.title, /\bArc\b/u, route.id);
   });
 
-  it("titles pages in plain words, matching the navigation", () => {
+  it("titles pages with the metaphor and a plain meaning, matching the navigation", () => {
     const titles: ReadonlyArray<readonly [keyof typeof ROUTES, string]> = [
-      ["ask", "Ask"],
-      ["flock", "Portfolio"],
-      ["pastures", "Yields"],
-      ["pack", "Agents"],
-      ["scent", "Token check"],
-      ["outrun", "Plan"],
+      ["ask", "Ask Lyko · assistant"],
+      ["flock", "Flock · portfolio"],
+      ["pastures", "Pastures · yields"],
+      ["pack", "Pack · agents"],
+      ["scent", "Scent · token check"],
+      ["outrun", "Outrun · plan"],
       ["you", "Settings"],
       ["memory", "Memory"],
       ["discover", "New pools"],

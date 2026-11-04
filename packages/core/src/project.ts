@@ -13,6 +13,7 @@ import type { Address } from "./contracts.js";
 import { MAX_INTEGRATOR_FEE_BPS } from "./fee.js";
 import { FENCE_TEMPLATES, USD_PATTERN, usdMicros, type Fence, type FenceTemplateKey } from "./fence.js";
 import type { StepKind } from "./intent.js";
+import type { ProjectLeague } from "./league.js";
 import type { ArcEnvironment } from "./networks.js";
 
 export const PROJECT_SCHEMA = "lykia.project/v1" as const;
@@ -75,6 +76,8 @@ export interface ProjectCaps {
 
 export interface ProjectInput {
   readonly name: string;
+  /** The city's address: /league/:slug and <slug>.<root domain>. Unique, 3 to 24 characters. */
+  readonly slug?: string;
   readonly brand?: ProjectBrand;
   readonly origins?: readonly string[];
   readonly modules?: readonly ProjectModule[];
@@ -92,6 +95,8 @@ export interface Project {
   readonly id: string;
   readonly owner: string;
   readonly name: string;
+  /** Unique: /league/:slug and <slug>.<root domain>. Older projects may not have one yet. */
+  readonly slug?: string;
   readonly brand: ProjectBrand;
   readonly origins: readonly ProjectOrigin[];
   readonly modules: readonly ProjectModule[];
@@ -105,6 +110,8 @@ export interface Project {
   readonly prompt: string;
   readonly vocabulary: Readonly<Record<string, string>>;
   readonly locale: string;
+  /** The project's place in the League (league.ts). Set only by the admin side or a reviewed request, never by a project update. */
+  readonly league?: ProjectLeague;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -113,6 +120,7 @@ export interface Project {
 export interface ProjectPublicView {
   readonly id: string;
   readonly name: string;
+  readonly slug: string | null;
   readonly brand: ProjectBrand;
   readonly modules: readonly ProjectModule[];
   readonly network: ArcEnvironment;
@@ -136,6 +144,16 @@ export const PROJECT_LIMITS = Object.freeze({
   assistantName: 32,
   url: 300,
 });
+
+/** A city slug: 3 to 24 lowercase letters, digits and dashes, starting with a letter and not ending with a dash. */
+export const CITY_SLUG = /^[a-z][a-z0-9-]{1,22}[a-z0-9]$/u;
+
+/** Words a city may not take: they would shadow Lykia's own hosts and pages, or read as official. */
+export const RESERVED_SLUGS: ReadonlySet<string> = new Set(["www", "api", "app", "admin", "letoon", "mint", "league", "lykia", "official", "council", "embed", "static", "assets", "cdn", "docs", "mail", "status", "new", "owner", "build", "developers", "help", "support", "root", "test"]);
+
+export function isCitySlug(slug: string): boolean {
+  return CITY_SLUG.test(slug) && !RESERVED_SLUGS.has(slug);
+}
 
 export const DOMAIN_PROOF_PREFIX = "lykia-verify=";
 export const WELL_KNOWN_PROOF_PATH = "/.well-known/lykia-verify.txt";
@@ -184,6 +202,7 @@ export function validateProjectInput(input: ProjectInput): ProjectIssue[] {
   const issues: ProjectIssue[] = [];
   const add = (path: string, message: string) => issues.push({ path, message });
   if (typeof input.name !== "string" || input.name.trim().length === 0 || input.name.length > PROJECT_LIMITS.name || !controlFree(input.name)) add("name", `A name of 1 to ${PROJECT_LIMITS.name} plain characters.`);
+  if (input.slug !== undefined && !isCitySlug(input.slug)) add("slug", "3 to 24 lowercase letters, digits and dashes, starting with a letter (www, api, app, admin, letoon, mint and other reserved words are refused).");
   const b = input.brand ?? {};
   if (b.logoUrl !== undefined && !httpsUrl(b.logoUrl)) add("brand.logoUrl", "An https URL.");
   for (const [k, v] of Object.entries(b.colors ?? {})) if (v !== undefined && !HEX.test(v)) add(`brand.colors.${k}`, "A colour like #1f6feb.");
@@ -342,6 +361,7 @@ export function publicProject(project: Project): ProjectPublicView {
   return {
     id: project.id,
     name: project.name,
+    slug: project.slug ?? null,
     brand: project.brand,
     modules: project.modules,
     network: project.network,
@@ -362,6 +382,7 @@ export function buildProject(id: string, owner: string, input: ProjectInput, now
     id,
     owner: owner.toLowerCase(),
     name: input.name.trim(),
+    ...(input.slug ?? previous?.slug ? { slug: input.slug ?? previous?.slug } : {}),
     brand: input.brand ?? previous?.brand ?? { mascot: "lyko", mosaic: true, scheme: "auto" },
     origins,
     modules: input.modules ? [...new Set(input.modules)] : previous?.modules ?? ["chat", "send", "swap", "scent", "flock"],
@@ -373,6 +394,7 @@ export function buildProject(id: string, owner: string, input: ProjectInput, now
     prompt: input.prompt === undefined ? previous?.prompt ?? "" : sanitizePromptAdditions(input.prompt).text,
     vocabulary: input.vocabulary ?? previous?.vocabulary ?? {},
     locale: input.locale ?? previous?.locale ?? "en",
+    ...(previous?.league ? { league: previous.league } : {}),
     createdAt: previous?.createdAt ?? now,
     updatedAt: now,
   };

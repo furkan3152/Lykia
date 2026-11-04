@@ -21,7 +21,7 @@ export const authModule: ApiModule = {
     router.post("/auth/nonce", ctx.limits.auth, async (req, res) => {
       platformSecret(ctx);
       const body = parseBody(req, z.object({ address: evmAddress.optional(), chainId: z.number().int().positive().optional() }));
-      res.json(await issueNonce(ctx, { ...(body.address ? { address: body.address } : {}), ...(body.chainId ? { chainId: body.chainId } : {}) }));
+      res.json(await issueNonce(ctx, { ...(body.address ? { address: body.address } : {}), ...(body.chainId ? { chainId: body.chainId } : {}), ...(req.get("origin") ? { origin: req.get("origin") as string } : {}) }));
     });
     router.post("/auth/verify", ctx.limits.auth, async (req, res) => {
       const body = parseBody(req, z.object({ message: z.string().min(20).max(4_000), signature: z.string().min(4).max(20_000) }));

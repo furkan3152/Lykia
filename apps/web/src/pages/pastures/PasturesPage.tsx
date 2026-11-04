@@ -35,7 +35,7 @@ export default function PasturesPage() {
   const n = Math.max(1, rows.length);
   return (
     <div>
-      <PageHead kicker={"PORTFOLIO · YIELDS"} title={<>Where stablecoins <em>earn on Arc.</em></>} sub={"Live rates from Arc lending and vault protocols. In the picture each protocol is a pen and grass height is its rate. The strip under each pen is risk: green low, ochre medium, terracotta high. The source is always named."} mood="happy">
+      <PageHead kicker={"FLOCK · PASTURES · YIELDS"} title={<>Where stablecoins <em>earn on Arc.</em></>} sub={"Live rates from Arc lending and vault protocols. In the picture each protocol is a pen and grass height is its rate. The strip under each pen is risk: green low, ochre medium, terracotta high. The source is always named."} mood="happy">
         <div className="flex justify-center gap-3" style={{ marginTop: 18 }}>
           <Toggle light label="Asset" value={asset} onChange={setAsset} options={[{ value: "USDC", label: "USDC" }, { value: "EURC", label: "EURC" }]} />
         </div>

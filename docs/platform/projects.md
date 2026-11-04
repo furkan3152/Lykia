@@ -77,3 +77,7 @@ project.
   confirmations, Scent checks or the Whistle.
 - **Webhook.** Each user who plans through the project is added to the
   project's webhook endpoint, so it receives that user's events.
+
+## Slug and the League
+
+Every project has a unique `slug` (3 to 24 lowercase letters, digits and dashes; `www`, `api`, `app`, `admin`, `letoon`, `mint` and other reserved words are refused). It is set on create (or derived from the name: `acme-pay`, then `acme-pay-2`) and can be changed with `PATCH /v1/projects/:id`. The slug is the project's address as a League city: `/league/:slug` and `<slug>.<root domain>` ([city-domains.md](city-domains.md)). A project can ask for a League listing; see [league.md](league.md).

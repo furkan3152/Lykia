@@ -16,6 +16,9 @@ import { BetaRibbon } from "../../features/ecosystem/BetaRibbon";
 import { EcosystemStats } from "../../features/ecosystem/Harbour";
 import { useEcosystem } from "../../features/ecosystem/useEcosystem";
 import { FeesCard } from "../../features/fees/FeesCard";
+import { Coin } from "../../features/league/Coin";
+import { STATE_LABEL, STATE_TONE } from "../../features/league/model";
+import { useLeague } from "../../features/league/useLeague";
 import { SAMPLE_PENS, topYields, useRates } from "../../features/data/hooks";
 import { SceneFrame } from "../../features/scenes/SceneFrame";
 import { handleLine } from "../../shell/palette";
@@ -45,9 +48,9 @@ const STEPS: readonly (readonly [string, string, string])[] = [
 
 /** The three pillars, each pointing at the area of the app that carries it. */
 const PILLARS: readonly { title: string; kicker: string; line: string; links: readonly (readonly [string, string])[] }[] = [
-  { title: "Outcomes, not transactions", kicker: "ASK · PORTFOLIO · AUTOMATE", line: "Send, swap, earn, borrow and bridge by saying what you want, or with plain forms. Orders and automations re-plan under the same rules while you are away.", links: [["/app", "ASK"], ["/app/move", "MOVE"], ["/app/orders", "AUTOMATE"]] },
-  { title: "Rules that hold", kicker: "FENCE · AGENTS · TAG", line: "The Fence is checked off chain before signing and on chain by Lykia's smart account. Sub-agents get a Fence inside yours, and a Tag (an ERC-8004 identity) pins the hash of the Fence an agent obeys.", links: [["/app/fence", "FENCE"], ["/app/pack", "AGENTS"], ["/app/tag", "TAGS"]] },
-  { title: "One engine for every builder", kicker: "REST · MCP · SDK · x402", line: "The planner, the router and the Fence behind this app are a public API, an MCP server, TypeScript and Python SDKs and drop-in components. Your brand, your fee.", links: [["/build", "BUILD"], ["/ecosystem", "ECOSYSTEM"]] },
+  { title: "Outcomes, not transactions", kicker: "ASK LYKO · FLOCK · HERDING", line: "Send, swap, earn, borrow and bridge by saying what you want, or with plain forms. Orders and automations re-plan under the same rules while you are away.", links: [["/app", "ASK LYKO"], ["/app/move", "MOVE"], ["/app/orders", "HERDING"]] },
+  { title: "Rules that hold", kicker: "FENCE · PACK · TAG", line: "The Fence is checked off chain before signing and on chain by Lykia's smart account. Sub-agents get a Fence inside yours, and a Tag (an ERC-8004 identity) pins the hash of the Fence an agent obeys.", links: [["/app/fence", "FENCE"], ["/app/pack", "PACK"], ["/app/tag", "TAG"]] },
+  { title: "One engine for every builder", kicker: "REST · MCP · SDK · x402", line: "The planner, the router and the Fence behind this app are a public API, an MCP server, TypeScript and Python SDKs and drop-in components. Your brand, your fee.", links: [["/mint", "THE MINT"], ["/league", "THE LEAGUE"]] },
 ];
 
 /** Which Circle product each Lykia feature uses (docs/circle/README.md). */
@@ -70,6 +73,7 @@ interface StatsLite {
 
 export default function LandingPage() {
   const rates = useRates("mainnet");
+  const league = useLeague();
   const eco = useEcosystem("mainnet");
   const stats = useQuery({ queryKey: ["stats", "mainnet"], queryFn: ({ signal }) => apiGet<StatsLite>("/v1/stats", { query: { environment: "mainnet" }, signal, timeoutMs: 20_000 }), staleTime: 60_000, retry: 1 });
   const lit = usePulse((s) => s.lit);
@@ -99,7 +103,7 @@ export default function LandingPage() {
         </p>
         <div className="lp-cta">
           <Link to="/app" className="m-btn">{"OPEN THE APP"}</Link>
-          <Link to="/build" className="m-btn m-btn--sea">{"BUILD WITH THE API"}</Link>
+          <Link to="/mint" className="m-btn m-btn--sea">{"BUILD IN THE MINT"}</Link>
           <a href="#proof" className="m-btn m-btn--ghost">{"SEE THE PROOF"}</a>
         </div>
       </header>
@@ -185,6 +189,31 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="lp-league">
+        <div className="m-center">
+          <span className="m-kick">{"THE LEAGUE"}</span>
+          <h2 id="lp-league" className="m-h2" style={{ marginTop: 8 }}>{"One engine, a league of cities"}</h2>
+          <p className="m-sub" style={{ marginTop: 8 }}>{"The Lycian League struck one coinage for many cities. Lykia's products are its cities: each is a project built in The Mint, with its own brand, modules and Fence caps, on the same engine you can call."}</p>
+        </div>
+        <ul className="lp-coins" aria-label="Cities of the League">
+          {(league.data?.cities ?? []).slice(0, 3).map((c, i) => (
+            <li key={c.slug}>
+              <Link to={`/league/${c.slug}`} className="lp-coin">
+                <Coin state={c.league.state} emblem={c.league.emblem} codename={c.league.codename} name={c.project.name} size={104} delay={i * 220} interactive={false} />
+                <b>{c.project.name}</b>
+                <span className="m-small m-muted">{c.league.tagline}</span>
+                <Tag tone={STATE_TONE[c.league.state]}>{STATE_LABEL[c.league.state]}</Tag>
+              </Link>
+            </li>
+          ))}
+        </ul>
+        {league.data && league.data.cities.length === 0 ? <p className="m-small m-muted m-center">{"The first cities are being struck."}</p> : null}
+        <div className="lp-cta" style={{ marginTop: 18 }}>
+          <Link to="/league" className="m-btn m-btn--navy">{"ENTER THE LEAGUE"}</Link>
+          <Link to="/mint/strike" className="m-btn m-btn--ghost">{"STRIKE YOUR OWN CITY"}</Link>
+        </div>
+      </section>
+
       <section id="proof" className="m-wrap" style={{ marginTop: 48, scrollMarginTop: 80 }} aria-labelledby="lp-proof">
         <div className="m-center">
           <span className="m-kick">{"LIVE ON ARC MAINNET"}</span>
@@ -254,7 +283,7 @@ export default function LandingPage() {
           <Card title={"Entry points"} kicker={"PICK ONE"}>
             <ul className="lp-entry">
               <li><a href={API_REFERENCE} target="_blank" rel="noreferrer"><b>{"API reference"}</b></a><span className="m-small m-muted">{"OpenAPI 3.1, test and live keys, signed webhooks"}</span></li>
-              <li><Link to="/build"><b>{"MCP server and agent tools"}</b></Link><span className="m-small m-muted">{"Plan and check moves from any agent framework"}</span></li>
+              <li><Link to="/mint/reference#mcp"><b>{"MCP server and agent tools"}</b></Link><span className="m-small m-muted">{"Plan and check moves from any agent framework"}</span></li>
               <li><a href={`${REPO}/tree/main/packages/sdk`} target="_blank" rel="noreferrer"><b>{"SDKs"}</b></a><span className="m-small m-muted">{"TypeScript and Python, plus a CLI"}</span></li>
               <li><a href={`${REPO}/tree/main/packages/widget`} target="_blank" rel="noreferrer"><b>{"Widget and embed"}</b></a><span className="m-small m-muted">{"React components, or one script tag"}</span></li>
               <li><a href={`${REPO}/blob/main/docs/integrate-your-protocol.md`} target="_blank" rel="noreferrer"><b>{"Integrate your protocol"}</b></a><span className="m-small m-muted">{"One typed adapter makes it routable"}</span></li>

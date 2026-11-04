@@ -45,7 +45,7 @@ export default function FencePage() {
 
   return (
     <div>
-      <PageHead kicker={"RULES · FENCE"} title={<>Your rules, <em>checked on every step.</em></>} sub={"The Fence is the policy every plan must pass: caps, allowed recipients, protocols and tokens, slippage, health factor and FX band. Missing facts deny. The Whistle is the emergency stop: it blocks new risk, while moves that bring money home always pass."} mood={whistle ? "resting" : "watching"}>
+      <PageHead kicker={"FENCE · YOUR RULES"} title={<>Your rules, <em>checked on every step.</em></>} sub={"The Fence is the policy every plan must pass: caps, allowed recipients, protocols and tokens, slippage, health factor and FX band. Missing facts deny. The Whistle is the emergency stop: it blocks new risk, while moves that bring money home always pass."} mood={whistle ? "resting" : "watching"}>
         <div className="flex justify-center gap-2 flex-wrap" style={{ marginTop: 18 }}>
           {(Object.keys(FENCE_TEMPLATES) as FenceTemplateKey[]).map((k) => (
             <Button key={k} tone="ghost" size="sm" onClick={() => setForm(fenceToForm(FENCE_TEMPLATES[k]))}>

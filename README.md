@@ -16,6 +16,8 @@
   <a href="https://lykia-akdogan1.vercel.app">App</a> ·
   <a href="https://lykia-api-akdogan1.vercel.app/v1/reference">API reference</a> ·
   <a href="docs/platform/README.md">Developer docs</a> ·
+  <a href="https://lykia-akdogan1.vercel.app/league">The League</a> ·
+  <a href="https://lykia-akdogan1.vercel.app/mint">The Mint</a> ·
   <a href="https://lykia-akdogan1.vercel.app/stats">Stats</a>
 </p>
 
@@ -35,6 +37,14 @@ Lykia is non-custodial: the server never holds keys and never signs.
 | Outcomes, not transactions | A sentence, a form or one API call becomes a scored, simulated route sent as one transaction with an Arc Memo. |
 | Rules that hold | The Fence is checked before signing, compiled into a Circle Agent Wallet policy and enforced on chain; agents carry a Tag (ERC-8004) that pins it. |
 | One engine for every builder | REST and SSE, MCP, TypeScript and Python SDKs, a CLI and components, all on the engine the app uses. |
+
+Lykia's own products are the cities of **the League**: Lykia Pay (invoices,
+payment links and payouts), Lykia Agents (budgeted agents with Fences and
+Tags) and, coming, Lykia Perps. Each city is a real project built in **The
+Mint**, the developer portal any builder uses, and can run on its own
+subdomain with its own task-first shell ([docs/platform/city-domains.md](docs/platform/city-domains.md)).
+The Lykia team runs the League and the platform from **Letoon**, a console
+that only admin addresses can open.
 
 The product story, the app's structure and open decisions are in
 [docs/product.md](docs/product.md). Every flow is simulated on Arc mainnet in
@@ -71,6 +81,11 @@ The product story, the app's structure and open decisions are in
   function analysis and a simulated transfer before a token is touched.
 
 **For developers**
+
+- **The Mint.** A builder's journey in seven steps at `/mint`: strike a
+  project (a city), shape it in the Workshop, manage keys, usage, logs and
+  webhooks, read the reference, and ask for a listing in the League
+  (`POST /v1/projects/:id/league/request`; public listing at `GET /v1/league`).
 
 - **Aggregator API.** Quote and build for transfer, swap, FX, bridge,
   deposit, withdraw, supply, borrow, repay and batches. Output as EOA
@@ -207,6 +222,8 @@ Fence. Moves that bring value home are never capped.
 | Product story and structure | [docs/product.md](docs/product.md) |
 | Mainnet flow proofs | [docs/flows.md](docs/flows.md) |
 | Developer platform | [docs/platform](docs/platform/README.md) |
+| The League and city domains | [docs/platform/league.md](docs/platform/league.md), [docs/platform/city-domains.md](docs/platform/city-domains.md) |
+| Brand and vocabulary | [docs/brand.md](docs/brand.md) |
 | Fence specification | [docs/fence.md](docs/fence.md) |
 | Agents and sub-agents | [docs/pack.md](docs/pack.md) |
 | Agent identity (Tag) | [docs/tag.md](docs/tag.md) |

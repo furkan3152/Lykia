@@ -1,9 +1,13 @@
 import { useEffect } from "react";
 
-import { navigate } from "../../app/routes/history";
+import { getLocation, navigate } from "../../app/routes/history";
+import { aliasTarget } from "../../app/routes/aliases";
 
-/** /developers moved to /build. */
+/** Old addresses: /developers and /build moved to The Mint, /owner to Letoon. Hashes keep working (/build#keys opens /mint/keys). */
 export default function RedirectPage() {
-  useEffect(() => navigate("/build", { replace: true }), []);
+  useEffect(() => {
+    const { pathname, hash, search } = getLocation();
+    navigate(aliasTarget(pathname, hash, search), { replace: true });
+  }, []);
   return null;
 }

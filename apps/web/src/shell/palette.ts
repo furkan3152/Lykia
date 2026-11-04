@@ -23,7 +23,7 @@ export const usePalette = create<PaletteState>()((set, get) => ({
   wagTail: () => set({ wag: get().wag + 1 }),
 }));
 
-const DEST: Record<Destination, string> = { ask: "/app", flock: "/app/flock", move: "/app/move", pastures: "/app/pastures", orders: "/app/orders", settings: "/app/you", pack: "/app/pack", fence: "/app/fence", scent: "/app/scent", tag: "/app/tag", build: "/build", landing: "/" };
+const DEST: Record<Destination, string> = { ask: "/app", flock: "/app/flock", move: "/app/move", pastures: "/app/pastures", orders: "/app/orders", settings: "/app/you", pack: "/app/pack", fence: "/app/fence", scent: "/app/scent", tag: "/app/tag", build: "/mint", league: "/league", landing: "/" };
 
 /** Handles one submitted line from any composer. Returns true when it was not a question (already handled). */
 export function handleLine(text: string): boolean {

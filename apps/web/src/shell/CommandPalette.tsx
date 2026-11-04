@@ -101,7 +101,7 @@ export function CommandPalette() {
                   navigate(sec.href);
                 }}
               >
-                {sec.label}
+                {sec.label.toLowerCase() === sec.sub.toLowerCase() ? sec.label : `${sec.label} · ${sec.sub}`}
               </button>
             ))}
           </div>

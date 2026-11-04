@@ -1,17 +1,20 @@
-/** The header's avatar menu: the account pages, the secondary "More" pages, network and theme. */
+/** The header's avatar menu: the account pages, the secondary "More" pages, Letoon for admins, network and theme. */
 import { useEffect, useRef, useState } from "react";
 
 import { Link } from "../app/routes/Link";
 import { useUiStore } from "../app/state/uiStore";
 import { useProfile } from "../lib/profile";
 import { LykoFace, Toggle } from "../mosaic";
-import { ACCOUNT, MORE } from "./nav";
+import { useSession } from "../lib/session";
+import { ACCOUNT, ADMIN, MORE } from "./nav";
 
 export function YouMenu() {
   const mode = useUiStore((s) => s.mode);
   const setMode = useUiStore((s) => s.setMode);
   const profile = useProfile((s) => s.profile);
   const setProfile = useProfile((s) => s.set);
+  // Only a hint for the menu: Letoon and every admin call check the role on the server.
+  const admin = useSession((s) => Boolean(s.session?.roles.includes("admin")));
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -46,6 +49,16 @@ export function YouMenu() {
               {l.label.toUpperCase()}
             </Link>
           ))}
+          {admin ? (
+            <>
+              <span className="m-kick" style={{ marginTop: 4 }}>{"TEAM"}</span>
+              {ADMIN.map((l) => (
+                <Link key={l.href} to={l.href} role="menuitem" className="m-thread" title={l.blurb} onClick={() => setOpen(false)} style={item}>
+                  {l.label.toUpperCase()}
+                </Link>
+              ))}
+            </>
+          ) : null}
           <div style={{ borderTop: "2px dashed var(--grout)", paddingTop: 8, display: "grid", gap: 8 }}>
             <Toggle light label="Network" value={mode} onChange={(m) => setMode(m)} options={[{ value: "mainnet", label: "MAINNET" }, { value: "testnet", label: "TESTNET" }]} />
             <Toggle light label="Theme" value={profile.theme} onChange={(theme) => setProfile({ ...profile, theme })} options={[{ value: "day", label: "DAY" }, { value: "night", label: "NIGHT" }, { value: "auto", label: "AUTO" }]} />

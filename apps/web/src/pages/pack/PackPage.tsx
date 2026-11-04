@@ -137,7 +137,7 @@ export default function PackPage() {
 
   return (
     <div>
-      <PageHead kicker={"RULES · AGENTS"} title={<>Agents that stay <em>inside your rules.</em></>} sub={"Every agent has a role, a budget and its own Fence. A sub-agent's Fence stays inside its parent's, its budget is carved from the parent's, and revoking a parent revokes its sub-agents. Lyko calls them pups."} mood="proud" />
+      <PageHead kicker={"FENCE · PACK · AGENTS"} title={<>Agents that stay <em>inside your rules.</em></>} sub={"Every agent has a role, a budget and its own Fence. A sub-agent's Fence stays inside its parent's, its budget is carved from the parent's, and revoking a parent revokes its sub-agents. Lyko calls them pups."} mood="proud" />
       <section className="m-wrap" style={{ marginTop: 28 }}>
         <SceneFrame
           build={(t) => kennel({ pups: agents.length ? agents.filter((a) => a.role !== "orchestrator").map((a) => ({ role: a.role, status: a.status, depth: a.depth })) : SAMPLE_PUPS, lit, night }, t)}

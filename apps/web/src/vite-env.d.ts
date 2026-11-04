@@ -3,6 +3,8 @@
 interface ImportMetaEnv {
   /** Origin of the Lykia API (no path). Defaults to http://localhost:3002. */
   readonly VITE_API_URL?: string;
+  /** The domain League cities run under as subdomains (pay.<root>); unset until one is bought. */
+  readonly VITE_LYKIA_ROOT_DOMAIN?: string;
   /** Circle Modular Wallets client key (publishable). Passkey wallets are hidden without it. */
   readonly VITE_CIRCLE_CLIENT_KEY?: string;
   /** Circle Modular Wallets client URL (https). */

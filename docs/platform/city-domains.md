@@ -1,0 +1,102 @@
+# City domains
+
+Every city of the League can run on its own subdomain:
+`pay.<domain>`, `agents.<domain>`, `perps.<domain>`.
+Until a domain is bought, the same cities open on the current site:
+
+- `https://lykia-akdogan1.vercel.app/c/pay`
+- `https://lykia-akdogan1.vercel.app/?city=agents`
+
+Nothing below is needed for those two to work.
+
+## How it works
+
+- Each project has a unique **slug** (3 to 24 lowercase letters, digits
+  and dashes). Official cities are `pay`, `agents` and `perps`. Words such
+  as `www`, `api`, `app`, `admin`, `letoon` and `mint` are refused.
+- The web app reads the host. On `<slug>.<root domain>` it boots in
+  **city mode**: it loads `GET /v1/league/by-slug/:slug` and shows the
+  city's own app, not the full Lykia app.
+- A project's **verified custom domain** (proved in The Mint) maps to its
+  city the same way, through `GET /v1/league/by-host?host=`.
+- The API allows CORS from `https://<slug>.<root domain>` only for
+  **listed** cities. Sign-in (SIWE) on a city names the city's own host.
+
+## What you do once the domain is bought
+
+Example: the domain is `lykia.app`. Do it from a laptop if you can; each
+step is also possible from the phone.
+
+### 1. Point the domain at Vercel
+
+In your registrar, set the **nameservers** to Vercel's:
+
+```
+ns1.vercel-dns.com
+ns2.vercel-dns.com
+```
+
+A wildcard domain on Vercel needs Vercel's nameservers. A plain CNAME is
+not enough for `*.lykia.app`.
+
+### 2. Add the domains to the web project
+
+Vercel → the **web** project → Settings → Domains → Add:
+
+```
+lykia.app
+*.lykia.app
+```
+
+Vercel issues the certificates itself (a wildcard certificate for
+`*.lykia.app`). Wait until both show **Valid**.
+
+### 3. Give the API its own name (optional)
+
+Vercel → the **API** project → Settings → Domains → Add `api.lykia.app`.
+`api` is reserved, so no city can take it.
+
+### 4. Set the variables
+
+Web project → Settings → Environment Variables:
+
+```
+VITE_LYKIA_ROOT_DOMAIN = lykia.app
+VITE_API_URL           = https://api.lykia.app   (if you did step 3)
+```
+
+API project → Settings → Environment Variables:
+
+```
+LYKIA_ROOT_DOMAIN  = lykia.app
+LYKIA_WEB_ORIGIN   = https://lykia.app   (keep the vercel.app origin too, comma-separated)
+```
+
+Redeploy both projects (the web variable is read at build time).
+
+### 5. Check
+
+- `https://pay.lykia.app` shows Lykia Pay.
+- `https://agents.lykia.app` shows Lykia Agents.
+- `https://perps.lykia.app` shows the coming page.
+- `https://lykia.app` shows the full Lykia app.
+- `https://nothing.lykia.app` says "No city lives here".
+
+## A city on its own domain
+
+A developer can run their city on their own domain too:
+
+1. In The Mint, add the domain as an origin of the project and prove it
+   (DNS TXT or a `/.well-known` file).
+2. Point the domain at the Lykia web project (a CNAME to
+   `cname.vercel-dns.com`), and add it under the web project's Domains.
+3. Once the city is listed in the League, the domain opens the city.
+
+## Notes
+
+- Cities that are not listed (requested, rejected, delisted) do not open on
+  a subdomain, and their subdomain gets no CORS headers from the API.
+- A paused city still opens; its keys answer reads only until the team
+  resumes it in Letoon.
+- The content security policy in `apps/web/vercel.json` already allows
+  `connect-src https:`, so no change is needed there.

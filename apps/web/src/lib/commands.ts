@@ -5,7 +5,7 @@
  */
 import { COMMANDS, EASTER_EGGS, commandOf, easterEggOf, type CommandAction, type CommandWord, type EasterEggWord } from "@lykia/core";
 
-export type Destination = "ask" | "flock" | "move" | "pastures" | "pack" | "fence" | "scent" | "tag" | "orders" | "settings" | "build" | "landing";
+export type Destination = "ask" | "flock" | "move" | "pastures" | "pack" | "fence" | "scent" | "tag" | "orders" | "settings" | "build" | "league" | "landing";
 
 export type Resolution =
   | { readonly kind: "empty" }
@@ -24,10 +24,11 @@ const PAGE_WORDS: ReadonlyArray<readonly [Destination, readonly string[]]> = [
   ["pack", ["pack", "agents", "agent", "pups", "sub-agents"]],
   ["fence", ["fence", "rules", "rule book", "whistle"]],
   ["scent", ["scent", "sniff", "shield", "token check"]],
-  ["orders", ["orders", "automate", "automations", "alerts", "activity"]],
+  ["orders", ["orders", "herding", "automate", "automations", "alerts", "activity"]],
   ["settings", ["settings", "preferences", "you"]],
   ["tag", ["tag", "tags", "licence", "license", "agent id", "erc-8004", "erc8004"]],
-  ["build", ["build", "developers", "api", "mcp", "x402", "docs", "keys"]],
+  ["build", ["build", "mint", "the mint", "developers", "api", "mcp", "x402", "docs", "keys"]],
+  ["league", ["league", "the league", "cities", "city"]],
   ["landing", ["valley", "about"]],
 ];
 

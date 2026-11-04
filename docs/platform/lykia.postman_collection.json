@@ -6663,6 +6663,295 @@
       ]
     },
     {
+      "name": "League",
+      "item": [
+        {
+          "name": "Admin: every League entry, requests first, and which official cities exist",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/league",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "league"
+              ]
+            },
+            "description": "Admin: every League entry, requests first, and which official cities exist\n\nAuth: session, scope: admin."
+          }
+        },
+        {
+          "name": "The League: listed cities (Lykia's sub-products and approved community projects) with their public project view and live usage",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/league",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "league"
+              ]
+            },
+            "description": "The League: listed cities (Lykia's sub-products and approved community projects) with their public project view and live usage\n\nAuth: public."
+          }
+        },
+        {
+          "name": "A listed city by one of its verified custom domains",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/league/by-host",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "league",
+                "by-host"
+              ],
+              "query": [
+                {
+                  "key": "host",
+                  "value": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "A listed city by one of its verified custom domains\n\nAuth: public."
+          }
+        },
+        {
+          "name": "One listed city",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/league/:slug",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "league",
+                ":slug"
+              ],
+              "variable": [
+                {
+                  "key": "slug",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "One listed city\n\nAuth: public."
+          }
+        },
+        {
+          "name": "A listed city by its project slug: what <slug>.<root domain> and /c/<slug> load",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/league/by-slug/:slug",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "league",
+                "by-slug",
+                ":slug"
+              ],
+              "variable": [
+                {
+                  "key": "slug",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "A listed city by its project slug: what <slug>.<root domain> and /c/<slug> load\n\nAuth: public."
+          }
+        },
+        {
+          "name": "Admin: create the official cities that are missing (idempotent, owned by the first admin address)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/league/seed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "league",
+                "seed"
+              ]
+            },
+            "description": "Admin: create the official cities that are missing (idempotent, owned by the first admin address)\n\nAuth: session, scope: admin."
+          }
+        },
+        {
+          "name": "Ask for a community listing of your project; an admin reviews it",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/projects/:id/league/request",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "projects",
+                ":id",
+                "league",
+                "request"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tagline\": \"\",\n  \"category\": \"payments\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Ask for a community listing of your project; an admin reviews it\n\nAuth: session, scope: admin."
+          }
+        },
+        {
+          "name": "Admin: approve, reject, feature, unfeature, delist, relist, pause, resume or launch a city (audited)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/league/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "league",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"approve\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Admin: approve, reject, feature, unfeature, delist, relist, pause, resume or launch a city (audited)\n\nAuth: session, scope: admin."
+          }
+        }
+      ]
+    },
+    {
       "name": "Logs",
       "item": [
         {

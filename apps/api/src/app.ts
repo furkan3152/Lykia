@@ -14,6 +14,7 @@ import express, { type Express } from "express";
 import helmet from "helmet";
 import type { AppContext } from "./context.js";
 import { createCors } from "./http/cors.js";
+import { isCityOrigin } from "./platform/league.js";
 import { isProjectOrigin } from "./platform/projects.js";
 import { errorHandler, requestContext } from "./http/request.js";
 import { createV1Router, notFoundHandler, type ApiModule } from "./http/router.js";
@@ -39,7 +40,7 @@ export function createApp(ctx: AppContext, options: AppOptions = {}): Express {
       contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
     }),
   );
-  app.use(createCors(ctx.config.webOrigins, (origin) => isProjectOrigin(ctx, origin)));
+  app.use(createCors(ctx.config.webOrigins, async (origin) => (await isProjectOrigin(ctx, origin)) || (await isCityOrigin(ctx, origin))));
 
   app.get("/health", (_req, res) => {
     res.setHeader("Cache-Control", "no-store");

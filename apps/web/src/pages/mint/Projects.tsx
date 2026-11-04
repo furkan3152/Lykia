@@ -1,4 +1,4 @@
-/** Project management: white-label settings, origin proofs, browser keys and usage. */
+/** Your cities (projects): white-label settings, the League listing, origin proofs, browser keys and usage. */
 import { MAX_INTEGRATOR_FEE_BPS, PROJECT_MODULES, type Project, type ProjectModule } from "@lykia/core";
 import type { ApiKeyView, CreatedApiKey } from "@lykia/core/api/platform";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { apiDelete, apiFetch, apiGet, apiPost, describeError } from "../../lib/api";
 import { Button, Card, EmptyState, Field, Input, Select, Skeleton, Tag, toast } from "../../mosaic";
+import { LeagueListing } from "./LeagueListing";
 
 interface Challenge {
   readonly origin: string;
@@ -42,8 +43,8 @@ export function Projects({ enabled, onPreview }: { readonly enabled: boolean; re
   return (
     <div style={{ display: "grid", gap: 16, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <div className="m-grid-2" style={{ alignItems: "start" }}>
-        <Card title="Projects" kicker="WHITE-LABEL LYKIA">
-          {list.isLoading ? <Skeleton h={80} /> : projects.length === 0 ? <p className="m-small m-muted">No projects yet. A project carries your brand, origins, modules, Fence caps and app fee.</p> : (
+        <Card title="Your cities" kicker="EVERY CITY IS A PROJECT">
+          {list.isLoading ? <Skeleton h={80} /> : projects.length === 0 ? <p className="m-small m-muted">No cities yet. A city is a project: your brand, origins, modules, Fence caps and app fee. Strike one in the first step.</p> : (
             <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 6 }}>
               {projects.map((p) => (
                 <li key={p.id} className="m-row" style={{ justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
@@ -54,7 +55,7 @@ export function Projects({ enabled, onPreview }: { readonly enabled: boolean; re
             </ul>
           )}
         </Card>
-        <Card title="New project" kicker="NAME · FIRST ORIGIN" footer={<Button disabled={!name || create.isPending} onClick={() => create.mutate()}>CREATE</Button>}>
+        <Card title="New city" kicker="NAME · FIRST ORIGIN" footer={<Button disabled={!name || create.isPending} onClick={() => create.mutate()}>CREATE</Button>}>
           <div style={{ display: "grid", gap: 10 }}>
             <Field label="Name"><Input value={name} maxLength={64} onChange={(e) => setName(e.target.value)} placeholder="Acme Pay" /></Field>
             <Field label="Origin" hint="Exact origin, https (http://localhost is fine for development)."><Input value={origin} onChange={(e) => setOrigin(e.target.value.trim())} placeholder="https://app.example.com" /></Field>
@@ -147,7 +148,7 @@ function ProjectEditor({ project, onPreview }: { readonly project: Project; read
   return (
     <div style={{ display: "grid", gap: 16, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <div className="m-grid-2" style={{ alignItems: "start" }}>
-        <Card title={project.name} kicker={project.id} footer={<div className="flex flex-wrap gap-2"><Button disabled={save.isPending} onClick={() => save.mutate()}>SAVE</Button><Button tone="sea" onClick={() => onPreview(project)}>OPEN IN PLAYGROUND</Button><Button tone="ghost" onClick={() => void remove()}>DELETE</Button></div>}>
+        <Card title={project.name} kicker={project.id} footer={<div className="flex flex-wrap gap-2"><Button disabled={save.isPending} onClick={() => save.mutate()}>SAVE</Button><Button tone="sea" onClick={() => onPreview(project)}>OPEN IN THE WORKSHOP</Button><Button tone="ghost" onClick={() => void remove()}>DELETE</Button></div>}>
           <div className="m-grid-2" style={{ gap: 10 }}>
             <Field label="Name"><Input value={draft.name} maxLength={64} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
             <Field label="Network"><Select value={draft.network} onChange={(e) => setDraft({ ...draft, network: e.target.value as Project["network"] })}><option value="testnet">testnet</option><option value="mainnet">mainnet</option></Select></Field>
@@ -168,6 +169,7 @@ function ProjectEditor({ project, onPreview }: { readonly project: Project; read
           </Field>
         </Card>
         <div style={{ display: "grid", gap: 16, minWidth: 0, gridTemplateColumns: "minmax(0, 1fr)" }}>
+          <LeagueListing project={project} />
           <Card title="Origins" kicker="DNS TXT · /.well-known">
             <Field label="Origins (one per line)"><textarea className="m-textarea" rows={3} value={draft.origins} onChange={(e) => setDraft({ ...draft, origins: e.target.value })} style={{ width: "100%" }} /></Field>
             <ul style={{ listStyle: "none", margin: "10px 0 0", padding: 0, display: "grid", gap: 6 }}>

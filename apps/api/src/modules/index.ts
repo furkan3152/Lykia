@@ -27,6 +27,7 @@ import { alertsModule } from "./alerts.js";
 import { discoverModule } from "./discover.js";
 import { ecosystemModule } from "./ecosystem.js";
 import { projectsModule } from "./projects.js";
+import { leagueModule } from "./league.js";
 import { securityModule } from "./security.js";
 import { devflowsModule } from "./devflows.js";
 import { aggregatorModule } from "./aggregator.js";
@@ -35,4 +36,4 @@ import { integrationsModule } from "./integrations.js";
 import { dataModule } from "./data.js";
 
 // developersModule goes first: its gate checks every request that presents a Lykia-Key.
-export const MODULES: readonly ApiModule[] = [developersModule, platformModule, projectsModule, authModule, systemModule, arcModule, flockModule, fenceModule, languageModule, intentsModule, standingModule, routesModule, knowledgeModule, scentModule, tagModule, agentModule, personalModule, circleModule, circleStackModule, ownershipModule, jobsModule, ordersModule, alertsModule, discoverModule, ecosystemModule, adminModule, securityModule, devflowsModule, aggregatorModule, aiModule, integrationsModule, dataModule, mcpModule];
+export const MODULES: readonly ApiModule[] = [developersModule, platformModule, projectsModule, leagueModule, authModule, systemModule, arcModule, flockModule, fenceModule, languageModule, intentsModule, standingModule, routesModule, knowledgeModule, scentModule, tagModule, agentModule, personalModule, circleModule, circleStackModule, ownershipModule, jobsModule, ordersModule, alertsModule, discoverModule, ecosystemModule, adminModule, securityModule, devflowsModule, aggregatorModule, aiModule, integrationsModule, dataModule, mcpModule];

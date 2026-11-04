@@ -8,7 +8,7 @@ import { canonicalDigest } from "../canonical.js";
 
 export const AUDIT_GENESIS = "sha256:0000000000000000000000000000000000000000000000000000000000000000" as const;
 
-export const AUDIT_KINDS = Object.freeze(["plan", "verdict", "prepare", "blocked", "submit", "keeper", "pause", "resume", "halt", "venue", "alert"] as const);
+export const AUDIT_KINDS = Object.freeze(["plan", "verdict", "prepare", "blocked", "submit", "keeper", "pause", "resume", "halt", "venue", "alert", "league"] as const);
 export type AuditKind = (typeof AUDIT_KINDS)[number];
 
 export interface AuditInput {

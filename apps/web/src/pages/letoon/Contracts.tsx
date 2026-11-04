@@ -1,25 +1,25 @@
 /**
- * Owner console: Lykia's contracts created step by step by plain CREATE
+ * Letoon · contracts and deployments: Lykia's contracts created step by step by plain CREATE
  * transactions from the owner's own wallet (so explorers show that wallet as
  * the creator), checked against the artifacts and recorded.
  */
 import { useLykiaWallet } from "../../features/wallet/useLykiaWallet";
 import { explorerAddress, explorerTx, lykiaContracts, networkFor } from "@lykia/core";
-import type { DeploymentRecord, FeatureFlag } from "@lykia/core/api/platform";
+import type { DeploymentRecord } from "@lykia/core/api/platform";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { usePublicClient, useSendTransaction } from "wagmi";
 
 import { allDeployed, creationBlocker, deployedFromRecords, nextAddress, stepStates } from "../../features/deploy/model";
 
-import { CircleSetupCard } from "../../features/circle/CircleSetupCard";
 import { RouterVenuesCard } from "../../features/deploy/RouterVenuesCard";
 import { useSiwe } from "../../features/session/useSiwe";
-import { apiGet, apiPost, apiPut, describeError } from "../../lib/api";
+import { apiGet, apiPost, describeError } from "../../lib/api";
 import { useEnvironment } from "../../lib/environment";
-import { Button, Card, EmptyState, PageHead, Tag, toast } from "../../mosaic";
+import { Button, Card, EmptyState, Tag, toast } from "../../mosaic";
 
-export default function OwnerPage() {
+/** The deploy plan, the recorded deployments and the router venues. `admin` comes from the server (Letoon checked it). */
+export function Contracts({ admin }: { readonly admin: boolean }) {
   const environment = useEnvironment();
   const wallet = useLykiaWallet();
   const { address } = wallet;
@@ -38,8 +38,6 @@ export default function OwnerPage() {
     queryFn: async () => (client && address ? client.getTransactionCount({ address, blockTag: "pending" }) : null),
   });
   const deployments = useQuery({ queryKey: ["deployments", environment], queryFn: ({ signal }) => apiGet<{ deployments: DeploymentRecord[] }>("/v1/deployments", { query: { environment }, signal }) });
-  const admin = siwe.session?.roles.includes("admin") ?? false;
-  const flags = useQuery({ queryKey: ["flags"], enabled: admin, queryFn: ({ signal }) => apiGet<Record<FeatureFlag, boolean>>("/v1/admin/flags", { signal }) });
   const records = deployments.data?.deployments ?? [];
   const deployed = deployedFromRecords(records, environment);
   const states = plan ? stepStates(plan, deployed) : {};
@@ -87,16 +85,11 @@ export default function OwnerPage() {
 
   return (
     <div>
-      <PageHead kicker={"OWNER CONSOLE · CONTRACTS"} title={<>Lay the stones <em>yourself.</em></>} sub={"Each contract is created straight from your wallet, so explorers list your wallet as its creator. The console checks the created code against the artifact before recording it. No private keys in the repo. Not audited: use small amounts."} mood="alert">
-        <div className="flex justify-center gap-2" style={{ marginTop: 16 }}>
-          {siwe.signedIn ? <Tag tone={admin ? "ok" : "ghost"}>{admin ? "ADMIN" : "SIGNED IN · NOT ADMIN"}</Tag> : <Button onClick={() => void siwe.signIn()}>{"SIGN IN ON ARC"}</Button>}
+        <div className="flex justify-center gap-2" style={{ marginBottom: 16 }}>
+          {siwe.signedIn ? <Tag tone={admin ? "ok" : "ghost"}>{admin ? "ADMIN" : "SIGNED IN · NOT ADMIN"}</Tag> : null}
           <Tag tone="sea">ARC {environment.toUpperCase()}</Tag>
         </div>
-      </PageHead>
-      <section className="m-wrap" style={{ marginTop: 28 }}>
-        <CircleSetupCard admin={admin} />
-      </section>
-      <section className="m-wrap" style={{ marginTop: 28 }}>
+      <section>
         <div className="m-grid-2 m-grid-2--l">
           <Card title={"Deploy plan"} kicker={plan ? `${plan.steps.length} STEPS · CREATOR ${plan.deployer.slice(0, 6)}…${plan.deployer.slice(-4)}` : ""}>
             {!plan ? <EmptyState title={"Connect a wallet"} /> : (
@@ -146,11 +139,6 @@ export default function OwnerPage() {
               {records.length === 0 ? <p className="m-muted m-center m-small">{"Nothing recorded yet."}</p> : records.map((d) => <div key={d.id} className="m-row"><Tag tone={d.verified ? "ok" : "bad"}>{d.verified ? "OK" : "CODE?"}</Tag><div style={{ minWidth: 0 }}><b>{d.name ?? d.contract}</b><p className="m-small num" style={{ overflowWrap: "anywhere" }}>{d.address}</p>{d.creator ? <p className="m-small m-muted">{"Creator "}<span className="num">{d.creator.slice(0, 8)}…</span></p> : null}</div></div>)}
             </Card>
             <RouterVenuesCard admin={admin} environment={environment} />
-            <Card title={"Flags"} kicker="ADMIN">
-              {!admin ? <p className="m-muted m-small m-center">{"Admins only."}</p> : Object.entries(flags.data ?? {}).map(([k, v]) => (
-                <label key={k} className="m-row" style={{ justifyContent: "space-between" }}><span className="num m-small">{k}</span><input type="checkbox" checked={v} onChange={async (e) => { try { await apiPut("/v1/admin/flags", { [k]: e.target.checked }); void qc.invalidateQueries({ queryKey: ["flags"] }); } catch (err) { toast.error(describeError(err), { from: "LYKO" }); } }} /></label>
-              ))}
-            </Card>
           </div>
         </div>
       </section>

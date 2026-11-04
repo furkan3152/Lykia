@@ -24,7 +24,7 @@ export default function ActivityPage() {
   const go = (i: Item) => navigate(i.type === "intent" ? `/app/outrun/${i.id}` : i.link.startsWith("/app") ? i.link : i.type === "order" ? "/app/orders" : "/app/alerts");
   return (
     <div>
-      <PageHead kicker={"AUTOMATE · ACTIVITY"} title={<>The whole <em>trail.</em></>} sub={"Every intent with its step progress, every conditional order with its live status, every alert that fired. Track any Arc transaction and keep a watchlist of addresses."} mood="watching" />
+      <PageHead kicker={"HERDING · TRACKS · ACTIVITY"} title={<>The whole <em>trail.</em></>} sub={"Every intent with its step progress, every conditional order with its live status, every alert that fired. Track any Arc transaction and keep a watchlist of addresses."} mood="watching" />
       <section className="m-wrap" style={{ marginTop: 28 }}>
         {!siwe.signedIn ? (
           <Card title={"Sign in first"}>

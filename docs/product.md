@@ -22,9 +22,9 @@ which rules an agent was held to.
 
 | Pillar | What it means | Where it lives |
 |---|---|---|
-| **Outcomes, not transactions** | A sentence (or a form, or one API call) becomes a route across every capable Arc protocol and Circle rail. The route is scored on the net result, simulated on Arc, and sent as one transaction with an Arc Memo. Orders and automations re-plan under the same rules while the owner is away. | Ask, Portfolio, Automate |
-| **Rules that hold** | The Fence is a typed policy (caps, recipients, protocols, tokens, slippage, health factor, FX band, an emergency stop). It is checked off chain before signing, compiled into a Circle Agent Wallet policy, and enforced on chain by the Lykia smart account. Sub-agents get a Fence inside their parent's. A Tag (ERC-8004 identity) pins the hash of the Fence an agent obeys. | Rules |
-| **One engine for every builder** | The planner, router and Fence behind the app are a public REST and SSE API, an MCP server, TypeScript and Python SDKs, a CLI and drop-in components. A protocol becomes routable with one typed adapter. | Build |
+| **Outcomes, not transactions** | A sentence (or a form, or one API call) becomes a route across every capable Arc protocol and Circle rail. The route is scored on the net result, simulated on Arc, and sent as one transaction with an Arc Memo. Orders and automations re-plan under the same rules while the owner is away. | Ask Lyko, Flock, Herding |
+| **Rules that hold** | The Fence is a typed policy (caps, recipients, protocols, tokens, slippage, health factor, FX band, an emergency stop). It is checked off chain before signing, compiled into a Circle Agent Wallet policy, and enforced on chain by the Lykia smart account. Sub-agents get a Fence inside their parent's. A Tag (ERC-8004 identity) pins the hash of the Fence an agent obeys. | Fence |
+| **One engine for every builder** | The planner, router and Fence behind the app are a public REST and SSE API, an MCP server, TypeScript and Python SDKs, a CLI and drop-in components. A protocol becomes routable with one typed adapter. Every app built on it is a city of the League. | The Mint, the League |
 
 Non-custodial throughout: the server never holds keys and never signs.
 
@@ -60,27 +60,65 @@ Other problems:
 
 ### After
 
-Five primary areas, each with a short tab row under the header. Everything
-lives in `apps/web/src/shell/nav.ts` and is tested in
-`apps/web/src/shell/__tests__/nav.test.ts`. The test checks: at most five
-areas, every route placed exactly once, plain labels, and every link resolving
-to its page.
+Five primary areas. Each label is a metaphor with a short plain subtitle
+under it ("Flock · portfolio"), and each area has a short tab row under the
+header (metaphor first, plain word beside it). Everything lives in
+`apps/web/src/shell/nav.ts` and is tested in
+`apps/web/src/shell/__tests__/nav.test.ts`: at most five areas, every route
+placed exactly once, a plain subtitle for every metaphor, page titles that
+match the labels, and every link resolving to its page.
 
 ```
-ASK        Ask                                     /app  (a plan: /app/outrun/:id)
-PORTFOLIO  Holdings · Move · Yields · What-if      /app/flock, /app/move, /app/pastures, /app/whatif
-RULES      Fence · Agents · Tags · Token check · Security
-                                                   /app/fence, /app/pack, /app/tag, /app/scent, /app/security
-AUTOMATE   Orders · Automations · Alerts · Activity
-                                                   /app/orders, /app/automations, /app/alerts, /app/activity
-BUILD      Developers · Ecosystem · Circle · Stats /build, /ecosystem, /app/circle, /stats
+ASK LYKO · assistant      Ask Lyko                              /app  (a plan: /app/outrun/:id)
+FLOCK · portfolio         Flock · Move · Pastures · What-if     /app/flock, /app/move, /app/pastures, /app/whatif
+FENCE · rules             Fence · Pack · Tag · Scent · Watch    /app/fence, /app/pack, /app/tag, /app/scent, /app/security
+HERDING · orders and automations
+                          Orders · Rounds · Barks · Tracks      /app/orders, /app/automations, /app/alerts, /app/activity
+THE MINT · build          The Mint · The League · Harbour · Circle · Ledger
+                                                                /mint/:section, /league (+ /league/:city), /ecosystem, /app/circle, /stats
 
-Avatar menu   Settings · Memory (their own tab row) │ More: Perps markets · New pools · Owner console · Notice and risks
-Footer        Product (the five areas) │ Proof (stats, ecosystem, mainnet flows, self-review, source) │ More
+Avatar menu   Settings · Memory (their own tab row) │ More: Perps markets · New pools · Notice and risks │ Team: Letoon (admins only)
+Footer        Product (the five areas) │ Proof (the League, stats, ecosystem, mainnet flows, self-review, source) │ More
 Unlisted      /pay/:id (payment links), /kit, /lykaion, 404
+Aliases       /build and /developers → /mint (old tabs and hashes land on their section), /owner → /letoon
+City mode     <slug>.<root domain>, /c/<slug>, ?city=<slug> or a verified custom domain: the city's own shell
 ```
 
-No URL changed, so existing links, SDK docs and bookmarks keep working.
+The phone shows the five areas as a one-row bottom bar (the metaphor and one
+plain word under it, 44 px targets or more); modals become bottom sheets.
+
+### The League, The Mint and Letoon
+
+- **The League** (`/league`, `/league/:city`). Lykia's products are the cities
+  of a league, each a real project (`project.league`, `GET /v1/league`). A
+  city is a mosaic coin: struck stone by stone, Lyko on the shared face, the
+  city's emblem on the reverse (gold live, silver coming, bronze paused). The
+  coast scene lights one harbour per live city. A city page says what it
+  does, how it uses Lykia (modules, Fence caps, pages), its live status and
+  usage, and renders the city itself from its project, with the embed code.
+  Official cities: Lykia Pay (Patara), Lykia Agents (Xanthos), and Lykia
+  Perps (Phaselis, coming: orders would match on Extended's engine off Arc,
+  collateral on Arc, Lykia never holds funds or keys). Developers ask for a
+  community listing; the team approves it in Letoon.
+- **City shells.** On its own host each city runs a task-first app on the
+  same engine and Mosaic stones, in its project's accent, with a small "a
+  Lykia city" mark: Pay is a payments app (balance, request a payment with a
+  link and QR share sheet, pay someone, recent invoices and payouts, Ask
+  Lyko), Agents shows the owner's agents with budget meters, Tags, a New
+  agent flow, decisions and the Whistle, and Perps is a coming landing. See
+  [platform/city-domains.md](platform/city-domains.md).
+- **The Mint** (`/mint/:section`). The developer portal as a journey of seven
+  stones: Strike (create a city in five steps; the press strikes its coin),
+  Workshop (playground), Your cities (projects, League listing, origins,
+  keys, usage), Keys (and the fee), Usage & logs, Webhooks, Reference (API,
+  SDK, MCP, parser, protocol integration, Circle, Arc tools).
+- **Letoon** (`/letoon/:section`). The team console, for addresses in
+  `LYKIA_ADMIN_ADDRESSES` only. The page asks the API (`GET /v1/admin/league`)
+  and opens its temple door only on a yes; everyone else sees the closed door
+  with Lyko on watch and no admin data. Sections: League council, Contracts
+  (deploy plan, recorded, router venues), Flags and the Whistle (routing.halt
+  through the audited path, per-city pause), Circle setup, Audit log, Usage.
+  Every action is enforced again on the server.
 
 ### The landing, top to bottom
 
@@ -96,9 +134,10 @@ No URL changed, so existing links, SDK docs and bookmarks keep working.
    totals.
 6. **Better together with Circle.** Which Circle product each feature uses,
    with a link to the live status page.
-7. **For builders.** A quote-and-build call, five entry points (API
+7. **The League.** The cities as coins, with a way in to The Mint.
+8. **For builders.** A quote-and-build call, five entry points (API
    reference, MCP, SDKs, widget and embed, protocol adapters) and the fee.
-8. **Beta note.** No paid audit yet, caps for everyone, one developer, MIT,
+9. **Beta note.** No paid audit yet, caps for everyone, one developer, MIT,
    not affiliated with Circle or Arc.
 
 ## What was merged, demoted or renamed, and why
@@ -110,8 +149,8 @@ No URL changed, so existing links, SDK docs and bookmarks keep working.
 | Flock + Move + Pastures → **Portfolio** (Holdings, Move, Yields) | One place for "what I have and moving it". |
 | Fence + Pack + Tag + Scent + Security → **Rules** | All of these define or enforce what may happen. Security was only reachable by link before. |
 | You + Memory → **Settings** with a Memory tab, in the avatar menu | One account area instead of two unrelated pages. |
-| Circle, Ecosystem and Stats → **Build** | This is where a builder or a reviewer looks for integrations and numbers. |
-| Owner console → More and the footer | Only the owner uses it. |
+| Circle, Ecosystem and Stats → **Build** (now The Mint, beside the League) | This is where a builder or a reviewer looks for integrations and numbers. |
+| Owner console → **Letoon**, in the avatar menu for admins only | Only the team uses it; the server checks the role on every call. |
 | `DeskTabs` removed; the shell renders the area tabs | One tab component for every area. Pages no longer repeat the navigation. |
 | Page headers | The kicker names the area and section ("RULES · FENCE"). The titles say what the page does ("Check a token before you touch it", not "Let Lyko sniff it"). The medallion is smaller and hidden on phones. |
 | ⌘K | It leads with "Jump to" pages. Sheepdog commands sit in a closed "Shepherd commands" section. The hidden-word counter is gone. The words still work. |
@@ -120,19 +159,10 @@ No URL changed, so existing links, SDK docs and bookmarks keep working.
 
 ### Vocabulary
 
-| Term | Decision | In the UI |
-|---|---|---|
-| Fence | **Keep.** It is the product's core idea, and it is explained on first use ("your spending rules"). | Fence |
-| Tag | **Keep.** Short, and it maps to ERC-8004 identity. | Tags |
-| Lyko | **Keep** as the friendly assistant and mascot. | Ask, the medallion |
-| Flock | Replaced by a plain word. | Portfolio, Holdings |
-| Pastures | Replaced. | Yields (the picture keeps its pens) |
-| Pack, pups | Replaced. "Pups" is mentioned once in the page intro. | Agents, sub-agents |
-| Scent | Replaced. "Lyko calls it the Scent" is mentioned once. | Token check |
-| Outrun | Replaced. | Plan |
-| Desk | Removed. | Automate |
-| Whistle | Kept in the Fence editor and explained: "the emergency stop". | Whistle (emergency stop) |
-| Fold | Not shown in navigation. | "where the money ends up" |
+An earlier pass replaced the lore names in navigation with plain labels.
+They are back as the primary labels, because they fit the interface's
+style, and each one now carries a plain subtitle so nobody has to learn the
+metaphor first. The full table is in [brand.md](brand.md#vocabulary).
 
 API paths, SDK names and core types (`scent`, `pack`, `whistle`, `outrun`)
 are unchanged. They are part of the public API.
@@ -168,8 +198,6 @@ These need a call that is bigger than a navigation change:
 7. **`docs/circle.md` and `docs/circle/README.md` overlap.** Merge them into
    one page under `docs/circle/`. The Circle integration work owns that
    folder.
-8. **Sister-product mentions** (Kletia, Elyia) in `docs/brand.md`. Remove
-   them from public docs if the reviewer audience should see Lykia on its own.
-9. **Value routed reads $0** on `/stats`, because there is no real usage yet.
+8. **Value routed reads $0** on `/stats`, because there is no real usage yet.
    This is honest, but a first real mainnet flow, signed and linked from the
    landing, would be stronger proof than simulations.

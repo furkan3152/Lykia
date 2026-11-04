@@ -61,6 +61,7 @@ const brandSchema = z
 const projectSchema = z
   .object({
     name: z.string().min(1).max(64),
+    slug: z.string().min(3).max(24).optional(),
     brand: brandSchema.optional(),
     origins: z.array(z.string().max(200)).max(10).optional(),
     modules: z.array(z.enum(PROJECT_MODULES as unknown as [ProjectModule, ...ProjectModule[]])).max(PROJECT_MODULES.length).optional(),

@@ -15,6 +15,7 @@ Build-time environment (all public values, never secrets):
 |---|---|
 | `VITE_API_URL` | Origin of the Lykia API (default `http://localhost:3002`). |
 | `VITE_CIRCLE_CLIENT_KEY` | Circle Modular Wallets client key (from console.circle.com, Modular Wallets). Passkey wallets are hidden without it. |
+| `VITE_LYKIA_ROOT_DOMAIN` | The domain League cities run under (`pay.<domain>`). Unset until one is bought; `/c/<slug>` works without it. |
 | `VITE_CIRCLE_CLIENT_URL` | Circle Modular Wallets client URL (https). The app appends `/arc` or `/arcTestnet` per network. |
 
 ## Connecting
@@ -51,19 +52,33 @@ Data becomes landscape:
 
 ## Pages
 
-The navigation lives in `src/shell/nav.ts` (tested in `src/shell/__tests__/nav.test.ts`): five primary areas, each a short tab row, plus the account pages and a short "More" list. The full reasoning is in [docs/product.md](../../docs/product.md). URLs did not change when the labels did.
+The navigation lives in `src/shell/nav.ts` (tested in `src/shell/__tests__/nav.test.ts`): five primary areas, each a metaphor with a plain subtitle ("Flock · portfolio") and a short tab row, plus the account pages, a short "More" list and, for admins only, Letoon. The reasoning is in [docs/product.md](../../docs/product.md) and the vocabulary in [docs/brand.md](../../docs/brand.md).
 
 | Area | Tabs (route) |
 |---|---|
-| **Ask** | Ask (`/app`, `/app/ask/:threadId`): a thread rail and an SSE conversation; the route artifact holds the plan, the Fence seal, "why this route" and signing. A full plan opens at `/app/outrun/:id`. |
-| **Portfolio** | Holdings (`/app/flock/:address?`), Move (`/app/move/:tab?`: send, receive, swap, earn, borrow, bridge without a sentence), Yields (`/app/pastures`), What-if (`/app/whatif`). |
-| **Rules** | Fence (`/app/fence`), Agents (`/app/pack/:id?`), Tags (`/app/tag/:id?`), Token check (`/app/scent/:token?`), Security (`/app/security`). |
-| **Automate** | Orders (`/app/orders`), Automations (`/app/automations`), Alerts (`/app/alerts`), Activity (`/app/activity`). |
-| **Build** | Developers (`/build`, also `/developers`), Ecosystem (`/ecosystem`), Circle (`/app/circle`), Stats (`/stats`). |
+| **Ask Lyko** · assistant | Ask Lyko (`/app`, `/app/ask/:threadId`); a full plan opens at `/app/outrun/:id`. |
+| **Flock** · portfolio | Flock (`/app/flock/:address?`), Move (`/app/move/:tab?`), Pastures · yields (`/app/pastures`), What-if (`/app/whatif`). |
+| **Fence** · rules | Fence (`/app/fence`), Pack · agents (`/app/pack/:id?`), Tag · agent identity (`/app/tag/:id?`), Scent · token check (`/app/scent/:token?`), Watch · security (`/app/security`). |
+| **Herding** · orders and automations | Orders (`/app/orders`), Rounds · automations (`/app/automations`), Barks · alerts (`/app/alerts`), Tracks · activity (`/app/activity`). |
+| **The Mint** · build | The Mint (`/mint/:section`: strike, workshop, cities, keys, usage, webhooks, reference), The League (`/league`, `/league/:city`), Harbour · ecosystem (`/ecosystem`), Circle (`/app/circle`), Ledger · stats (`/stats`). |
 
-Secondary: Settings (`/app/you`) and Memory (`/app/memory`) in the avatar menu, with their own tab row; More: Perps markets (`/app/markets`), New pools (`/app/discover`), Owner console (`/owner`), Notice and risks (`/legal/:doc?`). Unlisted on purpose: payment links (`/pay/:id`), the design kit (`/kit`), the hidden night scene (`/lykaion`) and the 404.
+Secondary: Settings (`/app/you`) and Memory (`/app/memory`); More: Perps markets, New pools, Notice and risks; Team: Letoon (`/letoon/:section`, admins only, the server decides). Old addresses redirect: `/build` (with its old tab names as hashes) and `/developers` to `/mint`, `/owner` to `/letoon` (`src/app/routes/aliases.ts`). Unlisted on purpose: payment links (`/pay/:id`), the design kit (`/kit`), the night scene (`/lykaion`) and the 404.
 
-The landing (`/`) tells the story for builders and reviewers: the problem, how it works in three steps, the three pillars, live mainnet proof (contracts, the flow matrix, live Arc stats), the Circle products used, developer entry points and the beta note. Asking a question in its composer morphs into the conversation.
+### The League, The Mint and Letoon
+
+| Path | What it holds |
+|---|---|
+| `src/features/league/art.ts` | Pure buffers: the struck coin (obverse: Lyko as the League's shared face; reverse: the city's emblem; gold, silver or bronze by state), the Lycian coast with a lit harbour per live city, the Letoon's temple door and The Mint's press. |
+| `src/features/league/Coin.tsx` | A coin struck stone by stone that turns over (CSS 3D) to its emblem; hover, focus or tap turns it back. Reduced motion shows the emblem at once. |
+| `src/pages/league/` | The League (coast scene, coins, a swipeable carousel on phones) and a city page (what it does, how it uses Lykia, live status, the city rendered from its project, embed code). |
+| `src/pages/mint/` | The Mint: seven sections, the five-step Strike with the press, the League listing card on each project. |
+| `src/pages/letoon/`, `src/features/letoon/` | Letoon: the door, the League council, contracts, flags and the Whistle, Circle setup, audit log, usage. |
+
+### City mode
+
+`src/city/detect.ts` decides at boot whether the page is a League city: `<slug>.<VITE_LYKIA_ROOT_DOMAIN>`, `/c/<slug>`, `?city=<slug>`, or a verified custom domain. A city boots `src/city/CityApp.tsx` instead of the router and renders its own shell on the same engine: `PayShell` (Lykia Pay), `AgentsShell` (Lykia Agents), `ComingShell` (coming cities) or `GenericShell` (community cities). Shells are mobile first: a pinned bottom tab bar with pixel icons, bottom sheets, a sticky primary action in the thumb zone and safe-area insets. Setup: [docs/platform/city-domains.md](../../docs/platform/city-domains.md).
+
+The landing (`/`) tells the story for builders and reviewers: the problem, how it works in three steps, the three pillars, the League's coins, live mainnet proof, the Circle products used, developer entry points and the beta note.
 
 ## Motion
 

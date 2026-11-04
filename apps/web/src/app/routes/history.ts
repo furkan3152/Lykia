@@ -1,5 +1,5 @@
 /**
- * Minimal history-API location store (ported from Kletia). No router
+ * Minimal history-API location store. No router
  * dependency: one module-level location, a listener set and `navigate()`.
  * The router subscribes and renders inside a transition so lazy routes never
  * flash a fallback.
