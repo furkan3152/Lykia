@@ -256,13 +256,37 @@ export function reconcile(model: Program, language: string | null): Reconciled {
     program = unionWithLexicon(model, lex);
     strategy = "union";
   } else program = completeDefaults(model);
+  const kept = respectKeepLiquid(program);
+  program = kept.program;
   const stripped = stripInjected(program);
   const notes = [
+    kept.dropped > 0 ? "The owner asked to keep the rest liquid, so no earn step was added for it." : null,
     strategy === "lexicon" ? "The deterministic lexicon read every clause, so its amounts and documented defaults were used; the model added refusals and preferences." : null,
     strategy === "union" ? "The model's reading was merged with the deterministic lexicon's for the clauses it recognised." : null,
     stripped.dropped > 0 ? `${stripped.dropped} element${stripped.dropped === 1 ? "" : "s"} read from injected data ${stripped.dropped === 1 ? "was" : "were"} dropped.` : null,
   ].filter((n): n is string => n !== null);
   return { program: stripped.program, strategy, note: notes.length > 0 ? notes.join(" ") : null };
+}
+
+/** "Keep the rest liquid" / "leave the remainder in USDC": what is left must not be put to work. */
+const KEEP_REST_LIQUID = /\b(?:keep|leave|hold)\s+(?:the\s+)?(?:rest|remainder|remaining|everything else)\b[^.;]*?\b(?:liquid|in usdc|as (?:it is|is)|in (?:my|the) wallet|idle|untouched)\b/iu;
+
+/**
+ * Drops earn elements a model added for the remainder when the owner explicitly asked to keep the
+ * remainder liquid. An earn the owner asked for in their own words (its quote outside that clause) stays.
+ */
+export function respectKeepLiquid(program: Program): { program: Program; dropped: number } {
+  const match = KEEP_REST_LIQUID.exec(program.text);
+  if (!match) return { program, dropped: 0 };
+  const keepClause = match[0].toLowerCase();
+  const elements = program.elements.filter((e) => {
+    if (e.kind !== "earn") return true;
+    const quote = (e.quote ?? "").toLowerCase();
+    const asked = quote.length > 0 && !keepClause.includes(quote) && /\b(?:earn|yield|deposit|invest|put\b[^.]*\bwork|vault|lend)\b/u.test(quote);
+    return asked;
+  });
+  const dropped = program.elements.length - elements.length;
+  return dropped === 0 ? { program, dropped } : { program: { ...program, elements }, dropped };
 }
 
 /** The lexicon's own reading through the same guard: what the deterministic path compiles. */

@@ -157,3 +157,23 @@ describe("hybrid reading: rules", () => {
     assert.ok(read.program.elements.some((e) => e.kind === "dca"));
   });
 });
+
+describe("hybrid reading: keep the rest liquid", () => {
+  it("drops an earn the model added for a remainder the owner asked to keep liquid", () => {
+    const text = "Hedge 25% into EURC and keep the rest liquid.";
+    const base = readProgramDetailed(text).program;
+    const earnSource = readProgramDetailed("Put the rest to work at low risk.").program.elements.find((e) => e.kind === "earn");
+    assert.ok(earnSource, "fixture: the lexicon reads an earn element");
+    const model: Program = { ...base, elements: [...base.elements, { ...earnSource, id: "e9", quote: "keep the rest liquid" }] };
+    const out = reconcile(model, "en");
+    assert.equal(out.program.elements.some((e) => e.kind === "earn"), false);
+    assert.equal(out.program.elements.some((e) => e.kind === "convert"), true);
+  });
+
+  it("keeps an earn the owner asked for in other words", () => {
+    const text = "Put 100 USDC into the best low-risk vault and keep the rest liquid.";
+    const program = readProgramDetailed(text).program;
+    const out = reconcile(program, "en");
+    assert.equal(out.program.elements.some((e) => e.kind === "earn"), program.elements.some((e) => e.kind === "earn"));
+  });
+});
