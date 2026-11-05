@@ -2,7 +2,8 @@
  * The conversation model (pure): folds chat events into messages, so the
  * store, the tests and the replay of a stored thread share one reducer.
  */
-import type { AgentProposal, ChatDraftLink, ChatEvent, ChatProgramView } from "@lykia/core/api/agents";
+import type { AgentProposal, AnswerBlock, ChatDraftLink, ChatEvent, ChatProgramView, ChatStep } from "@lykia/core/api/agents";
+import { MAX_BLOCKS, parseAnswerBlock, parseChatStep } from "@lykia/core/api/answer";
 
 export interface TrailItem {
   readonly label: string;
@@ -24,6 +25,15 @@ export interface ChatMessage {
   readonly program?: ChatProgramView;
   readonly streaming: boolean;
   readonly error?: string;
+  /** Lyko at work: the server's steps, each upserted by id as it starts and ends. */
+  readonly steps?: readonly ChatStep[];
+  /** Typed cards for this answer (gas, Fence gate, balance, rate, herded, settled). */
+  readonly blocks?: readonly AnswerBlock[];
+  /** What Lyko said between tool calls (the model path), shown inside the opened trail. */
+  readonly notes?: readonly string[];
+  /** When the turn started and ended (client clock), for "Checked 4 things · 1.8s". */
+  readonly startedAt?: number;
+  readonly endedAt?: number;
 }
 
 export interface Conversation {
@@ -41,8 +51,24 @@ export function userMessage(text: string): ChatMessage {
   return { id: nid(), role: "user", text, trail: [], proposals: [], clarify: null, streaming: false };
 }
 
-export function assistantDraft(): ChatMessage {
-  return { id: nid(), role: "assistant", text: "", trail: [], proposals: [], clarify: null, streaming: true };
+export function assistantDraft(now: number = Date.now()): ChatMessage {
+  return { id: nid(), role: "assistant", text: "", trail: [], proposals: [], clarify: null, streaming: true, steps: [], blocks: [], notes: [], startedAt: now };
+}
+
+/** Upserts a step by id: a start adds it, its end replaces it in place. */
+export function upsertStep(steps: readonly ChatStep[], step: ChatStep): ChatStep[] {
+  const i = steps.findIndex((x) => x.id === step.id);
+  if (i < 0) return [...steps, step].slice(-40);
+  const next = steps.slice();
+  next[i] = step;
+  return next;
+}
+
+/** Adds a block unless the same card is already there; at most MAX_BLOCKS. */
+export function addBlock(blocks: readonly AnswerBlock[], block: AnswerBlock): AnswerBlock[] {
+  const key = JSON.stringify(block);
+  if (blocks.some((b) => JSON.stringify(b) === key) || blocks.length >= MAX_BLOCKS) return blocks.slice();
+  return [...blocks, block];
 }
 
 function patchLast(c: Conversation, fn: (m: ChatMessage) => ChatMessage): Conversation {
@@ -64,7 +90,15 @@ export function reduce(c: Conversation, e: ChatEvent): Conversation {
     case "tool":
       return patchLast(c, (m) => ({ ...m, trail: [...m.trail, { label: `${e.data.agent} · ${e.data.name}`, ok: e.data.ok, ...(e.data.ok || !e.data.summary ? {} : { detail: e.data.summary }) }] }));
     case "thinking-summary":
-      return patchLast(c, (m) => ({ ...m, trail: [...m.trail, { label: `${e.data.agent}: ${e.data.text}`, ok: true }] }));
+      return patchLast(c, (m) => ({ ...m, notes: [...(m.notes ?? []), e.data.text].slice(-8) }));
+    case "step": {
+      const step = parseChatStep(e.data);
+      return step ? patchLast(c, (m) => ({ ...m, steps: upsertStep(m.steps ?? [], step) })) : c;
+    }
+    case "block": {
+      const block = parseAnswerBlock(e.data);
+      return block ? patchLast(c, (m) => ({ ...m, blocks: addBlock(m.blocks ?? [], block) })) : c;
+    }
     case "proposal":
       return patchLast(c, (m) => ({ ...m, proposals: [...m.proposals, e.data] }));
     case "clarify":
@@ -76,9 +110,9 @@ export function reduce(c: Conversation, e: ChatEvent): Conversation {
     case "text":
       return patchLast(c, (m) => ({ ...m, text: m.text + e.data.text }));
     case "error":
-      return patchLast(c, (m) => ({ ...m, error: e.data.message, streaming: false }));
+      return patchLast(c, (m) => ({ ...m, error: e.data.message, streaming: false, endedAt: m.endedAt ?? Date.now() }));
     case "done":
-      return patchLast({ ...c, threadId: e.data.threadId ?? c.threadId }, (m) => ({ ...m, streaming: false }));
+      return patchLast({ ...c, threadId: e.data.threadId ?? c.threadId }, (m) => ({ ...m, streaming: false, endedAt: m.endedAt ?? Date.now(), steps: (m.steps ?? []).map((st) => (st.state === "running" ? { ...st, state: "warn" as const, result: st.result ?? "Stopped before it finished" } : st)) }));
     default:
       return c;
   }

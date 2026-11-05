@@ -1,0 +1,138 @@
+/*
+ * The three primary areas as Mosaic objects (shell/NavTile.tsx).
+ * A tile is a dark stone with a small pixel icon set in a plate. The active
+ * tile is inlaid: a lit cream plate with an ochre ring, and a gold meander
+ * that draws in under its name. Hover shifts the stones a little.
+ */
+.m-nav { display: flex; align-items: center; gap: 8px; }
+
+.m-navtile {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: 1fr auto;
+  column-gap: 12px;
+  align-items: center;
+  min-height: 44px;
+  padding: 5px 14px 5px 5px;
+  text-decoration: none;
+  color: #c6d3e1;
+  background: #172a45;
+  box-shadow: inset 0 0 0 2px #233b5e, inset 0 -3px 0 #0b1626;
+  transition: transform 140ms steps(2, end), background-color 140ms, color 140ms, box-shadow 140ms;
+}
+.m-navtile__plate {
+  position: relative;
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  background-color: #2f7f95;
+  /* Tiny tesserae under the icon: a 4 px grid of joints. */
+  background-image: linear-gradient(90deg, rgba(11, 22, 38, 0.18) 1px, transparent 1px), linear-gradient(rgba(11, 22, 38, 0.18) 1px, transparent 1px);
+  background-size: 4px 4px;
+  background-position: 0 0;
+  box-shadow: inset 0 0 0 2px #0b1626;
+  transition: background-position 220ms steps(2, end), box-shadow 140ms, background-color 140ms;
+}
+.m-navtile__plate svg { transition: transform 160ms steps(2, end); }
+.m-navtile__l {
+  grid-column: 2;
+  align-self: end;
+  font-family: Silkscreen, monospace;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.m-navtile__key {
+  grid-column: 2;
+  align-self: start;
+  height: 7px;
+  margin-top: 5px;
+  background-image: var(--meander-gold, linear-gradient(90deg, #d9a441 50%, #13233a 50%));
+  background-size: 8px 7px;
+  background-repeat: repeat-x;
+  image-rendering: pixelated;
+  opacity: 0;
+  clip-path: inset(0 100% 0 0);
+}
+.m-navtile__badge {
+  position: absolute;
+  top: -8px;
+  right: -9px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  background: var(--terra);
+  color: #fff;
+  font-family: Silkscreen, monospace;
+  font-size: 9px;
+  letter-spacing: 0;
+  box-shadow: 0 0 0 2px var(--navy);
+}
+
+.m-navtile:hover { color: #fff; background-color: #1c3253; box-shadow: inset 0 0 0 2px #2f4a72, inset 0 -3px 0 #0b1626; }
+.m-navtile:hover .m-navtile__plate { background-position: 2px 2px; background-color: #3a91a8; }
+.m-navtile:hover .m-navtile__plate svg { transform: translateY(-1px); }
+.m-navtile:active { transform: translateY(1px); }
+.m-navtile:focus-visible { outline: 3px solid var(--ochre); outline-offset: 2px; }
+
+/* Active: the inlaid, lit plate. */
+.m-navtile[aria-current="page"] {
+  color: var(--navy);
+  background-color: #fbf5e6;
+  background-image: var(--tess-plate, none);
+  background-size: 32px 32px;
+  box-shadow: inset 0 0 0 2px var(--ochre), inset 0 -4px 0 #c08f35, 0 0 0 2px #0b1626;
+}
+.m-navtile[aria-current="page"] .m-navtile__plate { background-color: #4fb0c2; box-shadow: inset 0 0 0 2px var(--navy); }
+.m-navtile[aria-current="page"] .m-navtile__key { opacity: 1; animation: m-key-draw 640ms steps(8, end) 80ms both; }
+@keyframes m-key-draw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+
+@media (max-width: 1220px) {
+  .m-nav { gap: 6px; }
+  .m-navtile { padding-right: 11px; column-gap: 8px; }
+  .m-navtile__l { font-size: 11px; letter-spacing: 0.1em; }
+}
+
+/* ------------------------------------------------------- the phone's dock */
+.m-dock { display: none; }
+@media (max-width: 900px) { .m-nav { display: none; } }
+@media (max-width: 900px) {
+  .m-dock {
+    position: fixed;
+    z-index: 45;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    background: var(--navy);
+    box-shadow: 0 -3px 0 #0b1626, 0 -5px 0 #2f4a72;
+  }
+  .m-navtile--dock {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 56px;
+    padding: 6px 4px 5px;
+    background: transparent;
+    box-shadow: none;
+  }
+  .m-navtile--dock .m-navtile__plate { width: 40px; height: 32px; }
+  .m-navtile--dock .m-navtile__l { font-size: 10px; letter-spacing: 0.1em; align-self: center; }
+  .m-navtile--dock .m-navtile__key { align-self: center; width: 40px; height: 4px; margin-top: 0; background-size: 4.6px 4px; }
+  .m-navtile--dock:hover { background: transparent; box-shadow: none; }
+  .m-navtile--dock[aria-current="page"] { color: #fff6de; background: #1c3253; background-image: none; box-shadow: inset 0 0 0 2px #2f4a72, inset 0 -3px 0 #0b1626; }
+  .m-navtile--dock[aria-current="page"] .m-navtile__plate { background-color: #4fb0c2; box-shadow: inset 0 0 0 2px var(--ochre), 0 0 0 2px #0b1626; }
+}
+@media (max-width: 380px) { .m-navtile--dock .m-navtile__l { font-size: 9.5px; } }

@@ -378,17 +378,6 @@ html[data-night="on"] .fd-tabhead p, html[data-night="on"] .fd-tabhead h2 span {
 
 @media (prefers-reduced-motion: reduce) { .fd-roll__c--rolls, .fd-alloc i, .fd-tile { animation: none; } }
 
-/* ------------------------------------------------- the shell, three areas */
-.m-nav { gap: 10px; }
-.m-nav a { padding-inline: 14px; }
-.m-nav__s--short { display: none; }
-@media (max-width: 1359px) { .m-nav__s--long { display: none; } .m-nav__s--short { display: inline; } }
-@media (max-width: 900px) {
-  .m-tabsbar { grid-template-columns: repeat(3, 1fr); }
-  .m-tabsbar a { min-height: 56px; justify-content: center; }
-  .m-tabsbar__l { position: relative; font-size: 11px; letter-spacing: 0.1em; }
-  .m-tabsbar__badge { position: absolute; top: -7px; right: -20px; min-width: 17px; height: 17px; padding: 0 4px; display: inline-grid; place-items: center; background: var(--terra); color: #fff; font-size: 9px; letter-spacing: 0; box-shadow: 0 0 0 2px var(--navy); }
-}
 
 /* ---------------------------------------------------------- Your Lyko */
 .yl { padding: 24px 0 40px; }

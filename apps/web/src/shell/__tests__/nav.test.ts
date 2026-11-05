@@ -122,3 +122,50 @@ describe("old addresses", () => {
     for (const id of REDIRECTED) assert.ok(matchRoute(ROUTES[id].pattern.replace(/\/:[a-z]+\?/giu, "")).route.id === id, `${id} still matches its old address`);
   });
 });
+
+describe("the top menu: three Mosaic tiles, no visible subtitles", () => {
+  const visibleText = (html: string) =>
+    html
+      .replace(/<svg[\s\S]*?<\/svg>/gu, "")
+      .replace(/<[^>]+>/gu, " ")
+      .replace(/\s+/gu, " ")
+      .trim();
+
+  it("has three tiles whose visible text is the name alone; the plain word rides in the accessible name", async () => {
+    const React = (await import("react")).default;
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    (globalThis as { React?: unknown }).React = React;
+    const { NavTileBody } = await import("../NavTile");
+    const { navTileText } = await import("../nav");
+    assert.equal(AREAS.length, 3);
+    for (const area of AREAS) {
+      const text = navTileText(area, 0);
+      assert.equal(text.visible, area.label);
+      assert.ok(text.ariaLabel.includes(area.sub) && text.title.includes(area.sub), `${area.id}: the subtitle stays available to assistive tech`);
+      for (const short of [false, true]) {
+        const shown = visibleText(renderToStaticMarkup(React.createElement(NavTileBody, { area, short })));
+        assert.equal(shown, short ? area.tab : area.label, `${area.id}${short ? " (phone)" : ""}`);
+        assert.ok(!shown.toLowerCase().includes(area.sub.toLowerCase()) && !shown.toLowerCase().includes(area.short.toLowerCase()), `${area.id}: no visible subtitle`);
+      }
+    }
+    assert.equal(navTileText(AREAS[1]!, 3).ariaLabel, "The Fold, everything you own and everything in motion, 3 new from Lyko");
+    const badge = visibleText(renderToStaticMarkup(React.createElement(NavTileBody, { area: AREAS[1]!, badge: 12, short: true })));
+    assert.equal(badge, "9+ Fold", "the Fold keeps Lyko's badge");
+  });
+
+  it("draws each tile's icon from squares, every row the same width", async () => {
+    const { STEP_ART, MARK_ART } = await import("../../mosaic/pixelArtData");
+    for (const [name, art] of Object.entries({ ...STEP_ART, ...MARK_ART })) {
+      assert.ok(art.every((row) => row.length === art[0]!.length), `${name} rows differ in width`);
+    }
+  });
+
+  it("renders the shell's menus through the tiles, with no subtitle spans left", async () => {
+    const { readFileSync } = await import("node:fs");
+    for (const file of ["Header.tsx", "MobileTabs.tsx"]) {
+      const src = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
+      assert.ok(src.includes("NavTileBody"), file);
+      assert.ok(!/area\.(sub|short)\}/u.test(src) && !/m-nav__s|m-tabsbar__s/u.test(src), `${file} still shows a subtitle`);
+    }
+  });
+});

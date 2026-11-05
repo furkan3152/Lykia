@@ -54,7 +54,11 @@ export function installTextures(root: HTMLElement = document.documentElement): v
     "--frame": frame("#B9472E", "#FBF5E6", "#13233A", "#FBF5E6"),
     "--frame-sea": frame("#1E8FA3", "#FBF5E6", "#13233A", "#FBF5E6"),
     "--frame-night": frame("#D9A441", "#1D2D4F", "#0B1430", "#16243F"),
-    "--rule8": paint(4, 2, 4, 1, (i, j) => (j === 0 ? "#13233A" : i % 2 ? "#B9472E" : "#FBF5E6")),
+    // The lit meander under an active navigation tile: an ochre key on navy, two pixels per stone.
+    "--meander-gold": paint(8, 7, 2, 0.4, (i, j) => (MEANDER[j + 1]![i] === "X" ? "#D9A441" : "#13233A"), 0.03, "#0B1626"),
+    // A cream inlay of small stones for lit plates.
+    "--tess-plate": paint(8, 8, 4, 0.8, (i, j) => ["#FBF5E6", "#F6EDD8", "#FFF8E9", "#F3E9D2"][Math.floor(hash(i + 11, j + 5) * 4)]!, 0.02, "#E2D3B2"),
+    "--rule8":paint(4, 2, 4, 1, (i, j) => (j === 0 ? "#13233A" : i % 2 ? "#B9472E" : "#FBF5E6")),
   };
   for (const [k, v] of Object.entries(vars)) if (v) root.style.setProperty(k, v);
 }

@@ -38,6 +38,7 @@ export type RouteId =
   | "circle"
   | "owner"
   | "kit"
+  | "chatKit"
   | "lykaion"
   | "developers"
   | "orders"
@@ -114,6 +115,7 @@ export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze(
   legal: page("legal", "/legal/:doc?", "site", "Notice, risks and privacy", "Lykia's draft software notice and risk disclosure (open source, non-custodial, no warranty, beta caps) and privacy note.", () => import("../../pages/legal/LegalPage")),
   owner: page("owner", "/owner", "site", "Letoon · team console", "The owner console moved to Letoon.", () => import("../../pages/redirect/RedirectPage"), { robots: PRIVATE_ROBOTS }),
   kit: page("kit", "/kit", "site", "Mosaic kit", "Every Mosaic component and scene.", () => import("../../pages/kit/KitPage"), { robots: PRIVATE_ROBOTS }),
+  chatKit: page("chatKit", "/app/kit/chat", "app", "Chat kit · sample", "Every Ask Lyko card and thinking state with sample data (development only; nothing here moves money).", () => import("../../pages/kit/ChatKitPage"), { robots: PRIVATE_ROBOTS, devOnly: true }),
   lykaion: page("lykaion", "/lykaion", "site", "Lykaion", "Mount Lykaion, Arcadia, at night.", () => import("../../pages/lykaion/LykaionPage"), { robots: PRIVATE_ROBOTS }),
   developers: page("developers", "/developers", "site", "The Mint · build", BRAND_DESCRIPTION, () => import("../../pages/redirect/RedirectPage"), { robots: PRIVATE_ROBOTS }),
   appNotFound: page("appNotFound", "/app/*", "site", "Page not found", BRAND_DESCRIPTION, () => import("../../pages/notFound/NotFoundPage"), { robots: "noindex,follow" }),
@@ -121,7 +123,7 @@ export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze(
 });
 
 /** Matching order: specific routes first, the catch-alls last. `/app` itself is Ask. */
-const ORDER: readonly RouteId[] = ["landing", "ask", "fold", "move", "flock", "pastures", "pack", "fence", "scent", "tag", "outrun", "you", "memory", "circle", "orders", "markets", "discover", "alerts", "automations", "activity", "whatif", "security", "pay", "build", "mint", "league", "city", "letoon", "ecosystem", "stats", "legal", "owner", "kit", "lykaion", "developers", "appNotFound", "notFound"];
+const ORDER: readonly RouteId[] = ["landing", "ask", "fold", "move", "flock", "pastures", "pack", "fence", "scent", "tag", "outrun", "you", "memory", "circle", "orders", "markets", "discover", "alerts", "automations", "activity", "whatif", "security", "pay", "build", "mint", "league", "city", "letoon", "ecosystem", "stats", "legal", "owner", "kit", "chatKit", "lykaion", "developers", "appNotFound", "notFound"];
 
 let compiled: ReadonlyArray<readonly [RouteDefinition, CompiledPattern]> | null = null;
 

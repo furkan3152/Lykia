@@ -42,7 +42,8 @@ import {
   type PackRole,
   type PlanAction,
 } from "@lykia/core";
-import type { AgentProposal, ChatDraftLink, ChatProgramView } from "@lykia/core/api/agents";
+import type { AgentProposal, AnswerBlock, ChatDraftLink, ChatProgramView } from "@lykia/core/api/agents";
+import { fenceCard, quotedRate, rateCard } from "./cards.js";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { EXECUTABLE_VENUES } from "../engine/adapters.js";
@@ -86,6 +87,8 @@ export interface ToolContext {
   readonly drafts?: ChatDraftLink[];
   /** Programs compiled this turn (compile_goal); the chat renders them as Now / Scheduled / Assumptions. */
   readonly programs?: ChatProgramView[];
+  /** Cards built from tool results this turn (a Fence gate, a rate tile, a herded order); the chat draws them beside the answer. */
+  readonly blocks?: AnswerBlock[];
   /** The actions behind each proposal, for merging specialists' plans into one intent. */
   readonly planned?: { readonly actions: readonly PlanAction[]; readonly proposal: AgentProposal }[];
 }
@@ -306,6 +309,7 @@ export const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
     async run(input: { kind: OrderKind; sell: string; buy: string; amount: string; executions?: number; intervalSeconds?: number; triggerPrice?: string; triggerAbove?: boolean }, tc) {
       const owner = needOwner(tc);
       const draft = await ordersService(tc.ctx).draft({ ...input, owner, environment: tc.environment });
+      tc.blocks?.push({ kind: "herded", items: [{ kind: "order", label: draft.summary.slice(0, 200), saved: false, href: "/app/orders", next: "Sign it on the Orders page" }] });
       return {
         summary: `Order drafted: ${draft.summary}`,
         data: { summary: draft.summary, hash: draft.hash, executions: draft.order.executions, intervalSeconds: draft.order.interval, perExecution: draft.perExecution, approvalNeeded: draft.approval ? draft.approval.label : null, notes: draft.notes, next: "The owner signs this order (EIP-712) on the Orders page; funds stay in the wallet until a keeper executes it." },
@@ -419,7 +423,7 @@ export const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
       const who = verifiedOwner(tc);
       if (!who) {
         const link = automationDraftLink(draft);
-        tc.drafts?.push({ kind: "automation", saved: false, label: input.name, href: link });
+        tc.drafts?.push({ kind: "automation", saved: false, label: input.name, href: link, next: when.slice(0, 80) });
         return { summary: `Automation drafted (not saved): ${when}, ${what}`, data: { saved: false, automation: draft, trigger: when, action: what, link, next: SIGN_IN_NOTE } };
       }
       const saved = await createAutomation(
@@ -427,7 +431,7 @@ export const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
         { developer: who.actor.developer, project: null, via: who.actor.via },
         { owner: who.owner, name: input.name, environment: tc.environment, trigger, action: input.action, fence: tc.agent.fence, ...(input.maxFiresPerDay ? { maxFiresPerDay: input.maxFiresPerDay } : {}) },
       );
-      tc.drafts?.push({ kind: "automation", saved: true, label: input.name, href: "/app/automations" });
+      tc.drafts?.push({ kind: "automation", saved: true, label: input.name, href: "/app/automations", next: when.slice(0, 80) });
       return {
         summary: `Automation saved (${saved.status}): ${when}, ${what}`,
         data: { saved: true, id: saved.id, status: saved.status, trigger: when, action: what, fence: tc.agent.fence.label ?? "custom", next: "Each fire is checked against the Fence and arrives as a proposal the owner signs; nothing moves on its own. Pause or delete it on the Automations page.", manage: "/app/automations" },
@@ -497,6 +501,11 @@ export const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
       };
       tc.proposals.push(proposal);
       tc.planned?.push({ actions: outcome.actions, proposal });
+      const gate = fenceCard(intent, tc.agent.fence);
+      if (gate) tc.blocks?.push(gate);
+      const fx = intent.verdict.decision === "deny" ? null : quotedRate(intent);
+      const tile = fx ? await rateCard(tc.ctx, fx.base, fx.quote, tc.agent.fence, fx.rate) : null;
+      if (tile) tc.blocks?.push(tile);
       // The protocol fee explains why a step moves a little less (or a send costs a little more) than the sentence said.
       const fees = intent.steps.flatMap((st) => (st.fee ? [{ step: st.id, fee: `${fromBaseUnits(st.fee.amount, st.fee.decimals)} ${st.fee.symbol}`, bps: st.fee.bps, basis: FEE_BASIS[st.fee.basis] }] : []));
       return { summary: `Planned (${intent.verdict.decision}): ${proposal.steps.join(" → ")}`, data: { intentId: proposal.intentId, steps: proposal.steps, decision: proposal.decision, reasons: proposal.reasons, warnings: proposal.warnings, ...(fees.length > 0 ? { lykiaFees: fees } : {}) } };

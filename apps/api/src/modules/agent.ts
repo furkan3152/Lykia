@@ -1,7 +1,7 @@
 /**
  * Lyko and the Pack.
  *
- *   POST /agent/chat                     SSE: thread, reading, task, tool, thinking-summary, proposal, clarify, draft, text, error, done
+ *   POST /agent/chat                     SSE: thread, reading, task, tool, step, block, thinking-summary, proposal, clarify, draft, text, error, done
  *                                        (Accept: application/json returns the same events as one JSON document)
  *   GET  /agent/threads?owner            thread list (owner session or agents key)   GET /agent/threads/:id?owner   one thread
  *   POST /agent/threads                  open an empty thread
@@ -129,9 +129,11 @@ export const agentModule: ApiModule = {
       const accept = req.get("accept") ?? "";
       const wantsJson = !accept.includes("text/event-stream") && (accept.includes("application/json") || body.message === undefined);
       const events: { event: string; data: unknown }[] = [];
+      const blocks: unknown[] = [];
       const stream = wantsJson ? null : openSse(req, res, { slots: ctx.limits.streams });
       const emit: Emit = (event, data) => {
         events.push({ event, data });
+        if (event === "block") blocks.push(data);
         stream?.send(event, data);
       };
       emit("thread", { threadId: thread.id, mode: client ? "llm" : "reader", ...(sample ? { sample: true } : {}) });
@@ -162,7 +164,7 @@ export const agentModule: ApiModule = {
       if (sample && text) text = `Sample plan (no wallet connected, dry run): ${text}`;
       await appendMessages(ctx, thread, [
         { role: "user", text: message, origin: body.origin ?? "ask" },
-        { role: "assistant", text: text || "(no answer)", proposals: proposals as never, origin: body.origin ?? "ask" },
+        { role: "assistant", text: text || "(no answer)", proposals: proposals as never, blocks: blocks as never, origin: body.origin ?? "ask" },
       ]).catch(() => undefined);
       emit("done", { threadId: thread.id, stopReason });
       if (stream) stream.close();

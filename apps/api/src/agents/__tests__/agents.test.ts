@@ -13,6 +13,7 @@ import { SESSION_ABI, sessionSpecOf } from "../onchain.js";
 import { runTurn, type Emit } from "../orchestrator.js";
 import { insightsFrom } from "../insights.js";
 import { wrapUntrusted } from "../tools.js";
+import { parseAnswerBlock, parseChatStep } from "@lykia/core/api/answer";
 
 const OWNER = "0x82916bee18fcef517b26c72d7cb5f13694e1db41" as const;
 const USDC = "0x3600000000000000000000000000000000000000";
@@ -193,6 +194,42 @@ describe("Lyko orchestration", () => {
     assert.equal((await fetch(threadUrl, { headers: { "lykia-session": issueToken(ctx, "0x1111111111111111111111111111111111111111").token } })).status, 403);
     const thread = (await (await fetch(threadUrl, { headers: { "lykia-session": issueToken(ctx, OWNER).token } })).json()) as { messages: { role: string }[] };
     assert.deepEqual(thread.messages.map((m) => m.role), ["user", "assistant"]);
+  });
+
+  it("lays real work as steps (start and end, same id) and answers plain questions with a card", async () => {
+    setLlmClient(ctx, null);
+    const read = async (message: string) => {
+      const res = await fetch(`${served.url}/v1/agent/chat`, { method: "POST", headers: { "content-type": "application/json", accept: "text/event-stream" }, body: JSON.stringify({ message, owner: OWNER, environment: "mainnet" }) });
+      return [...(await res.text()).matchAll(/^event: (.+)\ndata: (.+)$/gmu)].map((m) => ({ event: m[1]!, data: JSON.parse(m[2]!) as Record<string, unknown> }));
+    };
+    const plan = await read("convert 50 USDC to EURC");
+    const steps = plan.filter((e) => e.event === "step").map((e) => parseChatStep(e.data));
+    assert.ok(steps.length >= 4 && steps.every((s) => s !== null), "every step validates");
+    const ids: string[] = [...new Set(steps.map((s) => s!.id))];
+    for (const id of ids) {
+      const states: string[] = steps.filter((s) => s!.id === id).map((s) => s!.state);
+      assert.equal(states[0], "running", `${id} starts running`);
+      assert.equal(states.length, 2, `${id} ends once`);
+    }
+    assert.deepEqual([...new Set(steps.map((s) => s!.kind))].slice(0, 3), ["intent", "route", "fence"]);
+    const text = String(plan.find((e) => e.event === "text")?.data.text ?? "");
+    assert.match(text, /\*\*Next:\*\*/u, "the reader ends with one next step");
+    for (const b of plan.filter((e) => e.event === "block")) assert.ok(parseAnswerBlock(b.data), "every card validates");
+
+    // The fake chain cannot serve a full wallet snapshot: the reader then says so calmly, as a failed step, and never invents a gauge.
+    const gas = await read("is my gas low?");
+    const wallet = gas.filter((e) => e.event === "step").map((e) => parseChatStep(e.data)).filter((s) => s?.kind === "wallet");
+    assert.equal(wallet.length, 2);
+    const card = gas.find((e) => e.event === "block")?.data;
+    const said = String(gas.find((e) => e.event === "text")?.data.text);
+    if (wallet[1]!.state === "fail") {
+      assert.equal(card, undefined);
+      assert.match(said, /^I couldn't read the wallet just now\./u);
+    } else {
+      assert.equal(card?.kind, "gas");
+      assert.ok(parseAnswerBlock(card));
+      assert.match(said, /^Gas is (low|fine): /u, "the verdict comes first");
+    }
   });
 
   it("lists an owner's threads and automations only for that owner", async () => {

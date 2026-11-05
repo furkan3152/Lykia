@@ -5,7 +5,9 @@ import type { RouteId, RouteKind } from "../app/routes/routeTable";
 import { useUiStore } from "../app/state/uiStore";
 import { Medallion, MeanderBand, Toggle } from "../mosaic";
 import { usePalette } from "./palette";
-import { AREAS, areaOf } from "./nav";
+import { AREAS, areaOf, navTileText } from "./nav";
+import { NavTileBody } from "./NavTile";
+import { useFoldBadge } from "../features/fold/badge";
 import { YouMenu } from "./YouMenu";
 
 const WalletButton = React.lazy(() => import("./WalletButton"));
@@ -15,6 +17,7 @@ export function Header({ kind, routeId }: { readonly kind: RouteKind; readonly r
   const setMode = useUiStore((s) => s.setMode);
   const openPalette = usePalette((s) => s.open);
   const current = areaOf(routeId)?.id;
+  const badge = useFoldBadge((s) => s.count);
   return (
     <header className="m-header">
       <div className="m-wrap--wide m-wrap m-header__in">
@@ -23,13 +26,14 @@ export function Header({ kind, routeId }: { readonly kind: RouteKind; readonly r
           LYKIA
         </Link>
         <nav className="m-nav" aria-label="Main">
-          {AREAS.map((area) => (
-            <Link key={area.id} to={area.href} title={area.blurb} aria-current={area.id === current ? "page" : undefined}>
-              <span className="m-nav__l">{area.label.toUpperCase()}</span>
-              <span className="m-nav__s m-nav__s--long">{area.sub}</span>
-              <span className="m-nav__s m-nav__s--short">{area.short}</span>
-            </Link>
-          ))}
+          {AREAS.map((area) => {
+            const text = navTileText(area, area.id === "fold" ? badge : 0);
+            return (
+              <Link key={area.id} to={area.href} className="m-navtile" data-area={area.id} title={text.title} aria-label={text.ariaLabel} aria-current={area.id === current ? "page" : undefined}>
+                <NavTileBody area={area} badge={area.id === "fold" ? badge : 0} />
+              </Link>
+            );
+          })}
         </nav>
         <div className="m-header__act">
           <button type="button" className="m-askbtn" onClick={() => openPalette()} aria-label="Search pages, run a command or ask">

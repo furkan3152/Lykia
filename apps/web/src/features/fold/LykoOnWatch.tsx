@@ -13,7 +13,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
 import { Composer } from "../ask/Composer";
+import { AssistantMessage, UserMessage } from "../ask/Answer";
+import { ChatActionsContext, type ChatActions } from "../ask/actions";
 import { useAsk } from "../ask/store";
+import { Markdown } from "../ask/Markdown";
+import { parseAnswerBlocks } from "@lykia/core/api/answer";
 import { apiGet, describeError } from "../../lib/api";
 import { Button, LykoFace, LykoTile, Tag, cx, toast } from "../../mosaic";
 import { useAnswer, useInstructionControl, useMarkSeen, type FoldOwner } from "./data";
@@ -155,8 +159,15 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
   };
 
   const short = owner.address ? `${owner.address.slice(0, 6)}…${owner.address.slice(-4)}` : "a sample flock";
+  const actions: ChatActions = {
+    environment: owner.environment,
+    // Cards here hand a sentence to Ask Lyko, with what Lyko on watch was looking at.
+    prefill: (text) => p.onOpenInAsk(text, "From Lyko on watch in the Fold."),
+    ask: (text) => chat(text),
+  };
 
   return (
+    <ChatActionsContext.Provider value={actions}>
     <aside className={cx("fd-lyko m-frame", p.variant === "tab" && "fd-lyko--tab")} aria-label="Lyko on watch">
       <header className="fd-lyko__head">
         <LykoFace mood={open.some((i) => i.severity === "act") ? "alert" : open.length > 0 ? "watching" : "resting"} scale={2} />
@@ -202,7 +213,7 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
 
         <div className="fd-msg">
           <LykoTile mood={open.length === 0 ? "resting" : "happy"} size={32} />
-          <div className="fd-bubble">{p.loading && !p.insights ? "Counting the flock…" : openingLine(insights, owner.sample)}</div>
+          <div className="fd-bubble">{p.loading && !p.insights ? "Counting the flock…" : <Markdown text={openingLine(insights, owner.sample)} environment={owner.environment} />}</div>
         </div>
 
         {open.length === 0 && !p.loading ? (
@@ -220,27 +231,23 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
         )}
 
         {past.length > 0 ? <span className="m-kick fd-past">{"EARLIER IN THIS THREAD"}</span> : null}
-        {past.map((m, i) => (
-          <div key={`p${i}`} className={cx("fd-msg", m.role === "user" && "fd-msg--me")}>
-            {m.role === "assistant" ? <LykoTile mood="happy" size={32} /> : null}
-            <div className="fd-bubble">{m.text}{m.origin === "fold" ? <small className="fd-bubble__more">{"in the Fold"}</small> : <small className="fd-bubble__more">{"in Ask Lyko"}</small>}</div>
-          </div>
-        ))}
+        {past.map((m, i) =>
+          m.role === "user" ? (
+            <UserMessage key={`p${i}`} text={m.text} compact />
+          ) : (
+            <div key={`p${i}`} className="fd-past-msg">
+              <AssistantMessage compact m={{ id: `p${i}`, role: "assistant", text: m.text, trail: [], proposals: m.proposals ?? [], blocks: parseAnswerBlocks(m.blocks), clarify: null, streaming: false }} />
+              <small className="fd-bubble__more">{m.origin === "fold" ? "in the Fold" : "in Ask Lyko"}</small>
+            </div>
+          ),
+        )}
         {answers.map((a) => (
           <div key={a.id} className="fd-turn">
             <div className="fd-msg fd-msg--me"><div className="fd-bubble">{a.question}</div></div>
             <div className="fd-msg"><LykoTile mood="happy" size={32} /><ArtifactBubble a={a.artifact} /></div>
           </div>
         ))}
-        {recent.map((m) => (
-          <div key={m.id} className={cx("fd-msg", m.role === "user" && "fd-msg--me")}>
-            {m.role === "assistant" ? <LykoTile mood={m.streaming ? "herding" : "happy"} size={32} /> : null}
-            <div className={cx("fd-bubble", m.streaming && "m-caret")}>
-              {m.text || (m.streaming ? "Lyko is counting the flock…" : "")}
-              {m.proposals.length > 0 ? <small className="fd-bubble__more">{`${m.proposals.length} plan${m.proposals.length === 1 ? "" : "s"} ready: open in Ask Lyko to sign`}</small> : null}
-            </div>
-          </div>
-        ))}
+        {recent.map((m) => (m.role === "user" ? <UserMessage key={m.id} text={m.text} compact /> : <AssistantMessage key={m.id} m={m} compact onChoose={chat} />))}
         {answer.isPending ? <div className="fd-msg"><LykoTile mood="herding" size={32} /><div className="fd-bubble m-caret">{"Reading your records…"}</div></div> : null}
       </div>
 
@@ -258,5 +265,6 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
         ) : null}
       </div>
     </aside>
+    </ChatActionsContext.Provider>
   );
 }

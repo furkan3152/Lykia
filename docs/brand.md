@@ -24,10 +24,16 @@ outside it. That one sentence covers both Scent and the Fence.
 ## Vocabulary
 
 The product language is English. The interface leads with metaphors from the
-shepherd's valley and always puts a short plain subtitle beside them, so a
-newcomer reads the product and a returning user reads the story ("Flock ·
-portfolio"). The navigation lives in `apps/web/src/shell/nav.ts` (see
+shepherd's valley and pairs each with a short plain word, so a newcomer reads
+the product and a returning user reads the story ("Flock · portfolio"). Page
+titles, tabs and menus show the pair. The three top-level tiles (Ask Lyko,
+The Fold, The Mint) show only the name and a small hand-drawn pixel icon (Lyko's
+head, a sheepfold, a struck coin); their plain word rides in the tooltip and the
+accessible name. The navigation lives in `apps/web/src/shell/nav.ts` (see
 [product.md](product.md#information-architecture)).
+
+Lyko's voice in chat: the verdict first, in one short, confident line; then at
+most three facts with numbers; then one next step. No greeting, no filler.
 
 | Word | Meaning | In the UI |
 |---|---|---|

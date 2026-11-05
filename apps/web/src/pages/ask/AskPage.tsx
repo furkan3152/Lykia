@@ -13,17 +13,19 @@ import { Link } from "../../app/routes/Link";
 import { useUiStore } from "../../app/state/uiStore";
 import { useRouteParam } from "../../app/routes/useRoute";
 import { Composer } from "../../features/ask/Composer";
-import { memoryBadges } from "../../features/ask/memoryRefs";
-import { clarifyAction, clarifyLabel } from "../../features/ask/clarify";
-import { failureReasons, latestProposal, type ChatMessage } from "../../features/ask/model";
+import { clarifyAction } from "../../features/ask/clarify";
+import { latestProposal } from "../../features/ask/model";
+import { AssistantMessage, UserMessage } from "../../features/ask/Answer";
+import { ChatActionsContext, type ChatActions } from "../../features/ask/actions";
+import { parseAnswerBlocks } from "@lykia/core/api/answer";
+import type { AgentProposal } from "@lykia/core/api/agents";
 import { useAsk } from "../../features/ask/store";
 import { RouteArtifact } from "../../features/route/RouteArtifact";
-import { ProgramCard } from "../../features/ask/ProgramCard";
 import { apiGet } from "../../lib/api";
 import { useEnvironment } from "../../lib/environment";
 import { useLykiaStore } from "../../lib/lykiaStore";
 import { useLamp } from "../../lib/pulseStore";
-import { Button, LykoFace, LykoTile, MosaicCanvas, Seal, Tag, cx } from "../../mosaic";
+import { Button, LykoFace, MosaicCanvas, Tag, cx } from "../../mosaic";
 import { strip, STRIP_H, STRIP_W } from "../../mosaic/scenes";
 import { handleLine } from "../../shell/palette";
 import { useSession } from "../../lib/session";
@@ -40,69 +42,6 @@ const QUICK = [
   { en: "Set a rule", q: "Every Friday at 17:00, pay ", kick: "HERDING · ROUNDS · ORDERS", hint: "Schedules, price triggers, alerts" },
   { en: "New agent", q: "Create a payroll agent with a 500 USDC daily budget", kick: "PACK · FENCE · TAG", hint: "A budget carved from yours" },
 ] as const;
-
-function Bubble({ m, first }: { m: ChatMessage; first: boolean }) {
-  if (m.role === "user")
-    return (
-      <div className="m-msg m-msg--user">
-        <div className={cx("m-bubble", first && "vt-first")}>{m.text}</div>
-      </div>
-    );
-  return (
-    <div className="m-msg">
-      <div className="m-msg__who">
-        <LykoTile mood={m.error ? "growling" : m.streaming ? "herding" : m.proposals.some((p) => p.decision === "deny") ? "alert" : "happy"} />
-      </div>
-      <div style={{ flex: 1, minWidth: 0, display: "grid", gap: 8 }}>
-        {m.trail.length > 0 ? (
-          <div className="m-trail">
-            {m.trail.map((t, i) => (
-              <span key={i} data-ok={t.ok}>
-                {t.ok ? "✓" : "✕"} {t.label}
-              </span>
-            ))}
-          </div>
-        ) : null}
-        {m.text || m.streaming ? <div className={cx("m-bubble", m.streaming && "m-caret")}>{m.text.replace(/;?\s*details above\.?$/iu, ".") || ("Lyko is counting the flock…")}</div> : null}
-        {!m.streaming && failureReasons(m).length > 0 ? (
-          <div className="m-note m-note--bad" role="status">
-            <b>Why:</b>
-            <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
-              {failureReasons(m).map((r) => (
-                <li key={r}>{r}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-        {m.error ? <p className="m-note m-note--bad">{m.error}</p> : null}
-        {m.program ? <ProgramCard view={m.program} /> : null}
-        {(m.drafts ?? []).map((d, i) => (
-          <div key={`d${i}`} className="m-note" role="status">
-            <b>{d.kind === "alert" ? "Alert" : "Automation"}{d.saved ? " saved" : " drafted, not saved"}:</b> {d.label}
-            {d.saved ? <span className="m-small"> {"I added this to your Fold."}</span> : null}
-            <div className="flex gap-2 flex-wrap" style={{ marginTop: 6 }}>
-              {d.saved ? <Link to={`/app/fold/herding?show=${d.kind === "alert" ? "alerts" : "rounds"}`} className="m-btn m-btn--sm">{"SEE IT IN HERDING"}</Link> : <Link to={d.href} className="m-btn m-btn--sm">{"REVIEW AND SAVE"}</Link>}
-            </div>
-          </div>
-        ))}
-        {m.proposals.map((p, i) => (
-          <div key={i} className="m-frame m-frame--thin" style={{ padding: 12, animation: "m-msg-in 400ms both" }}>
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <b style={{ fontFamily: "Pixelify Sans", fontSize: 18 }}>{p.title}</b>
-              <Seal decision={p.decision} />
-            </div>
-            {memoryBadges(p).length > 0 ? <div className="flex gap-1 flex-wrap" style={{ marginTop: 6 }}>{memoryBadges(p).map((b) => <Tag key={b} tone="sea">FROM MEMORY · {b}</Tag>)}</div> : null}
-            <ol style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 14 }}>
-              {p.steps.map((s) => (
-                <li key={s}>{s}</li>
-              ))}
-            </ol>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export default function AskPage() {
   const environment = useEnvironment();
@@ -167,9 +106,19 @@ export default function AskPage() {
     else el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [convo.messages]);
 
-  const proposal = latestProposal(convo);
+  const [picked, setPicked] = useState<AgentProposal | null>(null);
+  const proposal = picked ?? latestProposal(convo);
   const artifactKey = proposal ? `${proposal.intentId ?? proposal.title}` : null;
-  const showArtifact = Boolean(proposal && artifactKey !== artifactClosed);
+  // Where the route would cover the conversation (narrow screens), it opens only when asked ("Open the route").
+  const [phone, setPhone] = useState(() => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(max-width: 1100px)").matches);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return undefined;
+    const mq = window.matchMedia("(max-width: 1100px)");
+    const on = () => setPhone(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  const showArtifact = Boolean(proposal && artifactKey !== artifactClosed && (!phone || picked));
   const setMode = useUiStore((st) => st.setMode);
   const choose = (option: string) => {
     const action = clarifyAction(option);
@@ -188,10 +137,22 @@ export default function AskPage() {
     useAsk.getState().takePending();
     void send(text, { ...ctx, origin: "ask" });
   };
+  const lastUser = [...convo.messages].reverse().find((m) => m.role === "user")?.text ?? null;
+  const actions: ChatActions = {
+    environment,
+    prefill: (text) => setPrefill(text),
+    ask,
+    retry: lastUser && status !== "streaming" ? () => ask(lastUser) : undefined,
+    openRoute: (p) => {
+      setPicked(p);
+      setArtifactClosed(null);
+    },
+  };
   const empty = convo.messages.length === 0 && !serverThread.data;
   const firstUser = convo.messages.findIndex((m) => m.role === "user");
 
   return (
+    <ChatActionsContext.Provider value={actions}>
     <div className={cx("m-chat", showArtifact && "m-chat--artifact")}>
       <aside className="m-rail" data-open={railOpen}>
         <div className="m-rail__head">
@@ -212,7 +173,7 @@ export default function AskPage() {
         <div style={{ padding: 14, borderTop: "2px dashed var(--grout)", display: "grid", gap: 6 }}>
           <span className="m-kick">{"FENCE"} · {fence.label?.toUpperCase() ?? "CUSTOM"} · {(fence.mode ?? "live").toUpperCase()}</span>
           <span className="m-kick">{environment === "mainnet" ? "ARC MAINNET 5042" : "ARC TESTNET 5042002"}</span>
-          {convo.mode ? <Tag tone={convo.mode === "llm" ? "ok" : "ghost"}>{convo.mode === "llm" ? "LYKO + CLAUDE" : "READER MODE · NO AI KEY"}</Tag> : null}
+          {convo.mode ? <Tag tone={convo.mode === "llm" ? "ok" : "ghost"}>{convo.mode === "llm" ? "LYKO · AI ON" : "READER MODE · NO AI KEY"}</Tag> : null}
         </div>
       </aside>
 
@@ -249,25 +210,15 @@ export default function AskPage() {
               </div>
             ) : null}
             {serverThread.data && convo.messages.length === 0
-              ? serverThread.data.messages.map((m, i) => (
-                  <Bubble key={i} first={false} m={{ id: String(i), role: m.role, text: m.text, trail: [], proposals: m.proposals ?? [], clarify: null, streaming: false }} />
-                ))
+              ? serverThread.data.messages.map((m, i) =>
+                  m.role === "user" ? (
+                    <UserMessage key={i} text={m.text} />
+                  ) : (
+                    <AssistantMessage key={i} m={{ id: String(i), role: m.role, text: m.text, trail: [], proposals: m.proposals ?? [], blocks: parseAnswerBlocks(m.blocks), clarify: null, streaming: false }} />
+                  ),
+                )
               : null}
-            {convo.messages.map((m, i) => (
-              <div key={m.id}>
-                <Bubble m={m} first={i === firstUser} />
-                {m.clarify ? (
-                  <div className="m-chips" style={{ justifyContent: "flex-start", marginLeft: 52 }}>
-                    <span className="m-small m-muted" style={{ width: "100%" }}>{m.clarify.question}</span>
-                    {m.clarify.options.map((o) => (
-                      <button key={o} type="button" className="m-chip" onClick={() => choose(o)}>
-                        {clarifyLabel(o)}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ))}
+            {convo.messages.map((m, i) => (m.role === "user" ? <UserMessage key={m.id} text={m.text} morph={i === firstUser} /> : <AssistantMessage key={m.id} m={m} onChoose={choose} />))}
           </div>
         </div>
         <div className="m-convo__dock">
@@ -280,9 +231,10 @@ export default function AskPage() {
 
       {showArtifact && proposal ? (
         <aside className="m-artifact" aria-label="Route">
-          <RouteArtifact proposal={proposal} intentId={proposal.intentId} onClose={() => setArtifactClosed(artifactKey)} />
+          <RouteArtifact proposal={proposal} intentId={proposal.intentId} onClose={() => { setArtifactClosed(artifactKey); setPicked(null); }} />
         </aside>
       ) : null}
     </div>
+    </ChatActionsContext.Provider>
   );
 }

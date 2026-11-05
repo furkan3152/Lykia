@@ -123,7 +123,11 @@ export const EXISTING_ROUTES: readonly DocumentedRoute[] = [
       environment: z.enum(["mainnet", "testnet"]).optional(),
       threadId: z.string().max(120).optional(),
       fence: z.unknown().optional(),
+      origin: z.enum(["ask", "fold"]).optional(),
+      context: z.string().max(1_000).optional(),
     }),
+    description:
+      "Streams Server-Sent Events: thread, notice, reading, task, tool, step (one step of Lyko at work: sent with state running when it starts and again with the same id, ok, warn or fail, the result and the measured ms when it ends), block (a typed answer card built from server data: gas, fence, balance, rate, herded or settled; the text stays the fallback), thinking-summary, proposal, clarify, draft, program, text, error and done. Send Accept: application/json to get the same events collected in one JSON document.",
   }),
   r("get", "/agent/threads", "Agent", "Conversation threads (the owner's session or a secret key with the agents scope)", "session", { query: z.object({ owner: address }) }),
   r("get", "/agent/threads/:id", "Agent", "One thread", "key"),

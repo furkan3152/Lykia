@@ -62,7 +62,9 @@ Other problems:
 
 Three primary areas. If the agent can do something, there is no separate
 manual page for it: people come to Lykia so they do not have to do it by
-hand. Each label is a metaphor with a plain subtitle. Everything lives in
+hand. Each label is a metaphor with a plain subtitle; the top menu draws the
+three areas as Mosaic tiles with a pixel icon and the name, and keeps the
+subtitle in the tooltip and the accessible name. Everything lives in
 `apps/web/src/shell/nav.ts` and is tested in
 `apps/web/src/shell/__tests__/nav.test.ts`: exactly three areas, every route
 placed exactly once, no manual page for agent work in any menu, and every old

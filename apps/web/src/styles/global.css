@@ -2,6 +2,8 @@
 @import "./mosaic.css";
 @import "./fold.css";
 @import "./city-desk.css";
+@import "./nav.css";
+@import "./chat.css";
 
 @tailwind base;
 @tailwind components;

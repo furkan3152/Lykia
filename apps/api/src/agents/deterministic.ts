@@ -7,9 +7,12 @@
  * one route under the owner's Fence. Same events as the model path, so the
  * deck renders both the same way.
  */
-import { LYKO_LINES, type Address, type ArcEnvironment, type Fence, type PackAgent, type PlanAction } from "@lykia/core";
+import type { Address, ArcEnvironment, Fence, IntentGraph, PackAgent, PlanAction } from "@lykia/core";
+import { gasShortfall } from "@lykia/core/api/answer";
 import type { AgentProposal } from "@lykia/core/api/agents";
 import type { AppContext } from "../context.js";
+import { services } from "../services.js";
+import { balanceCard, emitBlock, fenceCard, gasCard, infoQuestion, quotedRate, rateCard, stepsFor, type InfoQuestion } from "./cards.js";
 import { readWithMemory } from "../personal/reader.js";
 import { isGoalLanguage } from "../compiler/lexicon.js";
 import { compileIntent } from "../compiler/service.js";
@@ -61,48 +64,122 @@ export interface DeterministicInput {
 async function compiledTurn(input: DeterministicInput): Promise<TurnResult> {
   const { emit } = input;
   const owner = input.owner as Address;
+  const steps = stepsFor(emit);
   emit("task", { agent: "Lyko", role: "orchestrator", task: "compile the goal" });
+  const compiling = steps.start("compile", "Compiling your goal");
   const result = await compileIntent(input.ctx, { text: input.message, owner, environment: input.environment, fence: input.fence, search: false, reader: "deterministic" });
   const verified = input.ownerVerified === true ? (input.actor ?? { developer: owner.toLowerCase(), via: "session" as const }) : null;
   const delivered = await deliver({ ctx: input.ctx, environment: input.environment, owner, fence: input.fence, verified, agent: { name: "Lyko", role: "orchestrator" }, proposedByAgent: false }, result);
+  const v = delivered.view;
+  compiling.end(result.status === "refused" ? "fail" : result.questions.length > 0 ? "warn" : "ok", result.status === "refused" ? "Refused" : `${v.now ? `${v.now.steps.length} now` : "Nothing now"} · ${v.scheduled.length} for later`, result.why.summary);
+  if (v.now) {
+    const gate = steps.start("fence", "Checking your Fence");
+    gate.end(v.now.decision === "deny" ? "fail" : v.now.decision === "confirm" ? "warn" : "ok", v.now.decision === "deny" ? "Refused" : v.now.decision === "confirm" ? "Needs your confirmation" : v.now.decision === "unknown" ? "Checked when it runs" : "Allowed", v.now.reasons.slice(0, 2).join(" "));
+  }
   emit("tool", { agent: "Lyko", name: "compile_goal", ok: result.status !== "refused", summary: result.why.summary });
   for (const d of delivered.drafts) emit("draft", d);
   emit("program", delivered.view);
   if (delivered.proposal) emit("proposal", delivered.proposal);
-  const v = delivered.view;
   if (result.questions.length > 0) emit("clarify", { question: result.questions[0]!.text, options: [...(result.questions[0]!.choices ?? [])] });
   const lines: string[] = [];
-  if (result.status === "refused") lines.push(`I won't do that: ${v.refusals.join(" ")}`);
-  else {
-    if (v.now) lines.push(`Now: ${v.now.steps.map((st) => st.summary).join("; ")}.`);
-    if (v.scheduled.length > 0) lines.push(`Later: ${v.scheduled.map((sch) => sch.summary).join("; ")}.`);
-    if (v.assumptions.length > 0) lines.push(`I assumed ${v.assumptions.length} thing${v.assumptions.length === 1 ? "" : "s"} you can change below.`);
-    if (v.refusals.length > 0) lines.push(`Left out: ${v.refusals.join(" ")}`);
-    if (delivered.planError) lines.push(`The plan for now could not be built: ${delivered.planError}`);
-    if (result.questions.length > 0) lines.push(result.questions[0]!.text);
+  if (result.status === "refused") {
+    lines.push("I won't do that.", "", ...v.refusals.map((r) => `- ${r}`), "", "**Next:** ask for something your Fence allows.");
+  } else {
+    lines.push(result.questions.length > 0 ? "One question before this is ready." : v.now ? "Your plan is ready to review." : "Your plan is drafted for later.", "");
+    if (v.now) lines.push(`- **Now:** ${v.now.steps.map((st) => st.summary).join("; ")}`);
+    if (v.scheduled.length > 0) lines.push(`- **Later:** ${v.scheduled.map((sch) => sch.summary).join("; ")}`);
+    if (v.assumptions.length > 0) lines.push(`- **Assumed:** ${v.assumptions.length} thing${v.assumptions.length === 1 ? "" : "s"} you can change below`);
+    if (v.refusals.length > 0) lines.push(`- **Left out:** ${v.refusals.join(" ")}`);
+    if (delivered.planError) lines.push(`- **Not built now:** ${delivered.planError}`);
+    lines.push("", result.questions.length > 0 ? `**Next:** ${result.questions[0]!.text}` : v.now ? "**Next:** review the route and sign it in your wallet." : "**Next:** save the drafts below.");
   }
-  const text = lines.join(" ") || result.why.summary;
+  const text = lines.join("\n").trim() || result.why.summary;
   emit("text", { text });
   return { text, proposals: delivered.proposal ? [delivered.proposal] : [], stopReason: result.questions.length > 0 ? "clarify" : "end_turn", delegations: 0, modelCalls: 0 };
 }
 
+const SAMPLE = "0x000000000000000000000000000000000000dead";
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+/** A token amount for a sentence: two decimals from 1 up, up to six below (gas is often a few cents). */
+const amt = (v: string) => (Number(v) >= 1 ? Number(v).toLocaleString("en-US", { maximumFractionDigits: 2 }) : String(Number(Number(v).toFixed(6))));
+const usd = (v: string) => `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** Questions about gas, balances or the EURC rate: read the data, answer with a verdict and a card. */
+async function infoTurn(input: DeterministicInput, question: InfoQuestion): Promise<TurnResult> {
+  const { emit } = input;
+  const steps = stepsFor(emit);
+  const done = (text: string) => {
+    emit("text", { text });
+    return { text, proposals: [], stopReason: "end_turn" as const, delegations: 0, modelCalls: 0 };
+  };
+  steps.start("intent", "Reading your question").end("ok", question.kind === "gas" ? "A question about gas" : question.kind === "balance" ? "A question about your holdings" : `The ${question.base}/${question.quote} rate`);
+  if (question.kind === "rate") {
+    const pricing = steps.start("price", "Checking the reference rate");
+    const card = await rateCard(input.ctx, question.base, question.quote, input.fence);
+    if (!card || card.kind !== "rate") {
+      pricing.end("fail", "No fresh reference price");
+      return done(`I can't quote ${question.base}/${question.quote} right now: the reference price is stale or unreadable.\n\n**Next:** try again in a minute.`);
+    }
+    pricing.end("ok", `1 ${card.base} = ${Number(card.rate).toFixed(4)} ${card.quote}`, card.source ?? undefined);
+    emitBlock(emit, card);
+    const band = card.bandBps !== null ? `\n- **Your band:** a quote may sit at most ${(card.bandBps / 100).toFixed(2)}% from it` : "";
+    return done(`1 ${card.base} buys ${Number(card.rate).toFixed(4)} ${card.quote} at the reference rate.\n\n- **Source:** ${(card.source ?? "oracle reference").replace(/chainlink:/giu, "Chainlink ")}${band}\n\n**Next:** say “convert 200 USDC to EURC” for a routed quote.`);
+  }
+  if (!input.owner) return done("Connect a wallet so I can read it.");
+  const sample = input.owner.toLowerCase() === SAMPLE;
+  const reading = steps.start("wallet", "Reading the wallet");
+  const snap = await services(input.ctx).flock.snapshot(input.environment, input.owner).catch(() => null);
+  if (!snap) {
+    reading.end("fail", "The wallet could not be read");
+    return done("I couldn't read the wallet just now.\n\n**Next:** try again in a moment.");
+  }
+  if (question.kind === "balance") {
+    const card = balanceCard(snap);
+    reading.end("ok", `${plural(snap.holdings.length, "holding")}${snap.totalUsd !== null ? ` · ${usd(snap.totalUsd)}` : ""}`);
+    emitBlock(emit, card);
+    const top = card && card.kind === "balance" ? card.holdings.slice(0, 3) : [];
+    if (top.length === 0) return done(`${sample ? "The sample wallet" : "Your wallet"} is empty on Arc ${input.environment}.\n\n**Next:** fund it with USDC; Arc pays gas in USDC too.`);
+    const lead = snap.totalUsd !== null ? `${sample ? "The sample wallet holds" : "You hold"} ${usd(snap.totalUsd)} on Arc ${input.environment}.` : `${sample ? "The sample wallet holds" : "You hold"} ${plural(snap.holdings.length, "holding")}; some are unpriced.`;
+    return done(`${lead}\n\n${top.map((h) => `- **${h.symbol}:** ${amt(h.amount)}${h.usd !== null ? ` (${usd(h.usd)})` : ""} in ${h.where}`).join("\n")}\n\n**Next:** say “put my idle USDC to work” to earn on what sits still.`);
+  }
+  const card = await gasCard(input.ctx, input.environment, input.owner, snap, sample);
+  if (!card || card.kind !== "gas") {
+    reading.end("fail", "The gas balance could not be read");
+    return done("I couldn't read the gas balance just now.\n\n**Next:** try again in a moment.");
+  }
+  const short = gasShortfall(card);
+  const low = short !== "0";
+  reading.end(low ? "warn" : "ok", `${amt(card.balance)} USDC for gas`, `Your floor is ${card.floor} USDC.`);
+  emitBlock(emit, card);
+  if (low) return done(`Gas is low: ${amt(card.balance)} USDC, under your ${card.floor} USDC floor.\n\n- **Short by:** ${amt(short)} USDC\n- **Why it matters:** Arc pays gas in USDC, and below the floor a plan can stop halfway.\n\n**Next:** send at least ${amt(short)} USDC to ${sample ? "the wallet" : "this wallet"}.`);
+  return done(`Gas is fine: ${amt(card.balance)} USDC, above your ${card.floor} USDC floor.\n\n- **Why it matters:** Arc pays gas in USDC, so this covers your next plans.\n\n**Next:** nothing to do.`);
+}
+
 export async function runDeterministicTurn(input: DeterministicInput): Promise<TurnResult> {
   const { emit } = input;
+  const steps = stepsFor(emit);
+  const question = infoQuestion(input.message);
+  if (question) return infoTurn(input, question);
   if (input.owner && isGoalLanguage(input.message)) return compiledTurn(input);
+  const reading = steps.start("intent", "Reading your request");
   const parsed = await readWithMemory(input.ctx, input.owner, input.message);
   const done = (text: string, proposals: AgentProposal[], stopReason: TurnResult["stopReason"] = "end_turn") => {
     for (const p of proposals) emit("proposal", p);
     emit("text", { text });
     return { text, proposals, stopReason, delegations: 0, modelCalls: 0 };
   };
+  const choices = (parsed.clarifyChoices?.[0]?.choices ?? []).slice(0, 4).map(String);
   if (parsed.command || parsed.easterEgg || parsed.actions.length === 0) {
-    if (parsed.clarify.length > 0) emit("clarify", { question: parsed.clarify[0], options: [] });
+    reading.end(parsed.clarify.length > 0 ? "warn" : "ok", parsed.command ? "A sheepdog command" : parsed.easterEgg ? "A hidden word" : parsed.clarify.length > 0 ? "Needs one detail" : "Nothing to plan");
+    if (parsed.clarify.length > 0) emit("clarify", { question: parsed.clarify[0], options: choices });
     return done(parsed.reply, [], parsed.clarify.length > 0 ? "clarify" : "end_turn");
   }
   if (parsed.clarify.length > 0) {
-    emit("clarify", { question: parsed.clarify[0], options: [] });
-    return done(parsed.reply, [], "clarify");
+    reading.end("warn", "Needs one detail", parsed.clarify[0]);
+    emit("clarify", { question: parsed.clarify[0], options: choices });
+    return done(parsed.clarify[0] ?? parsed.reply, [], "clarify");
   }
+  reading.end("ok", `${plural(parsed.actions.length, "action")}: ${parsed.actions.map((a) => a.verb).join(" + ")}`);
   if (!input.owner) return done("Connect a wallet so I can plan that.", []);
 
   // Group consecutive actions by specialist, keeping order.
@@ -117,23 +194,35 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
   const proposals: AgentProposal[] = [];
   const failures: string[] = [];
   const planned: { actions: readonly PlanAction[]; proposal: AgentProposal }[] = [];
+  const intents: IntentGraph[] = [];
   for (const group of groups) {
     const specialist = specialistFor(group.role, input.fence, input.pack);
     const part = group.actions.map((a) => a.verb).join(" + ");
     emit("task", { agent: specialist.name, role: specialist.role, task: part });
+    const routing = steps.start("route", "Searching routes", specialist.name);
     const outcome = await planActions(input.ctx, group.actions, input.message, { environment: input.environment, owner: input.owner, fence: specialist.fence, proposedByAgent: groups.length > 1 });
     if (outcome.kind !== "planned") {
       const why = outcome.kind === "refused" ? outcome.message : outcome.reply;
       failures.push(why);
+      routing.end("fail", "No route", why);
       emit("tool", { agent: specialist.name, name: "plan_intent", ok: false, summary: why });
       continue;
     }
     const { intent } = outcome.result;
-    emit("tool", { agent: specialist.name, name: "plan_intent", ok: true, summary: `${intent.verdict.decision}: ${intent.steps.map((s) => s.summary).join(" → ")}` });
+    intents.push(intent);
+    const venues = [...new Set(intent.steps.map((st) => st.route?.chosen.label ?? (st.kind === "transfer" ? "Direct transfer" : st.kind === "approve" ? "Exact approval" : st.venue)))].filter(Boolean);
+    const beat = intent.steps.reduce((n, st) => n + (st.route?.alternatives.length ?? 0), 0);
+    routing.end("ok", `${venues.slice(0, 2).join(", ") || "Direct"} · ${plural(intent.steps.length, "step")}`, [intent.steps.find((st) => st.route)?.route?.reason, beat > 0 ? `Beat ${plural(beat, "other option")}.` : null].filter(Boolean).join(" ") || intent.steps.map((st) => st.summary).join(" → "));
+    const funds = intent.warnings.find((w) => /spendable|fund the wallet|insufficient|not enough/iu.test(w));
+    if (funds) steps.start("wallet", "Checking the wallet", specialist.name).end("warn", "Short of funds", funds);
+    const decision = intent.verdict.decision;
+    const firstRule = intent.verdict.reasons.find((r) => r.decision === decision && decision !== "allow");
+    steps.start("fence", "Checking your Fence", specialist.name).end(decision === "deny" ? "fail" : decision === "confirm" ? "warn" : "ok", decision === "deny" ? `Refused by ${firstRule?.rule ?? "a rule"}` : decision === "confirm" ? "Needs your confirmation" : "Allowed", intent.verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message).slice(0, 3).join(" ") || undefined);
+    emit("tool", { agent: specialist.name, name: "plan_intent", ok: true, summary: `${intent.verdict.decision}: ${intent.steps.map((st) => st.summary).join(" → ")}` });
     const proposal: AgentProposal = {
       intentId: outcome.result.stored ? intent.id : null,
       title: part,
-      steps: intent.steps.map((s) => s.summary),
+      steps: intent.steps.map((st) => st.summary),
       decision: intent.verdict.decision,
       reasons: intent.verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message),
       warnings: intent.warnings,
@@ -147,18 +236,34 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
   const final = merged ? [merged] : proposals;
   const denied = final.find((p) => p.decision === "deny");
   if (final.length === 0) {
-    const reasons = [...new Set(failures)].join(" ");
+    const reasons = [...new Set(failures)];
     const testnetGap = input.environment === "testnet" && failures.some(practiceGap);
     if (testnetGap) {
       const options = [`${PREVIEW_ON_MAINNET}${input.message}`, "Deploy the practice venues from the owner console"];
       emit("clarify", { question: "Arc testnet has no venue for this route yet. Preview it on mainnet as a dry run?", options });
-      const text = `The practice venues aren't deployed on Arc testnet yet, so I can't route this here (${reasons}). Switch to mainnet to preview the route as a dry run, or deploy them from the owner console.`;
+      const text = `No route on testnet yet: the practice venues aren't deployed on Arc testnet, so I can't route this here.\n\n${reasons.map((r) => `- ${r}`).join("\n")}\n\n**Next:** preview it on mainnet as a dry run, or deploy the practice venues from the owner console.`;
       return done(text, [], "clarify");
     }
-    return done(reasons ? `I could not build that plan: ${reasons}` : "I could not build that plan.", []);
+    return done(reasons.length > 0 ? `I couldn't build that plan.\n\n${reasons.map((r) => `- ${r}`).join("\n")}\n\n**Next:** change the amount or the venue and ask again.` : "I couldn't build that plan.\n\n**Next:** say it another way, with an amount and a token.", []);
   }
+  // Cards: the Fence gate for a refusal or a confirmation, the rate tile for a conversion.
+  for (const intent of intents) emitBlock(emit, fenceCard(intent, input.fence));
+  const fx = intents.filter((i) => i.verdict.decision !== "deny").map(quotedRate).find((q) => q !== null);
+  if (fx) emitBlock(emit, await rateCard(input.ctx, fx.base, fx.quote, input.fence, fx.rate));
+  const dry = input.fence.mode === "dry-run" || input.owner.toLowerCase() === SAMPLE;
+  // The rules that refused (not the ones that would only ask for a confirmation), three at most; the Fence card lists them all.
+  const refusals = (p: AgentProposal): string[] => {
+    const hard = intents.flatMap((i) => i.verdict.reasons.filter((r) => r.decision === "deny").map((r) => r.message));
+    const list = [...new Set(hard.length > 0 ? hard : p.reasons)];
+    return list.length > 3 ? [...list.slice(0, 3), `${list.length - 3} more rule${list.length - 3 === 1 ? "" : "s"} below`] : list;
+  };
+  const stepsList = final.flatMap((p) => p.steps).map((st) => `- ${st}`).join("\n");
   const text = denied
-      ? `The Fence says no: ${denied.reasons.join(" ")}`
-      : `${final.map((p) => p.steps.join(" → ")).join(" | ")}. ${LYKO_LINES.herding}`;
+    ? `The Fence said no.\n\n${refusals(denied).map((r) => `- ${r}`).join("\n")}\n\n**Next:** ask for less, or change the rule in your Fence.`
+    : final.some((p) => p.decision === "confirm")
+      ? `Ready, with one confirmation.\n\n${stepsList}\n\n**Next:** review the route, confirm, and sign it in your wallet.`
+      : dry
+        ? `Dry run ready: ${plural(final.reduce((n, p) => n + p.steps.length, 0), "step")}, every one inside your Fence.\n\n${stepsList}\n\n**Next:** connect a wallet to plan this for real.`
+        : `Ready to sign: ${plural(final.reduce((n, p) => n + p.steps.length, 0), "step")}, every one inside your Fence.\n\n${stepsList}\n\n**Next:** review the route and sign it in your wallet.`;
   return done(text, final);
 }

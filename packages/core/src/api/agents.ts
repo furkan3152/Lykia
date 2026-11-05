@@ -5,6 +5,9 @@ import type { Fence } from "../fence.js";
 import type { ArcEnvironment } from "../networks.js";
 import type { PackAgent, PackBudget, PackRole, SessionLimits, SubFenceViolation } from "../pack.js";
 import type { UnsignedTransaction } from "../intent.js";
+import type { AnswerBlock, ChatStep } from "./answer.js";
+
+export type { AnswerBlock, AnswerBlockKind, ChatStep, ChatStepKind, ChatStepState } from "./answer.js";
 
 /** Server-Sent Events of POST /v1/agent/chat, in the order they can appear. */
 export type ChatEvent =
@@ -13,6 +16,10 @@ export type ChatEvent =
   | { readonly event: "thinking-summary"; readonly data: { readonly agent: string; readonly text: string } }
   | { readonly event: "task"; readonly data: { readonly agent: string; readonly role: PackRole; readonly task: string } }
   | { readonly event: "tool"; readonly data: { readonly agent: string; readonly name: string; readonly ok: boolean; readonly summary: string } }
+  /** One step of "Lyko at work": sent when it starts (state "running") and again, same id, when it ends. */
+  | { readonly event: "step"; readonly data: ChatStep }
+  /** A typed card for the answer (gas gauge, Fence gate, balance, rate, herded, settled); the text stays the fallback. */
+  | { readonly event: "block"; readonly data: AnswerBlock }
   | { readonly event: "proposal"; readonly data: AgentProposal }
   | { readonly event: "clarify"; readonly data: { readonly question: string; readonly options: readonly string[] } }
   | { readonly event: "draft"; readonly data: ChatDraftLink }
@@ -23,7 +30,7 @@ export type ChatEvent =
 
 export type ChatEventName = ChatEvent["event"];
 
-export const CHAT_EVENT_NAMES: readonly ChatEventName[] = ["thread", "reading", "thinking-summary", "task", "tool", "proposal", "clarify", "draft", "program", "text", "error", "done"];
+export const CHAT_EVENT_NAMES: readonly ChatEventName[] = ["thread", "reading", "thinking-summary", "task", "tool", "step", "block", "proposal", "clarify", "draft", "program", "text", "error", "done"];
 
 /**
  * A compiled program (lykia.program/v1) as the chat shows it: Now (the
@@ -77,6 +84,8 @@ export interface ChatDraftLink {
   readonly saved: boolean;
   readonly label: string;
   readonly href: string;
+  /** When it runs next, in words ("every Friday at 17:00 Europe/Istanbul"); automations only. */
+  readonly next?: string;
 }
 
 export interface AgentProposal {
@@ -109,6 +118,8 @@ export interface ThreadMessage {
   readonly text: string;
   readonly at: string;
   readonly proposals?: readonly AgentProposal[];
+  /** Cards that rode on an assistant answer (validated with parseAnswerBlock when read back). */
+  readonly blocks?: readonly AnswerBlock[];
   /** Where it was written: Ask Lyko (default) or Lyko on watch in the Fold. Both share one thread. */
   readonly origin?: "ask" | "fold";
 }

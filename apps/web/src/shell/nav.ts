@@ -2,8 +2,10 @@
  * Lykia's information architecture, in one place.
  *
  * Three primary areas. Each label is a metaphor from the shepherd's valley
- * with a plain subtitle beside it, so a newcomer reads the product and a
- * returning user reads the story:
+ * with a plain subtitle, so a newcomer reads the product and a returning user
+ * reads the story. The top menu shows the name with a pixel icon only (see
+ * NavTile.tsx); the subtitle is its tooltip, its accessible name and the page
+ * title:
  *
  *   ASK LYKO   your agent                                   every action happens here
  *   THE FOLD   everything you own and everything in motion  holdings, activity, instructions, agents, rules + Lyko on watch
@@ -125,8 +127,8 @@ export const ADMIN: readonly NavLink[] = [{ id: "letoon", href: "/letoon", label
  */
 export const REDIRECTED: readonly RouteId[] = ["move", "flock", "orders", "alerts", "automations", "activity", "whatif", "fence", "memory"];
 
-/** Routes deliberately outside every menu. `owner` is an alias of Letoon. */
-export const UNLISTED: readonly RouteId[] = ["landing", "pay", "kit", "lykaion", "owner", "appNotFound", "notFound"];
+/** Routes deliberately outside every menu. `owner` is an alias of Letoon; `chatKit` is the development-only chat gallery. */
+export const UNLISTED: readonly RouteId[] = ["landing", "pay", "kit", "chatKit", "lykaion", "owner", "appNotFound", "notFound"];
 
 /** The primary area a route belongs to, or null for account, secondary and unlisted pages. */
 export function areaOf(routeId: RouteId): NavArea | null {
@@ -141,4 +143,10 @@ export function tabsFor(routeId: RouteId): readonly NavSection[] | null {
 
 export function sectionIsCurrent(section: NavSection, routeId: RouteId): boolean {
   return section.id === routeId || Boolean(section.also?.includes(routeId));
+}
+
+/** What the tile says out loud and on hover; the visible text is the label alone. */
+export function navTileText(area: Pick<NavArea, "label" | "sub" | "tab">, badge = 0): { readonly visible: string; readonly visibleShort: string; readonly ariaLabel: string; readonly title: string } {
+  const news = badge > 0 ? `, ${badge} new from Lyko` : "";
+  return { visible: area.label, visibleShort: area.tab, ariaLabel: `${area.label}, ${area.sub}${news}`, title: `${area.label} · ${area.sub}` };
 }
