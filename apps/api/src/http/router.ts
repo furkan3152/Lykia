@@ -20,7 +20,7 @@ import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "./errors.js";
 import { errorHandler, sendError } from "./request.js";
 
-export const MAX_BODY_BYTES = 256 * 1024;
+const MAX_BODY_BYTES = 256 * 1024;
 
 export interface ApiModule {
   /** Short unique name (logs, diagnostics). */

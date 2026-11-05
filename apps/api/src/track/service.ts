@@ -4,7 +4,7 @@
  * orders with live status, and alert firings. It reads only what Lykia stored.
  * On-chain history beyond that is on the explorer.
  */
-import { deriveIntentStatus, networkFor, protocolsAt, tokenByAddress, type Address, type ArcEnvironment, type IntentGraph } from "@lykia/core";
+import { deriveIntentStatus, explorerTx, networkFor, protocolsAt, tokenByAddress, type Address, type ArcEnvironment, type IntentGraph } from "@lykia/core";
 import type { JsonValue } from "../store/types.js";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
@@ -93,7 +93,7 @@ function labelOf(environment: ArcEnvironment, address: string): string | null {
  */
 export async function trackTx(ctx: AppContext, environment: ArcEnvironment, hash: `0x${string}`): Promise<TrackedTx> {
   const client = ctx.chains.client(environment);
-  const explorer = `${networkFor(environment).explorerUrl}/tx/${hash}`;
+  const explorer = explorerTx(networkFor(environment), hash);
   const receipt = await Promise.resolve().then(() => client.getTransactionReceipt({ hash })).catch(() => null);
   if (!receipt) {
     const tx = await Promise.resolve().then(() => client.getTransaction({ hash })).catch(() => null);

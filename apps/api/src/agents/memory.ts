@@ -8,7 +8,7 @@ import { LykiaHttpError } from "../http/errors.js";
 import { typedCollection } from "../platform/typed.js";
 import { randomHex } from "../platform/crypto.js";
 
-export const MAX_THREAD_MESSAGES = 40;
+const MAX_THREAD_MESSAGES = 40;
 const THREAD_TTL_MS = 30 * 86_400_000;
 
 const threads = (ctx: AppContext) => typedCollection<ThreadView>(ctx, "agent_threads");

@@ -21,7 +21,7 @@ import { simulateRoute, type SimStep } from "../engine/simulate.js";
 import { abiFunction, contractsOf, manifestAbi, manifestParams, readAdapterValue } from "./runtime.js";
 
 /** The account dry simulations run from (funded with state overrides; never holds anything). */
-export const PROBE_ACCOUNT = "0x000000000000000000000000000000000000dEaD" as Address;
+const PROBE_ACCOUNT = "0x000000000000000000000000000000000000dEaD" as Address;
 
 export async function validateOnChain(ctx: AppContext, manifest: AdapterManifest, environment: ArcEnvironment): Promise<AdapterValidation> {
   const checks: AdapterCheck[] = [];

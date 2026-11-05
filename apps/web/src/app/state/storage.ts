@@ -15,14 +15,6 @@ function local(): Storage | null {
   }
 }
 
-function session(): Storage | null {
-  try {
-    return typeof window === "undefined" ? null : window.sessionStorage;
-  } catch {
-    return null;
-  }
-}
-
 export function readStorage(key: string): string | null {
   try {
     return local()?.getItem(key) ?? null;
@@ -42,22 +34,6 @@ export function writeStorage(key: string, value: string): void {
 export function removeStorage(key: string): void {
   try {
     local()?.removeItem(key);
-  } catch {
-    // See writeStorage.
-  }
-}
-
-export function readSessionStorage(key: string): string | null {
-  try {
-    return session()?.getItem(key) ?? null;
-  } catch {
-    return null;
-  }
-}
-
-export function writeSessionStorage(key: string, value: string): void {
-  try {
-    session()?.setItem(key, value);
   } catch {
     // See writeStorage.
   }

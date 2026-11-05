@@ -30,7 +30,7 @@ import { abiFunction, coerceArg, manifestAbi } from "./runtime.js";
 export type AbiInput = readonly string[] | readonly Record<string, unknown>[];
 
 /** Human-readable fragments or a JSON ABI, as viem's Abi. */
-export function toAbi(input: AbiInput): Abi {
+function toAbi(input: AbiInput): Abi {
   try {
     if (input.length > 0 && typeof input[0] === "string") return parseAbi(input as readonly string[]) as Abi;
     return input as unknown as Abi;
@@ -40,7 +40,7 @@ export function toAbi(input: AbiInput): Abi {
 }
 
 /** JSON-safe values: bigints become decimal strings. */
-export function jsonSafe(value: unknown): unknown {
+function jsonSafe(value: unknown): unknown {
   if (typeof value === "bigint") return value.toString();
   if (Array.isArray(value)) return value.map(jsonSafe);
   if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, jsonSafe(v)]));

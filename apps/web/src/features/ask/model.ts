@@ -2,8 +2,8 @@
  * The conversation model (pure): folds chat events into messages, so the
  * store, the tests and the replay of a stored thread share one reducer.
  */
-import type { AgentProposal, AnswerBlock, ChatDraftLink, ChatEvent, ChatProgramView, ChatStep } from "@lykia/core/api/agents";
-import { MAX_BLOCKS, parseAnswerBlock, parseChatStep } from "@lykia/core/api/answer";
+import type { AgentProposal, AnswerBlock, ChatDraftLink, ChatEvent, ChatProgramView, ChatStep, ThreadMessage } from "@lykia/core/api/agents";
+import { MAX_BLOCKS, parseAnswerBlock, parseAnswerBlocks, parseChatStep } from "@lykia/core/api/answer";
 
 export interface TrailItem {
   readonly label: string;
@@ -55,8 +55,13 @@ export function assistantDraft(now: number = Date.now()): ChatMessage {
   return { id: nid(), role: "assistant", text: "", trail: [], proposals: [], clarify: null, streaming: true, steps: [], blocks: [], notes: [], startedAt: now };
 }
 
+/** A message read back from a saved thread, shaped for the thread renderer (its cards are validated again). */
+export function storedMessage(m: ThreadMessage, id: string): ChatMessage {
+  return { id, role: m.role, text: m.text, trail: [], proposals: m.proposals ?? [], blocks: parseAnswerBlocks(m.blocks), clarify: null, streaming: false };
+}
+
 /** Upserts a step by id: a start adds it, its end replaces it in place. */
-export function upsertStep(steps: readonly ChatStep[], step: ChatStep): ChatStep[] {
+function upsertStep(steps: readonly ChatStep[], step: ChatStep): ChatStep[] {
   const i = steps.findIndex((x) => x.id === step.id);
   if (i < 0) return [...steps, step].slice(-40);
   const next = steps.slice();
@@ -65,7 +70,7 @@ export function upsertStep(steps: readonly ChatStep[], step: ChatStep): ChatStep
 }
 
 /** Adds a block unless the same card is already there; at most MAX_BLOCKS. */
-export function addBlock(blocks: readonly AnswerBlock[], block: AnswerBlock): AnswerBlock[] {
+function addBlock(blocks: readonly AnswerBlock[], block: AnswerBlock): AnswerBlock[] {
   const key = JSON.stringify(block);
   if (blocks.some((b) => JSON.stringify(b) === key) || blocks.length >= MAX_BLOCKS) return blocks.slice();
   return [...blocks, block];
@@ -125,7 +130,7 @@ export function programViewOk(v: ChatProgramView): boolean {
 }
 
 /** Only in-app links to the Alerts or Automations page are shown as buttons. */
-export function draftLinkOk(d: ChatDraftLink): boolean {
+function draftLinkOk(d: ChatDraftLink): boolean {
   if (!d || (d.kind !== "alert" && d.kind !== "automation") || typeof d.href !== "string" || typeof d.label !== "string") return false;
   const page = d.kind === "alert" ? "/app/alerts" : "/app/automations";
   return d.href === page || (d.href.startsWith(`${page}?draft=`) && /^[A-Za-z0-9_-]+$/u.test(d.href.slice(page.length + 7)));

@@ -63,7 +63,7 @@ const usdc6 = (units: bigint): string => {
 
 /* ------------------------------------------------------- CCTP V2 + forwarding */
 
-export const circleCctpProvider: ExecutionProvider = {
+const circleCctpProvider: ExecutionProvider = {
   id: "circle-cctp",
   label: "Circle CCTP V2 (Forwarding Service)",
   poweredBy: "Circle",
@@ -107,7 +107,7 @@ export const circleCctpProvider: ExecutionProvider = {
 
 /* --------------------------------------------------------------- Gateway */
 
-export const circleGatewayProvider: ExecutionProvider = {
+const circleGatewayProvider: ExecutionProvider = {
   id: "circle-gateway",
   label: "Circle Gateway (unified USDC balance)",
   poweredBy: "Circle",
@@ -148,7 +148,7 @@ export const circleGatewayProvider: ExecutionProvider = {
 
 /* --------------------------------------------------------------- StableFX */
 
-export const circleStablefxProvider: ExecutionProvider = {
+const circleStablefxProvider: ExecutionProvider = {
   id: "circle-stablefx",
   label: "Circle StableFX (USDC / EURC RFQ)",
   poweredBy: "Circle",
@@ -180,7 +180,7 @@ export const circleStablefxProvider: ExecutionProvider = {
 
 /* ------------------------------------------------- Circle wallets as signer */
 
-export const circleWalletsProvider: ExecutionProvider = {
+const circleWalletsProvider: ExecutionProvider = {
   id: "circle-wallets",
   label: "Circle developer-controlled wallet (signer)",
   poweredBy: "Circle",
@@ -204,7 +204,7 @@ export const circleWalletsProvider: ExecutionProvider = {
 /* --------------------------------------------------------- App Kit (client) */
 
 /** App Kit runs in the integrator's app (@circle-fin/app-kit); Circle publishes no server endpoint, so this never executes here. */
-export const circleAppKitProvider: ExecutionProvider = {
+const circleAppKitProvider: ExecutionProvider = {
   id: "circle-app-kit",
   label: "Circle App Kit (send / swap / bridge / earn)",
   poweredBy: "Circle",

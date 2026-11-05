@@ -144,7 +144,7 @@ forwarding fee.
 | Gateway transfer submit | Needs a funded Gateway balance and the owner's signature. The draft (maxFee from Gateway's own estimate) is proven below; nothing is submitted. |
 | StableFX trades | Need StableFX access; quote, trade, funding presign and fund are relayed (`/v1/circle/stablefx/*`), never signed. |
 | x402 purchases | Paid with an EIP-3009 authorization the buyer signs off chain; the facilitator settles it. There is no transaction from the buyer to simulate. |
-| Request and receive | The Move page's Receive tab shows a payment link and an EIP-681 QR code. Paying it is the send flow above. |
+| Request and receive | Invoices (`/pay/:id`) and city payment links show the link and a QR code; old `/app/move/receive` links open The Fold's Flock. Paying one is the send flow above. |
 | Standing orders | They plan through the same planner when they fire, so they are covered by the rows above. |
 | LykiaOrders | Deployed on 2026-11-02; keepers execute signed orders when the Chainlink condition holds. Not yet in the matrix above. |
 | Router split swaps | Both legs run atomically through LykiaRouter only when the owner has allowlisted the venues (`setVenue`). Until then the legs run as separate steps, as in the FX rows. |
@@ -157,17 +157,3 @@ Fence therefore cannot check caps for them and refuses moves of these tokens
 ("no USD price"), as the GBPA row shows. AUDD, AUDF, BRLA, CADD, EURAU,
 JPYC, KRW1, MXNB and QCAD are priced at their peg and work like USDC (see
 the MXNB row).
-
-## UI checks
-
-The Playwright dry-run checks are in `apps/web/e2e/move.e2e.mjs` (`npm run e2e:move -w @lykia/web`; 12/12 passed). They run
-at desktop and mobile widths with a mock wallet that answers
-`eth_requestAccounts` and `eth_chainId`, records every
-`eth_sendTransaction` and returns a fake hash. The API is mocked at the
-network layer. The checks cover:
-
-- Send: the token picker, the contact book, planning and the transaction
-  the wallet receives;
-- Receive: the link and the QR code;
-- the network switch banner;
-- the clear errors (beta cap, insufficient balance).

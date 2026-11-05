@@ -24,8 +24,7 @@ const ERC20_ABI = parseAbi(["function approve(address spender, uint256 amount) r
 /** Forwarding Service hook: magic "cctp-forward" in 24 bytes, version 0, no extra data (developers.circle.com/cctp/concepts/forwarding-service). */
 export const FORWARDING_HOOK_DATA: Hex = CCTP_FORWARDING_HOOK_DATA;
 
-/** CCTP V2 finality thresholds: 1000 = Fast Transfer, 2000 = Standard (finalized). */
-export const CCTP_FAST = 1000;
+/** CCTP V2 Standard Transfer finality threshold (finalized); 1000 would be Fast Transfer. */
 export const CCTP_STANDARD = 2000;
 
 export interface CctpFee {

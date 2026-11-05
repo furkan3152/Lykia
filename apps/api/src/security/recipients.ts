@@ -27,7 +27,7 @@ export async function rememberRecipient(ctx: AppContext, owner: string, address:
   await recipients(ctx).put(id, { address: address.toLowerCase(), count: (current?.count ?? 0) + 1, lastAt: new Date(ctx.clock.now()).toISOString() }, { ttlMs: 365 * 86_400_000 });
 }
 
-export async function knownAddresses(ctx: AppContext, owner: Address): Promise<Address[]> {
+async function knownAddresses(ctx: AppContext, owner: Address): Promise<Address[]> {
   const [contacts, past] = await Promise.all([memoryService(ctx).contacts(owner).catch(() => []), recipients(ctx).list({ prefix: `${owner.toLowerCase()}:`, limit: 1000 }).catch(() => [])]);
   return [...new Set([...contacts.map((c) => c.address.toLowerCase()), ...past.map((d) => d.value.address)])] as Address[];
 }

@@ -4,7 +4,7 @@
  * transaction hashes are chips with copy and an explorer link; amounts are
  * emphasised figures. The first block can be drawn as the verdict line.
  */
-import { explorerAddress, explorerTx, networkFor, type ArcEnvironment } from "@lykia/core";
+import { explorerAddress, explorerTx, networkFor, shortHash, type ArcEnvironment } from "@lykia/core";
 import { Fragment, useState } from "react";
 
 import { Link } from "../../app/routes/Link";
@@ -12,7 +12,6 @@ import { Mark } from "../../mosaic/PixelArt";
 import { cx } from "../../mosaic/cx";
 import { parseInline, parseMarkdown, type Block, type Inline } from "./richText";
 
-const short = (v: string) => `${v.slice(0, 6)}…${v.slice(-4)}`;
 
 /** An address or transaction hash: shortened, copyable, linked to the explorer. */
 export function HashChip({ value, kind, environment }: { readonly value: string; readonly kind: "address" | "tx"; readonly environment: ArcEnvironment }) {
@@ -32,7 +31,7 @@ export function HashChip({ value, kind, environment }: { readonly value: string;
     <span className="m-hash" data-kind={kind} data-copied={copied || undefined}>
       <span className="m-hash__k" aria-hidden="true">{kind === "tx" ? "TX" : "0x"}</span>
       <a className="m-hash__v" href={href} target="_blank" rel="noreferrer noopener" title={`${value} on the Arc explorer`}>
-        <span aria-hidden="true">{short(value)}</span>
+        <span aria-hidden="true">{shortHash(value, 4, 4)}</span>
         <span className="sr-only">{`${kind === "tx" ? "Transaction" : "Address"} ${value}, open on the Arc explorer`}</span>
         <Mark name="out" size={9} />
       </a>
@@ -44,7 +43,7 @@ export function HashChip({ value, kind, environment }: { readonly value: string;
 }
 
 /** A USDC / EURC / USD amount as an emphasised figure. */
-export function Figure({ v, unit }: { readonly v: string; readonly unit: string }) {
+function Figure({ v, unit }: { readonly v: string; readonly unit: string }) {
   return unit === "$" ? (
     <b className="m-fig">
       <span className="m-fig__cur">$</span>

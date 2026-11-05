@@ -31,7 +31,7 @@ export const ENTRY_POINTS: readonly Address[] = [
   "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789", // v0.6
 ];
 
-export const USER_OPERATION_EVENT = parseAbiItem(
+const USER_OPERATION_EVENT = parseAbiItem(
   "event UserOperationEvent(bytes32 indexed userOpHash, address indexed sender, address indexed paymaster, uint256 nonce, bool success, uint256 actualGasCost, uint256 actualGasUsed)",
 );
 
@@ -41,8 +41,8 @@ const HANDLE_OPS_ABIS = [
 ] as const;
 
 /** Blocks scanned per eth_getLogs call (Arc's public RPC caps a call at 10,000) and windows tried. */
-export const LOG_WINDOW = 9_999n;
-export const LOG_WINDOWS = 4;
+const LOG_WINDOW = 9_999n;
+const LOG_WINDOWS = 4;
 
 export interface ResolvedUserOp {
   readonly userOpHash: Hex;

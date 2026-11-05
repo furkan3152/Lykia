@@ -37,7 +37,7 @@ export const ERC4626_ABI = parseAbi([
 
 export const GATEWAY_API: Readonly<Record<ArcEnvironment, string>> = { mainnet: "https://gateway-api.circle.com", testnet: "https://gateway-api-testnet.circle.com" };
 /** Circle Gateway domains for the unified balance query (Arc is 26). */
-export const GATEWAY_DOMAINS: readonly number[] = [0, 1, 2, 3, 6, 7, 10, 26];
+const GATEWAY_DOMAINS: readonly number[] = [0, 1, 2, 3, 6, 7, 10, 26];
 
 export interface VaultInfo {
   readonly id: string;

@@ -59,8 +59,8 @@ export interface VenuePrefs {
 }
 
 /** Favourites win when within this many bps of the best output, or this many APY points of the best yield. */
-export const FAVORITE_SWAP_BPS = 5;
-export const FAVORITE_APY_POINTS = 0.5;
+const FAVORITE_SWAP_BPS = 5;
+const FAVORITE_APY_POINTS = 0.5;
 
 function allowed<T extends { option: { venue: string } }>(list: readonly T[], prefs?: VenuePrefs): T[] {
   const blocked = prefs?.blocked ?? [];
@@ -85,15 +85,15 @@ export interface BorrowCandidate extends Candidate {
 }
 
 /** Gas used when a quoter does not report one, plus the Memo/Multicall3From overhead. */
-export const GAS_DEFAULTS = { v3: 130_000n, path: 210_000n, v4: 180_000n, aerodrome: 260_000n, practice: 90_000n, overhead: 60_000n } as const;
-export const SPLIT_MIN_GAIN_BPS = 5;
+const GAS_DEFAULTS = { v3: 130_000n, path: 210_000n, v4: 180_000n, aerodrome: 260_000n, practice: 90_000n, overhead: 60_000n } as const;
+const SPLIT_MIN_GAIN_BPS = 5;
 const MIN_TVL_USD = 50_000;
 const Q192 = 2n ** 192n;
 
 /** Concentrated-liquidity pools outside Uniswap are listed in venues/aerodrome.ts (CL_POOLS). */
 
 /** Quotes and rate reads are reused for this long (route search plans many candidates over the same quotes); prepare always re-quotes. */
-export const QUOTE_CACHE_MS = 15_000;
+const QUOTE_CACHE_MS = 15_000;
 
 export class VenueRouter {
   private readonly cache = new Map<string, { at: number; value: Promise<unknown> }>();

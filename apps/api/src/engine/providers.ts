@@ -87,7 +87,7 @@ export function registerProvider(provider: ExecutionProvider): void {
 }
 
 /** Providers that can serve `kind` on `environment` right now. */
-export function providersFor(ctx: AppContext, kind: ProviderActionKind, environment: ArcEnvironment): ExecutionProvider[] {
+function providersFor(ctx: AppContext, kind: ProviderActionKind, environment: ArcEnvironment): ExecutionProvider[] {
   return EXTRA_PROVIDERS.filter((p) => p.kinds.includes(kind) && p.environments.includes(environment) && safeAvailable(p, ctx));
 }
 

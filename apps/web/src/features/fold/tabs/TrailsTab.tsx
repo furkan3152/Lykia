@@ -21,7 +21,7 @@ const KIND: Readonly<Record<FoldTrailEntry["kind"], { label: string; tone: "ok" 
   proposal: { label: "Draft", tone: "ghost" },
 };
 
-export function ExplainCard({ artifact, loading, sample }: { readonly artifact: FoldExplainArtifact | undefined; readonly loading: boolean; readonly sample?: boolean }) {
+function ExplainCard({ artifact, loading, sample }: { readonly artifact: FoldExplainArtifact | undefined; readonly loading: boolean; readonly sample?: boolean }) {
   return (
     <section className="fd-card m-frame m-frame--thin fd-explain" aria-labelledby={`explain-${artifact?.kind ?? "x"}`}>
       <header className="fd-card__head">

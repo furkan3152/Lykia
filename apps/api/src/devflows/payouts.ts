@@ -53,7 +53,7 @@ import { businessEvent } from "./events.js";
 import { listOwned, payouts, RECORD_TTL_MS } from "./stores.js";
 import { lockedOr } from "../platform/requestState.js";
 
-export const MAX_BATCH_ROWS = 12;
+const MAX_BATCH_ROWS = 12;
 
 export interface CreatePayoutInput {
   readonly payer: Address;

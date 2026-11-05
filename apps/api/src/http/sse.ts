@@ -15,13 +15,13 @@
 import type { Request, Response } from "express";
 import type { StreamSlots } from "./limits.js";
 
-export const SSE_RETRY_MS = 3_000;
-export const SSE_HEARTBEAT_MS = 15_000;
+const SSE_RETRY_MS = 3_000;
+const SSE_HEARTBEAT_MS = 15_000;
 import { RUNTIME, SERVERLESS_STREAM_MS } from "../runtime.js";
 
 /** 30 min on a server; under the function max duration when serverless (the client reconnects with Last-Event-ID). */
-export const SSE_MAX_DURATION_MS = RUNTIME === "serverless" ? SERVERLESS_STREAM_MS : 30 * 60_000;
-export const SSE_MAX_BUFFERED_BYTES = 1_000_000;
+const SSE_MAX_DURATION_MS = RUNTIME === "serverless" ? SERVERLESS_STREAM_MS : 30 * 60_000;
+const SSE_MAX_BUFFERED_BYTES = 1_000_000;
 
 export interface SseEvent {
   readonly event?: string;
@@ -37,7 +37,7 @@ function singleLine(value: string): string {
 }
 
 /** One SSE frame. Multi-line data is split into several `data:` lines, as the format requires. */
-export function formatSseEvent(event: SseEvent): string {
+function formatSseEvent(event: SseEvent): string {
   let out = "";
   if (event.id !== undefined) out += `id: ${singleLine(String(event.id))}\n`;
   if (event.event) out += `event: ${singleLine(event.event)}\n`;
@@ -48,7 +48,7 @@ export function formatSseEvent(event: SseEvent): string {
 }
 
 /** A comment line (ignored by EventSource; keeps proxies from timing the connection out). */
-export function formatSseComment(text: string): string {
+function formatSseComment(text: string): string {
   return `: ${singleLine(text)}\n\n`;
 }
 

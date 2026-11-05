@@ -15,7 +15,7 @@ import { DEFAULT_PER_DAY, DEFAULT_PER_MINUTE } from "../platform/keys.js";
 import type { JsonValue } from "../store/types.js";
 import { settlementMode } from "../x402/x402.js";
 
-export const DEFILLAMA_PROTOCOLS = "https://api.llama.fi/protocols";
+const DEFILLAMA_PROTOCOLS = "https://api.llama.fi/protocols";
 const TVL_TTL_MS = 30 * 60_000;
 const VOLUME_TTL_MS = 5 * 60_000;
 
@@ -30,13 +30,13 @@ const LLAMA_SLUGS: Readonly<Record<string, string>> = {
 };
 
 /** The official Arc ecosystem directory, which Lykia links to rather than competes with. */
-export const ARC_ECOSYSTEM_DIRECTORY = "https://www.arc.io/ecosystem";
+const ARC_ECOSYSTEM_DIRECTORY = "https://www.arc.io/ecosystem";
 
 /**
  * Registry id -> slug of the protocol's official entry on arc.io/ecosystem
  * (slugs read from the directory on 2026-11-01). Ids without an entry link nowhere.
  */
-export const ARC_ECOSYSTEM_SLUGS: Readonly<Record<string, string>> = {
+const ARC_ECOSYSTEM_SLUGS: Readonly<Record<string, string>> = {
   "aave-v4": "aave",
   "uniswap-v2": "uniswap",
   "uniswap-v3": "uniswap",
@@ -104,7 +104,7 @@ export interface EcosystemResponse {
   readonly at: string;
 }
 
-export const POSITIONING = "Built on Arc Network and Circle's products: every Arc protocol routable on Lykia, every agent inside its Fence.";
+const POSITIONING = "Built on Arc Network and Circle's products: every Arc protocol routable on Lykia, every agent inside its Fence.";
 
 interface TvlCache {
   readonly at: number;
@@ -114,7 +114,7 @@ interface TvlCache {
 let tvlMemo: TvlCache | null = null;
 
 /** DefiLlama TVL on Arc by slug. One fetch per half hour, kept in memory and the store. */
-export async function arcTvl(ctx: AppContext): Promise<TvlCache | null> {
+async function arcTvl(ctx: AppContext): Promise<TvlCache | null> {
   const now = ctx.clock.now();
   if (tvlMemo && now - tvlMemo.at < TVL_TTL_MS) return tvlMemo;
   const stored = await ctx.store.collection<JsonValue>("ecosystem_cache").get("tvl").catch(() => null);

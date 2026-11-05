@@ -37,8 +37,8 @@ import { typedCollection } from "./typed.js";
 import { hmacHex, purposeKey, randomHex, randomToken, safeEqual } from "./crypto.js";
 
 export const RETRY_DELAYS_MS = [30_000, 120_000, 600_000, 3_600_000, 21_600_000] as const;
-export const MAX_ENDPOINTS = 10;
-export const SIGNATURE_TOLERANCE_S = 300;
+const MAX_ENDPOINTS = 10;
+const SIGNATURE_TOLERANCE_S = 300;
 const DELIVERY_TTL_MS = 7 * 86_400_000;
 const EVENT_TTL_MS = 30 * 86_400_000;
 const MAX_ATTEMPT_LOG = 10;
@@ -512,7 +512,7 @@ export class WebhookService {
 }
 
 /** Example data for test events, by type. */
-export function sampleData(type: string): JsonValue {
+function sampleData(type: string): JsonValue {
   switch (type) {
     case "intent.planned":
       return { intentId: "out_test0000", decision: "allow", steps: 2, environment: "testnet" };

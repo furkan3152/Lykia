@@ -7,7 +7,7 @@
  * Hook for billing: resolve the caller's plan, then hand the result to the
  * planner as its FeePolicy (`{ bps, recipient, schedule }`).
  */
-import { feeBpsFor, type FeePolicy, type FeeSchedule, type StepKind } from "@lykia/core";
+import { feeBpsFor, type FeeSchedule, type StepKind } from "@lykia/core";
 import type { Config } from "../config.js";
 
 /** The schedule in force for a plan: the plan's overrides layered over the global schedule. */
@@ -15,11 +15,6 @@ export function scheduleForPlan(fee: Config["fee"], plan?: string | null): FeeSc
   const override = plan ? fee.plans?.[plan] : undefined;
   if (!override) return fee.schedule ?? null;
   return Object.freeze({ ...(fee.schedule ?? {}), ...override });
-}
-
-/** The FeePolicy a planner should use for a caller on `plan`. */
-export function feePolicyForPlan(fee: Config["fee"], plan?: string | null): FeePolicy {
-  return { bps: fee.bps, recipient: fee.recipient, schedule: scheduleForPlan(fee, plan) };
 }
 
 /** Basis points for one kind on one plan. */

@@ -13,7 +13,7 @@ import { invalidRequest, zodIssues } from "./errors.js";
 
 export type RequestPart = "query" | "body" | "params" | "headers";
 
-export function parseWith<S extends ZodTypeAny>(schema: S, value: unknown, part: RequestPart): z.output<S> {
+function parseWith<S extends ZodTypeAny>(schema: S, value: unknown, part: RequestPart): z.output<S> {
   const result = schema.safeParse(value);
   if (result.success) return result.data as z.output<S>;
   throw invalidRequest(`The request ${part} is invalid.`, { issues: zodIssues(result.error, part) });

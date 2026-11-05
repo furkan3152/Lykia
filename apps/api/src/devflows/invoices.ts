@@ -42,7 +42,7 @@ import { invoices, listOwned, RECORD_TTL_MS } from "./stores.js";
 import { lockedOr } from "../platform/requestState.js";
 
 const TRANSFER = parseAbiItem("event Transfer(address indexed from, address indexed to, uint256 value)");
-export const INVOICE_ID = /^inv_[a-z0-9]{12}$/u;
+const INVOICE_ID = /^inv_[a-z0-9]{12}$/u;
 
 export function payUrl(ctx: AppContext, id: string): string {
   const origin = ctx.config.webOrigins.find((o) => o.startsWith("https://")) ?? ctx.config.webOrigins[0] ?? "https://lykia.app";

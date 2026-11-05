@@ -45,13 +45,13 @@ export function lykiaRouterAddress(environment: ArcEnvironment): Address | null 
 }
 
 /** The venue contract a leg calls (what the router must allowlist). */
-export function legVenue(leg: Pick<RouterLeg, "adapter" | "router">, environment: ArcEnvironment): Address | null {
+function legVenue(leg: Pick<RouterLeg, "adapter" | "router">, environment: ArcEnvironment): Address | null {
   if (leg.adapter === "swap") return v3Contracts(environment)?.router ?? null;
   return (leg.router as Address | undefined) ?? metarouter(environment);
 }
 
 /** Venues Lykia would route through LykiaRouter, per environment. */
-export function routerVenues(environment: ArcEnvironment): { venue: string; label: string; address: Address }[] {
+function routerVenues(environment: ArcEnvironment): { venue: string; label: string; address: Address }[] {
   const out: { venue: string; label: string; address: Address }[] = [];
   const v3 = v3Contracts(environment)?.router;
   if (v3) out.push({ venue: "uniswap-v3", label: "Uniswap v3 SwapRouter02", address: v3 });
@@ -71,7 +71,7 @@ export interface RouterStatus {
 
 const cache = new Map<string, { at: number; allowed: boolean }>();
 
-export async function venueAllowed(chains: ArcChains, environment: ArcEnvironment, venue: Address): Promise<boolean | null> {
+async function venueAllowed(chains: ArcChains, environment: ArcEnvironment, venue: Address): Promise<boolean | null> {
   const router = lykiaRouterAddress(environment);
   if (!router) return null;
   const key = `${environment}:${venue.toLowerCase()}`;
@@ -152,8 +152,4 @@ export function routerRunCall(environment: ArcEnvironment, intentId: string, rec
     feeBps: 0,
   };
   return { to: router, data: encodeFunctionData({ abi: ROUTER_ABI, functionName: "run", args: [intent] }), label };
-}
-
-export function clearRouterCache(): void {
-  cache.clear();
 }

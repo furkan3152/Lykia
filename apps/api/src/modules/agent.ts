@@ -26,7 +26,6 @@ import { DEFAULT_FENCE, evaluateFence, PACK_ROLES, type Address, type ArcEnviron
 import type { Request, Response } from "express";
 import { encodeFunctionData, type Hex } from "viem";
 import { z } from "zod";
-import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 import type { ApiModule } from "../http/router.js";
 import { openSse } from "../http/sse.js";
@@ -45,37 +44,13 @@ import { buildSessionTx, lykiaAccountFor } from "../agents/onchain.js";
 import { runTurn, type Emit } from "../agents/orchestrator.js";
 import { perceive } from "../agents/perception.js";
 import { flags } from "../platform/admin.js";
-import { keyOf } from "../platform/gate.js";
 import { sessionOf } from "../platform/session.js";
-import { environmentOf, environmentSchema, fenceFrom } from "./common.js";
+import { authorizeOwner, environmentOf, environmentSchema, fenceFrom, ownerProof } from "./common.js";
 import { factsSchema } from "./fence.js";
 
 const ownerQuery = z.object({ owner: evmAddress, environment: environmentSchema.optional() });
 const idParams = z.object({ id: z.string().min(8).max(120) });
 const roleSchema = z.enum(PACK_ROLES as unknown as [PackRole, ...PackRole[]]);
-
-/** The owner a write may act for: the signed-in owner, or any owner for a secret key with the agents scope. */
-export async function authorizeOwner(ctx: AppContext, req: Request, owner: string): Promise<void> {
-  const session = await sessionOf(ctx, req);
-  if (session && session.address === owner.toLowerCase()) return;
-  const key = keyOf(req);
-  if (key && key.kind === "secret" && key.scopes.includes("agents")) return;
-  throw new LykiaHttpError(session ? "FORBIDDEN" : "UNAUTHORIZED", session ? 403 : 401, session ? "This session belongs to another address." : "Sign in as the owner (Lykia-Session) or use a secret API key with the agents scope.");
-}
-
-/**
- * Whether this request proved control of `owner`, and who acts for it: a SIWE
- * session for that address, or a secret key with the agents scope (the same
- * rule as authorizeOwner). A bare `owner` in a body proves nothing.
- */
-export async function ownerProof(ctx: AppContext, req: Request, owner: string | null): Promise<{ readonly developer: string; readonly via: "session" | "secret" } | null> {
-  if (!owner) return null;
-  const session = await sessionOf(ctx, req);
-  if (session && session.address.toLowerCase() === owner.toLowerCase()) return { developer: owner.toLowerCase(), via: "session" };
-  const key = keyOf(req);
-  if (key && key.kind === "secret" && key.scopes.includes("agents")) return { developer: key.owner.toLowerCase(), via: "secret" };
-  return null;
-}
 
 /** The address sample plans are made for when no wallet is connected; plans for it are always dry runs. */
 export const SAMPLE_OWNER = "0x000000000000000000000000000000000000dEaD";

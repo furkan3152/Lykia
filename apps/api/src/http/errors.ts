@@ -53,7 +53,7 @@ export const ERROR_STATUS = Object.freeze({
 export type KnownErrorCode = keyof typeof ERROR_STATUS;
 
 /** Largest serialized `details` object; larger details are dropped, never truncated mid-JSON. */
-export const MAX_ERROR_DETAILS_BYTES = 4_096;
+const MAX_ERROR_DETAILS_BYTES = 4_096;
 const CODE_PATTERN = /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/u;
 
 function isPlainJson(value: unknown, depth = 0): boolean {
@@ -68,7 +68,7 @@ function isPlainJson(value: unknown, depth = 0): boolean {
 }
 
 /** Plain JSON of at most 4 KB as a frozen deep copy, or null (left out of the response). */
-export function safeDetails(value: unknown): ErrorDetails | null {
+function safeDetails(value: unknown): ErrorDetails | null {
   if (typeof value !== "object" || value === null || Array.isArray(value) || !isPlainJson(value)) return null;
   const json = JSON.stringify(value);
   if (Buffer.byteLength(json, "utf8") > MAX_ERROR_DETAILS_BYTES) return null;
@@ -115,18 +115,10 @@ export class LykiaHttpError extends Error {
   }
 }
 
-export function isLykiaHttpError(error: unknown): error is LykiaHttpError {
-  return error instanceof LykiaHttpError;
-}
-
 /* ------------------------------------------------------------ factories */
 
 export function invalidRequest(message: string, details?: ErrorDetails): LykiaHttpError {
   return new LykiaHttpError("INVALID_REQUEST", 400, message, details);
-}
-
-export function notFound(message = "Not found."): LykiaHttpError {
-  return new LykiaHttpError("NOT_FOUND", 404, message);
 }
 
 export function retryAfterHeader(seconds: number): Readonly<Record<string, string>> {
@@ -137,30 +129,7 @@ export function rateLimited(message: string, retryAfterSeconds: number): LykiaHt
   return new LykiaHttpError("RATE_LIMITED", 429, message, undefined, { headers: retryAfterHeader(retryAfterSeconds) });
 }
 
-/** An upstream (Hyperliquid, an RPC) still rate-limiting Lykia after bounded retries: retryable 503. */
-export function providerRateLimited(provider: string, retryAfterSeconds: number): LykiaHttpError {
-  const seconds = Math.max(1, Math.min(60, Math.ceil(Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : 2)));
-  return new LykiaHttpError(
-    "PROVIDER_RATE_LIMITED",
-    503,
-    `${provider} is limiting requests right now. This is temporary: try again in ${seconds} s.`,
-    { provider },
-    { headers: retryAfterHeader(seconds) },
-  );
-}
-
-/** A network Lykia knows but cannot reach yet (no RPC configured, prelaunch) or right now. */
-export function networkUnavailable(network: string, reason: string, retryAfterSeconds?: number): LykiaHttpError {
-  return new LykiaHttpError(
-    "NETWORK_UNAVAILABLE",
-    503,
-    `${network} is not available: ${reason}`,
-    { network },
-    retryAfterSeconds ? { headers: retryAfterHeader(retryAfterSeconds) } : {},
-  );
-}
-
-export function upstreamTimeout(provider: string): LykiaHttpError {
+function upstreamTimeout(provider: string): LykiaHttpError {
   return new LykiaHttpError("UPSTREAM_TIMEOUT", 504, `${provider} did not answer in time. Try again shortly.`, { provider });
 }
 
@@ -175,7 +144,7 @@ export function storeUnavailable(): LykiaHttpError {
  * keyed RPC endpoints), long hex payloads and key=value secrets are removed;
  * one line of at most 200 characters.
  */
-export function sanitizeUpstreamMessage(raw: string): string {
+function sanitizeUpstreamMessage(raw: string): string {
   return raw
     .replace(/[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/giu, "<url>")
     .replace(/0x[0-9a-f]{40,}/giu, "<hex>")

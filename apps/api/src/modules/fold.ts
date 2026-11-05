@@ -23,7 +23,6 @@
  */
 import { DEFAULT_FENCE, FOLD_INSIGHT_KINDS, fenceForProfile, foldPreferenceEffects, NO_SHOCK, riskTierOf, type Address, type FoldShocks } from "@lykia/core";
 import type { FoldSummaryResponse, PreferencesResponse } from "@lykia/core/api/fold";
-import type { Request } from "express";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
@@ -39,10 +38,9 @@ import { createProposal, getProposal, listFeed, listProposals, moveProposal } fr
 import { trailsFor } from "../fold/trails.js";
 import { getProfile } from "../personal/profile.js";
 import { documentRoutes } from "../platform/openapi/registry.js";
-import { mustSession } from "../platform/session.js";
+import { sessionAddress } from "../platform/session.js";
 import { services } from "../services.js";
-import { authorizeOwner, ownerProof } from "./agent.js";
-import { environmentOf, environmentSchema, fenceFrom } from "./common.js";
+import { authorizeOwner, environmentOf, environmentSchema, fenceFrom, ownerProof } from "./common.js";
 
 const AddressParams = z.object({ address: evmAddress });
 const OwnerQuery = z.object({ owner: evmAddress, environment: environmentSchema.optional() });
@@ -96,10 +94,6 @@ function shocksFrom(q: { eurc?: number | undefined; btc?: number | undefined; ra
 async function preferencesView(ctx: AppContext, owner: Address): Promise<PreferencesResponse> {
   const preferences = await getPreferences(ctx, owner);
   return { owner: owner.toLowerCase(), preferences, effects: foldPreferenceEffects(preferences) };
-}
-
-async function sessionOwner(ctx: AppContext, req: Request): Promise<Address> {
-  return (await mustSession(ctx, req)).address as Address;
 }
 
 export const foldModule: ApiModule = {
@@ -211,21 +205,21 @@ export const foldModule: ApiModule = {
     });
 
     router.get("/me/preferences", async (req, res) => {
-      res.json(await preferencesView(ctx, await sessionOwner(ctx, req)));
+      res.json(await preferencesView(ctx, await sessionAddress(ctx, req)));
     });
     router.put("/me/preferences", async (req, res) => {
-      const owner = await sessionOwner(ctx, req);
+      const owner = await sessionAddress(ctx, req);
       const patch = parseBody(req, preferencesPatch);
       await updatePreferences(ctx, owner, patch);
       res.json(await preferencesView(ctx, owner));
     });
     router.delete("/me/preferences", async (req, res) => {
-      const owner = await sessionOwner(ctx, req);
+      const owner = await sessionAddress(ctx, req);
       await resetPreferences(ctx, owner);
       res.json(await preferencesView(ctx, owner));
     });
     router.get("/me/threads", async (req, res) => {
-      res.json({ threads: await threadSummaries(ctx, await sessionOwner(ctx, req)) });
+      res.json({ threads: await threadSummaries(ctx, await sessionAddress(ctx, req)) });
     });
   },
 };

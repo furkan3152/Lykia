@@ -49,7 +49,7 @@ function feeUsdOf(graph: IntentGraph, settledOnly: boolean): bigint {
   return sum;
 }
 
-export function trailsFromIntents(graphs: readonly IntentGraph[]): FoldTrailEntry[] {
+function trailsFromIntents(graphs: readonly IntentGraph[]): FoldTrailEntry[] {
   const out: FoldTrailEntry[] = [];
   for (const g of graphs) {
     const status = deriveIntentStatus(g);

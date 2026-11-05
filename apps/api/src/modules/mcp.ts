@@ -53,7 +53,7 @@ function text(value: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] };
 }
 
-export function buildMcpServer(ctx: AppContext): McpServer {
+function buildMcpServer(ctx: AppContext): McpServer {
   const server = new McpServer({ name: "lykia", version: ctx.config.version });
   const environmentOf = (e: ArcEnvironment | undefined) => e ?? lockedOr(ctx.config.mode);
   server.registerTool("lykia_venues", { description: "Venues on Arc Network and which ones Lykia executes.", inputSchema: toolSchema(z.object({ environment: env }), objectJson({ environment: ENV_JSON }, [])) }, async ({ environment }) =>

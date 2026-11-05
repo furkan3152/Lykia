@@ -4,7 +4,7 @@
  * behind a "Why?" and a one-tap draft); its chat is the same server thread
  * as Ask Lyko, so either one can pick up where the other stopped.
  */
-import { applyFoldShocks, describeShock, NO_SHOCK } from "@lykia/core";
+import { applyFoldShocks, describeShock, NO_SHOCK, shortAddress } from "@lykia/core";
 import type { FlockSnapshot } from "@lykia/core/api/flock";
 import type { FoldExplainArtifact, FoldInsight, FoldInsightsResponse, FoldInstruction, FoldQuestion } from "@lykia/core/api/fold";
 import type { ThreadView } from "@lykia/core/api/agents";
@@ -15,9 +15,9 @@ import { useEffect, useRef, useState } from "react";
 import { Composer } from "../ask/Composer";
 import { AssistantMessage, UserMessage } from "../ask/Answer";
 import { ChatActionsContext, type ChatActions } from "../ask/actions";
+import { storedMessage } from "../ask/model";
 import { useAsk } from "../ask/store";
 import { Markdown } from "../ask/Markdown";
-import { parseAnswerBlocks } from "@lykia/core/api/answer";
 import { apiGet, describeError } from "../../lib/api";
 import { Button, LykoFace, LykoTile, Tag, cx, toast } from "../../mosaic";
 import { useAnswer, useInstructionControl, useMarkSeen, type FoldOwner } from "./data";
@@ -158,7 +158,7 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
     void send(text, { environment: owner.environment, ...(owner.address ? { owner: owner.address as `0x${string}` } : {}), origin: "fold" });
   };
 
-  const short = owner.address ? `${owner.address.slice(0, 6)}…${owner.address.slice(-4)}` : "a sample flock";
+  const short = owner.address ? shortAddress(owner.address) : "a sample flock";
   const actions: ChatActions = {
     environment: owner.environment,
     // Cards here hand a sentence to Ask Lyko, with what Lyko on watch was looking at.
@@ -236,7 +236,7 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
             <UserMessage key={`p${i}`} text={m.text} compact />
           ) : (
             <div key={`p${i}`} className="fd-past-msg">
-              <AssistantMessage compact m={{ id: `p${i}`, role: "assistant", text: m.text, trail: [], proposals: m.proposals ?? [], blocks: parseAnswerBlocks(m.blocks), clarify: null, streaming: false }} />
+              <AssistantMessage compact m={storedMessage(m, `p${i}`)} />
               <small className="fd-bubble__more">{m.origin === "fold" ? "in the Fold" : "in Ask Lyko"}</small>
             </div>
           ),

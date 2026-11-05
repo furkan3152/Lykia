@@ -21,9 +21,9 @@ import { environmentSchema } from "./common.js";
 const OWNABLE = parseAbi(["function transferOwnership(address newOwner)", "function acceptOwnership()"]);
 const TIMELOCK = parseAbi(["function schedule(address target, uint256 value, bytes data, bytes32 predecessor, bytes32 salt, uint256 delay)", "function execute(address target, uint256 value, bytes payload, bytes32 predecessor, bytes32 salt)"]);
 const ZERO32 = `0x${"0".repeat(64)}` as Hex;
-export const ARC_SAFE_141 = { singleton: "0x41675C099F32341bf84BFc5382aF534df5C7461a", proxyFactory: "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67" } as const;
+const ARC_SAFE_141 = { singleton: "0x41675C099F32341bf84BFc5382aF534df5C7461a", proxyFactory: "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67" } as const;
 
-export function ownershipPlan(input: { targets: readonly { name: string; address: Hex }[]; safe: Hex; timelock?: Hex; delaySeconds: number }) {
+function ownershipPlan(input: { targets: readonly { name: string; address: Hex }[]; safe: Hex; timelock?: Hex; delaySeconds: number }) {
   const newOwner = input.timelock ?? input.safe;
   const accept = encodeFunctionData({ abi: OWNABLE, functionName: "acceptOwnership" });
   const steps = input.targets.flatMap(({ name, address }) => {

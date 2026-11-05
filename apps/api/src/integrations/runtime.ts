@@ -40,7 +40,7 @@ function paramText(p: AbiParameter, withName: boolean): string {
 }
 
 /** The human-readable fragment of a function ("function deposit(uint256 assets, address receiver) returns (uint256)"). */
-export function fragmentOf(fn: AbiFunction): string {
+function fragmentOf(fn: AbiFunction): string {
   const mutability = fn.stateMutability === "nonpayable" ? "" : ` ${fn.stateMutability}`;
   const outputs = fn.outputs.length > 0 ? ` returns (${fn.outputs.map((o) => paramText(o, true)).join(", ")})` : "";
   return `function ${fn.name}(${fn.inputs.map((i) => paramText(i, true)).join(", ")})${mutability}${outputs}`;
@@ -93,7 +93,7 @@ export interface TemplateValues {
 }
 
 /** Fills one template; literals pass through. Unfilled templates are an error. */
-export function fillTemplate(arg: string, values: TemplateValues): string {
+function fillTemplate(arg: string, values: TemplateValues): string {
   if (!arg.startsWith("$")) return arg;
   if (arg.startsWith("$contract:")) {
     const address = values.contracts[arg.slice("$contract:".length)];
@@ -106,7 +106,7 @@ export function fillTemplate(arg: string, values: TemplateValues): string {
   return typeof value === "bigint" ? value.toString() : value;
 }
 
-export function encodeWithFragment(fragment: string, args: readonly string[], values: TemplateValues): Hex {
+function encodeWithFragment(fragment: string, args: readonly string[], values: TemplateValues): Hex {
   const abi = parseAbi([fragment.startsWith("function ") ? fragment : `function ${fragment}`]) as Abi;
   const fn = abi.find((i): i is AbiFunction => i.type === "function")!;
   if (fn.inputs.length !== args.length) throw new Error(`${fn.name} takes ${fn.inputs.length} arguments; the manifest passes ${args.length}.`);

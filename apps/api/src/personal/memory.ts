@@ -36,7 +36,7 @@ export const contactView = (c: Contact): ContactView => ({ ...c, confirmed: c.or
 export const intentView = (r: IntentRecord): IntentView => ({ ...r, text: r.source });
 
 /** Learned preferences as rows: venue per step kind, typical amounts, slippage habit, destinations. */
-export function preferenceItems(p: Preferences): PreferenceItem[] {
+function preferenceItems(p: Preferences): PreferenceItem[] {
   const out: PreferenceItem[] = [];
   for (const [verb, venue] of Object.entries(p.venues)) if (venue) out.push({ id: `pref_venue_${verb}`, key: `Usual venue for ${verb}`, value: venue, source: "learned from settled plans" });
   for (const [k, v] of Object.entries(p.typicalAmounts)) out.push({ id: `pref_amount_${k.replace(/[^a-zA-Z0-9]/gu, "_")}`, key: `Typical ${k.replace(":", " ")}`, value: v, source: "median of your plans" });
@@ -49,7 +49,7 @@ const key = (owner: string) => owner.toLowerCase();
 const DAY = 86_400_000;
 
 /** What each non-approve step moved, from the graph (inputs/outputs as decimal strings). */
-export function resolvedSteps(graph: IntentGraph, actions: readonly PlanAction[]): ResolvedStep[] {
+function resolvedSteps(graph: IntentGraph, actions: readonly PlanAction[]): ResolvedStep[] {
   const sends = actions.filter((a): a is Extract<PlanAction, { verb: "send" }> => a.verb === "send");
   let sendIndex = 0;
   return graph.steps
@@ -83,7 +83,7 @@ function outcomeOf(graph: IntentGraph): IntentOutcome {
   return "planned";
 }
 
-export class MemoryService {
+class MemoryService {
   private wired = false;
 
   constructor(private readonly ctx: AppContext) {}

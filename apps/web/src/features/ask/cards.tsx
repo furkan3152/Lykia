@@ -51,7 +51,7 @@ function Qr({ text }: { readonly text: string }) {
   );
 }
 
-export function GasCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "gas" }> }) {
+function GasCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "gas" }> }) {
   const { prefill, environment } = useChatActions();
   const [qr, setQr] = useState(false);
   const balance = Number(block.balance);
@@ -146,7 +146,7 @@ const GATE = [
 ];
 
 
-export function FenceGateCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "fence" }> }) {
+function FenceGateCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "fence" }> }) {
   const { prefill, environment } = useChatActions();
   const deny = block.decision === "deny";
   const first = block.rules[0]!;
@@ -193,7 +193,7 @@ export function FenceGateCard({ block }: { readonly block: Extract<AnswerBlock, 
 
 const PASTURE_COLOURS = ["#1e8fa3", "#5f8a3a", "#d9a441", "#b9472e", "#7a5aa8", "#2f4a72", "#c77d2e", "#8aa6b8"];
 
-export function PastureCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "balance" }> }) {
+function PastureCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "balance" }> }) {
   const priced = block.holdings.filter((h) => h.usd !== null && Number(h.usd) > 0);
   const total = priced.reduce((n, h) => n + Number(h.usd), 0);
   // A pasture of 24 x 4 stones, each holding's share laid in its colour, the rest grass.
@@ -241,7 +241,7 @@ export function PastureCard({ block }: { readonly block: Extract<AnswerBlock, { 
 
 /* ---------------------------------------------------------------- rate */
 
-export function RateTile({ block }: { readonly block: Extract<AnswerBlock, { kind: "rate" }> }) {
+function RateTile({ block }: { readonly block: Extract<AnswerBlock, { kind: "rate" }> }) {
   const rate = Number(block.rate);
   const ref = block.reference !== null ? Number(block.reference) : rate;
   const devBps = ref > 0 ? ((rate - ref) / ref) * 10_000 : 0;
@@ -350,7 +350,7 @@ const SEAL = [
   "...kkkkkk...",
 ];
 
-export function SettledSeal({ block }: { readonly block: Extract<AnswerBlock, { kind: "settled" }> }) {
+function SettledSeal({ block }: { readonly block: Extract<AnswerBlock, { kind: "settled" }> }) {
   const { environment } = useChatActions();
   return (
     <CardShell kind="settled" tone="olive" kick="SETTLED · ON ARC" title={block.summary} className="m-card2--seal">

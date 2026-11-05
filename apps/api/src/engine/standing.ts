@@ -41,9 +41,9 @@ declare module "../bus.js" {
 }
 
 export const STANDING_CHECK_MS = 30_000;
-export const MAX_ORDERS_PER_OWNER = 50;
+const MAX_ORDERS_PER_OWNER = 50;
 /** After this many failed plans in a row, an order pauses itself. */
-export const MAX_CONSECUTIVE_FAILURES = 3;
+const MAX_CONSECUTIVE_FAILURES = 3;
 
 /** Chainlink feed keys in the registry row, per trigger feed. */
 const FEED_KEYS: Readonly<Record<PriceFeed, { key: string; maxAgeSeconds: number }>> = {

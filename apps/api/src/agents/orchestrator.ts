@@ -27,7 +27,7 @@ import { balanceCard, emitBlock, gasCard, rateCard, stepsFor } from "./cards.js"
 import { services } from "../services.js";
 import type { ChatStepKind } from "@lykia/core/api/agents";
 
-export const MAX_DELEGATIONS = 4;
+const MAX_DELEGATIONS = 4;
 export const SPECIALIST_ROLES = ["treasurer", "payroll", "fx-hedger", "yield-keeper", "bill-payer", "sentinel", "researcher"] as const satisfies readonly PackRole[];
 export type SpecialistRole = (typeof SPECIALIST_ROLES)[number];
 
@@ -63,7 +63,7 @@ Shape every answer the same way:
 3. A blank line, then one next step as "**Next:** ...", the single decision or action the owner takes.
 Plain markdown only: bold, short bullets, inline code for addresses. No headings, no tables, no filler, no apologies, never "as an AI".`;
 
-export function specialistSystem(agent: ActingAgent): string {
+function specialistSystem(agent: ActingAgent): string {
   const template = agent.role === "custom" || agent.role === "orchestrator" ? null : ROLE_TEMPLATES[agent.role];
   return `You are ${agent.name}, a ${agent.role} specialist in Lyko's Pack inside Lykia on Arc Network.
 ${template ? template.summary : "You carry out the task Lyko gives you."}

@@ -86,8 +86,8 @@ export function noRoute(message: string): LykiaHttpError {
 
 export const IRIS_API: Readonly<Record<ArcEnvironment, string>> = { mainnet: "https://iris-api.circle.com", testnet: "https://iris-api-sandbox.circle.com" };
 /** CCTP V2 finality thresholds: 1000 = fast, 2000 = standard (finalized). Arc is final on inclusion. */
-export const CCTP_STANDARD_FINALITY = 2000;
-export function addressToBytes32(address: Address): Hex {
+const CCTP_STANDARD_FINALITY = 2000;
+function addressToBytes32(address: Address): Hex {
   return pad(address, { size: 32 });
 }
 

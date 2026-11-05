@@ -8,7 +8,7 @@ import { evmAddress, parseParams, parseQuery } from "../http/validate.js";
 import { services } from "../services.js";
 import { environmentOf, environmentQuery } from "./common.js";
 
-export const FLOCK_STREAM_INTERVAL_MS = 10_000;
+const FLOCK_STREAM_INTERVAL_MS = 10_000;
 const Params = z.object({ address: evmAddress });
 
 export const flockModule: ApiModule = {

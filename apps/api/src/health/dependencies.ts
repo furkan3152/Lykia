@@ -8,8 +8,8 @@ import type { ArcNetwork, ArcNetworkKey } from "@lykia/core";
 import type { Clock } from "../clock.js";
 import type { Store } from "../store/types.js";
 
-export const HEALTH_CACHE_MS = 15_000;
-export const PROBE_TIMEOUT_MS = 4_000;
+const HEALTH_CACHE_MS = 15_000;
+const PROBE_TIMEOUT_MS = 4_000;
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -35,7 +35,7 @@ export interface DependencyReport {
   readonly store: { readonly kind: Store["kind"]; readonly ok: boolean; readonly latencyMs: number };
 }
 
-export function endpointLabel(url: string): string {
+function endpointLabel(url: string): string {
   try {
     const parsed = new URL(url);
     return `${parsed.protocol}//${parsed.host}`;

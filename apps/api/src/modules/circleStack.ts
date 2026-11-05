@@ -31,7 +31,7 @@ import { publicStats } from "../stats/stats.js";
 import { environmentOf, environmentSchema, fenceFrom } from "./common.js";
 
 const POWERED = "Powered by Circle" as const;
-export const MARKETPLACE_FORM = "https://forms.gle/7YFzvdmMcn1JH5tF6";
+const MARKETPLACE_FORM = "https://forms.gle/7YFzvdmMcn1JH5tF6";
 const STARTED_AT = Date.now();
 
 const templateSchema = z.enum(Object.keys(FENCE_TEMPLATES) as [FenceTemplateKey, ...FenceTemplateKey[]]);
@@ -56,7 +56,7 @@ const verdictSchema = z.object({
   digest: z.string().regex(/^sha256:[0-9a-f]{64}$/u),
 });
 
-export function marketplaceListing(ctx: AppContext, origin: string) {
+function marketplaceListing(ctx: AppContext, origin: string) {
   const settlement = settlementMode(ctx);
   const site = origin.replace("lykia-api-", "lykia-");
   return {

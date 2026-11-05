@@ -42,10 +42,6 @@ export function MeanderBand({ wave, flow, thin, className }: { wave?: boolean; f
   return <div aria-hidden="true" className={cx("m-band", wave && "m-band--wave", flow && "m-band--flow", thin && "m-band--thin", className)} />;
 }
 
-export function Rule() {
-  return <div aria-hidden="true" className="m-rule" />;
-}
-
 /* ----------------------------------------------------------- type */
 
 export function PageHead({ kicker, title, sub, medal = true, mood = "watching", children }: { kicker: string; title: React.ReactNode; sub?: React.ReactNode; medal?: boolean; mood?: FaceMood; children?: React.ReactNode }) {

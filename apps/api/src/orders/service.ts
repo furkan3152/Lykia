@@ -132,7 +132,7 @@ function describe(kind: OrderKind, sell: string, buy: string, amount: string, ex
   return `${label}: ${base}${when}`;
 }
 
-export class OrdersService {
+class OrdersService {
   constructor(private readonly ctx: AppContext) {}
 
   private get docs() {

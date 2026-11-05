@@ -21,8 +21,8 @@ import { entitySecretCiphertext } from "./wallets.js";
 
 export type SellerProofPurpose = "verify" | "settle" | "status";
 
-export const SELLER_PROOF_DOMAIN_NAME = "Circle Facilitator Seller Request";
-export const SELLER_REQUEST_TYPES = {
+const SELLER_PROOF_DOMAIN_NAME = "Circle Facilitator Seller Request";
+const SELLER_REQUEST_TYPES = {
   EIP712Domain: [
     { name: "name", type: "string" },
     { name: "version", type: "string" },

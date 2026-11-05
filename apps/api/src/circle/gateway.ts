@@ -21,7 +21,7 @@ import { GATEWAY_CHAINS, GATEWAY_MINTER, GATEWAY_TRANSFER_FEE_BPS, GATEWAY_WALLE
 
 export const GATEWAY_MINTER_ABI = parseAbi(["function gatewayMint(bytes attestationPayload, bytes signature)"]);
 
-export const BURN_INTENT_TYPES = {
+const BURN_INTENT_TYPES = {
   EIP712Domain: [
     { name: "name", type: "string" },
     { name: "version", type: "string" },

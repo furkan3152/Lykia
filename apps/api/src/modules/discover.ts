@@ -13,7 +13,7 @@ import { z } from "zod";
 import { discoverService } from "../discover/service.js";
 import type { ApiModule } from "../http/router.js";
 import { evmAddress, parseBody, parseParams, parseQuery } from "../http/validate.js";
-import { mustSession } from "../platform/session.js";
+import { sessionAddress } from "../platform/session.js";
 import { ownerActivity, trackTx, watchAdd, watchlist, watchRemove } from "../track/service.js";
 import { environmentOf, environmentQuery } from "./common.js";
 
@@ -35,8 +35,8 @@ export const discoverModule: ApiModule = {
     });
     router.get("/activity", async (req, res) => {
       const q = parseQuery(req, environmentQuery);
-      const session = await mustSession(ctx, req);
-      res.json(await ownerActivity(ctx, environmentOf(ctx, q.environment), session.address as Address));
+      const owner = await sessionAddress(ctx, req);
+      res.json(await ownerActivity(ctx, environmentOf(ctx, q.environment), owner));
     });
     router.get("/track/:hash", async (req, res) => {
       const { hash } = parseParams(req, z.object({ hash: z.string().regex(/^0x[0-9a-fA-F]{64}$/u) }));
@@ -44,15 +44,15 @@ export const discoverModule: ApiModule = {
       res.json(await trackTx(ctx, environmentOf(ctx, q.environment), hash as `0x${string}`));
     });
     router.get("/watch", async (req, res) => {
-      res.json({ items: await watchlist(ctx, (await mustSession(ctx, req)).address as Address) });
+      res.json({ items: await watchlist(ctx, await sessionAddress(ctx, req)) });
     });
     router.post("/watch", async (req, res) => {
       const b = parseBody(req, z.object({ address: evmAddress, label: z.string().max(40).default("") }));
-      res.status(201).json({ items: await watchAdd(ctx, (await mustSession(ctx, req)).address as Address, b.address as Address, b.label) });
+      res.status(201).json({ items: await watchAdd(ctx, await sessionAddress(ctx, req), b.address as Address, b.label) });
     });
     router.delete("/watch/:address", async (req, res) => {
       const { address } = parseParams(req, z.object({ address: evmAddress }));
-      res.json({ removed: await watchRemove(ctx, (await mustSession(ctx, req)).address as Address, address) });
+      res.json({ removed: await watchRemove(ctx, await sessionAddress(ctx, req), address) });
     });
   },
 };

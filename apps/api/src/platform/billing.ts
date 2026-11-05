@@ -23,8 +23,8 @@ import { typedCollection } from "./typed.js";
 import { randomHex } from "./crypto.js";
 import { usageByDay } from "./metering.js";
 
-export const MAX_CREDIT_PURCHASE_UNITS = 10_000_000_000; // 10,000 USDC
-export const MIN_CREDIT_PURCHASE_UNITS = 1_000_000; // 1 USDC
+const MAX_CREDIT_PURCHASE_UNITS = 10_000_000_000; // 10,000 USDC
+const MIN_CREDIT_PURCHASE_UNITS = 1_000_000; // 1 USDC
 
 interface Account {
   readonly owner: string;
@@ -47,7 +47,7 @@ export function monthKey(now: number): string {
   return new Date(now).toISOString().slice(0, 7);
 }
 
-export function planById(id: BillingPlanId): BillingPlan {
+function planById(id: BillingPlanId): BillingPlan {
   return BILLING_PLANS.find((p) => p.id === id) ?? (BILLING_PLANS[0] as BillingPlan);
 }
 

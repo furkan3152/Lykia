@@ -1,9 +1,8 @@
 /** Launch radar: new pools on Arc's AMMs with each token's trust verdict, and the launchpads building on Arc. */
-import { networkFor } from "@lykia/core";
+import { explorerAddress, networkFor, shortHash } from "@lykia/core";
 import { useQuery } from "@tanstack/react-query";
 
 import { navigate } from "../../app/routes/history";
-import { short } from "../../features/desk/format";
 import { apiGet, describeError } from "../../lib/api";
 import { useEnvironment } from "../../lib/environment";
 import { Button, Card, EmptyState, PageHead, Skeleton, Tag } from "../../mosaic";
@@ -32,7 +31,7 @@ export default function DiscoverPage() {
                 <tbody>
                   {r.pools.map((p) => (
                     <tr key={p.pool}>
-                      <td><b>{p.tokens.map((t) => t.symbol ?? short(t.address)).join(" / ")}</b><div className="m-small m-muted"><a href={`${networkFor(environment).explorerUrl}/address/${p.pool}`} target="_blank" rel="noreferrer">{short(p.pool)} ↗</a>{p.feeOrSpacing !== null ? ` · ${p.venue.startsWith("aerodrome") ? `spacing ${p.feeOrSpacing}` : `${p.feeOrSpacing / 10_000}%`}` : ""}</div></td>
+                      <td><b>{p.tokens.map((t) => t.symbol ?? shortHash(t.address, 4, 4)).join(" / ")}</b><div className="m-small m-muted"><a href={explorerAddress(networkFor(environment), p.pool)} target="_blank" rel="noreferrer">{shortHash(p.pool, 4, 4)} ↗</a>{p.feeOrSpacing !== null ? ` · ${p.venue.startsWith("aerodrome") ? `spacing ${p.feeOrSpacing}` : `${p.feeOrSpacing / 10_000}%`}` : ""}</div></td>
                       <td className="m-small">{p.label}</td>
                       <td>{p.tokens.map((t) => <Tag key={t.address} tone={TRUST_TONE[t.trust]} style={{ marginRight: 4 }}>{`${t.symbol ?? "?"} ${t.trust}`}</Tag>)}</td>
                       <td className="r num m-small">{Number(p.block).toLocaleString("en-US")}</td>

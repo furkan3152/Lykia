@@ -235,6 +235,27 @@ describe("developer flows", () => {
     assert.equal((await json<{ fired: number }>(await call(`/v1/automations/${ev.id}`, { headers: h() }))).fired, 1);
   });
 
+  it("standing orders and the owner's listing answer only to the owner (or a secret key)", async () => {
+    const owner = dev.address.toLowerCase();
+    const anon = await call("/v1/standing", { body: { owner, environment: "testnet", text: `every friday pay ${A} 5 USDC` } });
+    assert.equal(anon.status, 401);
+    const created = await call("/v1/standing", { headers: h(), body: { owner, environment: "testnet", text: `every friday pay ${A} 5 USDC` } });
+    assert.equal(created.status, 201, await created.clone().text());
+    const id = (await json<{ orders: { id: string }[] }>(created)).orders[0]!.id;
+    const other = await signIn(privateKeyToAccount("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a"), false);
+    assert.equal((await call(`/v1/standing?owner=${owner}`)).status, 401);
+    assert.equal((await call(`/v1/standing/${id}`, { headers: { "lykia-session": other } })).status, 403);
+    assert.equal((await call(`/v1/standing/${id}/pause`, { headers: { "lykia-session": other }, body: {} })).status, 403);
+    assert.equal((await call(`/v1/standing/${id}`, { method: "DELETE" })).status, 401);
+    assert.equal((await json<{ status: string }>(await call(`/v1/standing/${id}/pause`, { headers: h(), body: {} }))).status, "paused");
+    assert.ok((await json<{ orders: { id: string }[] }>(await call(`/v1/standing?owner=${owner}`, { headers: h() }))).orders.some((o) => o.id === id));
+    const mine = await json<{ entries: { id: string }[] }>(await call(`/v1/automations?owner=${owner}`, { headers: h() }));
+    assert.ok(mine.entries.some((e) => e.id === id));
+    const theirs = await json<{ entries: { id: string }[] }>(await call(`/v1/automations?owner=${owner}`, { headers: { "lykia-session": other } }));
+    assert.ok(!theirs.entries.some((e) => e.id === id), "another address never lists the owner's standing orders");
+    assert.equal((await call(`/v1/standing/${id}`, { method: "DELETE", headers: h() })).status, 200);
+  });
+
 });
 
 describe("payout execution from a Circle developer-controlled wallet", () => {

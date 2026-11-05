@@ -32,7 +32,7 @@ import { services } from "../services.js";
 import { securityPostflight, securityPreflight } from "../security/index.js";
 import { actionsFrom, environmentOf, environmentSchema, fenceFrom } from "./common.js";
 
-export const POLL_INTERVAL_MS = 15_000;
+const POLL_INTERVAL_MS = 15_000;
 const IdParams = z.object({ id: z.string().regex(/^out_[A-Za-z0-9_-]{6,32}$/u) });
 const StepParams = IdParams.extend({ sid: z.string().regex(/^s\d{1,2}$/u) });
 

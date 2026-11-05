@@ -10,8 +10,8 @@
 import { parseAbi } from "viem";
 import type { ArcChains } from "../chains/arc.js";
 
-export const PYTH_ARC_MAINNET = "0x8250f4aF4B972684F7b336503E2D6dFeDeB1487a" as const;
-export const PYTH_FEEDS: Readonly<Record<string, `0x${string}`>> = Object.freeze({
+const PYTH_ARC_MAINNET = "0x8250f4aF4B972684F7b336503E2D6dFeDeB1487a" as const;
+const PYTH_FEEDS: Readonly<Record<string, `0x${string}`>> = Object.freeze({
   USDC: "0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
   EURC: "0x76fa85158bf14ede77087fe3ae472f66213f6ea2f5b411cb2de472794990fa5c",
   cirBTC: "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",

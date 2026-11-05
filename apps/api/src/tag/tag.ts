@@ -44,7 +44,7 @@ import { assertPublicUrl } from "../http/netguard.js";
 import type { JsonValue, Store } from "../store/types.js";
 import { IDENTITY_REGISTRY_ABI, REPUTATION_REGISTRY_ABI, VALIDATION_REGISTRY_ABI } from "../engine/abis.js";
 
-export const CARD_FETCH_MAX_BYTES = 64 * 1024;
+const CARD_FETCH_MAX_BYTES = 64 * 1024;
 
 export interface DraftInput {
   readonly environment: ArcEnvironment;

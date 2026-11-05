@@ -33,7 +33,7 @@ export interface VerdictCheck {
 }
 
 /** Recomputes a verdict with the server's beta cap, and without it (the cap may have changed since). */
-export function recompute(ctx: AppContext, fence: Fence, facts: FenceFacts): FenceVerdict[] {
+function recompute(ctx: AppContext, fence: Fence, facts: FenceFacts): FenceVerdict[] {
   const beta = ctx.config.beta;
   return beta ? [evaluateFence(fence, facts, { beta }), evaluateFence(fence, facts)] : [evaluateFence(fence, facts)];
 }

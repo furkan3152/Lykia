@@ -20,7 +20,7 @@ import { withTimeout } from "./util.js";
 
 const usd = (n: number) => `$${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 
-export const QUESTIONS: Readonly<Record<FoldQuestion, string>> = {
+const QUESTIONS: Readonly<Record<FoldQuestion, string>> = {
   yield: "Explain my yield",
   whatif: "Am I safe if EURC drops 5%?",
   week: "What runs this week?",
@@ -32,7 +32,7 @@ async function minHealth(ctx: AppContext, owner: Address): Promise<number> {
   return Number(fenceForProfile({ ...profile, risk: riskTierOf(prefs.risk) }).lending?.minHealthFactor ?? "1.2");
 }
 
-export function whatIf(snap: FlockSnapshot, shocks: FoldShocks, floor: number): { result: ReturnType<typeof applyFoldShocks>; sentence: string } {
+function whatIf(snap: FlockSnapshot, shocks: FoldShocks, floor: number): { result: ReturnType<typeof applyFoldShocks>; sentence: string } {
   const result = applyFoldShocks(snap.holdings, snap.health, shocks);
   return { result, sentence: describeShock(result, shocks, floor) };
 }

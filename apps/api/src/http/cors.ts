@@ -8,7 +8,7 @@
 import cors from "cors";
 import type { RequestHandler } from "express";
 
-export const CORS_ALLOWED_HEADERS = [
+const CORS_ALLOWED_HEADERS = [
   "Content-Type",
   "Authorization",
   "Lykia-Session",
@@ -19,7 +19,7 @@ export const CORS_ALLOWED_HEADERS = [
   "Lykia-Embed-Parent",
 ] as const;
 
-export const CORS_EXPOSED_HEADERS = ["X-Request-Id", "Retry-After", "RateLimit", "RateLimit-Policy"] as const;
+const CORS_EXPOSED_HEADERS = ["X-Request-Id", "Retry-After", "RateLimit", "RateLimit-Policy"] as const;
 
 /**
  * `extra` admits origins outside the static list: the verified origins of

@@ -16,7 +16,7 @@ import type { FetchLike } from "../health/dependencies.js";
 import { circleFetch } from "./http.js";
 import { LykiaHttpError } from "../http/errors.js";
 
-export const STABLEFX_BASE: Readonly<Record<ArcEnvironment, string>> = {
+const STABLEFX_BASE: Readonly<Record<ArcEnvironment, string>> = {
   mainnet: "https://api.circle.com/v1/exchange/stablefx",
   testnet: "https://api-sandbox.circle.com/v1/exchange/stablefx",
 };

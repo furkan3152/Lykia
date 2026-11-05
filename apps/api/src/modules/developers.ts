@@ -46,7 +46,7 @@ const ipSchema = z.string().min(2).max(64).describe("An IPv4/IPv6 address or a C
 const versionSchema = z.enum(API_VERSIONS as unknown as [string, ...string[]]);
 const eventName = z.string().min(3).max(64).refine((e) => subscribableEvents().includes(e), "Unknown event (see GET /v1/webhooks/events)");
 
-export const createKeySchema = z.object({
+const createKeySchema = z.object({
   label: z.string().min(1).max(48),
   kind: z.enum(["secret", "publishable"]).default("secret"),
   mode: z.enum(["live", "test"]).optional().describe("live (lk_live_…) or test (lk_test_…, testnet only). Omit for a legacy lk_sk_ key."),
@@ -57,7 +57,7 @@ export const createKeySchema = z.object({
   perDay: z.number().int().min(1).max(5_000_000).optional(),
   apiVersion: versionSchema.optional(),
 });
-export const updateKeySchema = z.object({
+const updateKeySchema = z.object({
   label: z.string().min(1).max(48).optional(),
   scopes: z.array(scopeSchema).min(1).max(10).optional(),
   allowedOrigins: z.array(originSchema).max(10).optional(),
@@ -88,7 +88,7 @@ const createdKey = keyView.extend({ secret: z.string().describe("The full key, s
 const KeyId = z.object({ id: z.string().regex(/^[a-z0-9]{12}$/u) });
 const HookId = z.object({ id: z.string().regex(/^whe_[0-9a-f]{16}$/u) });
 const DeliveryId = z.object({ id: z.string().regex(/^whd_[a-z0-9]{1,16}_[0-9a-f]{12}$/u) });
-export const createWebhookSchema = z.object({
+const createWebhookSchema = z.object({
   url: z.string().url().max(500),
   events: z.array(eventName).max(64).optional(),
   owners: z.array(evmAddress).max(1000).optional(),

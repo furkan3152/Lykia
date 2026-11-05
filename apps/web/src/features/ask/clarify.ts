@@ -3,7 +3,7 @@
  * when a testnet plan cannot route, and "Deploy the practice venues from the
  * owner console"; everything else is simply asked as the next message.
  */
-export const PREVIEW_ON_MAINNET = "Preview on mainnet: ";
+const PREVIEW_ON_MAINNET = "Preview on mainnet: ";
 
 export type ClarifyAction = { readonly kind: "mainnet"; readonly sentence: string } | { readonly kind: "owner" } | { readonly kind: "ask"; readonly text: string };
 

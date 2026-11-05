@@ -64,7 +64,7 @@ export interface SessionSpecInput {
 }
 
 /** USD micro-dollars -> token base units at a reference price, rounded down. */
-export function usdToUnits(usd: string, decimals: number, usdPerToken: number): bigint {
+function usdToUnits(usd: string, decimals: number, usdPerToken: number): bigint {
   const micros = usdMicros(usd);
   const priceMicros = BigInt(Math.round(usdPerToken * 1_000_000));
   if (priceMicros <= 0n) return 0n;

@@ -74,7 +74,7 @@ export function fineScopeFor(method: string, path: string): ApiKeyScope {
 }
 
 /** Every fine-grained scope a key's stored scopes grant (legacy scopes expand). */
-export function effectiveScopes(scopes: readonly ApiKeyScope[]): Set<ApiKeyScope> {
+function effectiveScopes(scopes: readonly ApiKeyScope[]): Set<ApiKeyScope> {
   const out = new Set<ApiKeyScope>();
   for (const scope of scopes) {
     out.add(scope);

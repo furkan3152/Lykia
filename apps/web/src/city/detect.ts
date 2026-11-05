@@ -15,7 +15,7 @@ export type CityTarget =
   | { readonly kind: "slug"; readonly slug: string; readonly via: "subdomain" | "path" | "query" }
   | { readonly kind: "host"; readonly host: string };
 
-export const CITY_SLUG = /^[a-z][a-z0-9-]{1,22}[a-z0-9]$/u;
+const CITY_SLUG = /^[a-z][a-z0-9-]{1,22}[a-z0-9]$/u;
 /** Labels that are Lykia's own hosts, never a city (kept in step with core's RESERVED_SLUGS). */
 const OWN_LABELS: ReadonlySet<string> = new Set(["www", "api", "app", "admin", "letoon", "mint", "league", "lykia", "static", "assets", "cdn", "docs", "mail", "status"]);
 

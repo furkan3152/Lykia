@@ -77,7 +77,7 @@ export interface LaunchRadar {
   readonly notes: readonly string[];
 }
 
-export class DiscoverService {
+class DiscoverService {
   private cache = new Map<string, { at: number; value: LaunchRadar }>();
   private perpsCache = new Map<string, { at: number; value: unknown }>();
 

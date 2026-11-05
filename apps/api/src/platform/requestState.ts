@@ -35,11 +35,6 @@ export function runWithState(req: Request, next: () => void): void {
   ALS.run(platformState(req), next);
 }
 
-/** The API version this request is served under (Lykia-Version header, else the key's pin, else the latest). */
-export function apiVersionOf(req: Request): string {
-  return platformState(req).apiVersion;
-}
-
 /** The environment lock of the current request, if any (test keys lock to testnet). */
 export function currentEnvironmentLock(): ArcEnvironment | null {
   return ALS.getStore()?.environmentLock ?? null;
@@ -52,9 +47,4 @@ export function lockedOr(fallback: ArcEnvironment): ArcEnvironment {
 
 export function testKeyMainnetError(): LykiaHttpError {
   return new LykiaHttpError("LIVE_MODE_REQUIRED", 403, "Test keys (lk_test_…) only work on testnet. Use a live key for mainnet.");
-}
-
-/** Throws when the request is locked to testnet and asks for mainnet. */
-export function assertEnvironmentAllowed(req: Request, environment: ArcEnvironment): void {
-  if (platformState(req).environmentLock === "testnet" && environment === "mainnet") throw testKeyMainnetError();
 }

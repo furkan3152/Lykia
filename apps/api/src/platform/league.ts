@@ -46,7 +46,7 @@ async function allProjects(ctx: AppContext): Promise<Project[]> {
 
 /* ------------------------------------------------------------ usage */
 
-export async function cityUsage(ctx: AppContext, projectId: string): Promise<LeagueUsage> {
+async function cityUsage(ctx: AppContext, projectId: string): Promise<LeagueUsage> {
   const now = ctx.clock.now();
   const requests = ctx.store.counters("project_requests");
   const plans = ctx.store.counters("project_plans");
@@ -129,7 +129,7 @@ export async function isCityOrigin(ctx: AppContext, origin: string): Promise<boo
   return cached.slugs.has(label);
 }
 
-export function forgetCitySlugs(ctx: AppContext): void {
+function forgetCitySlugs(ctx: AppContext): void {
   SLUG_CACHE.delete(ctx);
 }
 

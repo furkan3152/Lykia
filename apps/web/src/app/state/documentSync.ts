@@ -3,19 +3,7 @@ import { LIGHT_SCHEME_QUERY, mediaMatches, subscribeMedia } from "./media";
 import { resolveTheme, THEME_COLORS, THEME_SHEET, THEME_STORAGE_KEY, type ResolvedTheme, type ThemeSurface } from "./uiPrefs";
 import { useUiStore } from "./uiStore";
 
-let surface: ThemeSurface = "app";
-
-/** The current surface (site or deck): it picks the default sheet when no theme was chosen. */
-export function getThemeSurface(): ThemeSurface {
-  return surface;
-}
-
-/** Layouts call this when they mount; the default sheet follows. */
-export function setThemeSurface(next: ThemeSurface): void {
-  if (surface === next) return;
-  surface = next;
-  if (installed) applyDocument();
-}
+const surface: ThemeSurface = "app";
 
 /** An explicit sheet saved under lykia.theme wins over a store that only says "system". */
 function adoptStoredSheet() {
@@ -48,7 +36,7 @@ function setThemeColor(theme: ResolvedTheme) {
 }
 
 /** Paints the resolved theme on <html> (data-theme="day" | "night", color-scheme, browser chrome colour). */
-export function applyTheme(theme: ResolvedTheme): void {
+function applyTheme(theme: ResolvedTheme): void {
   const root = document.documentElement;
   root.setAttribute("data-theme", THEME_SHEET[theme]);
   root.style.colorScheme = theme;

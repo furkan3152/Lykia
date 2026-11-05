@@ -220,7 +220,7 @@ function sendUsdOf(actions: readonly { readonly verb: string; readonly token?: s
   return sum;
 }
 
-export async function gatherInputs(ctx: AppContext, environment: ArcEnvironment, owner: Address, personal: boolean, snapshot?: FlockSnapshot): Promise<InsightInputs> {
+async function gatherInputs(ctx: AppContext, environment: ArcEnvironment, owner: Address, personal: boolean, snapshot?: FlockSnapshot): Promise<InsightInputs> {
   const snap = snapshot ?? (await services(ctx).flock.snapshot(environment, owner));
   const [prefs, profile] = await Promise.all([personal ? getPreferences(ctx, owner) : getPreferences(ctx, null), personal ? getProfile(ctx, owner) : getProfile(ctx, null)]);
   const fence = fenceForProfile({ ...profile, risk: riskTierOf(prefs.risk) });

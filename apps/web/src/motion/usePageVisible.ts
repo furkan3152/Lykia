@@ -7,7 +7,7 @@ function subscribe(onChange: () => void): () => void {
 }
 
 /** Non-hook form: true unless the document is hidden (background tab, minimised window). */
-export function isPageVisible(): boolean {
+function isPageVisible(): boolean {
   return typeof document === "undefined" || document.visibilityState !== "hidden";
 }
 

@@ -62,8 +62,8 @@ export const buildFields = {
 };
 
 const kindSchema = z.enum(ACTION_KINDS);
-export const quoteBody = z.object({ kind: kindSchema.default("swap"), ...actionFields }).strict();
-export const buildBody = z.object({ kind: kindSchema.optional(), quoteId: z.string().regex(/^q_[A-Za-z0-9_-]{8,40}$/u).optional(), ...actionFields, ...buildFields }).strict();
+const quoteBody = z.object({ kind: kindSchema.default("swap"), ...actionFields }).strict();
+const buildBody = z.object({ kind: kindSchema.optional(), quoteId: z.string().regex(/^q_[A-Za-z0-9_-]{8,40}$/u).optional(), ...actionFields, ...buildFields }).strict();
 const kindParams = z.object({ kind: kindSchema });
 
 const quoteQuery = z.object({
@@ -133,7 +133,7 @@ async function build(ctx: Parameters<ApiModule["register"]>[1], req: Request, ki
 /* ------------------------------------------------------------------ docs */
 
 const amountView = z.object({ symbol: z.string(), token: z.string(), amount: z.string(), units: z.string(), minimum: z.string().optional(), usd: z.string().nullable() });
-export const quoteResponse = z
+const quoteResponse = z
   .object({
     id: z.string(),
     kind: kindSchema,
@@ -153,7 +153,7 @@ export const quoteResponse = z
   })
   .passthrough();
 const tx = z.object({ chainId: z.number(), from: z.string(), to: z.string(), data: z.string(), value: z.string(), label: z.string() });
-export const buildResponse = quoteResponse
+const buildResponse = quoteResponse
   .omit({ id: true, expiresAt: true })
   .extend({
     quoteId: z.string().nullable(),

@@ -11,12 +11,12 @@ import type { ArcChains } from "../chains/arc.js";
 import type { Clock } from "../clock.js";
 import type { Logger } from "../log.js";
 
-export const PULSE_INTERVAL_MS = 1_500;
-export const PULSE_IDLE_STOP_MS = 30_000;
-export const PULSE_WINDOW = 60;
-export const MAX_HEADERS_PER_POLL = 24;
+const PULSE_INTERVAL_MS = 1_500;
+const PULSE_IDLE_STOP_MS = 30_000;
+const PULSE_WINDOW = 60;
+const MAX_HEADERS_PER_POLL = 24;
 /** Gas of a plain ERC-20 transfer, used for the transfer cost figure. */
-export const TRANSFER_GAS = 65_000n;
+const TRANSFER_GAS = 65_000n;
 
 export interface PulseFeed {
   latest(environment: ArcEnvironment): ArcPulse | null;
@@ -43,7 +43,7 @@ interface Poller {
 }
 
 /** gwei with up to 3 decimals, from wei of native USDC. */
-export function weiToGwei(wei: bigint): string {
+function weiToGwei(wei: bigint): string {
   const milli = (wei + 500_000n) / 1_000_000n;
   const whole = milli / 1000n;
   const fraction = (milli % 1000n).toString().padStart(3, "0").replace(/0+$/u, "");
@@ -51,14 +51,14 @@ export function weiToGwei(wei: bigint): string {
 }
 
 /** USD (decimal string, 6 decimals max) of `gas` at `baseFee` wei of native USDC. */
-export function gasCostUsd(baseFee: bigint, gas: bigint): string {
+function gasCostUsd(baseFee: bigint, gas: bigint): string {
   const micros = (baseFee * gas + 500_000_000_000n) / 1_000_000_000_000n;
   const whole = micros / 1_000_000n;
   const fraction = (micros % 1_000_000n).toString().padStart(6, "0").replace(/0+$/u, "");
   return fraction ? `${whole}.${fraction}` : whole.toString();
 }
 
-export function summarize(environment: ArcEnvironment, samples: readonly Sample[], at: number): ArcPulse | null {
+function summarize(environment: ArcEnvironment, samples: readonly Sample[], at: number): ArcPulse | null {
   const last = samples[samples.length - 1];
   if (!last) return null;
   const first = samples[0] as Sample;

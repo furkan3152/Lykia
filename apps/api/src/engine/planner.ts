@@ -63,12 +63,12 @@ import { morphoPositions } from "./venues/morphoBlue.js";
 import { practiceVenues } from "./venues/practice.js";
 import { YieldService } from "./venues/yields.js";
 
-export const DEFAULT_SLIPPAGE_BPS = 50;
-export const DEFAULT_MIN_HEALTH = "1.5";
+const DEFAULT_SLIPPAGE_BPS = 50;
+const DEFAULT_MIN_HEALTH = "1.5";
 /** The core tokens every plan reads first; `planTokens` adds every other registry token of the environment. */
-export const PLAN_TOKENS = ["USDC", "EURC", "cirBTC"] as const;
+const PLAN_TOKENS = ["USDC", "EURC", "cirBTC"] as const;
 
-export function planTokens(environment: ArcEnvironment): string[] {
+function planTokens(environment: ArcEnvironment): string[] {
   const rest = tokensFor(environment).map((t) => t.symbol).filter((s) => !(PLAN_TOKENS as readonly string[]).includes(s));
   return [...PLAN_TOKENS, ...rest];
 }

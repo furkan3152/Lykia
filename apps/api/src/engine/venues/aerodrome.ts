@@ -29,11 +29,11 @@ import { CL_POOL_ABI } from "../abis.js";
 import type { RawCall } from "../calls.js";
 
 /** Throwaway address the quoter code is overridden onto (never holds anything). */
-export const CL_QUOTER_ADDRESS: Address = "0x00000000000000000000000000006c796b696151";
+const CL_QUOTER_ADDRESS: Address = "0x00000000000000000000000000006c796b696151";
 const QUOTER = lykiaContracts.lykiaClQuoterArtifact;
 
 export const METAROUTER_ABI = parseAbi(["function execute(bytes commands, bytes[] inputs, uint256 deadline) payable"]);
-export const CL_SWAP_EXACT_IN = "0x00" as const;
+const CL_SWAP_EXACT_IN = "0x00" as const;
 const SWAP_EXACT_IN_PARAMS = [
   {
     type: "tuple",

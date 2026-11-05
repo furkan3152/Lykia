@@ -29,7 +29,7 @@ const TAG_DESCRIPTIONS: Record<string, string> = {
 };
 
 /** Express path to OpenAPI path: /v1/intents/:id -> /v1/intents/{id}. */
-export function openApiPath(path: string): string {
+function openApiPath(path: string): string {
   return path.replace(/:([A-Za-z0-9_]+)/gu, "{$1}");
 }
 

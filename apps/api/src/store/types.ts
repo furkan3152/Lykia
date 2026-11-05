@@ -74,9 +74,9 @@ export interface Store {
   close(): Promise<void>;
 }
 
-export const MAX_ID_LENGTH = 256;
-export const DEFAULT_LIST_LIMIT = 100;
-export const MAX_LIST_LIMIT = 1_000;
+const MAX_ID_LENGTH = 256;
+const DEFAULT_LIST_LIMIT = 100;
+const MAX_LIST_LIMIT = 1_000;
 const NAME_PATTERN = /^[a-z][a-z0-9_]{0,62}$/u;
 
 export function assertName(name: string): void {

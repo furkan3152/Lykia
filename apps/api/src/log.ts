@@ -26,7 +26,7 @@ export interface Logger {
 
 export type LogSink = (line: string, level: Exclude<LogLevel, "silent">) => void;
 
-export const stdioSink: LogSink = (line, level) => {
+const stdioSink: LogSink = (line, level) => {
   if (level === "error" || level === "warn") process.stderr.write(`${line}\n`);
   else process.stdout.write(`${line}\n`);
 };
@@ -52,7 +52,7 @@ function replacer(_key: string, value: unknown): unknown {
   return value;
 }
 
-export function formatLogLine(time: number, level: string, msg: string, fields: LogFields): string {
+function formatLogLine(time: number, level: string, msg: string, fields: LogFields): string {
   const record = { time: new Date(time).toISOString(), level, msg, ...fields };
   try {
     return JSON.stringify(record, replacer);

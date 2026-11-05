@@ -10,8 +10,8 @@ import type { Express } from "express";
 import { closeContext, type AppContext } from "./context.js";
 import type { ApiModule } from "./http/router.js";
 
-export const SHUTDOWN_GRACE_MS = 2_000;
-export const SHUTDOWN_DEADLINE_MS = 5_000;
+const SHUTDOWN_GRACE_MS = 2_000;
+const SHUTDOWN_DEADLINE_MS = 5_000;
 
 export interface RunningServer {
   readonly server: Server;

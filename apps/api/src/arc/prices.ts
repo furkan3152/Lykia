@@ -37,7 +37,7 @@ export const FEEDS: Readonly<Record<string, { readonly address: Address; readonl
   MXNB: { address: "0x302eaa6cd6f7AdDdc973fAC2Bb8fa32e9Ce19f21", pair: "MXN/USD peg", maxAgeSeconds: 26 * 3600 },
 });
 
-export const PRICE_CACHE_MS = 60_000;
+const PRICE_CACHE_MS = 60_000;
 
 export interface PriceQuote {
   readonly symbol: string;

@@ -58,7 +58,3 @@ export const useUiStore = create<UiState>()(
     },
   ),
 );
-
-export function getUiState(): UiState {
-  return useUiStore.getState();
-}

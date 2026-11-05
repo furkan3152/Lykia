@@ -7,7 +7,7 @@
  * settles, reports the hash so the invoice reconciles from its memo.
  * Mobile first; Mosaic components only.
  */
-import type { InvoicePublicView } from "@lykia/core";
+import { shortAddress, shortHash, type InvoicePublicView } from "@lykia/core";
 import type { CreateIntentResponse } from "@lykia/core/api/intents";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -32,7 +32,6 @@ function Qr({ text }: { text: string }) {
   );
 }
 
-const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
 const TONE: Record<InvoicePublicView["status"], "ok" | "ochre" | "bad" | "ghost" | "sea"> = { paid: "ok", open: "sea", "partially-paid": "ochre", overdue: "bad", void: "ghost" };
 
@@ -124,7 +123,7 @@ export default function PayPage() {
             </table>
           ) : null}
           {inv.memo ? <p className="m-dim" style={{ marginTop: 12 }}>{inv.memo}</p> : null}
-          <p className="m-dim" style={{ marginTop: 12, overflowWrap: "anywhere" }}>{`Paid to ${short(inv.payee)}. The transfer carries the Arc memo "${inv.note}" so it reconciles by itself.`}</p>
+          <p className="m-dim" style={{ marginTop: 12, overflowWrap: "anywhere" }}>{`Paid to ${shortAddress(inv.payee)}. The transfer carries the Arc memo "${inv.note}" so it reconciles by itself.`}</p>
         </Card>
         <Card title={closed ? (inv.status === "paid" ? "Paid in full" : "This invoice was voided") : "Pay"} kicker={closed ? "NOTHING TO PAY" : "SIGNED IN YOUR OWN WALLET"}>
           {!closed ? (
@@ -141,7 +140,7 @@ export default function PayPage() {
           ) : (
             <p className="m-dim">{inv.status === "paid" ? "Thank you. The payment settled on Arc." : "Ask the sender for a new link."}</p>
           )}
-          {reported ? <p className="m-note" style={{ marginTop: 8, overflowWrap: "anywhere" }}>{`Payment recorded: ${short(reported)}`}</p> : null}
+          {reported ? <p className="m-note" style={{ marginTop: 8, overflowWrap: "anywhere" }}>{`Payment recorded: ${shortHash(reported, 4, 4)}`}</p> : null}
           <div className="pay-qr">
             <Qr text={inv.url} />
             <span className="m-dim">Scan to open this page on a phone.</span>

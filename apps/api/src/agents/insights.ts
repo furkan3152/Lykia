@@ -11,9 +11,9 @@ import type { FlockSnapshot } from "@lykia/core/api/flock";
 import type { AppContext } from "../context.js";
 import { services } from "../services.js";
 
-export const IDLE_CASH_USD = 100;
-export const HEALTH_WATCH = "1.5";
-export const LOW_GAS_USDC = 0.05;
+const IDLE_CASH_USD = 100;
+const HEALTH_WATCH = "1.5";
+const LOW_GAS_USDC = 0.05;
 
 const num = (v: string | null | undefined) => (v === null || v === undefined ? null : Number(v));
 

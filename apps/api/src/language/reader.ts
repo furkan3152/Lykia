@@ -111,7 +111,7 @@ function isConstraintOnly(piece: string): boolean {
 }
 
 /** Sequencers first, then commas / "and" / "but" when the right side is its own action. */
-export function splitClauses(text: string): string[] {
+function splitClauses(text: string): string[] {
   const coarse = text
     .split(/\s*(?:,?\s+(?:and then|then|after that|afterwards)\s+|;\s*|\.\s+(?=\p{L}))/iu)
     .map((c) => c.trim())
@@ -262,7 +262,7 @@ function targetsIn(clause: string): AllocationTarget[] | null {
 }
 
 /** Reads one clause; `previous` lets "then earn the rest" inherit a token. */
-export function readClause(clause: string, previous: PlanAction | undefined): { action: PlanAction | null; clarify: string[]; choices: ClarifyChoice[] } {
+function readClause(clause: string, previous: PlanAction | undefined): { action: PlanAction | null; clarify: string[]; choices: ClarifyChoice[] } {
   const clarify: string[] = [];
   const choices: ClarifyChoice[] = [];
   const ask = (question: string, options?: string[]) => {
@@ -387,7 +387,7 @@ function hhmm(hour: string | undefined, minute: string | undefined, ampm: string
 }
 
 /** Finds a condition or a schedule in the sentence; returns the trigger and the sentence without it. */
-export function extractTrigger(text: string, options: ReadOptions): { trigger: StandingTrigger; rest: string } | null {
+function extractTrigger(text: string, options: ReadOptions): { trigger: StandingTrigger; rest: string } | null {
   const timezone = options.timezone ?? "UTC";
   const price = /(?<![\p{L}])(?:if|when|whenever|once)\s+(?:the\s+)?([\p{L}]+)(?:\s*\/\s*usd)?(?:\s+price)?\s+(?:goes|is|gets|moves|rises|climbs|drops|falls|trades|breaks)?\s*(above|over|higher than|exceeds|past|>|below|under|lower than|<)\s*\$?(\d+(?:\.\d+)?)\s*,?\s*(?:then\s+)?/iu;
   const health = /(?<![\p{L}])(?:if|when|whenever)\s+(?:my\s+)?health(?:\s+factor)?\s+(?:drops|falls|goes|gets|is)?\s*(?:below|under|<)\s*(\d+(?:\.\d+)?)\s*,?\s*(?:then\s+)?/iu;
@@ -439,7 +439,7 @@ function readActions(text: string): { actions: PlanAction[]; clarify: string[]; 
  * and "the best pasture" all mean the best yield the routing
  * finds. Rewritten to phrases the reader already knows.
  */
-export function normalizePasture(text: string): string {
+function normalizePasture(text: string): string {
   return text
     .replace(/\blead (?:the|my) flock to (?:the )?(?:greenest|greener|best) pastures?\b/giu, "put all my USDC into the best vault")
     .replace(/\b(?:on|onto|to|into|in)\s+(?:the\s+)?(?:greenest|greener|best|richest)\s+pastures?\b/giu, " into the best vault")

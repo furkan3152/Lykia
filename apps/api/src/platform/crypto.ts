@@ -5,7 +5,7 @@
  * per-process secret (sessions die with the process); production refuses
  * to issue sessions or keys.
  */
-import { createHash, createHmac, hkdfSync, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, hkdfSync, randomBytes, timingSafeEqual } from "node:crypto";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 
@@ -35,10 +35,6 @@ export function purposeKey(ctx: AppContext, purpose: KeyPurpose): Buffer {
 
 export function hmacHex(key: Buffer | string, message: string): string {
   return createHmac("sha256", key).update(message, "utf8").digest("hex");
-}
-
-export function sha256Hex(value: string): string {
-  return createHash("sha256").update(value, "utf8").digest("hex");
 }
 
 export function randomToken(bytes = 24): string {

@@ -9,10 +9,10 @@ import type { Address, ArcEnvironment } from "@lykia/core";
 import type { Clock } from "../../clock.js";
 import type { FetchLike } from "../../health/dependencies.js";
 
-export const MORPHO_API = "https://api.morpho.org/graphql";
-export const AAVE_API = "https://api.aave.com/graphql";
-export const RATES_CACHE_MS = 5 * 60_000;
-export const ARC_MAINNET_CHAIN_ID = 5042;
+const MORPHO_API = "https://api.morpho.org/graphql";
+const AAVE_API = "https://api.aave.com/graphql";
+const RATES_CACHE_MS = 5 * 60_000;
+const ARC_MAINNET_CHAIN_ID = 5042;
 
 export interface VaultRate {
   readonly address: Address;

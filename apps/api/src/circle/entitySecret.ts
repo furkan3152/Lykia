@@ -15,7 +15,7 @@
 import { constants, publicEncrypt, randomBytes } from "node:crypto";
 import type { FetchLike } from "../health/dependencies.js";
 
-export const CIRCLE_API = "https://api.circle.com";
+const CIRCLE_API = "https://api.circle.com";
 
 export class EntitySecretError extends Error {
   constructor(readonly status: number, message: string) {
@@ -30,7 +30,7 @@ export interface RegisteredEntitySecret {
   readonly recoveryFileName: string;
 }
 
-export function encryptEntitySecret(publicKeyPem: string, entitySecretHex: string): string {
+function encryptEntitySecret(publicKeyPem: string, entitySecretHex: string): string {
   return publicEncrypt({ key: publicKeyPem, padding: constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" }, Buffer.from(entitySecretHex, "hex")).toString("base64");
 }
 

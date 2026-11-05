@@ -11,7 +11,7 @@ import { useState } from "react";
 import { Button, LykoFace, cx } from "../../mosaic";
 import { allocationStones, BUCKET_COLOR, compactUsd, countsLine, usd, type FoldCounts, type Headroom, rollingChars } from "./model";
 
-export function RollingNumber({ value, label }: { readonly value: string; readonly label: string }) {
+function RollingNumber({ value, label }: { readonly value: string; readonly label: string }) {
   // The value before this one, kept in state (React's "previous props" pattern), so only changed digits roll.
   const [pair, setPair] = useState({ previous: value, current: value });
   if (pair.current !== value) setPair({ previous: pair.current, current: value });
@@ -27,7 +27,7 @@ export function RollingNumber({ value, label }: { readonly value: string; readon
   );
 }
 
-export function AllocationStrip({ holdings, of = 40 }: { readonly holdings: readonly FlockHolding[]; readonly of?: number }) {
+function AllocationStrip({ holdings, of = 40 }: { readonly holdings: readonly FlockHolding[]; readonly of?: number }) {
   const slices = allocationStones(holdings, of);
   if (slices.length === 0) return <div className="fd-alloc fd-alloc--empty" aria-label="Nothing to allocate yet" />;
   return (

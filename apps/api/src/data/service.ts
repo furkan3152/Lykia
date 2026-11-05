@@ -20,7 +20,7 @@ import { screenAddress } from "../circle/compliance.js";
 const MEMO = new WeakMap<AppContext, Map<string, { at: number; value: Promise<unknown> }>>();
 
 /** Memoises a read per context for `ttlMs`; failures are not kept. */
-export function cached<T>(ctx: AppContext, key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
+function cached<T>(ctx: AppContext, key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
   let map = MEMO.get(ctx);
   if (!map) MEMO.set(ctx, (map = new Map()));
   const now = ctx.clock.now();

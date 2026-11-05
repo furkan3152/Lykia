@@ -54,9 +54,9 @@ import { services } from "../services.js";
 import { lexiconReading, readDeterministic, reconcile } from "./hybrid.js";
 import { readProgramWithModel } from "./llm.js";
 
-export const SAMPLE_OWNER = "0x000000000000000000000000000000000000dead";
+const SAMPLE_OWNER = "0x000000000000000000000000000000000000dead";
 /** No wallet connected: a sample wallet, always flagged as what-if, so a compiled plan can still be previewed as a dry run. */
-export const SAMPLE_BALANCES: Readonly<Record<string, string>> = Object.freeze({ USDC: "2500", EURC: "0" });
+const SAMPLE_BALANCES: Readonly<Record<string, string>> = Object.freeze({ USDC: "2500", EURC: "0" });
 const PREVIEW_TIMEOUT_MS = 15_000;
 const MAX_PREVIEWS = 6;
 
@@ -154,7 +154,7 @@ export async function readGoal(llm: LlmClient | null, text: string, contacts: re
 }
 
 /** The owner's state the resolver needs: wallet balances, positions, prices, venue facts, fee, beta cap, contacts. */
-export async function programState(ctx: AppContext, environment: ArcEnvironment, owner: Address | null, balances?: Readonly<Record<string, string>>): Promise<ProgramState> {
+async function programState(ctx: AppContext, environment: ArcEnvironment, owner: Address | null, balances?: Readonly<Record<string, string>>): Promise<ProgramState> {
   const s = services(ctx);
   const base = { environment, venues: venueFactsFrom(KNOWLEDGE_ROWS), feeBps: ctx.config.fee.bps, beta: environment === "mainnet" ? ctx.config.beta : null, gasBufferUsdc: "1", now: ctx.clock.now() } as const;
   const symbols = ["USDC", "EURC", "cirBTC", "WETH", "USYC"];

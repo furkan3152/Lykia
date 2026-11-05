@@ -295,7 +295,7 @@ function stated(amount: string, numbers: Set<string>): boolean {
  * A model may not invent an amount: an exact amount or a runway figure that does not appear in the
  * owner's words is dropped and asked about instead. Shares, "the rest" and documented defaults stay.
  */
-export function groundAmounts(program: Program): { program: Program; dropped: number } {
+function groundAmounts(program: Program): { program: Program; dropped: number } {
   const numbers = numbersIn(program.text);
   const questions = [...program.questions];
   const elements = program.elements.filter((e) => {
@@ -316,7 +316,7 @@ export function groundAmounts(program: Program): { program: Program; dropped: nu
 const GOAL_WORDS = /\b(?:keep|reserve|save|saving|savings|earn|yield|interest|invest|work|deposit|vault|lend|hedge|euros?|eurc|convert|swap|exchange|pay|payroll|send|transfer|bridge|move|withdraw|repay|protect|defensive|safe|liquid|runway|dca|buy|sell|alert|notify|budget|sweep|split|allocate|diversify|rebalance)\b/iu;
 
 /** A request that names no goal at all ("do something smart with my money") is asked about, never guessed. */
-export function askWhenVague(program: Program): { program: Program; asked: boolean } {
+function askWhenVague(program: Program): { program: Program; asked: boolean } {
   if (GOAL_WORDS.test(program.text) || program.elements.length === 0) return { program, asked: false };
   const acting = program.elements.filter((e) => e.kind !== "refuse");
   if (acting.length === 0) return { program, asked: false };
@@ -332,7 +332,7 @@ const KEEP_REST_LIQUID = /\b(?:keep|leave|hold)\s+(?:the\s+)?(?:rest|remainder|r
  * Drops earn elements a model added for the remainder when the owner explicitly asked to keep the
  * remainder liquid. An earn the owner asked for in their own words (its quote outside that clause) stays.
  */
-export function respectKeepLiquid(program: Program): { program: Program; dropped: number } {
+function respectKeepLiquid(program: Program): { program: Program; dropped: number } {
   const match = KEEP_REST_LIQUID.exec(program.text);
   if (!match) return { program, dropped: 0 };
   const keepClause = match[0].toLowerCase();

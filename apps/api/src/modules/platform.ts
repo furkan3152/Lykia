@@ -48,7 +48,7 @@ const logEntry = z.object({
   apiVersion: z.string(),
   idempotentReplay: z.boolean(),
 });
-export const logQuery = z.object({
+const logQuery = z.object({
   keyId: z.string().regex(/^[a-z0-9]{12}$/u).optional(),
   projectId: z.string().regex(/^prj_[a-z0-9]{12}$/u).optional(),
   status: queryInteger(100, 599).optional(),

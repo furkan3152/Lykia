@@ -23,7 +23,7 @@ export interface CaseScore {
 type Json = Record<string, unknown>;
 
 /** Subset match: every key in `want` matches in `have` (recursively; numbers and strings compare by value). */
-export function matches(have: unknown, want: unknown): boolean {
+function matches(have: unknown, want: unknown): boolean {
   if (want === null || typeof want !== "object") return String(have) === String(want) || have === want;
   if (Array.isArray(want)) return Array.isArray(have) && want.every((w, i) => matches(have[i], w));
   if (have === null || typeof have !== "object") return false;

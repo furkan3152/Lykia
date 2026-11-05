@@ -18,7 +18,7 @@ export function ownerChain(owner: string): string {
 }
 export const PLATFORM_CHAIN = "platform";
 
-export async function auditAppend(ctx: AppContext, chain: string, input: AuditInput): Promise<AuditEntry> {
+async function auditAppend(ctx: AppContext, chain: string, input: AuditInput): Promise<AuditEntry> {
   const entries = ctx.store.collection<JsonValue>(ENTRIES);
   const heads = ctx.store.collection<JsonValue>(HEADS);
   for (let attempt = 0; attempt < 8; attempt++) {

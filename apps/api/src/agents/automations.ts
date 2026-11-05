@@ -20,8 +20,8 @@ import { planSentence } from "./engine.js";
 import { insightsFor } from "./insights.js";
 import type { PackService } from "./pack.js";
 
-export const MAX_AUTOMATIONS = 20;
-export const MAX_RUNS_PER_DAY = 6;
+const MAX_AUTOMATIONS = 20;
+const MAX_RUNS_PER_DAY = 6;
 
 const store = (ctx: AppContext) => typedCollection<Automation>(ctx, "agent_automations");
 

@@ -7,8 +7,8 @@
  */
 import type { FetchLike } from "../health/dependencies.js";
 
-export const REFERENCE_FX_URL = "https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR,TRY";
-export const REFERENCE_FX_TTL_MS = 6 * 60 * 60_000;
+const REFERENCE_FX_URL = "https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR,TRY";
+const REFERENCE_FX_TTL_MS = 6 * 60 * 60_000;
 
 export interface ReferenceFx {
   /** Units of each currency per 1 USD, as decimal strings. */
@@ -37,9 +37,4 @@ export async function referenceFx(fetchImpl: FetchLike, now: number): Promise<Re
   } catch {
     return cache?.value ?? null;
   }
-}
-
-/** For tests. */
-export function resetReferenceFx(): void {
-  cache = null;
 }

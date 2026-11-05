@@ -44,7 +44,7 @@ const SAMPLE_OWNER = "0x000000000000000000000000000000000000dead";
  * explicit slippage uses the Fence's ceiling when that is tighter than the
  * engine default.
  */
-export function fitToFence(actions: readonly PlanAction[], fence: Fence): PlanAction[] {
+function fitToFence(actions: readonly PlanAction[], fence: Fence): PlanAction[] {
   const ceiling = fence.limits?.maxSlippageBps;
   return actions.map((a) => {
     if (ceiling === undefined || ceiling >= ENGINE_DEFAULT_SLIPPAGE_BPS) return a;

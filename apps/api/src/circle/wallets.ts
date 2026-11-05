@@ -45,7 +45,7 @@ export function resetWalletKeyCache(): void {
   publicKeyCache = null;
 }
 
-export async function ensureWalletSet(fetchImpl: FetchLike, creds: CircleCreds, now: number): Promise<string> {
+async function ensureWalletSet(fetchImpl: FetchLike, creds: CircleCreds, now: number): Promise<string> {
   if (creds.walletSetId) return creds.walletSetId;
   const data = await request(fetchImpl, creds.apiKey, "/developer/walletSets", { method: "POST", body: { idempotencyKey: randomUUID(), entitySecretCiphertext: await entitySecretCiphertext(fetchImpl, creds, now), name: "Lykia Pack" } });
   const set = data.walletSet as { id?: string } | undefined;

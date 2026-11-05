@@ -10844,7 +10844,7 @@
                 }
               ]
             },
-            "description": "Cancel a standing order\n\nAuth: key, scope: automation."
+            "description": "Cancel a standing order\n\nAuth: session, scope: automation."
           }
         },
         {
@@ -10878,7 +10878,7 @@
                 }
               ]
             },
-            "description": "Standing orders of an owner\n\nAuth: key."
+            "description": "Standing orders of an owner\n\nAuth: session."
           }
         },
         {
@@ -10912,7 +10912,7 @@
                 }
               ]
             },
-            "description": "A standing order\n\nAuth: key."
+            "description": "A standing order\n\nAuth: session."
           }
         },
         {
@@ -10956,7 +10956,7 @@
                 }
               }
             },
-            "description": "Arm a standing order\n\nAuth: key, scope: automation."
+            "description": "Arm a standing order\n\nAuth: session, scope: automation."
           }
         },
         {
@@ -10995,7 +10995,7 @@
                 }
               ]
             },
-            "description": "Check a standing order now\n\nAuth: key, scope: automation."
+            "description": "Check a standing order now\n\nAuth: session, scope: automation."
           }
         },
         {
@@ -11034,7 +11034,7 @@
                 }
               ]
             },
-            "description": "Pause a standing order\n\nAuth: key, scope: automation."
+            "description": "Pause a standing order\n\nAuth: session, scope: automation."
           }
         },
         {
@@ -11073,7 +11073,7 @@
                 }
               ]
             },
-            "description": "Resume a standing order\n\nAuth: key, scope: automation."
+            "description": "Resume a standing order\n\nAuth: session, scope: automation."
           }
         }
       ]

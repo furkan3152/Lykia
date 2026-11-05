@@ -17,7 +17,7 @@ import { randomUUID } from "node:crypto";
 import type { ArcEnvironment } from "@lykia/core";
 import type { FetchLike } from "../health/dependencies.js";
 
-export const COMPLIANCE_URL = "https://api.circle.com/v1/w3s/compliance/screening/addresses";
+const COMPLIANCE_URL = "https://api.circle.com/v1/w3s/compliance/screening/addresses";
 
 export interface ScreeningResult {
   readonly address: string;

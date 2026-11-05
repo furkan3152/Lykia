@@ -28,7 +28,7 @@ const WHEN = {
   description: `When: absent = now. {type:"schedule",every:"day"|"week"|"month",weekday?:"mon".."sun",day?:1-31,at?:"HH:MM",timezone?:IANA,count?:n} | {type:"price",feed:${PRICE_FEEDS.map((f) => `"${f}"`).join("|")},op:"above"|"below",value:"1.12"} | {type:"balance",token,op,value} | {type:"health",below:"1.5"}`,
 } as const;
 
-export const PROGRAM_TOOL_SCHEMA = {
+const PROGRAM_TOOL_SCHEMA = {
   type: "object",
   properties: {
     language: { type: "string", description: "ISO 639-1 code of the language the owner wrote in." },
@@ -93,7 +93,7 @@ export const PROGRAM_TOOL_SCHEMA = {
 
 const KNOWN = new Set(KNOWLEDGE_ROWS.map((r) => r.venue));
 
-export const PROGRAM_SYSTEM = `You compile a request about money on Arc Network (Circle's L1; USDC is gas) into a Lykia program: goals, constraints and time, never transactions. Answer only by calling propose_program once.
+const PROGRAM_SYSTEM = `You compile a request about money on Arc Network (Circle's L1; USDC is gas) into a Lykia program: goals, constraints and time, never transactions. Answer only by calling propose_program once.
 
 Element kinds:
 - reserve {token, quantity (exact | runway | share of:"total"), purpose}: money that stays liquid ("keep 3 months of 400 USDC payroll liquid" = runway 400 x 3 month).
@@ -161,7 +161,7 @@ export function groundingIssues(program: Program, contacts: readonly { readonly 
 }
 
 /** The deterministic guard's refusals merged in, so an override attempt is refused even when the model missed it. */
-export function withGuard(program: Program): Program {
+function withGuard(program: Program): Program {
   const guarded = readProgram(program.text);
   const extra = guarded.elements.filter((e) => e.kind === "refuse" && !program.elements.some((p) => p.kind === "refuse" && p.code === e.code));
   if (extra.length === 0 && !(guarded.untrusted && !program.untrusted)) return program;

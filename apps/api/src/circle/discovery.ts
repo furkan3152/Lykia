@@ -8,7 +8,7 @@ import type { FetchLike } from "../health/dependencies.js";
 import { circleFetch } from "./http.js";
 import { LykiaHttpError } from "../http/errors.js";
 
-export const DISCOVERY_URL = "https://api.circle.com/v2/x402/discovery/resources";
+const DISCOVERY_URL = "https://api.circle.com/v2/x402/discovery/resources";
 export const ARC_NETWORKS = { mainnet: "eip155:5042", testnet: "eip155:5042002" } as const;
 
 interface RawItem {

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { paymentUri, friendlyError, isAmount } from "../../features/move/model";
 import { qrMatrix, qrSvgPath } from "../qr";
 
 /** The 7×7 finder pattern at (x, y): dark ring, light ring, dark 3×3 core. */
@@ -33,20 +32,5 @@ describe("QR encoder", () => {
     const { path, size } = qrSvgPath(qrMatrix("hi"));
     assert.equal(size, 29);
     assert.match(path, /^M4 4h1v1h-1z/u);
-  });
-});
-
-describe("payment links", () => {
-  const usdc = { symbol: "USDC", name: "USDC", decimals: 6, address: "0x3600000000000000000000000000000000000000" };
-  it("builds an EIP-681 transfer with base units, or a plain address link", () => {
-    assert.equal(paymentUri({ to: "0xabc", token: usdc, amount: "25.5", chainId: 5042 }), "ethereum:0x3600000000000000000000000000000000000000@5042/transfer?address=0xabc&uint256=25500000");
-    assert.equal(paymentUri({ to: "0xabc", token: usdc, amount: "", chainId: 5042 }), "ethereum:0xabc@5042");
-    assert.equal(isAmount("0"), false);
-    assert.equal(isAmount("1,5"), false);
-  });
-
-  it("explains the beta cap and minimums plainly", () => {
-    assert.match(friendlyError("Beta cap: $100 per step."), /capped per step and per day/u);
-    assert.match(friendlyError("Amount is below the minimum fee."), /larger amount/u);
   });
 });

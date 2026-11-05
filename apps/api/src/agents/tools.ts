@@ -18,7 +18,6 @@ import {
   describeAutomationTrigger,
   findToken,
   fromBaseUnits,
-  getProtocol,
   KNOWLEDGE_ROWS,
   ORDER_KINDS,
   PRICE_FEEDS,
@@ -149,7 +148,7 @@ const automationTrigger = z.discriminatedUnion("type", [
 const automationAction = z.discriminatedUnion("type", [z.object({ type: z.literal("plan"), sentence: z.string().min(3).max(400) }).strict(), z.object({ type: z.literal("notify"), channel: z.literal("webhook") }).strict()]);
 type AutomationToolInput = { name: string; trigger: z.infer<typeof automationTrigger>; action: z.infer<typeof automationAction>; maxFiresPerDay?: number };
 
-export const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
+const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
   spec({
     name: "flock",
     description: "Read the owner's balance sheet on Arc: wallet tokens, Morpho vault positions, the Circle Gateway unified balance, USD values (null = unpriced).",
@@ -544,8 +543,4 @@ function failure(message: string): ToolOutcome {
 export function wrapUntrusted(data: unknown): string {
   const json = JSON.stringify(data, (_k, v: unknown) => (typeof v === "bigint" ? v.toString() : v));
   return `<tool_data untrusted="true">${(json ?? "null").slice(0, 16_000)}</tool_data>`;
-}
-
-export function venueName(id: string): string {
-  return getProtocol(id)?.name ?? id;
 }

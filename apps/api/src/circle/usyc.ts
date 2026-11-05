@@ -26,12 +26,12 @@ export const USYC_TELLER_ABI = parseAbi([
   "function previewDeposit(uint256 assets) view returns (uint256)",
   "function previewRedeem(uint256 shares) view returns (uint256)",
 ]);
-export const USYC_ENTITLEMENTS_ABI = parseAbi(["function canCall(address user, address target, bytes4 functionSig) view returns (bool)"]);
+const USYC_ENTITLEMENTS_ABI = parseAbi(["function canCall(address user, address target, bytes4 functionSig) view returns (bool)"]);
 
 export const TELLER_DEPOSIT = toFunctionSelector("deposit(uint256,address)");
 export const TELLER_REDEEM = toFunctionSelector("redeem(uint256,address,address)");
 
-export const USYC_DOCS = "https://developers.circle.com/tokenized/usyc/overview";
+const USYC_DOCS = "https://developers.circle.com/tokenized/usyc/overview";
 
 export interface UsycContracts {
   readonly usdc: Address;
@@ -40,7 +40,7 @@ export interface UsycContracts {
   readonly entitlements: Address;
 }
 
-export function usycContracts(environment: ArcEnvironment): UsycContracts {
+function usycContracts(environment: ArcEnvironment): UsycContracts {
   return {
     usdc: contractAddress("usdc", environment) as Address,
     usyc: contractAddress("usyc", environment) as Address,

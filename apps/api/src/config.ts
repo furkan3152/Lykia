@@ -13,11 +13,11 @@ import { DEFAULT_FEE_BPS, DEFAULT_FEE_RECIPIENT, MAX_FEE_BPS, parseFeeSchedule, 
 import { z } from "zod";
 import { LOG_LEVELS, type LogLevel } from "./log.js";
 
-export const DEFAULT_PORT = 3002;
-export const DEV_WEB_ORIGINS = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5176", "http://localhost:4176"] as const;
+const DEFAULT_PORT = 3002;
+const DEV_WEB_ORIGINS = ["http://localhost:5173", "http://localhost:5174", "http://localhost:5176", "http://localhost:4176"] as const;
 
 /** Env var that overrides (prepends to) the RPC endpoints of each EVM network. */
-export const RPC_OVERRIDE_ENV: Readonly<Record<ArcNetworkKey, string>> = Object.freeze({
+const RPC_OVERRIDE_ENV: Readonly<Record<ArcNetworkKey, string>> = Object.freeze({
   "arc-mainnet": "ARC_MAINNET_RPC_URL",
   "arc-testnet": "ARC_TESTNET_RPC_URL",
 });
@@ -131,7 +131,7 @@ function isLoopbackHttp(url: URL): boolean {
 }
 
 /** One exact origin: https (or loopback http outside production), no path, query or credentials. */
-export function parseOrigin(raw: string, production: boolean): string | null {
+function parseOrigin(raw: string, production: boolean): string | null {
   let url: URL;
   try {
     url = new URL(raw);
@@ -145,7 +145,7 @@ export function parseOrigin(raw: string, production: boolean): string | null {
 }
 
 /** An RPC endpoint: absolute http(s) URL without credentials in the userinfo part. */
-export function parseRpcUrl(raw: string): string | null {
+function parseRpcUrl(raw: string): string | null {
   let url: URL;
   try {
     url = new URL(raw);
@@ -359,36 +359,31 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
   return Object.freeze(config);
 }
 
-/** The Arc network of an environment. */
-export function arcNetworkFor(mode: ArcEnvironment): ArcNetworkKey {
-  return mode === "testnet" ? "arc-testnet" : "arc-mainnet";
-}
-
 function usdcUnits(amount: string): string {
   const [whole = "0", fraction = ""] = amount.split(".");
   return (BigInt(whole) * 1_000_000n + BigInt(fraction.padEnd(6, "0").slice(0, 6) || "0")).toString();
 }
 
 /** "1000/5000" = per-step/per-day USD; "1000" = per step with a 5x daily cap; "off" disables. Default 1000/5000. */
-export function betaCap(raw: string | undefined): Config["beta"] {
+function betaCap(raw: string | undefined): Config["beta"] {
   if (raw === "off") return null;
   const [step = "1000", day] = (raw ?? "1000/5000").split("/");
   return Object.freeze({ perStepUsd: step, perDayUsd: day ?? String(Number(step) * 5) });
 }
 
 /** Circle's x402 facilitator (verify, settle, supported). Settlement needs CIRCLE_API_KEY. */
-export const CIRCLE_X402_FACILITATOR = "https://api.circle.com/v1/facilitator/x402";
+const CIRCLE_X402_FACILITATOR = "https://api.circle.com/v1/facilitator/x402";
 
 /** Paid routes pay the fee recipient unless LYKIA_X402_PAY_TO names another wallet or is "off". */
 /** LYKIA_FEE_SCHEDULE parsed (validated in the issues pass); unset = null, so the base fee applies everywhere. */
-export function feeScheduleOf(raw: string | undefined): FeeSchedule | null {
+function feeScheduleOf(raw: string | undefined): FeeSchedule | null {
   if (raw === undefined || raw.trim() === "") return null;
   const parsed = parseFeeSchedule(raw);
   return parsed.ok ? parsed.schedule : null;
 }
 
 /** LYKIA_FEE_SCHEDULE_PLANS: { "<plan id>": { "<kind>": bps } }; null when malformed. */
-export function planSchedules(raw: string | undefined): Record<string, FeeSchedule> | null {
+function planSchedules(raw: string | undefined): Record<string, FeeSchedule> | null {
   if (raw === undefined || raw.trim() === "") return {};
   try {
     const value = JSON.parse(raw) as unknown;
@@ -406,7 +401,7 @@ export function planSchedules(raw: string | undefined): Record<string, FeeSchedu
   }
 }
 
-export function x402PayTo(raw: string | undefined, feeRecipient: string): `0x${string}` | null {
+function x402PayTo(raw: string | undefined, feeRecipient: string): `0x${string}` | null {
   if (raw === "off") return null;
   return (raw ?? feeRecipient).toLowerCase() as `0x${string}`;
 }

@@ -5,7 +5,7 @@
  */
 
 /** Old /build tab ids (and hashes) mapped to The Mint's sections. */
-export const MINT_ALIASES: Readonly<Record<string, string>> = {
+const MINT_ALIASES: Readonly<Record<string, string>> = {
   start: "strike",
   quickstart: "strike",
   strike: "strike",
@@ -48,7 +48,7 @@ export function aliasTarget(pathname: string, hash = "", search = ""): string {
 /* ------------------------------------------------------------- the Fold */
 
 /** What an old Move tab asks Ask Lyko for. Trailing spaces leave the caret where the owner types next. */
-export const MOVE_INTENTS: Readonly<Record<string, string>> = {
+const MOVE_INTENTS: Readonly<Record<string, string>> = {
   send: "Pay ",
   receive: "Show me a payment link for my wallet",
   swap: "Convert ",

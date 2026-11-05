@@ -9,7 +9,7 @@ import type { Clock } from "../clock.js";
 import type { Logger } from "../log.js";
 import { describeUpstream, mapError, type LykiaHttpError } from "./errors.js";
 
-export const REQUEST_ID_HEADER = "x-request-id";
+const REQUEST_ID_HEADER = "x-request-id";
 /** Incoming ids are echoed only when they look like ids (no spaces or control characters: they reach the logs). */
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9_.:-]{8,128}$/u;
 

@@ -12,7 +12,7 @@ import type { ArcChains } from "../../chains/arc.js";
 import { PERMIT2_ABI, QUOTER_V2_ABI, QUOTER_V2_PATH_ABI, SWAP_ROUTER_02_ABI, SWAP_ROUTER_02_PATH_ABI, UNIVERSAL_ROUTER_ABI, V4_QUOTER_ABI, V4_STATE_VIEW_ABI } from "../abis.js";
 import type { RawCall } from "../calls.js";
 
-export const V3_FEE_TIERS = [100, 500, 3000, 10000] as const;
+const V3_FEE_TIERS = [100, 500, 3000, 10000] as const;
 const ZERO: Address = "0x0000000000000000000000000000000000000000";
 
 export interface V3Quote {
@@ -47,7 +47,7 @@ export interface V4Quote {
 }
 
 /** v4 fee tiers and their standard tick spacings (hookless pools). */
-export const V4_TIERS: readonly { readonly fee: number; readonly tickSpacing: number }[] = [
+const V4_TIERS: readonly { readonly fee: number; readonly tickSpacing: number }[] = [
   { fee: 100, tickSpacing: 1 },
   { fee: 500, tickSpacing: 10 },
   { fee: 3000, tickSpacing: 60 },
@@ -115,7 +115,7 @@ export async function quoteV3TwoHop(chains: ArcChains, environment: ArcEnvironme
   return quotes.filter((q): q is V3PathQuote => q !== null);
 }
 
-export function v4PoolId(key: V4PoolKey): Hex {
+function v4PoolId(key: V4PoolKey): Hex {
   return keccak256(encodeAbiParameters([{ type: "address" }, { type: "address" }, { type: "uint24" }, { type: "int24" }, { type: "address" }], [key.currency0, key.currency1, key.fee, key.tickSpacing, key.hooks]));
 }
 

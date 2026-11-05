@@ -63,7 +63,7 @@ import { feeCall } from "../engine/calls.js";
 import type { JsonValue } from "../store/types.js";
 import { lockedOr } from "../platform/requestState.js";
 
-export const QUOTE_TTL_MS = 60_000;
+const QUOTE_TTL_MS = 60_000;
 /** Quotes stay readable a little longer than they are buildable, so an expired id says "expired", not "unknown". */
 const QUOTE_KEEP_MS = 10 * 60_000;
 const STEP_OVERHEAD_GAS = 60_000;
@@ -166,7 +166,7 @@ export function actionsOf(req: ActionRequest): PlanAction[] {
 }
 
 /** The integrator's fee: the caller's, else the project's; capped like the project app fee (MAX_INTEGRATOR_FEE_BPS). */
-export function integratorOf(req: ActionRequest, project: ReturnType<typeof projectOf>): IntegratorFeePolicy | undefined {
+function integratorOf(req: ActionRequest, project: ReturnType<typeof projectOf>): IntegratorFeePolicy | undefined {
   if (req.integratorFee) {
     const policy = { bps: req.integratorFee.bps, recipient: req.integratorFee.recipient, ...(project ? { projectId: project.id } : {}) };
     if (!validIntegratorFee(policy)) throw new LykiaHttpError("INVALID_REQUEST", 400, `integratorFee.bps must be an integer from 0 to ${MAX_INTEGRATOR_FEE_BPS} and recipient an address.`);

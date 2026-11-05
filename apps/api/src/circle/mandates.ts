@@ -15,8 +15,8 @@
  */
 import { fenceHash, normalizeFence, type Address, type ArcEnvironment, type Fence, type FenceVerdict } from "@lykia/core";
 
-export const MANDATE_DRAFT_SCHEMA = "lykia.mandate-draft/v0" as const;
-export const EXECUTION_PROOF_DRAFT_SCHEMA = "lykia.execution-proof-draft/v0" as const;
+const MANDATE_DRAFT_SCHEMA = "lykia.mandate-draft/v0" as const;
+const EXECUTION_PROOF_DRAFT_SCHEMA = "lykia.execution-proof-draft/v0" as const;
 
 export type MandateStatus = "pending" | "available";
 

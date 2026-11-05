@@ -59,7 +59,7 @@ export async function emitEvent(type: string, payload: JsonValue, target: EventT
 }
 
 const LAST_DRAIN = new WeakMap<AppContext, number>();
-export const DRAIN_INTERVAL_MS = 15_000;
+const DRAIN_INTERVAL_MS = 15_000;
 
 /**
  * Starts a bounded webhook retry pass in the background if none ran in the

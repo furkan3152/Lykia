@@ -16,15 +16,15 @@ import { createSiweMessage, generateSiweNonce, parseSiweMessage } from "viem/siw
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 
-export const NONCE_TTL_MS = 10 * 60_000;
-export const SIWE_STATEMENT = "Sign in to Lykia. This proves you control this address; it moves no funds and costs no gas.";
+const NONCE_TTL_MS = 10 * 60_000;
+const SIWE_STATEMENT = "Sign in to Lykia. This proves you control this address; it moves no funds and costs no gas.";
 const EXTRA_CHAIN_IDS = [1, 8453, 42161] as const;
 
-export function siweChainIds(): number[] {
+function siweChainIds(): number[] {
   return [...new Set<number>([...Object.values(NETWORKS).map((n) => n.chainId), ...EXTRA_CHAIN_IDS])].sort((a, b) => a - b);
 }
 
-export function siweDomains(ctx: AppContext): { readonly domains: readonly string[]; readonly origins: readonly string[] } {
+function siweDomains(ctx: AppContext): { readonly domains: readonly string[]; readonly origins: readonly string[] } {
   const origins = new Set<string>(ctx.config.webOrigins);
   const domains = new Set<string>(ctx.config.platform.siweDomains);
   for (const origin of ctx.config.webOrigins) domains.add(new URL(origin).host);
@@ -36,7 +36,7 @@ export function siweDomains(ctx: AppContext): { readonly domains: readonly strin
 const fail = (code: string, message: string) => new LykiaHttpError(code, 401, message);
 
 /** A League city's own host (<label>.<root domain>, https only): sign-in there names that host, so wallets show the page the user is on. */
-export function cityHost(ctx: AppContext, host: string): boolean {
+function cityHost(ctx: AppContext, host: string): boolean {
   const root = ctx.config.platform.rootDomain;
   if (!root) return false;
   const h = host.toLowerCase();

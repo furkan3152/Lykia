@@ -19,7 +19,7 @@ const SAMPLE_OWNER = "0x000000000000000000000000000000000000dEaD";
 const KIND_LABEL: Readonly<Record<ChatProgramView["scheduled"][number]["kind"], string>> = { automation: "AUTOMATION", order: "LYKIAORDERS", alert: "ALERT", standing: "STANDING ORDER", budget: "FENCE BUDGET" };
 
 /** The Fence verdict as a seal, or a quiet tag when it is decided later. */
-export function Verdict({ decision, reasons }: { decision: "allow" | "confirm" | "deny" | "unknown"; reasons: readonly string[] }) {
+function Verdict({ decision, reasons }: { decision: "allow" | "confirm" | "deny" | "unknown"; reasons: readonly string[] }) {
   return (
     <div style={{ display: "grid", gap: 4, justifyItems: "start" }}>
       {decision === "unknown" ? <Tag tone="ghost">FENCE · CHECKED WHEN IT RUNS</Tag> : <Seal decision={decision} stamp={false} />}

@@ -50,7 +50,7 @@ type StateOverride = { address: Address; balance?: bigint; stateDiff?: { slot: H
 
 const SLOT_CACHE = new Map<string, { slot: bigint; vyper: boolean } | null>();
 /** OpenZeppelin v5 upgradeable ERC20 keeps `_balances` at its ERC-7201 namespace (keccak256("openzeppelin.storage.ERC20") - 1, masked). */
-export const OZ_ERC20_NAMESPACE = 0x52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace00n;
+const OZ_ERC20_NAMESPACE = 0x52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace00n;
 const ERROR_ABI = [{ type: "error", name: "Error", inputs: [{ name: "message", type: "string" }] }, { type: "error", name: "Panic", inputs: [{ name: "code", type: "uint256" }] }] as const;
 
 /** Human revert reason from returned data ("" = unknown). */

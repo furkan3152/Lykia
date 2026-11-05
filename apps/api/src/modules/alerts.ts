@@ -15,14 +15,14 @@
  *   POST   /telegram/setup             point the bot at this API (admin)
  */
 import { createHash } from "node:crypto";
-import { ALERT_CHANNELS, ALERT_KINDS, type Address, type AlertChannel, type AlertKind } from "@lykia/core";
+import { ALERT_CHANNELS, ALERT_KINDS, type AlertChannel, type AlertKind } from "@lykia/core";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { alertsService, ALERT_CHECK_MS } from "../alerts/service.js";
 import { LykiaHttpError } from "../http/errors.js";
 import type { ApiModule } from "../http/router.js";
 import { parseBody, parseParams, parseQuery } from "../http/validate.js";
-import { mustSession, sessionOf } from "../platform/session.js";
+import { sessionAddress, sessionOf } from "../platform/session.js";
 import { environmentOf, environmentSchema } from "./common.js";
 
 const IdParams = z.object({ id: z.string().regex(/^al_[0-9a-f]{16}$/u) });
@@ -53,7 +53,7 @@ export const alertsModule: ApiModule = {
   name: "alerts",
   register(router, ctx) {
     const s = () => alertsService(ctx);
-    const owner = async (req: Parameters<typeof sessionOf>[1]) => (await mustSession(ctx, req)).address as Address;
+    const owner = (req: Parameters<typeof sessionOf>[1]) => sessionAddress(ctx, req);
 
     router.get("/alerts", async (req, res) => {
       res.json({ alerts: await s().list(await owner(req)) });

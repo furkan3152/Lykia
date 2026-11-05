@@ -44,7 +44,7 @@ async function ownsSubject(ctx: AppContext, owner: string, subject: string): Pro
   return agents.some((d) => d.value.owner.toLowerCase() === owner.toLowerCase() && (d.value.signer?.toLowerCase() === subject.toLowerCase() || d.value.session?.account.toLowerCase() === subject.toLowerCase()));
 }
 
-export function platformChecks(ctx: AppContext) {
+function platformChecks(ctx: AppContext) {
   return [
     { id: "helmet-csp", ok: true, detail: "Helmet on every response; CSP default-src 'none', frame-ancestors 'none'." },
     { id: "cors", ok: ctx.config.webOrigins.length > 0, detail: `${ctx.config.webOrigins.length} exact web origin(s) plus verified project origins; no wildcard, no credentials.` },

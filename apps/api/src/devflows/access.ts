@@ -49,3 +49,16 @@ export async function flowCaller(ctx: AppContext, req: Request, scope: ApiKeySco
   if (options.projectId) project = await ownProject(ctx, developer, options.projectId);
   return { developer, project, via };
 }
+
+/**
+ * An owner's standing instructions (standing orders, alerts, agent
+ * automations) are managed by the owner's own session or by a secret key
+ * (server to server; the gate has already checked its scope).
+ */
+export function actsFor(caller: FlowCaller, owner: string): boolean {
+  return caller.via === "secret" || caller.developer === owner.toLowerCase();
+}
+
+export function assertActsFor(caller: FlowCaller, owner: string): void {
+  if (!actsFor(caller, owner)) throw new LykiaHttpError("FORBIDDEN", 403, "Only the owner (or a secret key) can change that.");
+}

@@ -25,16 +25,12 @@ export type ThemeSurface = "site" | "app";
 /** localStorage key mirroring an explicit choice ("day" | "night"), read by index.html before paint. */
 export const THEME_STORAGE_KEY = "lykia.theme";
 
-export function isThemePreference(value: unknown): value is ThemePreference {
+function isThemePreference(value: unknown): value is ThemePreference {
   return value === "system" || value === "dark" || value === "light";
 }
 
-export function isMotionSetting(value: unknown): value is MotionSetting {
+function isMotionSetting(value: unknown): value is MotionSetting {
   return value === "on" || value === "off";
-}
-
-export function isNetworkMode(value: unknown): value is NetworkMode {
-  return value === "testnet" || value === "mainnet";
 }
 
 /**

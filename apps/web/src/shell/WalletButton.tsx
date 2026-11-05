@@ -1,4 +1,5 @@
 /** The header's wallet control: connect (passkey or browser wallet), switch to Arc, or the connected account. */
+import { shortAddress } from "@lykia/core";
 import { useEffect, useRef, useState } from "react";
 
 import { useUiStore } from "../app/state/uiStore";
@@ -7,7 +8,6 @@ import { canRestorePasskey, useWallet } from "../features/wallet/store";
 import { useLykiaWallet } from "../features/wallet/useLykiaWallet";
 import { toast } from "../mosaic";
 
-const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
 export default function WalletButton() {
   const wallet = useLykiaWallet();
@@ -45,7 +45,7 @@ export default function WalletButton() {
       <div style={{ position: "relative" }}>
         <button type="button" className="m-btn m-btn--sm" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)} title={wallet.label ?? undefined}>
           {wallet.kind === "passkey" ? "◉ " : ""}
-          {short(wallet.address)}
+          {shortAddress(wallet.address)}
         </button>
         {menu ? (
           <div role="menu" className="m-frame m-frame--thin m-walletmenu">

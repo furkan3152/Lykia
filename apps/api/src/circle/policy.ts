@@ -24,7 +24,7 @@
  */
 import { contractAddress, fenceHash, findToken, getProtocol, normalizeFence, tokenAddress, usdMicros, type Address, type ArcEnvironment, type Fence } from "@lykia/core";
 
-export const CIRCLE_POLICY_SCHEMA = "lykia.circle-policy/v1" as const;
+const CIRCLE_POLICY_SCHEMA = "lykia.circle-policy/v1" as const;
 
 export type CircleRuleType = "recipient-allowlist" | "recipient-blocklist" | "contract-allowlist" | "contract-blocklist";
 
@@ -242,12 +242,12 @@ export interface CirclePolicyApplier {
   apply(compiled: CirclePolicyCompilation): ApplyResult;
 }
 
-export const agentWalletApplier: CirclePolicyApplier = {
+const agentWalletApplier: CirclePolicyApplier = {
   walletKind: "agent-wallet",
   apply: (compiled) => ({ status: "requires-owner-otp", walletKind: "agent-wallet", applied: false, commands: compiled.commands, note: "Run these in your own terminal with the Circle CLI (npm install -g @circle-fin/cli). Each asks for a 6-digit code sent to your Circle agent email: never share it with Lykia or an agent." }),
 };
 
-export const developerWalletApplier: CirclePolicyApplier = {
+const developerWalletApplier: CirclePolicyApplier = {
   walletKind: "developer-controlled",
   apply: () => ({ status: "not-yet-available", walletKind: "developer-controlled", applied: false, commands: [], note: "Circle does not document a spending-policy API for developer-controlled wallets yet. Lykia's Fence preflight enforces every rule before a step reaches the wallet; add a Lykia smart account for on-chain enforcement." }),
 };

@@ -3,7 +3,6 @@
  * Arc protocols as partner stalls along it, each with its live status from
  * the API. Text only: no partner logos.
  */
-import { Link } from "../../app/routes/Link";
 import { Card, Stat, Tag } from "../../mosaic";
 import { circleState, LYKIA_ROLE, usdShort, type EcosystemView } from "./model";
 
@@ -71,13 +70,5 @@ export function EcosystemStats({ data }: { readonly data: EcosystemView | undefi
       <Stat label="TVL ON ARC" value={t ? usdShort(t.tvlUsd) : "…"} hint={data?.sources.tvl ?? "DefiLlama"} />
       <Stat label="VALUE ROUTED" value={t ? `$${Number(t.routed.usd).toLocaleString("en-US")}` : "…"} hint={t ? `${t.routed.steps} settled steps` : undefined} />
     </div>
-  );
-}
-
-export function EcosystemLink() {
-  return (
-    <Link to="/ecosystem" className="m-btn m-btn--sea">
-      {"SEE THE WHOLE HARBOUR"}
-    </Link>
   );
 }

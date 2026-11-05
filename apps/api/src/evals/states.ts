@@ -7,9 +7,9 @@
 import { KNOWLEDGE_ROWS, venueFactsFrom, type ProgramState } from "@lykia/core";
 import type { EvalCase } from "./intents.js";
 
-export const EVAL_OWNER = "0x00000000000000000000000000000000000000aa";
+const EVAL_OWNER = "0x00000000000000000000000000000000000000aa";
 /** Wednesday 4 November 2026, 12:00 UTC. */
-export const EVAL_NOW = Date.UTC(2026, 10, 4, 12);
+const EVAL_NOW = Date.UTC(2026, 10, 4, 12);
 
 export const PRESET_BALANCES: Readonly<Record<EvalCase["state"], Readonly<Record<string, string>>>> = {
   studio: { USDC: "2500", EURC: "0" },

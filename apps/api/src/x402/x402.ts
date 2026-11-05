@@ -19,7 +19,7 @@ import type { JsonValue } from "../store/types.js";
 import { sellerProofHeader } from "../circle/sellerProof.js";
 
 export const X402_VERSION = 2;
-export const USDC_DOMAIN = { name: "USDC", version: "2" } as const;
+const USDC_DOMAIN = { name: "USDC", version: "2" } as const;
 export const TRANSFER_WITH_AUTHORIZATION_TYPES = {
   TransferWithAuthorization: [
     { name: "from", type: "address" },
@@ -125,7 +125,7 @@ export async function verifyPayment(payment: PaymentPayload, req: PaymentRequire
 }
 
 /** Circle's facilitator takes the account's API key as a bearer token; other facilitators get none. */
-export function facilitatorHeaders(facilitatorUrl: string, circleApiKey: string | null): Record<string, string> {
+function facilitatorHeaders(facilitatorUrl: string, circleApiKey: string | null): Record<string, string> {
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (circleApiKey && /^https:\/\/api(?:-sandbox)?\.circle\.com\//u.test(facilitatorUrl)) headers.authorization = `Bearer ${circleApiKey}`;
   return headers;

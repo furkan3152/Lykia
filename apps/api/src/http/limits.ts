@@ -20,7 +20,7 @@ import { sendError } from "./request.js";
 export type RateLimitBucket = "default" | "heavy" | "auth";
 
 /** Rate-limit identity of the caller's address (IPv6 grouped to /56). */
-export function clientIp(req: Request): string {
+function clientIp(req: Request): string {
   return ipKeyGenerator(req.ip ?? req.socket.remoteAddress ?? "unknown");
 }
 
@@ -45,8 +45,8 @@ function createBucket(name: RateLimitBucket, limit: number): RequestHandler {
   });
 }
 
-export const MAX_STREAMS_PER_CLIENT = 10;
-export const MAX_STREAMS_TOTAL = 2_000;
+const MAX_STREAMS_PER_CLIENT = 10;
+const MAX_STREAMS_TOTAL = 2_000;
 
 /**
  * Open SSE streams per client address and in total. `acquire` returns an

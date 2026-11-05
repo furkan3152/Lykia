@@ -26,19 +26,18 @@ import {
   type ApiKeyScope,
   type ApiKeyView,
   type CreatedApiKey,
-  type LegacyApiKeyScope,
 } from "@lykia/core/api/platform";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { typedCollection } from "./typed.js";
 import { hmacHex, purposeKey, randomHex, randomToken, safeEqual } from "./crypto.js";
 
-export const MAX_KEYS_PER_DEVELOPER = 20;
+const MAX_KEYS_PER_DEVELOPER = 20;
 export const DEFAULT_PER_MINUTE = 120;
 export const DEFAULT_PER_DAY = 20_000;
-export const DEFAULT_ROTATION_OVERLAP_S = 24 * 3600;
+const DEFAULT_ROTATION_OVERLAP_S = 24 * 3600;
 export const MAX_ROTATION_OVERLAP_S = 7 * 24 * 3600;
-export const MAX_ALLOWED_IPS = 20;
+const MAX_ALLOWED_IPS = 20;
 /** lk_(sk|pk)_<id>_<secret> (legacy) or lk_(live|test)_<id>_<secret> or lk_pk_(live|test)_<id>_<secret>. */
 const KEY_PATTERN = /^lk_(?:(live|test)|(sk)|(pk)(?:_(live|test))?)_([a-z0-9]{12})_([A-Za-z0-9_-]{32})$/u;
 
@@ -70,7 +69,7 @@ export function hashSecret(ctx: AppContext, secret: string): string {
   return hmacHex(purposeKey(ctx, "api-key"), secret);
 }
 
-export function keyPrefix(key: Pick<StoredKey, "id" | "kind" | "mode">): string {
+function keyPrefix(key: Pick<StoredKey, "id" | "kind" | "mode">): string {
   if (!key.mode) return `lk_${key.kind === "secret" ? "sk" : "pk"}_${key.id}_`;
   return key.kind === "secret" ? `lk_${key.mode}_${key.id}_` : `lk_pk_${key.mode}_${key.id}_`;
 }
@@ -79,7 +78,7 @@ function fullKey(key: Pick<StoredKey, "id" | "kind" | "mode">): string {
   return `${keyPrefix(key)}${randomToken(24)}`;
 }
 
-export function viewOf(key: StoredKey): ApiKeyView {
+function viewOf(key: StoredKey): ApiKeyView {
   return {
     id: key.id,
     label: key.label,
@@ -302,9 +301,4 @@ export async function lookupKey(ctx: AppContext, presented: string): Promise<Sto
 export async function touchKey(ctx: AppContext, key: StoredKey): Promise<void> {
   const current = (await keys(ctx).get(key.id))?.value ?? key;
   await keys(ctx).put(key.id, { ...current, lastUsedAt: new Date(ctx.clock.now()).toISOString() });
-}
-
-/** Legacy scopes still accepted at key creation. */
-export function isLegacyScope(scope: string): scope is LegacyApiKeyScope {
-  return (API_KEY_SCOPES as readonly string[]).includes(scope);
 }

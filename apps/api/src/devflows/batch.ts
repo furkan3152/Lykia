@@ -6,7 +6,7 @@
  * keeps the payer as msg.sender in every inner call). The receipt's Memo
  * events then prove each row by its memo id.
  */
-import { memoId, memoData, networkFor, verdictTag, type Address, type ArcEnvironment, type UnsignedTransaction } from "@lykia/core";
+import { memoId, networkFor, type Address, type ArcEnvironment, type UnsignedTransaction } from "@lykia/core";
 import { decodeEventLog, erc20Abi, type Hex } from "viem";
 import type { ArcChains } from "../chains/arc.js";
 import { MEMO_ABI } from "../engine/abis.js";
@@ -42,10 +42,6 @@ export async function checkBatch(chains: ArcChains, environment: ArcEnvironment,
 
 export function memoIdFor(intentId: string, stepId: string): string {
   return memoId(intentId, stepId);
-}
-
-export function memoDataFor(intentId: string, stepId: string, verdictDigest: string, note?: string): string {
-  return memoData({ intentId, stepId, verdict: verdictTag(verdictDigest), ...(note ? { note } : {}) });
 }
 
 export interface ReceiptLog {

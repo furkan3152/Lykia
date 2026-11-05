@@ -18,7 +18,7 @@ import { LykiaHttpError } from "../http/errors.js";
 import { typedCollection } from "../platform/typed.js";
 import { abiFunction, adapterKnowledge, contractsOf, manifestAbi } from "./runtime.js";
 
-export const ROUTABLE_CACHE_MS = 30_000;
+const ROUTABLE_CACHE_MS = 30_000;
 const COLLECTION = "adapters";
 
 const CACHE = new WeakMap<AppContext, { at: number; list: AdapterRecord[] }>();
@@ -28,7 +28,7 @@ function col(ctx: AppContext) {
 }
 
 /** Structural issues plus ABI parsing; [] when the manifest is well formed. */
-export function manifestIssues(input: unknown): { path: string; message: string }[] {
+function manifestIssues(input: unknown): { path: string; message: string }[] {
   const issues = validateAdapterManifest(input, { reservedIds: PROTOCOLS.map((p) => p.id) });
   if (issues.length > 0) return issues;
   const manifest = input as AdapterManifest;
@@ -50,7 +50,7 @@ export function manifestIssues(input: unknown): { path: string; message: string 
   return issues;
 }
 
-export function forgetRoutable(ctx: AppContext): void {
+function forgetRoutable(ctx: AppContext): void {
   CACHE.delete(ctx);
 }
 

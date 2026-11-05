@@ -75,7 +75,7 @@ export interface CreateInput {
   readonly program?: `sha256:${string}`;
 }
 
-export const INTENT_TTL_MS = 30 * 24 * 3600_000;
+const INTENT_TTL_MS = 30 * 24 * 3600_000;
 
 export function newIntentId(): string {
   return `out_${randomBytes(9).toString("base64url")}`;

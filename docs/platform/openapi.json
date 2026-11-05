@@ -29863,12 +29863,14 @@
             "$ref": "#/components/responses/ServerError"
           }
         },
-        "x-lykia-auth": "key",
+        "x-lykia-auth": "session",
         "security": [
           {
-            "LykiaKey": []
+            "LykiaSession": []
           },
-          {}
+          {
+            "LykiaKey": []
+          }
         ]
       },
       "post": {
@@ -29929,14 +29931,16 @@
             "$ref": "#/components/responses/ServerError"
           }
         },
-        "x-lykia-auth": "key",
+        "x-lykia-auth": "session",
         "x-lykia-scope": "automation",
         "x-lykia-idempotent": true,
         "security": [
           {
-            "LykiaKey": []
+            "LykiaSession": []
           },
-          {}
+          {
+            "LykiaKey": []
+          }
         ],
         "requestBody": {
           "required": true,
@@ -30023,13 +30027,15 @@
             "$ref": "#/components/responses/ServerError"
           }
         },
-        "x-lykia-auth": "key",
+        "x-lykia-auth": "session",
         "x-lykia-scope": "automation",
         "security": [
           {
-            "LykiaKey": []
+            "LykiaSession": []
           },
-          {}
+          {
+            "LykiaKey": []
+          }
         ]
       },
       "get": {
@@ -30092,12 +30098,14 @@
             "$ref": "#/components/responses/ServerError"
           }
         },
-        "x-lykia-auth": "key",
+        "x-lykia-auth": "session",
         "security": [
           {
-            "LykiaKey": []
+            "LykiaSession": []
           },
-          {}
+          {
+            "LykiaKey": []
+          }
         ]
       }
     },
@@ -30168,14 +30176,16 @@
             "$ref": "#/components/responses/ServerError"
           }
         },
-        "x-lykia-auth": "key",
+        "x-lykia-auth": "session",
         "x-lykia-scope": "automation",
         "x-lykia-idempotent": true,
         "security": [
           {
-            "LykiaKey": []
+            "LykiaSession": []
           },
-          {}
+          {
+            "LykiaKey": []
+          }
         ]
       }
     },
@@ -30246,14 +30256,16 @@
             "$ref": "#/components/responses/ServerError"
           }
         },
-        "x-lykia-auth": "key",
+        "x-lykia-auth": "session",
         "x-lykia-scope": "automation",
         "x-lykia-idempotent": true,
         "security": [
           {
-            "LykiaKey": []
+            "LykiaSession": []
           },
-          {}
+          {
+            "LykiaKey": []
+          }
         ]
       }
     },
@@ -30324,14 +30336,16 @@
             "$ref": "#/components/responses/ServerError"
           }
         },
-        "x-lykia-auth": "key",
+        "x-lykia-auth": "session",
         "x-lykia-scope": "automation",
         "x-lykia-idempotent": true,
         "security": [
           {
-            "LykiaKey": []
+            "LykiaSession": []
           },
-          {}
+          {
+            "LykiaKey": []
+          }
         ]
       }
     },

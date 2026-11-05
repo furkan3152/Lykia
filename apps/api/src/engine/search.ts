@@ -49,7 +49,7 @@ import type { Planner, PlanResult } from "./planner.js";
 import type { VenuePrefs, VenueRouter } from "./router.js";
 import { simulateRoute, type RouteSimulation } from "./simulate.js";
 
-export const SEARCH_DEFAULTS = { maxCandidates: 10, horizonDays: 90, concurrency: 3, checks: 3, candidateTimeoutMs: 20_000 } as const;
+const SEARCH_DEFAULTS = { maxCandidates: 10, horizonDays: 90, concurrency: 3, checks: 3, candidateTimeoutMs: 20_000 } as const;
 /** Gas the Memo / Multicall3From wrapping adds per step. */
 const STEP_OVERHEAD_GAS = 60_000;
 /** One extra signature or step is worth a cent in the tie-break. */

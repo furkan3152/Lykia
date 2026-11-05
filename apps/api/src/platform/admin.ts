@@ -20,7 +20,7 @@ import { typedCollection } from "./typed.js";
 /** Whether `code` is `contract`'s runtime code: true, false, or null when there is no artifact to compare with. */
 export type CodeCheck = (contract: string, code: Hex) => boolean | null;
 
-export const coreCodeCheck: CodeCheck = (contract, code) => lykiaContracts.codeMatchesArtifact(contract, code);
+const coreCodeCheck: CodeCheck = (contract, code) => lykiaContracts.codeMatchesArtifact(contract, code);
 
 function expectedHash(contract: string): Hex | null {
   const artifact = lykiaContracts.DEPLOYABLE_ARTIFACTS[contract];
@@ -77,11 +77,6 @@ export async function recordDeployment(ctx: AppContext, input: RecordDeploymentI
 
 export async function listDeployments(ctx: AppContext, environment?: ArcEnvironment): Promise<DeploymentRecord[]> {
   return (await typedCollection<DeploymentRecord>(ctx, "deployments").list({ limit: 1000 })).map((d) => d.value).filter((d) => !environment || d.environment === environment);
-}
-
-/** Address of a recorded deployment by plan step name (used by the Pack to build session transactions). */
-export async function deployedAddress(ctx: AppContext, environment: ArcEnvironment, name: string): Promise<Address | null> {
-  return ((await typedCollection<DeploymentRecord>(ctx, "deployments").get(`${environment}:${name}`))?.value.address as Address | undefined) ?? null;
 }
 
 const DEFAULT_FLAGS: Readonly<Record<FeatureFlag, boolean>> = { "agents.llm": true, "agents.keeper": false, "pack.onchain": true, x402: true, "developer.signup": true, "routing.halt": false };

@@ -6,9 +6,7 @@
 import { ARC_CONTRACTS, NETWORKS, type ArcEnvironment, type ArcNetwork, type ArcNetworkKey } from "@lykia/core";
 import { defineChain, type Chain } from "viem";
 
-export const ARC_NETWORK_KEYS = ["arc-testnet", "arc-mainnet"] as const satisfies readonly ArcNetworkKey[];
-
-export function chainFromNetwork(network: ArcNetwork): Chain {
+function chainFromNetwork(network: ArcNetwork): Chain {
   const multicall = ARC_CONTRACTS.multicall3.addresses[network.environment];
   return defineChain({
     id: network.chainId,
@@ -21,7 +19,7 @@ export function chainFromNetwork(network: ArcNetwork): Chain {
   });
 }
 
-export const DEFINED_CHAINS: Readonly<Record<ArcNetworkKey, Chain>> = Object.freeze({
+const DEFINED_CHAINS: Readonly<Record<ArcNetworkKey, Chain>> = Object.freeze({
   "arc-testnet": chainFromNetwork(NETWORKS["arc-testnet"]),
   "arc-mainnet": chainFromNetwork(NETWORKS["arc-mainnet"]),
 });

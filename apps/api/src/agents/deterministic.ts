@@ -20,7 +20,7 @@ import { deliver } from "../compiler/deliver.js";
 import { planActions } from "./engine.js";
 import { mergeProposals, specialistFor, type Emit, type SpecialistRole, type TurnResult } from "./orchestrator.js";
 
-export function roleForAction(action: PlanAction): SpecialistRole {
+function roleForAction(action: PlanAction): SpecialistRole {
   switch (action.verb) {
     case "send":
       return "payroll";

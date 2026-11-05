@@ -4,7 +4,7 @@
  *
  * Kinds:
  * - `site`: marketing and public pages in the site layout. They never pull the
- *   wallet stack (wagmi, RainbowKit, viem); keep it that way.
+ *   wallet stack (wagmi, viem); keep it that way.
  * - `app`: the deck under /app, rendered inside the app shell, which loads the
  *   wallet providers lazily.
  *

@@ -6,14 +6,11 @@
  * runs, when it runs next, how the last run went and what the Fence said
  * (or is expected to say) about the next one.
  */
-import { describeAlert, describeAutomationTrigger, describeTrigger, deriveIntentStatus, nextScheduleRun, type Address, type ArcEnvironment, type StandingOrder } from "@lykia/core";
+import { describeAlert, describeAutomationTrigger, describeTrigger, deriveIntentStatus, nextScheduleRun, type Address, type StandingOrder } from "@lykia/core";
 import type { FoldInstruction, FoldInstructionsResponse } from "@lykia/core/api/fold";
 import type { AppContext } from "../context.js";
-import { listAutomations as listAgentAutomations } from "../agents/automations.js";
-import { alertsService } from "../alerts/service.js";
-import type { StoredAutomation } from "../devflows/automations.js";
+import { ownerInstructionSources, type StoredAutomation } from "../devflows/automations.js";
 import { automations, listOwned } from "../devflows/stores.js";
-import { ordersService } from "../orders/service.js";
 import { services } from "../services.js";
 import { listProposals } from "./proposals.js";
 
@@ -74,7 +71,7 @@ export async function instructionsFor(ctx: AppContext, owner: Address): Promise<
 
   const unified = ((await listOwned(automations(ctx), me).catch(() => [])) as StoredAutomation[]).filter((a) => a.owner.toLowerCase() === me);
   const backed = new Set(unified.map((a) => a.backing.id).filter(Boolean));
-  const standing = await services(ctx).standing.list(owner).catch(() => [] as StandingOrder[]);
+  const { standing, alerts, agent, orders } = await ownerInstructionSources(ctx, owner);
   const standingById = new Map(standing.map((o) => [o.id, o]));
 
   for (const a of unified) {
@@ -104,7 +101,7 @@ export async function instructionsFor(ctx: AppContext, owner: Address): Promise<
     out.push(standingRow(o, now, await verdictOfIntent(ctx, o.lastIntentId)));
   }
 
-  for (const r of await alertsService(ctx).list(owner).catch(() => [])) {
+  for (const r of alerts) {
     const name = describeAlert(r);
     out.push({
       id: r.id,
@@ -124,7 +121,7 @@ export async function instructionsFor(ctx: AppContext, owner: Address): Promise<
     });
   }
 
-  for (const a of await listAgentAutomations(ctx, owner).catch(() => [])) {
+  for (const a of agent) {
     const every = "everyMinutes" in a.when ? a.when.everyMinutes : null;
     const next = a.enabled && every !== null ? iso(a.lastRunAt ? Date.parse(a.lastRunAt) + every * 60_000 : now) : null;
     out.push({
@@ -145,28 +142,26 @@ export async function instructionsFor(ctx: AppContext, owner: Address): Promise<
     });
   }
 
-  for (const environment of ["mainnet", "testnet"] as ArcEnvironment[]) {
-    for (const o of await ordersService(ctx).list(environment, owner).catch(() => [])) {
-      const open = o.status === "open" || o.status === "waiting";
-      const interval = o.order.interval > 0 && o.order.executions > 1;
-      const next = open && interval && o.lastExecutedAt ? iso(Date.parse(o.lastExecutedAt) + o.order.interval * 1000) : open && o.order.startTime * 1000 > now ? iso(o.order.startTime * 1000) : null;
-      out.push({
-        id: o.hash,
-        source: "order",
-        sourceLabel: "Orders",
-        name: o.summary,
-        status: o.status === "filled" ? "done" : o.status === "cancelled" || o.status === "expired" ? "cancelled" : o.status === "invalid" ? "failed" : o.status === "waiting" ? "waiting" : "active",
-        trigger: o.waitingFor ? `waiting for ${o.waitingFor}` : interval ? `${o.executed} of ${o.order.executions} slices` : "ready",
-        nextRunAt: next,
-        nextRunLabel: !open ? o.status : next ? inWords(next, now) : o.waitingFor ? `on ${o.waitingFor}` : "next keeper pass",
-        lastRunAt: o.lastExecutedAt,
-        lastResult: o.executed > 0 ? `${o.executed} of ${o.order.executions} executed` : "Not filled yet",
-        nextVerdict: { decision: "allow", reason: "Signed once; LykiaOrders enforces the price, size and deadline on chain." },
-        controllable: false,
-        editSentence: `Change my order "${o.summary}": `,
-        environment,
-      });
-    }
+  for (const { environment, order: o } of orders) {
+    const open = o.status === "open" || o.status === "waiting";
+    const interval = o.order.interval > 0 && o.order.executions > 1;
+    const next = open && interval && o.lastExecutedAt ? iso(Date.parse(o.lastExecutedAt) + o.order.interval * 1000) : open && o.order.startTime * 1000 > now ? iso(o.order.startTime * 1000) : null;
+    out.push({
+      id: o.hash,
+      source: "order",
+      sourceLabel: "Orders",
+      name: o.summary,
+      status: o.status === "filled" ? "done" : o.status === "cancelled" || o.status === "expired" ? "cancelled" : o.status === "invalid" ? "failed" : o.status === "waiting" ? "waiting" : "active",
+      trigger: o.waitingFor ? `waiting for ${o.waitingFor}` : interval ? `${o.executed} of ${o.order.executions} slices` : "ready",
+      nextRunAt: next,
+      nextRunLabel: !open ? o.status : next ? inWords(next, now) : o.waitingFor ? `on ${o.waitingFor}` : "next keeper pass",
+      lastRunAt: o.lastExecutedAt,
+      lastResult: o.executed > 0 ? `${o.executed} of ${o.order.executions} executed` : "Not filled yet",
+      nextVerdict: { decision: "allow", reason: "Signed once; LykiaOrders enforces the price, size and deadline on chain." },
+      controllable: false,
+      editSentence: `Change my order "${o.summary}": `,
+      environment,
+    });
   }
 
   const rank = (s: FoldInstruction["status"]) => (s === "active" || s === "waiting" ? 0 : s === "paused" ? 1 : 2);

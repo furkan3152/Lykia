@@ -8,8 +8,11 @@
  *   POST   /standing/:id/check    check now (fires when due; `force` plans it regardless of the trigger)
  *   POST   /standing/:id/pause | /resume
  *   DELETE /standing/:id          cancel
+ *
+ * Every route acts for one owner: the signed-in owner, or a secret key.
  */
-import type { Address, StandingOrderDraft } from "@lykia/core";
+import type { Address, StandingOrder, StandingOrderDraft } from "@lykia/core";
+import type { Request } from "express";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
@@ -18,7 +21,7 @@ import { evmAddress, parseBody, parseParams, parseQuery } from "../http/validate
 import { readSentence } from "../language/reader.js";
 import { STANDING_CHECK_MS } from "../engine/standing.js";
 import { services } from "../services.js";
-import { environmentOf, environmentSchema, fenceFrom } from "./common.js";
+import { authorizeOwner, environmentOf, environmentSchema, fenceFrom } from "./common.js";
 
 const IdParams = z.object({ id: z.string().regex(/^so_[A-Za-z0-9_-]{6,32}$/u) });
 
@@ -37,11 +40,20 @@ const createSchema = z
 
 const timers = new WeakMap<AppContext, NodeJS.Timeout>();
 
+/** The order named in the path, once the caller is its owner (or a secret key): a standing order holds the owner's own instructions. */
+async function ownedOrder(ctx: AppContext, req: Request): Promise<StandingOrder> {
+  const { id } = parseParams(req, IdParams);
+  const order = await services(ctx).standing.get(id);
+  await authorizeOwner(ctx, req, order.owner, "route");
+  return order;
+}
+
 export const standingModule: ApiModule = {
   name: "standing",
   register(router, ctx) {
     router.post("/standing", ctx.limits.heavy, async (req, res) => {
       const body = parseBody(req, createSchema);
+      await authorizeOwner(ctx, req, body.owner, "route");
       let drafts: StandingOrderDraft[];
       if (body.text !== undefined) {
         const parsed = readSentence(body.text, body.timezone ? { timezone: body.timezone } : {});
@@ -69,32 +81,32 @@ export const standingModule: ApiModule = {
 
     router.get("/standing", async (req, res) => {
       const { owner } = parseQuery(req, z.object({ owner: evmAddress }));
+      await authorizeOwner(ctx, req, owner, "route");
       res.json({ orders: await services(ctx).standing.list(owner as Address) });
     });
 
     router.get("/standing/:id", async (req, res) => {
-      const { id } = parseParams(req, IdParams);
-      res.json(await services(ctx).standing.get(id));
+      res.json(await ownedOrder(ctx, req));
     });
 
     router.post("/standing/:id/check", ctx.limits.heavy, async (req, res) => {
-      const { id } = parseParams(req, IdParams);
+      const { id } = await ownedOrder(ctx, req);
       const body = parseBody(req, z.object({ force: z.boolean().optional() }).default({}));
       res.json(await services(ctx).standing.check(id, body.force ? { force: true } : {}));
     });
 
     router.post("/standing/:id/pause", async (req, res) => {
-      const { id } = parseParams(req, IdParams);
+      const { id } = await ownedOrder(ctx, req);
       res.json(await services(ctx).standing.setStatus(id, "paused"));
     });
 
     router.post("/standing/:id/resume", async (req, res) => {
-      const { id } = parseParams(req, IdParams);
+      const { id } = await ownedOrder(ctx, req);
       res.json(await services(ctx).standing.setStatus(id, "active"));
     });
 
     router.delete("/standing/:id", async (req, res) => {
-      const { id } = parseParams(req, IdParams);
+      const { id } = await ownedOrder(ctx, req);
       res.json(await services(ctx).standing.setStatus(id, "cancelled"));
     });
   },

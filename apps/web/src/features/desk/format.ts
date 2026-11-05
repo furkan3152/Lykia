@@ -1,8 +1,4 @@
 /** Small formatters for the desk pages. */
-/** "0x12ab…cd34" */
-export function short(address: string): string {
-  return `${address.slice(0, 6)}…${address.slice(-4)}`;
-}
 
 /** Compact USD: $1.2M, $34.5K, $12.34. */
 export function usd(value: string | number | null | undefined): string {

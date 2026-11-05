@@ -27,14 +27,14 @@ import {
 } from "viem";
 import { LykiaHttpError } from "../http/errors.js";
 
-export const MULTICALL3_READS_ABI = parseAbi([
+const MULTICALL3_READS_ABI = parseAbi([
   "function getBlockNumber() view returns (uint256 blockNumber)",
   "function getEthBalance(address addr) view returns (uint256 balance)",
 ]);
 
-export const RPC_TIMEOUT_MS = 6_000;
-export const RPC_RETRY_COUNT = 1;
-export const MAX_BALANCE_TOKENS = 100;
+const RPC_TIMEOUT_MS = 6_000;
+const RPC_RETRY_COUNT = 1;
+const MAX_BALANCE_TOKENS = 100;
 
 export type BalanceToken = "native" | Address;
 
@@ -60,7 +60,7 @@ export interface BlockHeader {
   readonly transactionCount: number;
 }
 
-export function defineArcChain(network: ArcNetwork): Chain {
+function defineArcChain(network: ArcNetwork): Chain {
   return defineChain({
     id: network.chainId,
     name: network.name,
@@ -204,7 +204,7 @@ export class ArcChains {
   }
 }
 
-export class RpcError extends Error {
+class RpcError extends Error {
   constructor(
     readonly code: number,
     message: string,

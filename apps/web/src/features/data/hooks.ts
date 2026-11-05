@@ -1,6 +1,5 @@
 /** Data hooks over the Lykia API (react-query), shared by pages. */
 import type { ArcEnvironment } from "@lykia/core";
-import type { FlockBothSnapshot, FlockSnapshot } from "@lykia/core/api/flock";
 import { useQuery } from "@tanstack/react-query";
 
 import { apiGet } from "../../lib/api";
@@ -12,23 +11,6 @@ export interface RatesSnapshot { readonly environment: string; readonly vaults: 
 
 export function useRates(environment: ArcEnvironment) {
   return useQuery({ queryKey: ["rates", environment], queryFn: ({ signal }) => apiGet<RatesSnapshot>("/v1/rates", { query: { environment }, signal, timeoutMs: 15_000 }), staleTime: 60_000, retry: 1 });
-}
-
-export function useFlock(address: string | null, environment: ArcEnvironment | "both") {
-  return useQuery({
-    queryKey: ["flock", address, environment],
-    enabled: Boolean(address),
-    queryFn: ({ signal }) => apiGet<FlockSnapshot | FlockBothSnapshot>(`/v1/flock/${address}`, { query: { environment }, signal, timeoutMs: 20_000 }),
-    refetchInterval: 30_000,
-  });
-}
-
-export function isBoth(s: FlockSnapshot | FlockBothSnapshot | undefined): s is FlockBothSnapshot {
-  return Boolean(s && "mainnet" in s && "testnet" in s);
-}
-
-export function isSnapshot(s: unknown): s is FlockSnapshot {
-  return Boolean(s && typeof s === "object" && "holdings" in (s as object));
 }
 
 /** Top yields per token across vaults and Aave reserves, best first. */

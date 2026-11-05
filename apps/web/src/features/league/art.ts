@@ -27,7 +27,7 @@ export interface Metal {
   readonly rim: string;
 }
 
-export const METALS: Readonly<Record<LeagueState, Metal>> = {
+const METALS: Readonly<Record<LeagueState, Metal>> = {
   live: { field: "#E2B04A", light: "#F3CF78", dark: "#7E5112", high: "#FFF0B8", mid: "#C68F2C", rim: "#5E3E0E" },
   coming: { field: "#C3C8CE", light: "#E2E5E8", dark: "#545C66", high: "#FFFFFF", mid: "#A0A7AF", rim: "#3F454D" },
   paused: { field: "#966747", light: "#B4825C", dark: "#43291A", high: "#D6A784", mid: "#77502F", rim: "#2F1D12" },
@@ -36,7 +36,7 @@ export const METALS: Readonly<Record<LeagueState, Metal>> = {
 /* ------------------------------------------------------------ emblems (16 x 16, drawn at 2x) */
 
 /** k: deep relief, m: mid relief, h: highlight. Dots are the coin's field. */
-export const EMBLEM_ART: Readonly<Record<LeagueEmblem, readonly string[]>> = {
+const EMBLEM_ART: Readonly<Record<LeagueEmblem, readonly string[]>> = {
   lighthouse: [
     ".......kk.......",
     "......khhk......",

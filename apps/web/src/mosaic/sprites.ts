@@ -98,7 +98,7 @@ export const LYKO_TROT2: readonly string[] = [
 "................................",
 ];
 // Big portrait 28x28: head-on, ears dropped, black mask, amber eyes, spiked collar, gold tag.
-export const LYKO_FACE: readonly string[] = [
+const LYKO_FACE: readonly string[] = [
 "............................",
 "......kkkk........kkkk......",
 ".....kMmmmk......kmmmMk.....",

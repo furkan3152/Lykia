@@ -28,7 +28,7 @@ function dayOf(now: number): string {
 }
 
 /** "GET /v1/intents/:id": the route template when Express matched one, else the raw path. */
-export function endpointName(method: string, route: string | null, path: string): string {
+function endpointName(method: string, route: string | null, path: string): string {
   return `${method.toUpperCase()} ${route ?? path}`.slice(0, 160);
 }
 

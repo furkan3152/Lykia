@@ -20,19 +20,19 @@ import { decodeFunctionResult, encodeAbiParameters, encodeFunctionData, erc20Abi
 import type { ArcChains } from "../chains/arc.js";
 import type { Clock } from "../clock.js";
 
-export const EIP1967_IMPLEMENTATION = "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc" as Hex;
-export const EIP1967_ADMIN = "0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103" as Hex;
-export const EIP1967_BEACON = "0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50" as Hex;
+const EIP1967_IMPLEMENTATION = "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc" as Hex;
+const EIP1967_ADMIN = "0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103" as Hex;
+const EIP1967_BEACON = "0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50" as Hex;
 /** OpenZeppelin v5 ERC20 namespaced storage (ERC-7201 "openzeppelin.storage.ERC20"). */
-export const OZ5_ERC20_STORAGE = 0x52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace00n;
+const OZ5_ERC20_STORAGE = 0x52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace00n;
 const OWNER_SELECTOR = "0x8da5cb5b" as Hex;
 const IMPLEMENTATION_SELECTOR = "0x5c60da1b" as Hex;
 const PROBE_FROM = "0x00000000000000000000000000000000004c796b" as Address; // "Lyk"
 const PROBE_TO = "0x000000000000000000000000000000004c796b6f" as Address; // "Lyko"
-export const SCENT_CACHE_MS = 10 * 60_000;
+const SCENT_CACHE_MS = 10 * 60_000;
 
 /** Selectors whose presence gives someone power over holders, with the wolf they reveal. */
-export const PRIVILEGED_SELECTORS: Readonly<Record<string, { readonly signature: string; readonly wolf: WolfKind }>> = Object.freeze({
+const PRIVILEGED_SELECTORS: Readonly<Record<string, { readonly signature: string; readonly wolf: WolfKind }>> = Object.freeze({
   "40c10f19": { signature: "mint(address,uint256)", wolf: "mint-authority" },
   a0712d68: { signature: "mint(uint256)", wolf: "mint-authority" },
   "8456cb59": { signature: "pause()", wolf: "blacklist" },

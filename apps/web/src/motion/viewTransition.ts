@@ -21,10 +21,6 @@ function starter(): StartViewTransition | null {
   return typeof start === "function" ? (start.bind(document) as StartViewTransition) : null;
 }
 
-export function supportsViewTransitions(): boolean {
-  return starter() !== null;
-}
-
 let sequence = 0;
 
 function reportUpdateError(error: unknown) {

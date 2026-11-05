@@ -63,7 +63,7 @@ export function alertInputIssue(input: Pick<AlertInput, "environment" | "kind" |
   return null;
 }
 
-export class AlertsService {
+class AlertsService {
   constructor(private readonly ctx: AppContext) {}
 
   private rules() {

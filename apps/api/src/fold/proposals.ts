@@ -21,9 +21,9 @@ import { typedCollection } from "../platform/typed.js";
 import { auditSafe, ownerChain } from "../security/audit.js";
 import { services } from "../services.js";
 
-export const PROPOSAL_TTL_MS = 30 * 86_400_000;
-export const HANDLED_TTL_MS = 7 * 86_400_000;
-export const MAX_OPEN_PROPOSALS = 50;
+const PROPOSAL_TTL_MS = 30 * 86_400_000;
+const HANDLED_TTL_MS = 7 * 86_400_000;
+const MAX_OPEN_PROPOSALS = 50;
 
 const proposals = (ctx: AppContext) => typedCollection<FoldProposal>(ctx, "fold_proposals");
 const feed = (ctx: AppContext) => typedCollection<FoldFeedEntry>(ctx, "fold_feed");
@@ -32,7 +32,7 @@ const handled = (ctx: AppContext) => typedCollection<{ readonly fingerprint: str
 const key = (owner: string) => owner.toLowerCase();
 
 /** Allowed moves between statuses. `done` and `stopped` are final. */
-export const TRANSITIONS: Readonly<Record<FoldProposalStatus, readonly FoldProposalStatus[]>> = {
+const TRANSITIONS: Readonly<Record<FoldProposalStatus, readonly FoldProposalStatus[]>> = {
   proposed: ["approved", "stopped"],
   approved: ["done", "stopped"],
   done: [],
@@ -167,7 +167,7 @@ export async function listFeed(ctx: AppContext, owner: Address, limit = 100): Pr
     .slice(0, limit);
 }
 
-export async function markHandled(ctx: AppContext, owner: Address, insightId: string, fingerprint: string): Promise<void> {
+async function markHandled(ctx: AppContext, owner: Address, insightId: string, fingerprint: string): Promise<void> {
   await handled(ctx).put(`${key(owner)}:${insightId}`, { fingerprint, at: new Date(ctx.clock.now()).toISOString() }, { ttlMs: HANDLED_TTL_MS });
 }
 

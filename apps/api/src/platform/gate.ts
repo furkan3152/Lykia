@@ -11,7 +11,7 @@
  * Mounted by http/router.ts before every module, after the JSON parser.
  */
 import type { NextFunction, Request, Response } from "express";
-import { API_KEY_HEADER, API_VERSION_HEADER, API_VERSIONS, type ApiKeyScope } from "@lykia/core/api/platform";
+import { API_KEY_HEADER, API_VERSION_HEADER, API_VERSIONS } from "@lykia/core/api/platform";
 import { cityPaused } from "@lykia/core";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
@@ -28,11 +28,6 @@ const KEYS = new WeakMap<Request, StoredKey>();
 
 export function keyOf(req: Request): StoredKey | null {
   return KEYS.get(req) ?? null;
-}
-
-/** The scope a route needs for a legacy key, from its path and method (kept for compatibility). */
-export function scopeFor(method: string, path: string): ApiKeyScope {
-  return legacyScopeFor(method, path);
 }
 
 export function dayKey(now: number): string {

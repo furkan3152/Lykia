@@ -30,8 +30,8 @@ import { dayKey } from "./gate.js";
 import { createKey } from "./keys.js";
 import { typedCollection } from "./typed.js";
 
-export const MAX_PROJECTS_PER_DEVELOPER = 10;
-export const PROJECT_ID_PATTERN = /^prj_[a-z0-9]{12}$/u;
+const MAX_PROJECTS_PER_DEVELOPER = 10;
+const PROJECT_ID_PATTERN = /^prj_[a-z0-9]{12}$/u;
 
 const projects = (ctx: AppContext) => typedCollection<Project>(ctx, "projects");
 
@@ -66,7 +66,7 @@ export async function takenSlugs(ctx: AppContext, except?: string): Promise<Set<
 }
 
 /** A free slug from a name: "acme-pay", then "acme-pay-2", "acme-pay-3"... */
-export function freeSlug(name: string, taken: ReadonlySet<string>): string {
+function freeSlug(name: string, taken: ReadonlySet<string>): string {
   const base = leagueSlug(name);
   if (!taken.has(base)) return base;
   for (let i = 2; i < 1000; i++) {

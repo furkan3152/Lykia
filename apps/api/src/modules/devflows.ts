@@ -159,7 +159,7 @@ async function mayTick(ctx: AppContext, req: Request): Promise<boolean> {
 }
 
 const timers = new WeakMap<AppContext, NodeJS.Timeout>();
-export const FLOW_TICK_MS = 60_000;
+const FLOW_TICK_MS = 60_000;
 
 /* ------------------------------------------------------------ module */
 

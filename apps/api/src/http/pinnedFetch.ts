@@ -12,7 +12,7 @@ import type { LookupFunction } from "node:net";
 import type { FetchLike } from "../health/dependencies.js";
 import { guardedLookup } from "./netguard.js";
 
-export const PINNED_FETCH_MAX_BYTES = 2_000_000;
+const PINNED_FETCH_MAX_BYTES = 2_000_000;
 
 export interface PinnedFetchOptions {
   readonly lookup?: LookupFunction;

@@ -46,7 +46,7 @@ import { readSentence } from "../language/reader.js";
 import { ordersService } from "../orders/service.js";
 import { randomHex } from "../platform/crypto.js";
 import { services } from "../services.js";
-import type { FlowCaller } from "./access.js";
+import { actsFor, assertActsFor, type FlowCaller } from "./access.js";
 import { businessEvent, onBusinessEvent, type BusinessEvent } from "./events.js";
 import { automations, listOwned, RECORD_TTL_MS } from "./stores.js";
 import { lockedOr } from "../platform/requestState.js";
@@ -131,10 +131,6 @@ async function loadOwn(ctx: AppContext, caller: FlowCaller, id: string): Promise
   return doc;
 }
 
-function legacyAllowed(caller: FlowCaller, owner: string): void {
-  if (caller.via !== "secret" && caller.developer !== owner.toLowerCase()) throw new LykiaHttpError("FORBIDDEN", 403, "Only the owner (or a secret key) can change that.");
-}
-
 export async function getAutomation(ctx: AppContext, caller: FlowCaller, id: string): Promise<StoredAutomation> {
   return loadOwn(ctx, caller, id);
 }
@@ -154,39 +150,60 @@ export async function controlAutomation(ctx: AppContext, caller: FlowCaller, id:
   }
   if (id.startsWith("so_")) {
     const order = await services(ctx).standing.get(id);
-    legacyAllowed(caller, order.owner);
+    assertActsFor(caller, order.owner);
     return services(ctx).standing.setStatus(id, action === "pause" ? "paused" : action === "resume" ? "active" : "cancelled");
   }
   if (id.startsWith("al_")) {
     if (!owner) throw new LykiaHttpError("INVALID_REQUEST", 400, "Alerts need the owner (?owner=0x…).");
-    legacyAllowed(caller, owner);
+    assertActsFor(caller, owner);
     if (action === "delete") return { deleted: await alertsService(ctx).remove(owner, id), id };
     return alertsService(ctx).update(owner, id, { paused: action === "pause" });
   }
   if (/^0x[0-9a-f]{40}:aut_/u.test(id)) {
     const who = id.split(":")[0] as Address;
-    legacyAllowed(caller, who);
+    assertActsFor(caller, who);
     if (action === "delete") return setAutomationEnabled(ctx, who, id, false);
     return setAutomationEnabled(ctx, who, id, action === "resume");
   }
   throw new LykiaHttpError("INVALID_REQUEST", 400, "LykiaOrders orders are cancelled with a signed transaction: GET /v1/orders/:hash/cancel-tx.");
 }
 
-/** Unified automations, plus the owner's standing orders, alerts, agent automations and orders when `owner` is given. */
+/**
+ * Everything else an owner has standing, read once for both listings
+ * (GET /v1/automations and the Fold's Herding): standing orders, alerts,
+ * agent automations and LykiaOrders orders on both networks. A failing
+ * source reads as empty.
+ */
+export async function ownerInstructionSources(ctx: AppContext, owner: Address) {
+  const [standing, alerts, agent, mainnetOrders, testnetOrders] = await Promise.all([
+    services(ctx).standing.list(owner).catch(() => []),
+    alertsService(ctx).list(owner).catch(() => []),
+    listAgentAutomations(ctx, owner).catch(() => []),
+    ordersService(ctx).list("mainnet", owner).catch(() => []),
+    ordersService(ctx).list("testnet", owner).catch(() => []),
+  ]);
+  const orders = [...mainnetOrders.map((order) => ({ environment: "mainnet" as const, order })), ...testnetOrders.map((order) => ({ environment: "testnet" as const, order }))];
+  return { standing, alerts, agent, orders };
+}
+
+/**
+ * Unified automations, plus the owner's standing orders, alerts, agent
+ * automations and orders when `owner` is given and the caller may act for
+ * that owner (their own session, or a secret key). A session for another
+ * address only sees its own unified automations.
+ */
 export async function listAllAutomations(ctx: AppContext, caller: FlowCaller, owner?: Address): Promise<{ automations: StoredAutomation[]; entries: AutomationListEntry[] }> {
   const mine = (await listOwned(automations(ctx), caller.developer)) as StoredAutomation[];
   const entries: AutomationListEntry[] = mine.map((a) => ({ id: a.id, source: "automation", name: a.name, trigger: describeAutomationTrigger(a.trigger), action: a.action.type === "plan" ? "plan intent" : "notify webhook", status: a.status, controllable: true }));
-  if (owner) {
+  if (owner && actsFor(caller, owner)) {
     const backed = new Set(mine.map((a) => a.backing.id).filter(Boolean));
-    const standing = await services(ctx).standing.list(owner).catch(() => []);
+    const { standing, alerts, agent, orders } = await ownerInstructionSources(ctx, owner);
     for (const o of standing) if (!backed.has(o.id)) entries.push({ id: o.id, source: "standing", name: o.text, trigger: describeTrigger(o.trigger), action: "plan intent", status: o.status, controllable: o.status === "active" || o.status === "paused" });
-    for (const r of await alertsService(ctx).list(owner).catch(() => [])) entries.push({ id: r.id, source: "alert", name: describeAlert(r), trigger: r.kind, action: `notify ${r.channels.join(", ")}`, status: r.paused ? "paused" : "active", controllable: true });
-    for (const a of await listAgentAutomations(ctx, owner).catch(() => [])) entries.push({ id: a.id, source: "agent", name: a.sentence, trigger: "insight" in a.when ? `insight ${a.when.insight}` : `every ${a.when.everyMinutes} min`, action: a.mode === "session" ? "plan (agent session)" : "plan intent", status: a.enabled ? "active" : "paused", controllable: true });
-    for (const env of ["mainnet", "testnet"] as const) {
-      for (const o of await ordersService(ctx).list(env, owner).catch(() => [])) {
-        const view = o as unknown as { hash?: string; summary?: string; kind?: string; status?: string };
-        entries.push({ id: String(view.hash ?? ""), source: "order", name: String(view.summary ?? "order"), trigger: String(view.kind ?? "order"), action: "execute on chain (keeper)", status: String(view.status ?? "open"), controllable: false });
-      }
+    for (const r of alerts) entries.push({ id: r.id, source: "alert", name: describeAlert(r), trigger: r.kind, action: `notify ${r.channels.join(", ")}`, status: r.paused ? "paused" : "active", controllable: true });
+    for (const a of agent) entries.push({ id: a.id, source: "agent", name: a.sentence, trigger: "insight" in a.when ? `insight ${a.when.insight}` : `every ${a.when.everyMinutes} min`, action: a.mode === "session" ? "plan (agent session)" : "plan intent", status: a.enabled ? "active" : "paused", controllable: true });
+    for (const { order } of orders) {
+      const view = order as unknown as { hash?: string; summary?: string; kind?: string; status?: string };
+      entries.push({ id: String(view.hash ?? ""), source: "order", name: String(view.summary ?? "order"), trigger: String(view.kind ?? "order"), action: "execute on chain (keeper)", status: String(view.status ?? "open"), controllable: false });
     }
   }
   return { automations: mine, entries };

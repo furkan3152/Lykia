@@ -22,7 +22,7 @@ export interface ApiRequestOptions {
   readonly timeoutMs?: number;
 }
 
-export const DEFAULT_TIMEOUT_MS = 10_000;
+const DEFAULT_TIMEOUT_MS = 10_000;
 
 /** Absolute URL for an API path ("/v1/markets") with query parameters (null/undefined dropped). */
 export function apiUrl(path: string, query?: Readonly<Record<string, QueryValue>>): string {

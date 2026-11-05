@@ -10,14 +10,14 @@
  * the token. Logging out revokes the session id until it expires.
  */
 import { createHmac } from "node:crypto";
-import type { NextFunction, Request, RequestHandler, Response } from "express";
+import type { Request } from "express";
+import type { Address } from "@lykia/core";
 import { SESSION_HEADER, type SessionRole } from "@lykia/core/api/platform";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
-import { sendError } from "../http/request.js";
 import { purposeKey, randomHex, safeEqual } from "./crypto.js";
 
-export const SESSION_TTL_MS = 24 * 60 * 60_000;
+const SESSION_TTL_MS = 24 * 60 * 60_000;
 const PREFIX = "lk1";
 const MAX_TOKEN_LENGTH = 2_048;
 
@@ -85,16 +85,9 @@ export async function sessionOf(ctx: AppContext, req: Request): Promise<SessionC
   return session;
 }
 
-export function requireSession(ctx: AppContext, role: SessionRole = "user"): RequestHandler {
-  return (req: Request, res: Response, next: NextFunction) => {
-    sessionOf(ctx, req)
-      .then((session) => {
-        if (!session) return sendError(req, res, new LykiaHttpError("UNAUTHORIZED", 401, `Sign in with your wallet first (send the ${SESSION_HEADER} header).`));
-        if (!session.roles.includes(role)) return sendError(req, res, new LykiaHttpError("FORBIDDEN", 403, `This needs the ${role} role.`));
-        next();
-      })
-      .catch(next);
-  };
+/** The signed-in address, for routes about the caller's own data (401 without a session). */
+export async function sessionAddress(ctx: AppContext, req: Request): Promise<Address> {
+  return (await mustSession(ctx, req)).address as Address;
 }
 
 export async function mustSession(ctx: AppContext, req: Request, role: SessionRole = "user"): Promise<SessionContext> {

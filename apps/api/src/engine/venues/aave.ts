@@ -30,7 +30,7 @@ export interface AaveSpoke {
   readonly reserves: readonly AaveReserve[];
 }
 
-export const AAVE_SPOKES: Readonly<Partial<Record<ArcEnvironment, readonly AaveSpoke[]>>> = {
+const AAVE_SPOKES: Readonly<Partial<Record<ArcEnvironment, readonly AaveSpoke[]>>> = {
   mainnet: [
     {
       key: "main",
@@ -60,10 +60,6 @@ export function aaveSpokes(environment: ArcEnvironment): readonly AaveSpoke[] {
 
 export function aaveReserve(spoke: AaveSpoke, symbol: string): AaveReserve | null {
   return spoke.reserves.find((r) => r.symbol.toLowerCase() === symbol.toLowerCase()) ?? null;
-}
-
-export function aaveSpokeByKey(environment: ArcEnvironment, key: string): AaveSpoke | null {
-  return aaveSpokes(environment).find((s) => s.key === key || s.address.toLowerCase() === key.toLowerCase()) ?? null;
 }
 
 export const aaveCalls = {

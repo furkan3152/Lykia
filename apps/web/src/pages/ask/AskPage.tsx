@@ -14,10 +14,9 @@ import { useUiStore } from "../../app/state/uiStore";
 import { useRouteParam } from "../../app/routes/useRoute";
 import { Composer } from "../../features/ask/Composer";
 import { clarifyAction } from "../../features/ask/clarify";
-import { latestProposal } from "../../features/ask/model";
+import { latestProposal, storedMessage } from "../../features/ask/model";
 import { AssistantMessage, UserMessage } from "../../features/ask/Answer";
 import { ChatActionsContext, type ChatActions } from "../../features/ask/actions";
-import { parseAnswerBlocks } from "@lykia/core/api/answer";
 import type { AgentProposal } from "@lykia/core/api/agents";
 import { useAsk } from "../../features/ask/store";
 import { RouteArtifact } from "../../features/route/RouteArtifact";
@@ -214,7 +213,7 @@ export default function AskPage() {
                   m.role === "user" ? (
                     <UserMessage key={i} text={m.text} />
                   ) : (
-                    <AssistantMessage key={i} m={{ id: String(i), role: m.role, text: m.text, trail: [], proposals: m.proposals ?? [], blocks: parseAnswerBlocks(m.blocks), clarify: null, streaming: false }} />
+                    <AssistantMessage key={i} m={storedMessage(m, String(i))} />
                   ),
                 )
               : null}
