@@ -62,9 +62,13 @@ export default function PackPage() {
   const [policy, setPolicy] = useState<CirclePolicyView | null>(null);
 
   const tree = useQuery({
-    queryKey: ["pack", address, environment],
+    queryKey: ["pack", address, environment, siwe.signedIn],
     enabled: Boolean(address),
-    queryFn: ({ signal }) => apiGet<{ agents: PackAgentView[] }>("/v1/pack", { query: { owner: address, environment }, signal }),
+    // Names, Fences and budgets come back only for the signed-in owner; a redacted answer lists nothing here.
+    queryFn: async ({ signal }) => {
+      const r = await apiGet<{ agents: PackAgentView[]; redacted?: boolean }>("/v1/pack", { query: { owner: address, environment }, signal });
+      return { agents: r.redacted ? [] : r.agents };
+    },
   });
   const agents = tree.data?.agents ?? [];
   const selected = agents.find((a) => a.id === selectedId) ?? agents[0] ?? null;

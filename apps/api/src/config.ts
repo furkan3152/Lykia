@@ -31,6 +31,8 @@ export interface RateLimitConfig {
   readonly heavyPerMinute: number;
   /** Extra bucket for sign-in and other credential routes. */
   readonly authPerMinute: number;
+  /** Per-IP limit counted in the shared store (all instances) on model and compile routes. */
+  readonly sharedPerMinute?: number;
 }
 
 export interface Config {
@@ -70,6 +72,13 @@ export interface Config {
     readonly walletSetId: string | null;
     /** A developer-controlled wallet (the x402 payTo) that signs Circle facilitator seller proofs; null = none. */
     readonly sellerWalletId?: string | null;
+    /**
+     * Opt-in (LYKIA_CIRCLE_SERVER_WALLETS=true): this server creates Circle
+     * developer-controlled wallets for signed-in users and executes payouts
+     * from them with the operator's entity secret. Off by default: without it
+     * wallet creation and Circle payout execution answer 403.
+     */
+    readonly serverWallets?: boolean;
   };
   readonly telegramBotToken: string | null;
   /** Lykia's protocol fee, paid on chain in every value-moving step. */
@@ -94,6 +103,8 @@ export interface Config {
   /** Express `trust proxy` hop count (0 = use the socket address). */
   readonly trustProxy: number;
   readonly rateLimits: RateLimitConfig;
+  /** Global cap on model calls per UTC day (LYKIA_MODEL_DAILY_CALLS); past it the deterministic reader answers. */
+  readonly modelDailyCalls: number;
   readonly build: { readonly commit: string | null };
 }
 
@@ -209,6 +220,7 @@ const EnvSchema = z.object({
   CIRCLE_API_KEY: optionalString,
   CIRCLE_ENTITY_SECRET: optionalString,
   CIRCLE_WALLET_SET_ID: optionalString,
+  LYKIA_CIRCLE_SERVER_WALLETS: optionalString,
   TELEGRAM_BOT_TOKEN: optionalString,
   LYKIA_X402_PAY_TO: optionalString,
   LYKIA_GUARD_ADDRESS: optionalString,
@@ -231,6 +243,8 @@ const EnvSchema = z.object({
   LYKIA_RATE_LIMIT_DEFAULT: intInRange(1, 100_000, 600),
   LYKIA_RATE_LIMIT_HEAVY: intInRange(1, 100_000, 60),
   LYKIA_RATE_LIMIT_AUTH: intInRange(1, 100_000, 20),
+  LYKIA_RATE_LIMIT_SHARED: intInRange(1, 100_000, 20),
+  LYKIA_MODEL_DAILY_CALLS: intInRange(0, 10_000_000, 2_000),
   LYKIA_BUILD_COMMIT: optionalString,
   RENDER_GIT_COMMIT: optionalString,
 });
@@ -335,7 +349,7 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
     }),
     platform: Object.freeze({ siweDomains: Object.freeze(siweDomains), adminAddresses: Object.freeze(adminAddresses), rootDomain }),
     stablefxApiKey: env.STABLEFX_API_KEY ?? env.CIRCLE_API_KEY ?? null,
-    circle: Object.freeze({ apiKey: env.CIRCLE_API_KEY ?? null, entitySecret: env.CIRCLE_ENTITY_SECRET ?? null, walletSetId: env.CIRCLE_WALLET_SET_ID ?? null, sellerWalletId: env.CIRCLE_X402_SELLER_WALLET_ID ?? null }),
+    circle: Object.freeze({ apiKey: env.CIRCLE_API_KEY ?? null, entitySecret: env.CIRCLE_ENTITY_SECRET ?? null, walletSetId: env.CIRCLE_WALLET_SET_ID ?? null, sellerWalletId: env.CIRCLE_X402_SELLER_WALLET_ID ?? null, serverWallets: env.LYKIA_CIRCLE_SERVER_WALLETS === "true" }),
     telegramBotToken: env.TELEGRAM_BOT_TOKEN ?? null,
     beta: betaCap(env.LYKIA_BETA_CAP_USD),
     fee: Object.freeze({ bps: env.LYKIA_FEE_BPS !== undefined ? Number(env.LYKIA_FEE_BPS) : DEFAULT_FEE_BPS, recipient: (env.LYKIA_FEE_RECIPIENT ?? DEFAULT_FEE_RECIPIENT).toLowerCase() as `0x${string}`, schedule: feeScheduleOf(env.LYKIA_FEE_SCHEDULE), plans: planSchedules(env.LYKIA_FEE_SCHEDULE_PLANS) ?? {} }),
@@ -353,7 +367,9 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
       defaultPerMinute: env.LYKIA_RATE_LIMIT_DEFAULT,
       heavyPerMinute: env.LYKIA_RATE_LIMIT_HEAVY,
       authPerMinute: env.LYKIA_RATE_LIMIT_AUTH,
+      sharedPerMinute: env.LYKIA_RATE_LIMIT_SHARED,
     }),
+    modelDailyCalls: env.LYKIA_MODEL_DAILY_CALLS,
     build: Object.freeze({ commit: commitOf(env) }),
   };
   return Object.freeze(config);

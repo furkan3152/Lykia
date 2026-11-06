@@ -180,7 +180,7 @@ describe("Lyko orchestration", () => {
 
   it("streams chat over SSE (deterministic path) with the documented event names", async () => {
     setLlmClient(ctx, null);
-    const res = await fetch(`${served.url}/v1/agent/chat`, { method: "POST", headers: { "content-type": "application/json", accept: "text/event-stream" }, body: JSON.stringify({ message: "deposit 100 USDC into morpho then convert 50 USDC to EURC", owner: OWNER, environment: "mainnet" }) });
+    const res = await fetch(`${served.url}/v1/agent/chat`, { method: "POST", headers: { "content-type": "application/json", accept: "text/event-stream", "lykia-session": issueToken(ctx, OWNER).token }, body: JSON.stringify({ message: "deposit 100 USDC into morpho then convert 50 USDC to EURC", owner: OWNER, environment: "mainnet" }) });
     assert.equal(res.headers.get("content-type")?.startsWith("text/event-stream"), true);
     const raw = await res.text();
     const names = [...raw.matchAll(/^event: (.+)$/gmu)].map((m) => m[1]);
@@ -236,13 +236,29 @@ describe("Lyko orchestration", () => {
   it("starts a fresh thread when the client sends one it cannot continue", async () => {
     setLlmClient(ctx, null);
     for (const threadId of ["anon:thr_doesnotexist", "0x1111111111111111111111111111111111111111:thr_abcdef"]) {
-      const res = await fetch(`${served.url}/v1/agent/chat`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify({ message: "swap 1 USDC for EURC", owner: OWNER, environment: "mainnet", threadId }) });
+      const res = await fetch(`${served.url}/v1/agent/chat`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json", "lykia-session": issueToken(ctx, OWNER).token }, body: JSON.stringify({ message: "swap 1 USDC for EURC", owner: OWNER, environment: "mainnet", threadId }) });
       assert.equal(res.status, 200, threadId);
       const body = (await res.json()) as { threadId: string; stopReason: string };
       assert.notEqual(body.threadId, threadId);
       assert.ok(body.threadId.startsWith(`${OWNER.toLowerCase()}:`));
+      assert.match(body.threadId, /:thr_[0-9a-f]{32}$/u, "thread ids carry 128 random bits");
       assert.notEqual(body.stopReason, "error");
     }
+  });
+
+  it("never opens or continues a thread under an owner the request did not prove (anon threads instead)", async () => {
+    setLlmClient(ctx, null);
+    const ask = (headers: Record<string, string>, threadId?: string) =>
+      fetch(`${served.url}/v1/agent/chat`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json", ...headers }, body: JSON.stringify({ message: "swap 1 USDC for EURC", owner: OWNER, environment: "mainnet", ...(threadId ? { threadId } : {}) }) }).then((r) => r.json() as Promise<{ threadId: string }>);
+    const own = await ask({ "lykia-session": issueToken(ctx, OWNER).token });
+    assert.ok(own.threadId.startsWith(`${OWNER.toLowerCase()}:`));
+    // Someone who only names the owner (and even knows the thread id) lands in a fresh anonymous thread.
+    const stranger = await ask({}, own.threadId);
+    assert.ok(stranger.threadId.startsWith("anon:"), stranger.threadId);
+    const other = await ask({ "lykia-session": issueToken(ctx, "0x1111111111111111111111111111111111111111").token }, own.threadId);
+    assert.ok(other.threadId.startsWith("anon:"), other.threadId);
+    const thread = (await (await fetch(`${served.url}/v1/agent/threads/${encodeURIComponent(own.threadId)}?owner=${OWNER}`, { headers: { "lykia-session": issueToken(ctx, OWNER).token } })).json()) as { messages: unknown[] };
+    assert.equal(thread.messages.length, 2, "the owner's thread holds only the owner's own turn");
   });
 
   it("lists an owner's threads and automations only for that owner", async () => {

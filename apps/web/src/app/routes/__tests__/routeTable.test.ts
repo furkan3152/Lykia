@@ -59,13 +59,15 @@ describe("route table", () => {
       ["/legal/privacy", "legal"],
       ["/pay/inv_1", "pay"],
       ["/owner", "owner"],
-      ["/kit", "kit"],
+      ["/kit", "notFound"],
       ["/lykaion", "lykaion"],
       ["/developers", "developers"],
       ["/app/nowhere", "appNotFound"],
       ["/nowhere", "notFound"],
     ];
     for (const [path, id] of cases) assert.equal(matchRoute(path).route.id, id, path);
+    // The component kit is a development page: production builds do not serve it.
+    assert.equal(matchRoute("/kit", { dev: true }).route.id, "kit");
   });
 
   it("keeps the brand out of Arc's name and titles pages", () => {

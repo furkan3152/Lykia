@@ -28,6 +28,9 @@ type SheetId = "request" | "pay" | "share" | "ask" | null;
 interface Invoice {
   readonly id: string;
   readonly amount?: string | null;
+  /** What has reached the payee so far, and each payment with its time (open-amount invoices count by these). */
+  readonly paid?: string;
+  readonly payments?: readonly { readonly amount: string; readonly at: string }[];
   readonly token?: string;
   readonly status?: string;
   readonly memo?: string | null;
@@ -144,21 +147,25 @@ export function PayShell({ city, home }: { readonly city: LeagueCity; readonly h
     </section>
   );
 
-  const today = new Date().toISOString().slice(0, 10);
+  // "Today" is the viewer's local day, and every figure in the card counts only today.
+  const localDay = (iso: string | undefined | null) => (iso ? new Date(iso).toLocaleDateString("en-CA") : "");
+  const today = new Date().toLocaleDateString("en-CA");
   const mine = invoices.data?.invoices ?? [];
   const summary = siwe.signedIn
     ? {
         sample: false,
-        requested: mine.filter((i) => (i.createdAt ?? "").startsWith(today)).length,
-        paid: mine.filter((i) => i.status === "paid" || i.status === "settled").reduce((a, i) => a + Number(i.amount ?? 0), 0),
-        open: mine.filter((i) => !i.status || i.status === "open" || i.status === "pending").length,
-        payouts: (payouts.data?.payouts ?? []).filter((x) => (x.createdAt ?? "").startsWith(today)).length,
+        requested: mine.filter((i) => localDay(i.createdAt) === today).length,
+        // Payments that landed today, so open-amount invoices count by what was actually paid.
+        paid: mine.flatMap((i) => i.payments ?? []).filter((p) => localDay(p.at) === today).reduce((a, p) => a + Number(p.amount || 0), 0),
+        open: mine.filter((i) => i.status === "open" || i.status === "partially-paid" || i.status === "overdue").length,
+        payouts: (payouts.data?.payouts ?? []).filter((x) => localDay(x.createdAt) === today).length,
       }
     : { sample: true, requested: 3, paid: 412.5, open: 2, payouts: 1 };
   const rows = siwe.signedIn
     ? recent.slice(0, 8).map((r) => ({ ...r, amount: r.kind === "Invoice" ? (mine.find((i) => i.id === r.id)?.amount ?? null) : ((payouts.data?.payouts ?? []).find((x) => x.id === r.id)?.total ?? null) }))
     : SAMPLE_ROWS;
-  const previewUrl = `${home}/pay/new?to=${address ?? "your-address"}${amount ? `&amount=${amount}` : ""}${memo.trim() ? `&memo=${encodeURIComponent(memo.trim())}` : ""}`;
+  // The preview QR is plain text, not a link: a payment link only exists once it is created (and gets its own id).
+  const previewUrl = `Lykia link preview: ${amount ? `${amount.slice(0, 16)} USDC` : "any amount"}. Create the link to get a payable code.`;
 
   const desk = (
     <div className="ctd-pay">
@@ -176,7 +183,7 @@ export function PayShell({ city, home }: { readonly city: LeagueCity; readonly h
         <div className="ct-card__head"><h2 id="ctd-today-h">{"Today"}</h2><span className="m-kick">{summary.sample ? "SAMPLE · SIGN IN FOR YOURS" : new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</span></div>
         <dl className="ctd-today__grid">
           <div><dt>{"Requests sent"}</dt><dd className="num">{summary.requested}</dd></div>
-          <div><dt>{"Paid to you"}</dt><dd className="num">{`$${summary.paid.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</dd></div>
+          <div><dt>{"Paid to you today"}</dt><dd className="num">{`$${summary.paid.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</dd></div>
           <div><dt>{"Waiting to be paid"}</dt><dd className="num">{summary.open}</dd></div>
           <div><dt>{"Payouts"}</dt><dd className="num">{summary.payouts}</dd></div>
         </dl>

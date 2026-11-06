@@ -20,6 +20,7 @@ import { LykiaHttpError } from "../http/errors.js";
 import { environmentSchema } from "./common.js";
 import { effectiveFeeSchedule, FEE_POLICY_TEXT, feePercent, MAX_FEE_BPS } from "@lykia/core";
 import { routerStatus } from "../engine/lykiaRouter.js";
+import { listAll } from "../store/types.js";
 
 const hex = (len: number) => z.string().regex(new RegExp(`^0x[0-9a-fA-F]{${len}}$`, "u"));
 
@@ -75,7 +76,7 @@ export const adminModule: ApiModule = {
     });
     router.get("/admin/overview", async (req, res) => {
       await mustSession(ctx, req, "admin");
-      const agents = await ctx.store.collection("pack_agents").list({ limit: 1000 });
+      const agents = await listAll(ctx.store.collection("pack_agents"));
       res.json({
         version: ctx.config.version,
         mode: ctx.config.mode,
@@ -84,8 +85,8 @@ export const adminModule: ApiModule = {
         model: ctx.config.agent.model,
         flags: await flags(ctx),
         packAgents: agents.length,
-        projects: (await ctx.store.collection("projects").list({ limit: 10_000 })).length,
-        developers: (await ctx.store.collection("developers").list({ limit: 10_000 })).length,
+        projects: (await listAll(ctx.store.collection("projects"))).length,
+        developers: (await listAll(ctx.store.collection("developers"))).length,
         deployments: (await listDeployments(ctx)).length,
       });
     });

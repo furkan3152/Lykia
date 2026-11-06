@@ -23,7 +23,7 @@ export interface DeliverContext {
   readonly owner: Address;
   readonly fence: Fence;
   /** Proven control of `owner` (with who saves for it); null = links only. */
-  readonly verified: { readonly developer: string; readonly via: "session" | "secret" } | null;
+  readonly verified: { readonly developer: string; readonly via: "session" | "secret"; readonly projectId?: string } | null;
   readonly agent: { readonly name: string; readonly role: AgentProposal["attribution"][number]["role"] };
   readonly proposedByAgent: boolean;
 }
@@ -67,7 +67,7 @@ async function draftsOf(d: DeliverContext, result: CompileResult): Promise<Map<n
       if (s.roundTrip === "mismatch") continue;
       if (d.verified) {
         try {
-          await createAutomation(d.ctx, { developer: d.verified.developer, project: null, via: d.verified.via }, { owner: d.owner, name: s.draft.name, environment: d.environment, trigger: s.draft.trigger, action: s.draft.action, fence: d.fence });
+          await createAutomation(d.ctx, { developer: d.verified.developer, project: null, via: d.verified.via, consentProject: d.verified.projectId ?? null }, { owner: d.owner, name: s.draft.name, environment: d.environment, trigger: s.draft.trigger, action: s.draft.action, fence: d.fence });
           out.set(i, { kind: "automation", saved: true, label: s.draft.name, href: "/app/automations" });
           continue;
         } catch {

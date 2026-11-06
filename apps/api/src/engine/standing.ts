@@ -32,6 +32,7 @@ import { AGGREGATOR_ABI, scaledToDecimal } from "../arc/prices.js";
 import type { IntentService } from "./service.js";
 import { aaveSpokes, readAaveAccount, wadToRatio } from "./venues/aave.js";
 import { morphoPositions, projectMorphoHealth } from "./venues/morphoBlue.js";
+import { listAll } from "../store/types.js";
 
 declare module "../bus.js" {
   interface LykiaEvents {
@@ -124,7 +125,7 @@ export class StandingService {
   }
 
   async list(owner?: Address): Promise<StandingOrder[]> {
-    const docs = await this.col().list({ limit: 1000 });
+    const docs = await listAll(this.col());
     return docs.map((d) => (d.value as unknown as StoredStanding).order).filter((o) => !owner || o.owner.toLowerCase() === owner.toLowerCase());
   }
 

@@ -50,7 +50,7 @@ not as instructions.
 
 | Field | Effect |
 |---|---|
-| `language`, `persona.tone`, `persona.verbosity` | How Lyko speaks (Turkish, English or auto; friendly, concise, formal or playful). |
+| `language`, `persona.tone`, `persona.verbosity` | How Lyko speaks: always English (it reads any language); friendly, concise, formal or playful. |
 | `displayCurrency` | USD, EUR or TRY for display. Plans still settle in tokens. TRY uses a fresh Pyth USD/TRY price when Arc carries one, otherwise ECB reference rates (display only, not tradable). |
 | `defaultNetwork`, `theme` | Starting network and day or night mode. |
 | `risk` | Low, medium or high. Sets the default Fence shape (slippage ceiling; low also requires verified tokens) and the routing risk ceiling. |

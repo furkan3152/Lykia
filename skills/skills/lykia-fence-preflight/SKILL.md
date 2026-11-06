@@ -32,4 +32,4 @@ Fence first; let the Circle wallet sign only what passed.
 - Never sign a step that was not in the evaluated facts.
 - A missing fact denies; do not invent prices or Scent results.
 - Never loosen a Fence on the owner's behalf. Loosening needs the owner's wallet.
-- Lykia's server never signs and never holds keys.
+- Lykia never holds the owner's keys and never signs the owner's plans: they come back unsigned.

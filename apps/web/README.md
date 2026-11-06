@@ -92,4 +92,4 @@ The landing (`/`) tells the story for builders and reviewers: the problem, how i
 - Unpriced amounts read "unpriced", never zero. Rates are read, never promised.
 - Without a wallet, Ask Lyko plans dry runs for a sample address and says so.
 - Endpoints that are still being built show "coming soon". Missing credentials show "needs a key".
-- The server never signs. Every value-moving step is signed in the owner's wallet.
+- The server never holds user keys. Every value-moving step the app plans is signed in the owner's wallet.

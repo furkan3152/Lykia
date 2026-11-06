@@ -112,3 +112,19 @@ export function jsonCopy<T>(value: T): T {
   if (json === undefined) throw new TypeError("store values must be JSON-serializable");
   return JSON.parse(json) as T;
 }
+
+/**
+ * Every document of a collection (or of a prefix), page by page: `list`
+ * returns at most 1,000 per call, so a single call silently drops the rest.
+ * Background passes and scans that must see everything use this.
+ */
+export async function listAll<T>(col: { list(options?: ListOptions): Promise<Array<StoredDoc<T>>> }, options: { readonly prefix?: string } = {}): Promise<Array<StoredDoc<T>>> {
+  const out: Array<StoredDoc<T>> = [];
+  let after: string | undefined;
+  for (;;) {
+    const page = await col.list({ limit: MAX_LIST_LIMIT, ...(options.prefix ? { prefix: options.prefix } : {}), ...(after ? { after } : {}) });
+    out.push(...page);
+    if (page.length < MAX_LIST_LIMIT) return out;
+    after = page[page.length - 1]!.id;
+  }
+}

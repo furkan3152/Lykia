@@ -135,7 +135,8 @@ function facilitatorHeaders(facilitatorUrl: string, circleApiKey: string | null)
 export function settlementMode(ctx: AppContext): { readonly mode: "settled" | "verify-only" | "off"; readonly facilitator: string | null; readonly note: string } {
   const { payTo, facilitatorUrl } = ctx.config.x402;
   if (!payTo) return { mode: "off", facilitator: null, note: "Paid routes are disabled on this server." };
-  if (!facilitatorUrl) return { mode: "verify-only", facilitator: null, note: "Payments are verified locally and not settled on-chain; no USDC moves." };
+  if (!facilitatorUrl && ctx.config.env === "production") return { mode: "off", facilitator: null, note: "Paid routes are refused in production without a facilitator: a payment that is only verified is never settled." };
+  if (!facilitatorUrl) return { mode: "verify-only", facilitator: null, note: "Development only: payments are verified locally and not settled on-chain; no USDC moves." };
   const circle = /circle\.com/u.test(facilitatorUrl);
   if (circle && !ctx.config.circle.apiKey) return { mode: "settled", facilitator: facilitatorUrl, note: "Circle's facilitator settles payments; this server has no Circle API key, so settlement is refused and the route keeps answering 402." };
   return { mode: "settled", facilitator: facilitatorUrl, note: circle ? "Circle's facilitator settles every payment on Arc before the answer is sent." : "The configured facilitator settles every payment before the answer is sent." };
@@ -151,6 +152,8 @@ export type AcceptResult =
  * Shared by paid routes and by API billing (overage and credit top-ups).
  */
 export async function acceptPayment(ctx: AppContext, header: string, requirements: PaymentRequirements, environment: ArcEnvironment): Promise<AcceptResult> {
+  // Production never accepts an unsettled payment: without a facilitator, verify-only is refused.
+  if (!ctx.config.x402.facilitatorUrl && ctx.config.env === "production") return { ok: false, reason: "This server has no x402 facilitator configured, so it cannot settle payments; paid routes are off." };
   const payment = decodePayment(header);
   if (!payment) return { ok: false, reason: "The payment header is not valid base64 JSON." };
   const verdict = await verifyPayment(payment, requirements, Math.floor(ctx.clock.now() / 1000));

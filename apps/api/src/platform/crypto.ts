@@ -5,7 +5,7 @@
  * per-process secret (sessions die with the process); production refuses
  * to issue sessions or keys.
  */
-import { createHmac, hkdfSync, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, hkdfSync, randomBytes, timingSafeEqual } from "node:crypto";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 
@@ -49,4 +49,18 @@ export function safeEqual(a: string, b: string): boolean {
   const x = Buffer.from(a, "utf8");
   const y = Buffer.from(b, "utf8");
   return x.length === y.length && timingSafeEqual(x, y);
+}
+
+/** Constant-time comparison that does not leak the expected secret's length (both sides hashed first). */
+export function secretMatches(presented: string | undefined | null, expected: string | undefined | null): boolean {
+  if (!presented || !expected) return false;
+  const x = createHash("sha256").update(presented, "utf8").digest();
+  const y = createHash("sha256").update(expected, "utf8").digest();
+  return timingSafeEqual(x, y);
+}
+
+/** `Authorization: Bearer $CRON_SECRET`, compared in constant time; false when CRON_SECRET is unset. */
+export function cronAuthorized(authorization: string | undefined): boolean {
+  const secret = process.env.CRON_SECRET;
+  return Boolean(secret) && secretMatches(authorization, `Bearer ${secret}`);
 }

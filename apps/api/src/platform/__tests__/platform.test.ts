@@ -79,7 +79,7 @@ describe("platform", () => {
     assert.equal((await call("/v1/networks", { headers: withKey })).status, 429, "per-minute quota (the 403 above still counted)");
     now += 61_000;
     assert.equal((await call("/v1/networks", { headers: withKey })).status, 200);
-    assert.equal((await call("/v1/networks", { headers: { "lykia-key": `${created.secret.slice(0, -1)}x` } })).status, 401);
+    assert.equal((await call("/v1/networks", { headers: { "lykia-key": `${created.secret.slice(0, -1)}${created.secret.endsWith("x") ? "y" : "x"}` } })).status, 401);
     await call(`/v1/developers/keys/${created.id}/revoke`, { body: {}, headers: { "lykia-session": token } });
     assert.equal((await call("/v1/networks", { headers: withKey })).status, 401);
     const pub = (await (await call("/v1/developers/keys", { body: { label: "site", kind: "publishable", allowedOrigins: ["https://app.acme.dev"] }, headers: { "lykia-session": token } })).json()) as { secret: string; scopes: string[] };

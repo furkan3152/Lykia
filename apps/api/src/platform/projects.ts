@@ -29,6 +29,7 @@ import { hmacHex, purposeKey, randomHex } from "./crypto.js";
 import { dayKey } from "./gate.js";
 import { createKey } from "./keys.js";
 import { typedCollection } from "./typed.js";
+import { listAll } from "../store/types.js";
 
 const MAX_PROJECTS_PER_DEVELOPER = 10;
 const PROJECT_ID_PATTERN = /^prj_[a-z0-9]{12}$/u;
@@ -57,7 +58,7 @@ function issuesError(issues: readonly { path: string; message: string }[]): Lyki
 /** Every slug in use (a project's own, or its League listing's), except the given project's. */
 export async function takenSlugs(ctx: AppContext, except?: string): Promise<Set<string>> {
   const out = new Set<string>();
-  for (const d of await projects(ctx).list({ limit: 10_000 })) {
+  for (const d of await listAll(projects(ctx))) {
     if (d.value.id === except) continue;
     if (d.value.slug) out.add(d.value.slug);
     if (d.value.league?.slug) out.add(d.value.league.slug);
@@ -80,7 +81,7 @@ export async function createProject(ctx: AppContext, owner: string, input: Proje
   const issues = validateProjectInput(input);
   if (issues.length > 0) throw issuesError(issues);
   const who = owner.toLowerCase();
-  const mine = (await projects(ctx).list({ limit: 1000 })).filter((d) => d.value.owner === who);
+  const mine = (await listAll(projects(ctx))).filter((d) => d.value.owner === who);
   if (mine.length >= MAX_PROJECTS_PER_DEVELOPER) throw new LykiaHttpError("PROJECT_LIMIT", 409, `At most ${MAX_PROJECTS_PER_DEVELOPER} projects per developer.`);
   const taken = await takenSlugs(ctx);
   if (input.slug && taken.has(input.slug)) throw new LykiaHttpError("SLUG_TAKEN", 409, `Another city already uses "${input.slug}".`);
@@ -104,7 +105,7 @@ function isLocal(origin: string): boolean {
 
 export async function listProjects(ctx: AppContext, owner: string): Promise<Project[]> {
   const who = owner.toLowerCase();
-  return (await projects(ctx).list({ limit: 1000 })).map((d) => d.value).filter((p) => p.owner === who);
+  return (await listAll(projects(ctx))).map((d) => d.value).filter((p) => p.owner === who);
 }
 
 export async function getProject(ctx: AppContext, id: string): Promise<Project | null> {
@@ -174,7 +175,8 @@ export async function verifyOrigin(ctx: AppContext, owner: string, id: string, o
   } else {
     const url = await assertPublicUrl(challenge.wellKnown.url, "origin", deps.resolve);
     if (url.protocol !== "https:") throw new LykiaHttpError("INVALID_REQUEST", 400, "A /.well-known proof needs an https origin.");
-    const res = await ctx.fetch(url.toString(), { method: "GET", redirect: "error", signal: AbortSignal.timeout(5_000) } as RequestInit).catch(() => null);
+    // Pinned fetch: the address checked above is the one connected to (no second DNS answer to rebind).
+    const res = await ctx.publicFetch(url.toString(), { method: "GET", redirect: "error", signal: AbortSignal.timeout(5_000) } as RequestInit).catch(() => null);
     const body = res && res.ok ? (await res.text()).slice(0, 4_096) : "";
     found = body.split(/\r?\n/u).some((line) => line.trim() === challenge.wellKnown.body);
   }
@@ -268,7 +270,7 @@ export async function isProjectOrigin(ctx: AppContext, origin: string): Promise<
   const now = ctx.clock.now();
   let cached = ORIGIN_CACHE.get(ctx);
   if (!cached || now - cached.at > ORIGIN_CACHE_MS) {
-    const all = (await projects(ctx).list({ limit: 10_000 })).flatMap((d) => verifiedOrigins(d.value));
+    const all = (await listAll(projects(ctx))).flatMap((d) => verifiedOrigins(d.value));
     cached = { at: now, origins: new Set(all) };
     ORIGIN_CACHE.set(ctx, cached);
   }

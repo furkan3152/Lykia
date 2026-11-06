@@ -26,7 +26,7 @@ export async function openThread(ctx: AppContext, owner: Address | null, environ
     if (doc) return doc.value;
   }
   const now = new Date(ctx.clock.now()).toISOString();
-  const thread: ThreadView = { id: `${ownerKey(owner)}:thr_${randomHex(6)}`, owner: (owner ?? "0x0000000000000000000000000000000000000000") as Address, environment, title: firstMessage.slice(0, 80), createdAt: now, updatedAt: now, messages: [] };
+  const thread: ThreadView = { id: `${ownerKey(owner)}:thr_${randomHex(16)}`, owner: (owner ?? "0x0000000000000000000000000000000000000000") as Address, environment, title: firstMessage.slice(0, 80), createdAt: now, updatedAt: now, messages: [] };
   await threads(ctx).put(thread.id, thread, { ttlMs: THREAD_TTL_MS });
   return thread;
 }

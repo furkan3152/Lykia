@@ -1,6 +1,6 @@
 /**
  * /legal/notice and /legal/privacy: the repository's DRAFT software notice
- * (risk disclosure, non-custodial posture, no warranty) and privacy note,
+ * (risk disclosure, keys and signing, no warranty) and privacy note,
  * rendered from docs/legal so the site and the repository never drift.
  */
 import { Link } from "../../app/routes/Link";

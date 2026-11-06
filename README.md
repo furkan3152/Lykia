@@ -30,7 +30,14 @@ agent to sign. The same engine is an API, SDKs, an MCP server and
 embeddable components, so any team can add routing, policy checks and an
 assistant to its own product.
 
-Lykia is non-custodial: the server never holds keys and never signs.
+Lykia never holds user keys. Plans come back unsigned for your wallet, your
+passkey account or an agent session you created. Two optional server roles
+do sign, each off unless the operator configures it: a gas-only keeper
+(`LYKIA_KEEPER_PRIVATE_KEY`) that executes due conditional orders already
+signed by their owners, and, opt-in with `LYKIA_CIRCLE_SERVER_WALLETS=true`,
+Circle developer-controlled wallets that the server signs for with the
+operator's entity secret (each wallet is bound to the address that created
+it, and every payout from it passes the Fence and the beta cap first).
 
 | Pillar | In one line |
 |---|---|
@@ -38,10 +45,11 @@ Lykia is non-custodial: the server never holds keys and never signs.
 | Rules that hold | The Fence is checked before signing, compiled into a Circle Agent Wallet policy and enforced on chain; agents carry a Tag (ERC-8004) that pins it. |
 | One engine for every builder | REST and SSE, MCP, TypeScript and Python SDKs, a CLI and components, all on the engine the app uses. |
 
-Lykia's own products are the cities of **the League**: Lykia Pay (invoices,
-payment links and payouts), Lykia Agents (budgeted agents with Fences and
-Tags) and, coming, Lykia Perps. Each city is a real project built in **The
-Mint**, the developer portal any builder uses, and can run on its own
+The League hosts cities: Lykia's own products, each a real project built in
+**The Mint**. The official cities (Lykia Pay for invoices, payment links and
+payouts; Lykia Agents for budgeted agents with Fences and Tags; later Lykia
+Perps) are being launched; until they are, `GET /v1/league` lists none. Each
+city is a project built in The Mint, the developer portal any builder uses, and can run on its own
 subdomain with its own task-first shell ([docs/platform/city-domains.md](docs/platform/city-domains.md)).
 The Lykia team runs the League and the platform from **Letoon**, a console
 that only admin addresses can open.

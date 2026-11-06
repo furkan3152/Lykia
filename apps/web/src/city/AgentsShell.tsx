@@ -87,7 +87,15 @@ export function AgentsShell({ city, home }: { readonly city: LeagueCity; readonl
   const whistle = useLykiaStore((s) => whistleOn(s.fence));
   const setWhistle = useLykiaStore((s) => s.setWhistle);
   const transport = useMemo(() => new LykiaTransport({ baseUrl: new URL(API_BASE).origin, environment: env }), [env]);
-  const agents = useQuery({ queryKey: ["city-pack", owner, env], enabled: Boolean(owner), queryFn: ({ signal }) => apiGet<{ agents: PackAgentView[] }>("/v1/pack", { query: { owner, environment: env }, signal }) });
+  const agents = useQuery({
+    queryKey: ["city-pack", owner, env, siwe.signedIn],
+    enabled: Boolean(owner),
+    // Names, Fences and budgets come back only for the signed-in owner; a redacted answer lists nothing here.
+    queryFn: async ({ signal }) => {
+      const r = await apiGet<{ agents: PackAgentView[]; redacted?: boolean }>("/v1/pack", { query: { owner, environment: env }, signal });
+      return { agents: r.redacted ? [] : r.agents };
+    },
+  });
   const audit = useQuery({ queryKey: ["city-audit", owner], enabled: siwe.signedIn, queryFn: ({ signal }) => apiGet<{ entries: AuditEntry[] }>("/v1/security/audit", { query: { limit: 30 }, signal }) });
   const list = agents.data?.agents ?? [];
   const blow = async () => {
@@ -147,7 +155,7 @@ export function AgentsShell({ city, home }: { readonly city: LeagueCity; readonl
           <section className="ct-card m-frame m-frame--thin ctd-ag__feed">
             <div className="ct-card__head"><h2>{"Activity"}</h2><span className="m-kick">{siwe.signedIn ? "AUDIT LOG" : "SAMPLE"}</span></div>
             <ul className="ct-list">
-              {(siwe.signedIn ? [...(audit.data?.entries ?? [])].reverse().slice(0, 8).map((e) => ({ id: String(e.seq), kind: e.kind, at: new Date(e.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }), what: e.subject.slice(0, 22) })) : SAMPLE_FEED).map((e) => (
+              {(siwe.signedIn ? [...(audit.data?.entries ?? [])].reverse().slice(0, 8).map((e) => ({ id: String(e.seq), kind: e.kind, at: new Date(e.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short" }), what: e.subject.slice(0, 22) })) : SAMPLE_FEED).map((e) => (
                 <li key={e.id}><span className={`ct-dot ct-dot--${e.kind === "blocked" || e.kind === "halt" ? "bad" : "invoice"}`} aria-hidden="true" /><div className="ct-list__t"><b>{e.kind}</b><span className="m-small m-muted">{`${e.at} · ${e.what}`}</span></div></li>
               ))}
             </ul>
@@ -164,7 +172,7 @@ export function AgentsShell({ city, home }: { readonly city: LeagueCity; readonl
           ) : (audit.data?.entries ?? []).length === 0 ? <p className="m-small m-muted ct-empty">{"Nothing recorded yet."}</p> : (
             <ul className="ct-list">
               {[...(audit.data?.entries ?? [])].reverse().slice(0, 12).map((e) => (
-                <li key={e.seq}><span className={`ct-dot ct-dot--${e.kind === "blocked" || e.kind === "halt" ? "bad" : "invoice"}`} aria-hidden="true" /><div className="ct-list__t"><b>{e.kind}</b><span className="m-small m-muted">{`${new Date(e.at).toLocaleString("en-US")} · ${e.subject.slice(0, 18)}`}</span></div></li>
+                <li key={e.seq}><span className={`ct-dot ct-dot--${e.kind === "blocked" || e.kind === "halt" ? "bad" : "invoice"}`} aria-hidden="true" /><div className="ct-list__t"><b>{e.kind}</b><span className="m-small m-muted">{`${new Date(e.at).toLocaleString("en-US", { timeZoneName: "short" })} · ${e.subject.slice(0, 18)}`}</span></div></li>
               ))}
             </ul>
           )}

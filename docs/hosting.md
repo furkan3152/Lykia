@@ -8,10 +8,10 @@ This page is about the API (`apps/api`).
 | | Vercel (today) | Render (`render.yaml`) |
 |---|---|---|
 | Process | Serverless function (`apps/api/api/index.js`, wraps `src/vercel.ts`), started per request, frozen between requests | One long-running Node process (`node apps/api/dist/index.js`) |
-| Background schedulers | Run only while an instance is warm. Standing orders also get a daily Vercel Cron (`/cron/standing`); `/cron/orders` and `/cron/alerts` need an outside pinger with `CRON_SECRET` | Started once after `listen` (`startServer` → `startModules`): standing orders every 30 s, the intent receipt poller, alerts and the limit-order keeper keep running |
+| Background schedulers | Run only while an instance is warm. Vercel Cron calls `/cron/standing`, `/cron/orders` and `/cron/alerts` once a day each (the Hobby plan allows daily crons only). A full pass (standing orders, orders, alerts, webhook retries, payouts, invoices, automations) also starts on API traffic, at most once every 5 minutes across instances. For schedules tighter than daily without traffic, point an external pinger at `POST /v1/reconcile/tick` with `Authorization: Bearer $CRON_SECRET`; nothing promises more often than that | Started once after `listen` (`startServer` → `startModules`): standing orders every 30 s, the intent receipt poller, alerts and the limit-order keeper keep running |
 | SSE (`/v1/intents/:id/stream`, agent chat) | Cut at the function's max duration (300 s) | Open as long as the client stays connected; closed cleanly on SIGTERM |
 | Cold starts | Yes, after idle time | No (on a paid instance type) |
-| In-memory caches (prices, router allowlist, rate limits) | Per instance, lost on freeze | Shared by every request on the instance |
+| In-memory caches (prices, router allowlist, per-process rate limits) | Per instance, lost on freeze. Chat, `/ai/*` and compile routes also have a per-IP limit and a daily model-call budget counted in the shared store | Shared by every request on the instance |
 | Deploys | Per push, preview URLs per branch | Per push; zero-downtime with the `/health` check |
 | Database | Postgres via `LYKIA_DATABASE_URL` (Neon) | Same Postgres URL. Neon keeps working, or use Render Postgres |
 | Cost model | Per invocation and duration | Flat monthly instance price |

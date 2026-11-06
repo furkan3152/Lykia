@@ -31,6 +31,7 @@ import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { typedCollection } from "./typed.js";
 import { hmacHex, purposeKey, randomHex, randomToken, safeEqual } from "./crypto.js";
+import { listAll } from "../store/types.js";
 
 const MAX_KEYS_PER_DEVELOPER = 20;
 export const DEFAULT_PER_MINUTE = 120;
@@ -169,7 +170,7 @@ function scopesFor(input: CreateKeyInput): readonly ApiKeyScope[] {
 
 export async function createKey(ctx: AppContext, input: CreateKeyInput): Promise<CreatedApiKey> {
   const owner = input.owner.toLowerCase();
-  const mine = (await keys(ctx).list({ limit: 1000 })).filter((d) => d.value.owner === owner && !d.value.revokedAt);
+  const mine = (await listAll(keys(ctx))).filter((d) => d.value.owner === owner && !d.value.revokedAt);
   if (mine.length >= MAX_KEYS_PER_DEVELOPER) throw new LykiaHttpError("KEY_LIMIT", 409, `At most ${MAX_KEYS_PER_DEVELOPER} active keys per developer.`);
   if (input.kind === "publishable" && !input.projectId && (input.allowedOrigins ?? []).length === 0) throw new LykiaHttpError("INVALID_REQUEST", 400, "A publishable key needs at least one allowed origin.");
   const allowedIps = input.allowedIps ?? [];
@@ -201,7 +202,7 @@ export async function createKey(ctx: AppContext, input: CreateKeyInput): Promise
 }
 
 export async function listKeys(ctx: AppContext, owner: string): Promise<ApiKeyView[]> {
-  return (await keys(ctx).list({ limit: 1000 })).filter((d) => d.value.owner === owner.toLowerCase()).map((d) => viewOf(d.value));
+  return (await listAll(keys(ctx))).filter((d) => d.value.owner === owner.toLowerCase()).map((d) => viewOf(d.value));
 }
 
 async function ownKey(ctx: AppContext, owner: string, id: string): Promise<StoredKey> {

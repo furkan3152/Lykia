@@ -9,7 +9,7 @@
 import { constants, publicEncrypt, randomUUID } from "node:crypto";
 import type { ArcEnvironment } from "@lykia/core";
 import type { FetchLike } from "../health/dependencies.js";
-import { circleFetch } from "./http.js";
+import { circleFetch, upstreamReason } from "./http.js";
 import { LykiaHttpError } from "../http/errors.js";
 
 const API = "https://api.circle.com/v1/w3s";
@@ -25,7 +25,7 @@ let publicKeyCache: { key: string; at: number } | null = null;
 async function request(fetchImpl: FetchLike, apiKey: string, path: string, init: { method: "GET" | "POST"; body?: unknown }): Promise<Record<string, unknown>> {
   const response = await circleFetch(fetchImpl, `${API}${path}`, { method: init.method, headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" }, ...(init.body ? { body: JSON.stringify(init.body) } : {}), signal: AbortSignal.timeout(10_000) }, "Circle Wallets");
   const text = await response.text();
-  if (!response.ok) throw new LykiaHttpError("UPSTREAM_UNAVAILABLE", 502, `Circle Wallets answered ${response.status}.`, { circle: text.slice(0, 500) });
+  if (!response.ok) throw new LykiaHttpError("UPSTREAM_UNAVAILABLE", 502, `Circle Wallets answered ${response.status}.`, { circle: upstreamReason(text) });
   const json = JSON.parse(text) as { data?: Record<string, unknown> };
   return json.data ?? {};
 }

@@ -18,7 +18,7 @@ export interface Perception {
   readonly flock: FlockSnapshot | null;
 }
 
-export async function perceive(ctx: AppContext, input: { environment: ArcEnvironment; owner: Address | null; fence: Fence; pack: readonly PackAgent[]; emit?: Emit }): Promise<Perception> {
+export async function perceive(ctx: AppContext, input: { environment: ArcEnvironment; owner: Address | null; fence: Fence; pack: readonly PackAgent[]; emit?: Emit; personal?: boolean }): Promise<Perception> {
   const parts = [`network=Arc ${input.environment} (chain ${input.environment === "mainnet" ? 5042 : 5042002})`, `owner=${input.owner ?? "not connected"}`, `fence=${input.fence.label ?? "custom"} mode=${input.fence.mode ?? "live"}`];
   let flock: FlockSnapshot | null = null;
   if (input.owner) {
@@ -44,7 +44,8 @@ export async function perceive(ctx: AppContext, input: { environment: ArcEnviron
   if (pulse) parts.push(`pulse block=${pulse.block} blockTimeMs=${pulse.blockTimeMs ?? "?"} gasGwei=${pulse.gasPriceGwei ?? "?"}`);
   const active = input.pack.filter((a) => a.status === "active");
   parts.push(`pack=[${active.map((a) => `${a.id} ${a.role} "${a.name.replace(/"/gu, "'")}"`).join("; ") || "none"}]`);
-  if (input.owner) {
+  // Profile and memory only for an owner this request proved control of (callers pass personal: true then).
+  if (input.owner && input.personal === true) {
     const profile = await getProfile(ctx, input.owner).catch(() => null);
     if (profile) parts.push(`profile tone=${profile.persona.tone} verbosity=${profile.persona.verbosity} risk=${profile.risk} display=${profile.displayCurrency}${profile.explainLikeNew ? " explain=plain-words" : ""}${profile.venues.favorites.length ? ` favourites=${profile.venues.favorites.join(",")}` : ""}${profile.venues.blocked.length ? ` blocked=${profile.venues.blocked.join(",")}` : ""}`);
     const recalling = input.emit ? stepsFor(input.emit).start("memory", "Recalling what you told me") : null;

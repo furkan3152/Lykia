@@ -3,8 +3,10 @@
  * function instance, built on the first request and reused while the
  * instance lives (Fluid compute keeps instances warm). Module background
  * work (standing-order scheduler, intent poller) runs while the instance is
- * alive; `/cron/standing` lets Vercel Cron or any external pinger drive the
- * standing-order check explicitly, guarded by CRON_SECRET.
+ * alive. Vercel Cron calls /cron/standing, /cron/orders and /cron/alerts once
+ * a day each (the Hobby plan allows daily crons only); for tighter schedules
+ * point an external pinger at POST /v1/reconcile/tick with CRON_SECRET.
+ * Passes also start on API traffic (scheduler.ts). All guarded by CRON_SECRET.
  *
  * Persistence: without LYKIA_DATABASE_URL / DATABASE_URL every instance keeps
  * its own memory store, so intents and sessions do not survive cold starts.
@@ -17,11 +19,10 @@ import { loadConfig } from "./config.js";
 import { createContext, type AppContext } from "./context.js";
 import { MODULES } from "./modules/index.js";
 import { startModules } from "./server.js";
-import { services } from "./services.js";
 import { ordersService } from "./orders/service.js";
 import { alertsService } from "./alerts/service.js";
-import { flowTick } from "./devflows/tick.js";
-import { drainWebhooks } from "./platform/events.js";
+import { fullTick } from "./scheduler.js";
+import { cronAuthorized } from "./platform/crypto.js";
 
 interface Instance {
   readonly ctx: AppContext;
@@ -40,9 +41,7 @@ function current(): Instance {
 }
 
 function authorizedCron(req: IncomingMessage): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-  return req.headers.authorization === `Bearer ${secret}`;
+  return cronAuthorized(req.headers.authorization);
 }
 
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -67,13 +66,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       res.end(JSON.stringify({ error: { code: "UNAUTHORIZED", message: "Set CRON_SECRET and send it as a Bearer token." } }));
       return;
     }
-    const fired = await services(ctx).standing.tick();
-    // Webhook retries ride the same cron (they also drain on ordinary traffic).
-    const webhookRetries = await drainWebhooks(ctx).catch(() => 0);
-    // Developer flow reconciliation: payout receipts, invoice memos, native automations.
-    const flows = await flowTick(ctx).catch(() => null);
+    // Every pass: standing orders, orders, alerts, webhook retries and developer flows (see scheduler.ts).
+    const out = await fullTick(ctx);
     res.setHeader("content-type", "application/json");
-    res.end(JSON.stringify({ fired, webhookRetries, flows }));
+    res.end(JSON.stringify({ fired: out.standing, ...out }));
     return;
   }
   app(req as Parameters<Express>[0], res as Parameters<Express>[1]);

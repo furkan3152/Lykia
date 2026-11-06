@@ -10,6 +10,7 @@ import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { services } from "../services.js";
 import type { JsonValue } from "../store/types.js";
+import { listAll } from "../store/types.js";
 
 const INDEX_TTL_MS = 30 * 86_400_000;
 
@@ -42,7 +43,7 @@ async function locate(ctx: AppContext, digest: string): Promise<string | null> {
   const hit = (await ctx.store.collection<JsonValue>("verdict_index").get(digest))?.value as { intentId?: string } | undefined;
   if (hit?.intentId) return hit.intentId;
   // Fallback: recent stored intents.
-  for (const doc of await ctx.store.collection<JsonValue>("intents").list({ limit: 2000 })) {
+  for (const doc of await listAll(ctx.store.collection<JsonValue>("intents"))) {
     const graph = (doc.value as { graph?: { verdict?: { digest?: string } } }).graph;
     if (graph?.verdict?.digest === digest) {
       await indexVerdict(ctx, digest, doc.id);

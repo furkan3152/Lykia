@@ -26,6 +26,8 @@ import { LykiaHttpError } from "../http/errors.js";
 import { randomHex } from "../platform/crypto.js";
 import { typedCollection } from "../platform/typed.js";
 import { getProfile } from "./profile.js";
+import { asSystem, mayUsePersonal } from "./guard.js";
+import { listAll } from "../store/types.js";
 
 const intents = (ctx: AppContext) => typedCollection<IntentRecord>(ctx, "memory_intents");
 const contacts = (ctx: AppContext) => typedCollection<Contact>(ctx, "memory_contacts");
@@ -92,12 +94,15 @@ class MemoryService {
   wire(): void {
     if (this.wired) return;
     this.wired = true;
+    // Outcomes and learned contacts follow the chain, whoever's request reported the hash: system work, outside the request's scope.
     this.ctx.bus.on("intent.updated", (payload) => {
-      void this.onIntentUpdated(payload.intent).catch((error: unknown) => this.ctx.log.debug("memory update failed", { error: error instanceof Error ? error.message : String(error) }));
+      void asSystem(() => this.onIntentUpdated(payload.intent)).catch((error: unknown) => this.ctx.log.debug("memory update failed", { error: error instanceof Error ? error.message : String(error) }));
     });
   }
 
   async record(owner: Address, graph: IntentGraph, input: { source: string; actions: readonly PlanAction[] }): Promise<IntentRecord | null> {
+    // Never written for an owner the request did not prove control of.
+    if (!(await mayUsePersonal(owner))) return null;
     const profile = await getProfile(this.ctx, owner);
     if (!profile.memory.enabled) return null;
     const at = new Date(this.ctx.clock.now()).toISOString();
@@ -157,12 +162,18 @@ class MemoryService {
     }
   }
 
+  private async assertPersonal(owner: Address): Promise<void> {
+    if (!(await mayUsePersonal(owner))) throw new LykiaHttpError("FORBIDDEN", 403, "Only the owner (or a key the owner consented to) can change this memory.");
+  }
+
   async intents(owner: Address, limit = 200): Promise<IntentRecord[]> {
+    if (!(await mayUsePersonal(owner))) return [];
     const docs = await intents(this.ctx).list({ prefix: `${key(owner)}:`, limit });
     return docs.map((d) => d.value).sort((a, b) => (a.at < b.at ? 1 : -1));
   }
 
   async contacts(owner: Address): Promise<Contact[]> {
+    if (!(await mayUsePersonal(owner))) return [];
     return (await contacts(this.ctx).list({ prefix: `${key(owner)}:`, limit: 500 })).map((d) => d.value).sort((a, b) => a.name.localeCompare(b.name));
   }
 
@@ -174,7 +185,7 @@ class MemoryService {
   /** Preferences minus the ones the owner deleted. */
   async preferences(owner: Address, intentsList?: readonly IntentRecord[]): Promise<Preferences> {
     const prefs = computePreferences(intentsList ?? (await this.intents(owner)));
-    const doc = await ignored(this.ctx).get(key(owner));
+    const doc = (await mayUsePersonal(owner)) ? await ignored(this.ctx).get(key(owner)) : null;
     const skip = new Set(doc?.value.ids ?? []);
     if (skip.size === 0) return prefs;
     return {
@@ -215,13 +226,14 @@ class MemoryService {
   }
 
   async forgetItem(owner: Address, id: string): Promise<boolean> {
+    await this.assertPersonal(owner);
     if (id.startsWith("pref_")) {
       const doc = await ignored(this.ctx).get(key(owner));
       await ignored(this.ctx).put(key(owner), { ids: [...new Set([...(doc?.value.ids ?? []), id])] });
       return true;
     }
     if (id.startsWith("ct_")) return contacts(this.ctx).delete(`${key(owner)}:${id}`);
-    const docs = await intents(this.ctx).list({ prefix: `${key(owner)}:`, limit: 1000 });
+    const docs = await listAll(intents(this.ctx), { prefix: `${key(owner)}:` });
     const hit = docs.find((d) => d.value.id === id || d.value.intentId === id);
     if (!hit) return false;
     await index(this.ctx).delete(hit.value.intentId);
@@ -229,10 +241,11 @@ class MemoryService {
   }
 
   async forgetAll(owner: Address, what: "intents" | "contacts" | "all" = "all"): Promise<{ intents: number; contacts: number }> {
+    await this.assertPersonal(owner);
     let i = 0;
     let c = 0;
-    if (what !== "contacts") for (const d of await intents(this.ctx).list({ prefix: `${key(owner)}:`, limit: 5000 })) { await index(this.ctx).delete(d.value.intentId); if (await intents(this.ctx).delete(d.id)) i += 1; }
-    if (what !== "intents") for (const d of await contacts(this.ctx).list({ prefix: `${key(owner)}:`, limit: 5000 })) if (await contacts(this.ctx).delete(d.id)) c += 1;
+    if (what !== "contacts") for (const d of await listAll(intents(this.ctx), { prefix: `${key(owner)}:` })) { await index(this.ctx).delete(d.value.intentId); if (await intents(this.ctx).delete(d.id)) i += 1; }
+    if (what !== "intents") for (const d of await listAll(contacts(this.ctx), { prefix: `${key(owner)}:` })) if (await contacts(this.ctx).delete(d.id)) c += 1;
     if (what === "all") await ignored(this.ctx).delete(key(owner));
     return { intents: i, contacts: c };
   }
@@ -243,6 +256,7 @@ class MemoryService {
   }
 
   async upsertContact(owner: Address, input: { id?: string; name: string; address: string; aliases?: string[]; note?: string }): Promise<Contact> {
+    await this.assertPersonal(owner);
     const issues = validateContact(input);
     if (issues.length > 0) throw new LykiaHttpError("INVALID_REQUEST", 400, "The contact is invalid.", { issues });
     const list = await this.contacts(owner);

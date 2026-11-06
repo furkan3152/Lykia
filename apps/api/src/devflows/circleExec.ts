@@ -10,7 +10,7 @@ import { randomUUID } from "node:crypto";
 import type { Address } from "@lykia/core";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
-import { circleFetch } from "../circle/http.js";
+import { circleFetch, upstreamReason } from "../circle/http.js";
 import { entitySecretCiphertext } from "../circle/wallets.js";
 
 const API = "https://api.circle.com/v1/w3s";
@@ -38,7 +38,7 @@ export async function circleContractExecution(ctx: AppContext, input: { readonly
   };
   const response = await circleFetch(ctx.fetch, `${API}/developer/transactions/contractExecution`, { method: "POST", headers: { authorization: `Bearer ${c.apiKey}`, "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(10_000) }, "Circle Wallets");
   const text = await response.text();
-  if (!response.ok) throw new LykiaHttpError("UPSTREAM_UNAVAILABLE", 502, `Circle Wallets answered ${response.status}.`, { circle: text.slice(0, 300) });
+  if (!response.ok) throw new LykiaHttpError("UPSTREAM_UNAVAILABLE", 502, `Circle Wallets answered ${response.status}.`, { circle: upstreamReason(text) });
   const data = (JSON.parse(text) as { data?: { id?: string; state?: string } }).data ?? {};
   if (!data.id) throw new LykiaHttpError("UPSTREAM_UNAVAILABLE", 502, "Circle returned no transaction id.");
   return { id: data.id, state: data.state ?? "INITIATED" };

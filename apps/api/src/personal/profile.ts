@@ -3,16 +3,23 @@ import { DEFAULT_PROFILE, fenceForProfile, fromWebProfile, isWebProfile, mergePr
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { typedCollection } from "../platform/typed.js";
+import { mayUsePersonal } from "./guard.js";
 
 const profiles = (ctx: AppContext) => typedCollection<LykiaProfile>(ctx, "owner_profiles");
 
+/** The owner's profile, or the default when the request has not proven control of the owner (personal/guard.ts). */
 export async function getProfile(ctx: AppContext, owner: Address | null | undefined): Promise<LykiaProfile> {
-  if (!owner) return DEFAULT_PROFILE;
+  if (!owner || !(await mayUsePersonal(owner))) return DEFAULT_PROFILE;
   const doc = await profiles(ctx).get(owner.toLowerCase()).catch(() => null);
   return doc ? { ...DEFAULT_PROFILE, ...doc.value } : DEFAULT_PROFILE;
 }
 
+async function assertPersonal(owner: Address): Promise<void> {
+  if (!(await mayUsePersonal(owner))) throw new LykiaHttpError("FORBIDDEN", 403, "Only the owner (or a key the owner consented to) can change this profile.");
+}
+
 export async function updateProfile(ctx: AppContext, owner: Address, body: unknown): Promise<LykiaProfile> {
+  await assertPersonal(owner);
   const current = await getProfile(ctx, owner);
   // The web app sends its flat local document; translate it to the core profile first.
   const patch = isWebProfile(body) ? fromWebProfile(body as Record<string, unknown>, current) : body;
@@ -26,6 +33,7 @@ export async function updateProfile(ctx: AppContext, owner: Address, body: unkno
 }
 
 export async function resetProfile(ctx: AppContext, owner: Address): Promise<void> {
+  await assertPersonal(owner);
   await profiles(ctx).delete(owner.toLowerCase());
 }
 

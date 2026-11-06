@@ -40,6 +40,7 @@ import { memoEvents, transferEvents, type ReceiptLog } from "./batch.js";
 import { businessEvent } from "./events.js";
 import { invoices, listOwned, RECORD_TTL_MS } from "./stores.js";
 import { lockedOr } from "../platform/requestState.js";
+import { listAll } from "../store/types.js";
 
 const TRANSFER = parseAbiItem("event Transfer(address indexed from, address indexed to, uint256 value)");
 const INVOICE_ID = /^inv_[a-z0-9]{12}$/u;
@@ -203,7 +204,7 @@ export async function tickInvoices(ctx: AppContext): Promise<{ checked: number; 
   let checked = 0;
   let found = 0;
   const now = ctx.clock.now();
-  const open = (await invoices(ctx).list({ limit: 2000 })).map((d) => d.value).filter((i) => !i.voidedAt && invoiceStatusOf(i, now) !== "paid");
+  const open = (await listAll(invoices(ctx))).map((d) => d.value).filter((i) => !i.voidedAt && invoiceStatusOf(i, now) !== "paid");
   const heads = new Map<ArcEnvironment, bigint | null>();
   for (const invoice of open) {
     try {

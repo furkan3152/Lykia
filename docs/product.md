@@ -26,7 +26,11 @@ which rules an agent was held to.
 | **Rules that hold** | The Fence is a typed policy (caps, recipients, protocols, tokens, slippage, health factor, FX band, an emergency stop). It is checked off chain before signing, compiled into a Circle Agent Wallet policy, and enforced on chain by the Lykia smart account. Sub-agents get a Fence inside their parent's. A Tag (ERC-8004 identity) pins the hash of the Fence an agent obeys. | Fence |
 | **One engine for every builder** | The planner, router and Fence behind the app are a public REST and SSE API, an MCP server, TypeScript and Python SDKs, a CLI and drop-in components. A protocol becomes routable with one typed adapter. Every app built on it is a city of the League. | The Mint, the League |
 
-Non-custodial throughout: the server never holds keys and never signs.
+The server never holds user keys, and plans come back unsigned. Two optional
+server roles sign, each off unless the operator configures it: a gas-only
+keeper for due conditional orders, and opt-in Circle developer-controlled
+wallets bound to the address that created them (see
+[docs/legal/software-notice.md](legal/software-notice.md)).
 
 ## Information architecture
 

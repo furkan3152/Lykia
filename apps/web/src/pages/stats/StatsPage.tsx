@@ -15,7 +15,7 @@ interface StatsView {
   readonly routed: { readonly intents: number; readonly steps: number; readonly usd: string; readonly window: string };
   readonly platform: { readonly developerKeys: number | null; readonly integrators: number | null; readonly agents: number | null; readonly capped: boolean };
   readonly ecosystem: { readonly protocols: number; readonly verified: number; readonly routable: number };
-  readonly circle: { readonly productsUsed: readonly string[] };
+  readonly circle: { readonly integrated: readonly string[]; readonly basis?: string };
   readonly sources: Readonly<Record<string, string>>;
   readonly at: string;
 }
@@ -65,9 +65,9 @@ export default function StatsPage() {
               ))}
             </ul>
           </Card>
-          <Card title={"Circle products used"} kicker={"POWERED BY CIRCLE"}>
+          <Card title={"Circle products integrated"} kicker={"POWERED BY CIRCLE"}>
             <div className="flex flex-wrap gap-2">
-              {(s?.circle.productsUsed ?? []).map((p) => <Tag key={p} tone="sea">{p}</Tag>)}
+              {(s?.circle.integrated ?? []).map((p) => <Tag key={p} tone="sea">{p}</Tag>)}
             </div>
             <p className="m-small m-muted" style={{ marginTop: 10 }}>
               {"How each one is used: "}

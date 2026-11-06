@@ -24,8 +24,8 @@ signs. Use them side by side.
 
 ## Skills
 
-Circle Skills (https://github.com/circlefin/skills) are Claude Code plugin
-skills: one folder per skill with a `SKILL.md` whose front matter has
+Circle Skills (https://github.com/circlefin/skills) are plugin skills for AI
+coding assistants: one folder per skill with a `SKILL.md` whose front matter has
 `name`, `description` and `requirements`. Lykia publishes its own skills in
 the same format under [`skills/`](../../skills) (plugin manifest
 `skills/.claude-plugin/plugin.json`, MCP config `skills/.mcp.json`):
@@ -37,7 +37,8 @@ the same format under [`skills/`](../../skills) (plugin manifest
 | `lykia-plan-and-route` | Turn an intent into a Fence-checked plan across Arc venues |
 | `lykia-pay-marketplace-service` | Discover Agent Marketplace services and pay them inside the Fence |
 
-Install in Claude Code from a clone of this repository:
+Install from a clone of this repository in an assistant that reads this
+plugin format (the manifest path above is the one such clients require):
 
 ```shell
 /plugin marketplace add ./skills

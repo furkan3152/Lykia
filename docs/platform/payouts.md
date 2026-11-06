@@ -2,9 +2,22 @@
 
 `POST /v1/payouts` pays up to 100 recipients in as few transactions as the
 Fence allows. Each row has its own token (USDC, EURC or a partner
-stablecoin priced on Arc), amount, reference and memo. Lykia signs nothing:
-the payer signs each batch, or the payout is executed from the developer's
-own Circle developer-controlled wallet.
+stablecoin priced on Arc), amount, reference and memo. By default Lykia
+signs nothing: the payer signs each batch. On a server whose operator opted
+in (`LYKIA_CIRCLE_SERVER_WALLETS=true`), a payout can instead be executed
+from a Circle developer-controlled wallet that the developer created through
+`POST /v1/circle/wallets/agent`; then the server signs with the operator's
+entity secret.
+
+Circle wallet rules:
+
+- The wallet id is bound to the signed-in address that created it. Only that
+  developer (its session, or its own secret keys) can pay from it or read its
+  balances; any other id answers 404.
+- The payer is the wallet's own address. Leave `payer` out, or send exactly
+  that address (anything else is 409 `PAYER_MISMATCH`).
+- The Fence, the mainnet beta cap, the balance check and the security layer
+  all judge that address, and execution checks the binding again.
 
 ## What happens
 
@@ -46,7 +59,7 @@ on its recipient allowlist: send a `fence` with `recipients.mode:
 | `POST /v1/payouts/parse-csv` | Preview a CSV. |
 | `GET /v1/payouts` · `GET /v1/payouts/:id` | List; one payout row by row. |
 | `POST /v1/payouts/:id/batches/:index/submit` | `{ hash }` after the payer broadcast batch `index`. |
-| `POST /v1/payouts/:id/execute` | Execute ready batches from the payout's Circle wallet (`circleWalletId` at creation; needs `CIRCLE_API_KEY` and `CIRCLE_ENTITY_SECRET` on the server). |
+| `POST /v1/payouts/:id/execute` | Execute ready batches from the payout's Circle wallet (`circleWalletId` at creation, a wallet you created; needs `LYKIA_CIRCLE_SERVER_WALLETS=true`, `CIRCLE_API_KEY` and `CIRCLE_ENTITY_SECRET` on the server, else 403 / 503). |
 
 Late receipts and Circle transactions are picked up by the reconciliation
 pass (`/cron/standing` on Vercel, or `POST /v1/reconcile/tick`).

@@ -22,6 +22,7 @@ import { z } from "zod";
 import { agentServices } from "../agents/index.js";
 import { LykiaHttpError } from "../http/errors.js";
 import type { ApiModule } from "../http/router.js";
+import { ownProject } from "../platform/projects.js";
 import { evmAddress, parseBody, parseParams, parseQuery, queryInteger } from "../http/validate.js";
 import { flags } from "../platform/admin.js";
 import { mustDeveloper } from "../platform/auth.js";
@@ -56,6 +57,7 @@ const createKeySchema = z.object({
   perMinute: z.number().int().min(1).max(6_000).optional(),
   perDay: z.number().int().min(1).max(5_000_000).optional(),
   apiVersion: versionSchema.optional(),
+  projectId: z.string().regex(/^prj_[a-z0-9]{12}$/u).optional().describe("Bind a secret key to one of your projects: the project's Fence and limits apply, and the key may act for owners who granted that project consent (POST /v1/consents)."),
 });
 const updateKeySchema = z.object({
   label: z.string().min(1).max(48).optional(),
@@ -91,10 +93,9 @@ const DeliveryId = z.object({ id: z.string().regex(/^whd_[a-z0-9]{1,16}_[0-9a-f]
 const createWebhookSchema = z.object({
   url: z.string().url().max(500),
   events: z.array(eventName).max(64).optional(),
-  owners: z.array(evmAddress).max(1000).optional(),
   projects: z.array(z.string().regex(/^prj_[a-z0-9]{12}$/u)).max(20).optional(),
   description: z.string().max(200).nullable().optional(),
-});
+}).strict(); // Strict: the old `owners` list is refused, not silently dropped.
 const updateWebhookSchema = z.object({ events: z.array(eventName).min(1).max(64).optional(), projects: z.array(z.string().regex(/^prj_[a-z0-9]{12}$/u)).max(20).optional(), description: z.string().max(200).nullable().optional() });
 const endpointView = z.object({ id: z.string(), url: z.string(), events: z.array(z.string()), projects: z.array(z.string()), description: z.string().nullable(), createdAt: z.string(), disabled: z.boolean(), secret: z.string().optional() });
 const attempt = z.object({ at: z.string(), statusCode: z.number().int().nullable(), durationMs: z.number().int(), error: z.string().nullable() });
@@ -144,6 +145,10 @@ export const developersModule: ApiModule = {
     router.post("/developers/keys", ctx.limits.auth, async (req, res) => {
       const dev = await mustDeveloper(ctx, req);
       const body = parseBody(req, createKeySchema);
+      if (body.projectId) {
+        await ownProject(ctx, dev.address, body.projectId);
+        if (body.kind === "publishable") throw new LykiaHttpError("INVALID_REQUEST", 400, "Browser keys for a project come from POST /v1/projects/:id/keys.");
+      }
       res.status(201).json(await createKey(ctx, { owner: dev.address, ...body }));
     });
     router.get("/developers/keys/:id", async (req, res) => {
@@ -185,13 +190,17 @@ export const developersModule: ApiModule = {
     router.post("/developers/webhooks", async (req, res) => {
       const dev = await mustDeveloper(ctx, req);
       const body = parseBody(req, createWebhookSchema);
+      // An endpoint follows only the developer's own projects; another owner's events arrive only with that owner's consent (POST /v1/consents).
+      for (const id of body.projects ?? []) await ownProject(ctx, dev.address, id);
       const plan = await planOf(ctx, dev.address);
       res.status(201).json(await hooks().create(dev.address, { ...body, maxEndpoints: plan.webhookEndpoints }));
     });
     router.patch("/developers/webhooks/:id", async (req, res) => {
       const dev = await mustDeveloper(ctx, req);
       const { id } = parseParams(req, HookId);
-      res.json(await hooks().update(dev.address, id, parseBody(req, updateWebhookSchema)));
+      const patch = parseBody(req, updateWebhookSchema);
+      for (const p of patch.projects ?? []) await ownProject(ctx, dev.address, p);
+      res.json(await hooks().update(dev.address, id, patch));
     });
     router.post("/developers/webhooks/:id/disable", async (req, res) => {
       const dev = await mustDeveloper(ctx, req);

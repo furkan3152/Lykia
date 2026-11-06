@@ -43,7 +43,7 @@ import { randomHex } from "../platform/crypto.js";
 import { typedCollection } from "../platform/typed.js";
 import { securityPreflight } from "../security/index.js";
 import { services } from "../services.js";
-import type { FlowCaller } from "./access.js";
+import { actsFor, assertActsFor, type FlowCaller } from "./access.js";
 import { apiAgents, listOwned, RECORD_TTL_MS } from "./stores.js";
 import { indexVerdict } from "./verdicts.js";
 import { lockedOr } from "../platform/requestState.js";
@@ -103,6 +103,8 @@ async function checkPack(ctx: AppContext, owner: Address, fence: Fence, ids: rea
 export async function createAgent(ctx: AppContext, caller: FlowCaller, input: AgentInput): Promise<AgentApiView> {
   const fence = await effectiveFence(ctx, caller, input);
   const owner = input.owner.toLowerCase() as Address;
+  // An agent acts for its owner: the developer's own address, or an owner who consented to the caller's project.
+  await assertActsFor(ctx, caller, owner);
   await checkPack(ctx, owner, fence, input.pack ?? []);
   const persona = sanitizePromptAdditions(input.persona).text;
   const now = new Date(ctx.clock.now()).toISOString();
@@ -246,7 +248,7 @@ export async function runAgent(ctx: AppContext, caller: FlowCaller, id: string, 
   const now = new Date(ctx.clock.now()).toISOString();
   let thread: AgentThread;
   if (input.threadId) thread = await getAgentThread(ctx, caller, agent.id, input.threadId);
-  else thread = { id: `${agent.id}:thr_${randomHex(6)}`, agentId: agent.id, title: input.message.slice(0, 80), messages: [], createdAt: now, updatedAt: now };
+  else thread = { id: `${agent.id}:thr_${randomHex(16)}`, agentId: agent.id, title: input.message.slice(0, 80), messages: [], createdAt: now, updatedAt: now };
 
   const fence: Fence = input.dryRun ? { ...agent.fence, mode: "dry-run" } : agent.fence;
   const notes: string[] = [];
@@ -265,7 +267,7 @@ export async function runAgent(ctx: AppContext, caller: FlowCaller, id: string, 
     }
     const events: { event: string; data: unknown }[] = [];
     const emit: Emit = (event, data) => events.push({ event, data });
-    const seen = await perceive(ctx, { environment: agent.environment, owner: agent.owner, fence, pack: packAgents, emit });
+    const seen = await perceive(ctx, { environment: agent.environment, owner: agent.owner, fence, pack: packAgents, emit, personal: await actsFor(ctx, caller, agent.owner) });
     const blocks = [agent.persona ? projectPromptBlock({ name: agent.name, prompt: agent.persona, brand: { assistant: { name: agent.name } } }) : "", caller.project ? projectPromptBlock(caller.project) : ""].filter(Boolean).join("\n\n");
     const result = await runTurn({ ctx, client, environment: agent.environment, owner: agent.owner, fence, pack: packAgents, history: thread.messages.map((m) => ({ role: m.role, text: m.text })), message: input.message, stateLine: seen.line, emit, ...(blocks ? { appContext: blocks } : {}) });
     reply = result.text;

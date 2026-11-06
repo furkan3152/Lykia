@@ -14,7 +14,7 @@ import { encodeFunctionData, maxUint256, pad, parseAbi, type Hex } from "viem";
 import type { Address, ArcEnvironment } from "@lykia/core";
 import type { GatewayTransferDraft, GatewayTransferResult } from "@lykia/core/api/circle";
 import type { FetchLike } from "../health/dependencies.js";
-import { circleFetch } from "./http.js";
+import { circleFetch, upstreamReason } from "./http.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { GATEWAY_API } from "../flock/flock.js";
 import { GATEWAY_CHAINS, GATEWAY_MINTER, GATEWAY_TRANSFER_FEE_BPS, GATEWAY_WALLET, gatewayChain } from "./chains.js";
@@ -131,7 +131,7 @@ export async function estimateGatewayTransfer(fetchImpl: FetchLike, environment:
   const url = `${GATEWAY_API[environment]}/v1/estimate${forward ? "?enableForwarder=true" : ""}`;
   const response = await circleFetch(fetchImpl, url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify([{ spec }]), signal: AbortSignal.timeout(8_000) }, "Circle Gateway");
   const text = await response.text();
-  if (!response.ok) throw new LykiaHttpError("UPSTREAM_UNAVAILABLE", 502, `Gateway's estimate answered ${response.status}.`, { gateway: text.slice(0, 300) });
+  if (!response.ok) throw new LykiaHttpError("UPSTREAM_UNAVAILABLE", 502, `Gateway's estimate answered ${response.status}.`, { gateway: upstreamReason(text) });
   // Two shapes in the wild: { body: [{ burnIntent }], fees } (documented) and a bare [{ burnIntent }] array.
   const json = JSON.parse(text) as { body?: { burnIntent?: { maxFee?: string; maxBlockHeight?: string } }[]; fees?: { total?: string; forwardingFee?: string } } | { burnIntent?: { maxFee?: string; maxBlockHeight?: string } }[];
   const rows = Array.isArray(json) ? json : (json.body ?? []);
@@ -172,15 +172,15 @@ export async function submitGatewayTransfer(fetchImpl: FetchLike, input: { envir
   const url = `${GATEWAY_API[input.environment]}/v1/transfer${input.forward ? "?enableForwarder=true" : ""}`;
   const response = await circleFetch(fetchImpl, url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(15_000) }, "Circle Gateway");
   const text = await response.text();
-  if (!response.ok) throw new LykiaHttpError("UPSTREAM_UNAVAILABLE", 502, `Gateway refused the transfer (${response.status}).`, { gateway: text.slice(0, 500) });
+  if (!response.ok) throw new LykiaHttpError("UPSTREAM_UNAVAILABLE", 502, `Gateway refused the transfer (${response.status}).`, { gateway: upstreamReason(text) });
   const json = JSON.parse(text) as { attestation?: Hex; signature?: Hex; transferId?: string; id?: string };
   const transferId = json.transferId ?? json.id ?? null;
   if (input.forward) {
     // Forwarded: Circle submits gatewayMint; the response may omit attestation and signature (GET /v1/transfer/{id} has the record).
-    if (!transferId && !json.attestation) throw new LykiaHttpError("UPSTREAM_UNAVAILABLE", 502, "Gateway returned neither a transfer id nor an attestation.", { gateway: text.slice(0, 500) });
+    if (!transferId && !json.attestation) throw new LykiaHttpError("UPSTREAM_UNAVAILABLE", 502, "Gateway returned neither a transfer id nor an attestation.", { gateway: upstreamReason(text) });
     return { attestation: json.attestation ?? null, signature: json.signature ?? null, transferId, mint: null, forwarded: true };
   }
-  if (!json.attestation || !json.signature) throw new LykiaHttpError("UPSTREAM_UNAVAILABLE", 502, "Gateway returned no attestation.", { gateway: text.slice(0, 500) });
+  if (!json.attestation || !json.signature) throw new LykiaHttpError("UPSTREAM_UNAVAILABLE", 502, "Gateway returned no attestation.", { gateway: upstreamReason(text) });
   return {
     attestation: json.attestation,
     signature: json.signature,

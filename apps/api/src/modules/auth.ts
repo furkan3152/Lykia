@@ -12,7 +12,7 @@ import { LykiaHttpError } from "../http/errors.js";
 import type { ApiModule } from "../http/router.js";
 import { evmAddress, parseBody } from "../http/validate.js";
 import { platformSecret } from "../platform/crypto.js";
-import { issueToken, mustSession, revokeSession, rolesOf } from "../platform/session.js";
+import { issueToken, mustSession, revokeSession, rolesOf, verifyToken } from "../platform/session.js";
 import { issueNonce, verifySiwe } from "../platform/siwe.js";
 
 export const authModule: ApiModule = {
@@ -33,6 +33,21 @@ export const authModule: ApiModule = {
     router.get("/auth/session", async (req, res) => {
       const session = await mustSession(ctx, req);
       res.json({ address: session.address, roles: session.roles, expiresAt: new Date(session.claims.exp).toISOString() });
+    });
+    // A read-only token for the MCP personal tools (memory, contacts, profile), so no one pastes a full session into a third-party client.
+    router.post("/auth/mcp-token", ctx.limits.auth, async (req, res) => {
+      const session = await mustSession(ctx, req);
+      const body = parseBody(req, z.object({ ttlHours: z.number().int().min(1).max(168).optional() }).default({}));
+      const { token, claims } = issueToken(ctx, session.address, (body.ttlHours ?? 24) * 3_600_000, "personal-read");
+      res.status(201).json({ token, scope: "personal-read", sid: claims.sid, expiresAt: new Date(claims.exp).toISOString(), note: "Read-only: the MCP tools lykia_memory, lykia_contacts and lykia_profile accept it. It cannot sign in, plan, save or change anything. Revoke it with POST /v1/auth/mcp-token/revoke." });
+    });
+    router.post("/auth/mcp-token/revoke", ctx.limits.auth, async (req, res) => {
+      const session = await mustSession(ctx, req);
+      const body = parseBody(req, z.object({ token: z.string().min(20).max(2_048) }));
+      const claims = verifyToken(ctx, body.token);
+      if (!claims || claims.scope !== "personal-read" || claims.sub !== session.address) throw new LykiaHttpError("NOT_FOUND", 404, "Not a live MCP token of this address.");
+      await revokeSession(ctx, claims);
+      res.json({ revoked: true });
     });
     router.post("/auth/logout", async (req, res) => {
       const session = await mustSession(ctx, req).catch(() => {

@@ -251,3 +251,30 @@ export class PackService {
     return Promise.all(agents.map((a) => this.view(a.id)));
   }
 }
+
+/**
+ * What anyone may see of an agent without proving control of its owner:
+ * the facts a chain explorer also shows (ids, role and capabilities, the
+ * Fence hash a session or Tag pins, the signer and session, status, tree
+ * shape). Names, missions, Fences and budgets stay private.
+ */
+export function publicPackView(agent: PackAgentView) {
+  return {
+    id: agent.id,
+    owner: agent.owner,
+    environment: agent.environment,
+    parentId: agent.parentId,
+    depth: agent.depth,
+    role: agent.role,
+    capabilities: agent.capabilities,
+    fenceHash: agent.fenceHash,
+    ...(agent.agentId ? { agentId: agent.agentId } : {}),
+    ...(agent.signer ? { signer: agent.signer } : {}),
+    ...(agent.session ? { session: agent.session } : {}),
+    status: agent.status,
+    createdAt: agent.createdAt,
+    ...(agent.revokedAt ? { revokedAt: agent.revokedAt } : {}),
+    children: agent.children,
+    redacted: true as const,
+  };
+}

@@ -10,8 +10,8 @@ The API serves MCP over streamable HTTP at `/v1/mcp`:
 { "mcpServers": { "lykia": { "type": "http", "url": "https://<api>/v1/mcp", "headers": { "Lykia-Key": "lk_sk_…" } } } }
 ```
 
-Claude Code, the Claude Agent SDK (`mcpServers` option), Cursor and other
-MCP clients get Lykia's read and propose tools. `lykiaMcpServer()` from
+Any MCP client (IDE assistants, desktop chat apps, agent SDKs through their
+`mcpServers` option) gets Lykia's read and propose tools. `lykiaMcpServer()` from
 `@lykia/agent-tools` returns that object.
 
 ## `@lykia/agent-tools`

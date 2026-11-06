@@ -27,6 +27,7 @@ import { auditRead, auditSafe, ownerChain, PLATFORM_CHAIN } from "../security/au
 import { clearBreakerCache, isHalted, setVenueSwitch, venueBreakers } from "../security/breakers.js";
 import { checkRecipient } from "../security/recipients.js";
 import { environmentOf, environmentSchema } from "./common.js";
+import { listAll } from "../store/types.js";
 
 const reason = z.string().trim().min(3).max(200);
 const LAYER_NAMES: Record<(typeof SECURITY_LAYERS)[number], string> = {
@@ -40,7 +41,7 @@ const LAYER_NAMES: Record<(typeof SECURITY_LAYERS)[number], string> = {
 
 async function ownsSubject(ctx: AppContext, owner: string, subject: string): Promise<boolean> {
   if (owner.toLowerCase() === subject.toLowerCase()) return true;
-  const agents = await typedCollection<PackAgent>(ctx, "pack_agents").list({ limit: 1000 });
+  const agents = await listAll(typedCollection<PackAgent>(ctx, "pack_agents"));
   return agents.some((d) => d.value.owner.toLowerCase() === owner.toLowerCase() && (d.value.signer?.toLowerCase() === subject.toLowerCase() || d.value.session?.account.toLowerCase() === subject.toLowerCase()));
 }
 

@@ -33,3 +33,7 @@ logs/
 .DS_Store
 Thumbs.db
 apps/web/screenshots-tmp/
+
+# Local working notes and reports (never committed)
+reports/
+research_notes/

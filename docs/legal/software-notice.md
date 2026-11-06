@@ -11,12 +11,26 @@ built by an individual developer, not a company. It is built on Arc
 Network and Circle's products; it is not affiliated with, endorsed by or a
 partner of Circle or Arc.
 
-## Non-custodial
+## Keys and signing
 
-- Lykia never holds your funds and never holds your keys.
-- Lykia's server prepares **unsigned** transactions. You, your wallet, your
-  passkey smart account or an agent session you created signs every
-  transaction. Nothing moves until a signature you control exists.
+- Lykia never holds your keys.
+- By default Lykia's server prepares **unsigned** transactions. You, your
+  wallet, your passkey smart account or an agent session you created signs
+  them. Nothing moves until a signature you control exists.
+- Two optional server roles sign. Each is off unless the operator of a
+  deployment configures it:
+  - **Keeper (gas only).** With `LYKIA_KEEPER_PRIVATE_KEY` set, a keeper
+    wallet submits due conditional orders on LykiaOrders. The order itself
+    was signed and funded by its owner and the contract enforces its terms;
+    the keeper wallet holds only gas and earns the order's tip.
+  - **Circle developer-controlled wallets (opt-in).** With
+    `LYKIA_CIRCLE_SERVER_WALLETS=true` plus `CIRCLE_API_KEY` and
+    `CIRCLE_ENTITY_SECRET`, the server can create Circle wallets and
+    execute payouts from them. The server signs those transactions with the
+    operator's entity secret, so the operator controls those wallets (see
+    the caveat below). Each wallet is bound to the signed-in address that
+    created it; only that address can pay from it or read it, and every
+    payout passes the Fence and the mainnet beta cap first.
 - Lykia cannot reverse, cancel or recover a transaction once it is signed
   and final on Arc.
 
@@ -24,14 +38,16 @@ What Lykia controls and what it does not:
 
 | Lykia controls | Lykia does not control |
 |---|---|
-| The plan it proposes and the Fence verdict it computes | Your keys, wallets and their recovery |
+| The plan it proposes and the Fence verdict it computes | Your keys, your own wallets and their recovery |
+| The keeper wallet and, when switched on, Circle developer-controlled wallets created through the server (see above) | |
 | Its own contracts' admin functions (router venue list, pause) through the owner key, moving to a multisig with a timelock | Arc Network, USDC, EURC, CCTP, Gateway, StableFX or any Circle product |
 | Which venues it routes to | Third-party protocols (Aave, Morpho, Uniswap and others), their prices or their failures |
 | The API's uptime | Circle wallets you create: with developer-controlled wallets, whoever holds the API key and entity secret (you, if you run the API) controls the wallet |
 
 **Developer-controlled wallets caveat.** If you run Lykia with
-`CIRCLE_API_KEY` and `CIRCLE_ENTITY_SECRET`, the agent wallets created
-through Circle are controlled by whoever holds those credentials. On a
+`LYKIA_CIRCLE_SERVER_WALLETS=true`, `CIRCLE_API_KEY` and
+`CIRCLE_ENTITY_SECRET`, the wallets created through Circle are controlled
+by whoever holds those credentials. On a
 Lykia deployment you run, that is you. Do not use someone else's deployment
 for developer-controlled wallets unless you accept that they control those
 wallets.
@@ -51,7 +67,7 @@ wallets.
   routes to can lose funds.
 - **Stablecoin and network risk.** Stablecoins can depeg; networks can halt
   or reorganise (Arc has deterministic finality, other chains may not).
-- **Agent risk.** An AI agent can misread an instruction. The Fence limits
+- **Agent risk.** An automated agent can misread an instruction. The Fence limits
   what it can do; it does not make its choices good.
 - **Oracle and liquidity risk.** Prices can be stale or thin; the Fence
   denies when a fact it needs is missing, but cannot prevent every bad fill.

@@ -7,6 +7,7 @@ import { DEFAULT_MONITOR_POLICY, type ActivityEvent, type MonitorPolicy } from "
 import { randomBytes } from "node:crypto";
 import type { AppContext } from "../context.js";
 import { typedCollection } from "../platform/typed.js";
+import { listAll } from "../store/types.js";
 
 const DAY = 86_400_000;
 const pad = (n: number) => String(n).padStart(15, "0");
@@ -68,7 +69,7 @@ export async function resume(ctx: AppContext, subject: string): Promise<boolean>
 }
 
 export async function listPauses(ctx: AppContext, owner: string): Promise<SecurityPause[]> {
-  return (await pauses(ctx).list({ limit: 1000 })).map((d) => d.value).filter((p) => p.owner === owner.toLowerCase());
+  return (await listAll(pauses(ctx))).map((d) => d.value).filter((p) => p.owner === owner.toLowerCase());
 }
 
 export async function raiseAlert(ctx: AppContext, alert: Omit<SecurityAlert, "id" | "at">): Promise<SecurityAlert> {

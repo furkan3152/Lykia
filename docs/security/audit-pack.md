@@ -100,7 +100,7 @@ From `packages/contracts/SECURITY.md`:
 
 | Threat | Mitigation | Where |
 |---|---|---|
-| The server is compromised | The server never holds owner or agent keys and never signs; it can only propose. On-chain sessions bound what agents can do | `apps/api` design; `LykiaAccount` |
+| The server is compromised | The server never holds owner or agent keys; for owner wallets it can only propose. On-chain sessions bound what agents can do. Exceptions, both opt-in: the gas-only keeper key (submits orders their owners signed) and, with `LYKIA_CIRCLE_SERVER_WALLETS=true`, the Circle entity secret, which controls the developer-controlled wallets created through the server | `apps/api` design; `LykiaAccount` |
 | A submitted transaction differs from the prepared one | Submit re-derives the outcome from the receipt and refuses a mismatch with the binding hash (`BINDING_MISMATCH`), including when the fee call is missing | `apps/api/src/engine/service.ts`, `apps/api/src/engine/userop.ts` |
 | A transaction hash is reused for another step | References are claimed once, globally | `apps/api/src/engine/service.ts` |
 | A missing fact lets a risky plan through | The Fence denies when a rule needs a fact it lacks; unpriced is never zero | `packages/core/src/fenceEvaluate.ts` |

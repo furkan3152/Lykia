@@ -3,7 +3,8 @@
  *
  *   no-store default -> body guards (413 / 415) -> JSON parser (256 KB)
  *   -> default per-IP rate limit -> Lykia-Version -> developer gate (keys,
- *   scopes, quotas, request log) -> Idempotency-Key -> modules (each on its
+ *   scopes, quotas, request log) -> Idempotency-Key -> personal-data guard
+ *   -> modules (each on its
  *   own sub-router) -> 404 NOT_FOUND -> error envelope
  *
  * A module is `{ name, register(router, ctx) }`; it adds routes to the
@@ -13,8 +14,10 @@
  * throw LykiaHttpError (or let zod/upstream errors propagate).
  */
 import { idempotency } from "./idempotency.js";
+import { personalGuard } from "../personal/guard.js";
 import { apiVersionMiddleware, developerGate } from "../platform/gate.js";
 import { drainWebhooksSoon } from "../platform/events.js";
+import { tickOnTraffic } from "../scheduler.js";
 import express, { type Express, type RequestHandler, type Router } from "express";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "./errors.js";
@@ -77,9 +80,13 @@ export function createV1Router(ctx: AppContext, modules: readonly ApiModule[]): 
   router.use(apiVersionMiddleware());
   router.use(developerGate(ctx));
   router.use(idempotency(ctx));
+  // Profiles, memory and contacts are used only for an owner the request proved control of.
+  router.use(personalGuard(ctx));
   // Serverless: webhook retries also drain on traffic, not only on a timer or the cron.
+  // Scheduled passes (standing orders, orders, alerts, flows) also start on traffic, at most every 5 minutes across instances.
   router.use((_req, _res, next) => {
     drainWebhooksSoon(ctx);
+    tickOnTraffic(ctx);
     next();
   });
 

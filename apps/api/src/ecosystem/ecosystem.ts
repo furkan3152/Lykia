@@ -14,6 +14,7 @@ import { EXECUTABLE_VENUES } from "../engine/adapters.js";
 import { DEFAULT_PER_DAY, DEFAULT_PER_MINUTE } from "../platform/keys.js";
 import type { JsonValue } from "../store/types.js";
 import { settlementMode } from "../x402/x402.js";
+import { listAll } from "../store/types.js";
 
 const DEFILLAMA_PROTOCOLS = "https://api.llama.fi/protocols";
 const TVL_TTL_MS = 30 * 60_000;
@@ -164,7 +165,7 @@ export async function routedVolume(ctx: AppContext, environment: ArcEnvironment)
   const now = ctx.clock.now();
   const memo = volumeMemo.get(environment);
   if (memo && now - memo.at < VOLUME_TTL_MS) return memo;
-  const docs = await ctx.store.collection<JsonValue>("intents").list({ limit: 1000 }).catch(() => []);
+  const docs = await listAll(ctx.store.collection<JsonValue>("intents")).catch(() => []);
   const byVenue: Record<string, { steps: number; cents: number }> = {};
   let intents = 0;
   for (const doc of docs) {

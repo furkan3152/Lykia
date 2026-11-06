@@ -2,7 +2,7 @@
 
 Lykia turns money moves on Arc Network into API calls. A sentence becomes a
 plan, the plan is checked against a Fence, and every step comes back
-unsigned for the owner's wallet. The server never signs. Built on Arc
+unsigned for the owner's wallet. The server never holds user keys. Built on Arc
 Network and Circle's rails.
 
 The same API serves a weekend script and a bank's payout system. You climb

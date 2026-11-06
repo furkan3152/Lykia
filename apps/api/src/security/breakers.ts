@@ -13,6 +13,7 @@ import { deviationBps, pythPrices } from "../oracles/pyth.js";
 import { flags } from "../platform/admin.js";
 import { typedCollection } from "../platform/typed.js";
 import { services } from "../services.js";
+import { listAll } from "../store/types.js";
 
 const PAUSED_ABI = parseAbi(["function paused() view returns (bool)"]);
 const CACHE_MS = 60_000;
@@ -64,7 +65,7 @@ const cache = new WeakMap<AppContext, { at: number; environment: ArcEnvironment;
 export async function venueBreakers(ctx: AppContext, environment: ArcEnvironment): Promise<VenueBreaker[]> {
   const hit = cache.get(ctx);
   if (hit && hit.environment === environment && ctx.clock.now() - hit.at < CACHE_MS) return hit.venues;
-  const [halted, list, oracle] = await Promise.all([isHalted(ctx), switches(ctx).list({ limit: 1000 }), oracleHealth(ctx, environment)]);
+  const [halted, list, oracle] = await Promise.all([isHalted(ctx), listAll(switches(ctx)), oracleHealth(ctx, environment)]);
   const off = new Map(list.map((d) => [d.id, d.value]));
   const venues = protocolsFor(environment)
     .filter((p) => p.verbs.length > 0)

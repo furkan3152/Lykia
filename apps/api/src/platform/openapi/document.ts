@@ -149,7 +149,7 @@ export function buildOpenApi(ctx: AppContext, origin: string): JsonSchema {
       version: ctx.config.version,
       summary: "Agents and stablecoins on Arc Network through one API, from a one-line quote to enterprise payouts.",
       description:
-        "Built on Arc Network and Circle's rails. Plan money moves in plain words, check them against a Fence, hand unsigned steps to the user's wallet and follow them to finality. The server never signs.\n\nAuthenticate with `Lykia-Key` (lk_live_… or lk_test_…; test keys only reach testnet) or a `Lykia-Session` from wallet sign-in. Pin behaviour with `Lykia-Version` (" +
+        "Built on Arc Network and Circle's rails. Plan money moves in plain words, check them against a Fence, hand unsigned steps to the user's wallet and follow them to finality. The server never holds user keys; intents come back unsigned. Optional server signers (a gas-only keeper, opt-in Circle developer-controlled wallets) are off unless the operator configures them.\n\nAuthenticate with `Lykia-Key` (lk_live_… or lk_test_…; test keys only reach testnet) or a `Lykia-Session` from wallet sign-in. Pin behaviour with `Lykia-Version` (" +
         API_VERSIONS.join(", ") +
         "). Send `Idempotency-Key` on POSTs. Every answer carries `X-Request-Id`; every error is `{ error: { code, message, details?, requestId } }`.",
       contact: { name: "Lykia", url: origin.replace("lykia-api-", "lykia-") },

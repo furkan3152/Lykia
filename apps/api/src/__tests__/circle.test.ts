@@ -33,11 +33,14 @@ describe("Circle products", () => {
     const by = (s: typeof none, id: string) => s.products.find((p) => p.id === id)!;
     assert.equal(by(none, "gateway").state, "live");
     assert.equal(by(none, "compliance").state, "needs-key");
-    assert.deepEqual(by(none, "dev-wallets").needs, ["CIRCLE_API_KEY", "CIRCLE_ENTITY_SECRET"]);
+    assert.deepEqual(by(none, "dev-wallets").needs, ["CIRCLE_API_KEY", "CIRCLE_ENTITY_SECRET", "LYKIA_CIRCLE_SERVER_WALLETS=true"]);
     assert.equal(by(none, "paymaster").state, "unavailable-on-arc");
     const keyed = circleStatus(testConfig({ CIRCLE_API_KEY: "TEST_API_KEY:abc:def", CIRCLE_ENTITY_SECRET: "a".repeat(64) }), 0);
     assert.equal(by(keyed, "compliance").state, "configured");
-    assert.equal(by(keyed, "dev-wallets").state, "configured");
+    // Keys alone do not switch on server-side wallets: the operator opts in.
+    assert.equal(by(keyed, "dev-wallets").state, "needs-key");
+    const optedIn = circleStatus(testConfig({ CIRCLE_API_KEY: "TEST_API_KEY:abc:def", CIRCLE_ENTITY_SECRET: "a".repeat(64), LYKIA_CIRCLE_SERVER_WALLETS: "true" }), 0);
+    assert.equal(by(optedIn, "dev-wallets").state, "configured");
     assert.equal(by(keyed, "stablefx").state, "configured");
   });
 

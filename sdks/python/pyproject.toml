@@ -17,7 +17,7 @@ classifiers = ["Programming Language :: Python :: 3", "License :: OSI Approved :
 test = ["pytest>=7"]
 
 [project.urls]
-Homepage = "https://lykia-akdogan1.vercel.app/build"
+Homepage = "https://lykia-akdogan1.vercel.app/mint"
 Repository = "https://github.com/furkan3152/lykia"
 
 [tool.hatch.build.targets.wheel]

@@ -371,7 +371,9 @@ class OrdersService {
         executed += 1;
         this.ctx.log.info("order executed", { order: v.hash, tx: hash });
       } catch (error) {
-        skipped[v.hash] = `simulation failed: ${error instanceof Error ? error.message.split("\n")[0]?.slice(0, 160) : "unknown"}`;
+        // The node's raw error stays in the log; the answer says what happened in plain words.
+        this.ctx.log.warn("keeper execution failed", { order: v.hash, error: error instanceof Error ? error.message.slice(0, 300) : String(error) });
+        skipped[v.hash] = "execution failed: the swap would revert or the transaction was not accepted; it is retried on the next pass";
       }
     }
     return { due: open.length, executed, skipped };
@@ -386,4 +388,13 @@ export function ordersService(ctx: AppContext): OrdersService {
     services.set(ctx, s);
   }
   return s;
+}
+
+/**
+ * An order as anyone may see it without proving control of its owner: the
+ * hash, kind and status. The signed struct (trigger levels, amounts,
+ * slippage) and the summary stay private until the order executes on chain.
+ */
+export function publicOrderView(view: OrderView) {
+  return { hash: view.hash, environment: view.environment, owner: view.owner, kind: view.kind, status: view.status, executed: view.executed, lastExecutedAt: view.lastExecutedAt, createdAt: view.createdAt, redacted: true as const };
 }

@@ -15,6 +15,7 @@
  */
 import { registryCoverage, type ArcEnvironment, type IntentGraph } from "@lykia/core";
 import type { AppContext } from "../context.js";
+import { circleStatus } from "../circle/status.js";
 import { EXECUTABLE_VENUES } from "../engine/adapters.js";
 import { routedVolume } from "../ecosystem/ecosystem.js";
 import { listDeployments } from "../platform/admin.js";
@@ -35,7 +36,8 @@ export interface StatsResponse {
   readonly platform: { readonly developerKeys: number | null; readonly integrators: number | null; readonly agents: number | null; readonly capped: boolean };
   /** Registry counts (core registryCoverage): mapped on Arc, verified, routable, read-only, mapped only. */
   readonly ecosystem: { readonly protocols: number; readonly verified: number; readonly routable: number; readonly readOnly: number; readonly mapped: number };
-  readonly circle: { readonly productsUsed: readonly string[] };
+  /** Circle products wired into this deployment's code paths (from its config), not a usage count. */
+  readonly circle: { readonly integrated: readonly string[]; readonly basis: string };
   readonly sources: Readonly<Record<string, string>>;
   readonly at: string;
 }
@@ -96,7 +98,7 @@ export async function publicStats(ctx: AppContext, environment: ArcEnvironment):
     routed: { intents: volume.intents, steps: routedSteps, usd: (cents / 100).toFixed(2), window: "Intents kept by the API (30 days)" },
     platform: { developerKeys: keys, integrators: projects, agents, capped },
     ecosystem: registryCoverage(environment, executable),
-    circle: { productsUsed: ["USDC", "EURC", "CCTP V2", "Gateway", "StableFX", "Developer-controlled wallets", "Agent Wallets policies", "Gas Station", "Compliance Engine", "x402 Facilitator", "Agent Marketplace"] },
+    circle: circleIntegrated(ctx),
     sources: {
       contracts: "Deployments recorded by the owner console, each verified with eth_getCode",
       accountsCreated: "LykiaAccountFactory nonce on Arc minus one (one CREATE2 per account)",
@@ -109,4 +111,18 @@ export async function publicStats(ctx: AppContext, environment: ArcEnvironment):
   };
   memo.set(environment, { at: now, value });
   return value;
+}
+
+/**
+ * Circle products this deployment has wired into an execution or read path,
+ * derived from GET /v1/circle/status for its config. Products that need a
+ * missing key, are only compiled or advised (Agent Wallets policies, App
+ * Kit, Nanopayments discovery), or are not on Arc are left out.
+ */
+const ADVICE_ONLY = new Set(["app-kit", "nanopayments"]);
+function circleIntegrated(ctx: AppContext): StatsResponse["circle"] {
+  const products = circleStatus(ctx.config, ctx.clock.now()).products;
+  const integrated = products.filter((p) => (p.state === "live" || p.state === "configured") && !ADVICE_ONLY.has(p.id)).map((p) => p.name);
+  if (ctx.config.x402.facilitatorUrl && ctx.config.x402.payTo) integrated.push("x402 Facilitator");
+  return { integrated, basis: "Circle products with a live or configured code path on this deployment (GET /v1/circle/status); not a usage count" };
 }

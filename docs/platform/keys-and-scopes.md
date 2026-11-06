@@ -36,6 +36,37 @@ New secret keys default to `read, quote, build, execute, agents, automation`.
 A module that documents its routes with `documentRoutes({ scope })` gets that
 scope enforced for new keys automatically.
 
+## Acting for an owner: consent
+
+A scope says which routes a key may call. It does not let the key act for any
+wallet. Routes that act for an owner (the Pack, Lyko's threads and saved
+automations, the Fold, standing orders, alerts, `/v1/automations`, business
+agents, and the owner's profile, memory and contacts) accept a secret key only
+for:
+
+- the key's own developer address, or
+- an owner who granted the key's **project** consent from their own wallet
+  session.
+
+Bind a server key to a project with `POST /v1/developers/keys { "label":
+"server", "projectId": "prj_…" }`. The owner grants, lists and revokes consent
+from their own `Lykia-Session` (an API key can never do it):
+
+```http
+POST   /v1/consents              { "projectId": "prj_…" }
+GET    /v1/consents
+DELETE /v1/consents/:projectId
+```
+
+Consent also lets the project's webhooks carry that owner's events. Without it,
+an owner's events go only to endpoints of that owner's own developer account,
+and a project's webhook carries only events of the project itself. A browser
+key never subscribes an owner to anything.
+
+Without consent the routes answer `403`, and read routes that work for anyone
+(`GET /v1/pack`, `GET /v1/orders`) return the public view only: chain facts,
+with names, missions, Fences, budgets and order levels left out.
+
 ## Manage keys
 
 ```http

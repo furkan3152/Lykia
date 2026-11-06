@@ -21,6 +21,6 @@ requirements:
 
 ## Rules
 
-- Lykia never signs. Show the owner what will be signed.
+- Lykia never signs the owner's plans. Show the owner what will be signed.
 - Respect the mainnet beta caps: contracts are not audited.
 - Do not change the recipient or amounts after the plan was checked.

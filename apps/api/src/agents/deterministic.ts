@@ -63,7 +63,7 @@ export interface DeterministicInput {
   readonly emit: Emit;
   /** Proven control of the owner (SIWE session or secret key): compiled drafts are saved, not only linked. */
   readonly ownerVerified?: boolean;
-  readonly actor?: { readonly developer: string; readonly via: "session" | "secret" };
+  readonly actor?: { readonly developer: string; readonly via: "session" | "secret"; readonly projectId?: string };
 }
 
 /** Goal language without a model: the intent compiler's lexicon, one plan for now, drafts for later. */
@@ -168,7 +168,8 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
   if (question) return infoTurn(input, question);
   if (input.owner && isGoalLanguage(input.message)) return compiledTurn(input);
   const reading = steps.start("intent", "Reading your request");
-  const parsed = await readWithMemory(input.ctx, input.owner, input.message);
+  // Memory ("again", named contacts) only for an owner this request proved control of.
+  const parsed = await readWithMemory(input.ctx, input.ownerVerified === true ? input.owner : null, input.message);
   const done = (text: string, proposals: AgentProposal[], stopReason: TurnResult["stopReason"] = "end_turn") => {
     for (const p of proposals) emit("proposal", p);
     emit("text", { text });

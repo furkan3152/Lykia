@@ -55,7 +55,7 @@ const PILLARS: readonly { title: string; kicker: string; line: string; links: re
 
 /** Which Circle product each Lykia feature uses (docs/circle/README.md). */
 const TOGETHER: readonly (readonly [string, string, string])[] = [
-  ["Agent wallets", "Circle Wallets", "The default signer for every agent, with gas sponsored by Gas Station."],
+  ["Agent wallets", "Circle Wallets", "An optional agent signer a deployment can switch on, bound to the address that created it; gas can be sponsored by Gas Station."],
   ["Fence caps and allow lists", "Agent Wallet policies", "Your Fence compiles into the wallet's Circle spending policy; Lykia checks the rest."],
   ["Bridging", "CCTP V2 · Gateway", "Burn and mint USDC across chains, or spend one unified balance."],
   ["FX", "StableFX", "USDC and EURC on Arc, checked against the Chainlink reference."],
@@ -68,7 +68,7 @@ const TOGETHER: readonly (readonly [string, string, string])[] = [
 const FLOWS = { passed: 33, refused: 7 } as const;
 
 interface StatsLite {
-  readonly circle: { readonly productsUsed: readonly string[] };
+  readonly circle: { readonly integrated: readonly string[] };
 }
 
 export default function LandingPage() {
@@ -175,7 +175,7 @@ export default function LandingPage() {
             </li>
           ))}
         </ol>
-        <p className="m-small m-muted m-center" style={{ marginTop: 12 }}>{"The server never holds keys and never signs. A deny comes back with its reasons; nothing is sent."}</p>
+        <p className="m-small m-muted m-center" style={{ marginTop: 12 }}>{"The server never holds your keys; plans come back unsigned for your wallet. A deny comes back with its reasons; nothing is sent."}</p>
       </section>
 
       <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="lp-pillars">
@@ -221,7 +221,7 @@ export default function LandingPage() {
         </div>
         <div className="m-grid-4" style={{ marginTop: 24 }}>
           <Stat label="FLOWS PROVEN" value={String(FLOWS.passed + FLOWS.refused)} hint={`${FLOWS.passed} pass, ${FLOWS.refused} refused as designed`} />
-          <Stat label="CIRCLE PRODUCTS USED" value={stats.data ? String(stats.data.circle.productsUsed.length) : stats.isError ? "n/a" : "…"} hint="read live from GET /v1/stats" />
+          <Stat label="CIRCLE PRODUCTS INTEGRATED" value={stats.data ? String(stats.data.circle.integrated.length) : stats.isError ? "n/a" : "…"} hint="wired on this deployment (GET /v1/circle/status)" />
           <Stat label="BLOCK TIME" value={pulse?.blockTimeMs ? `${Math.round(pulse.blockTimeMs)} ms` : "…"} hint={pulse ? `block #${pulse.block.toLocaleString("en-US")}, final on inclusion` : undefined} />
           <Stat label="A TRANSFER COSTS" value={pulse?.transferCostUsd ? `$${Number(pulse.transferCostUsd).toFixed(4)}` : "…"} hint="gas paid in USDC" />
         </div>

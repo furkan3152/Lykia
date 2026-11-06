@@ -81,7 +81,7 @@ export interface ToolContext {
    */
   readonly ownerVerified: boolean;
   /** Who saves for the owner when verified: the owner's session, or the developer behind the secret key. */
-  readonly actor?: { readonly developer: string; readonly via: "session" | "secret" };
+  readonly actor?: { readonly developer: string; readonly via: "session" | "secret"; readonly projectId?: string };
   /** Alerts and automations set up this turn (saved, or a link to the prefilled form); the chat shows them as buttons. */
   readonly drafts?: ChatDraftLink[];
   /** Programs compiled this turn (compile_goal); the chat renders them as Now / Scheduled / Assumptions. */
@@ -427,7 +427,7 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
       }
       const saved = await createAutomation(
         tc.ctx,
-        { developer: who.actor.developer, project: null, via: who.actor.via },
+        { developer: who.actor.developer, project: null, via: who.actor.via, consentProject: who.actor.projectId ?? null },
         { owner: who.owner, name: input.name, environment: tc.environment, trigger, action: input.action, fence: tc.agent.fence, ...(input.maxFiresPerDay ? { maxFiresPerDay: input.maxFiresPerDay } : {}) },
       );
       tc.drafts?.push({ kind: "automation", saved: true, label: input.name, href: "/app/automations", next: when.slice(0, 80) });

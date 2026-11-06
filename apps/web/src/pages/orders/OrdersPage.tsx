@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useLykiaWallet, type WalletTx } from "../../features/wallet/useLykiaWallet";
 import { apiGet, apiPost, describeError } from "../../lib/api";
 import { useEnvironment } from "../../lib/environment";
+import { sessionToken } from "../../lib/session";
 import { Button, Card, EmptyState, Field, Input, PageHead, Select, Skeleton, Tag, Toggle, toast } from "../../mosaic";
 
 interface OrdersConfig {
@@ -62,7 +63,16 @@ export default function OrdersPage() {
   const [busy, setBusy] = useState<string | null>(null);
 
   const config = useQuery({ queryKey: ["orders-config", environment], queryFn: ({ signal }) => apiGet<OrdersConfig>("/v1/orders/config", { query: { environment }, signal }) });
-  const orders = useQuery({ queryKey: ["orders", owner, environment], enabled: Boolean(owner), refetchInterval: 30_000, queryFn: ({ signal }) => apiGet<{ orders: OrderView[] }>("/v1/orders", { query: { owner, environment }, signal }) });
+  // Resting levels come back only for the signed-in owner; a redacted answer lists nothing here.
+  const orders = useQuery({
+    queryKey: ["orders", owner, environment, sessionToken() !== null],
+    enabled: Boolean(owner),
+    refetchInterval: 30_000,
+    queryFn: async ({ signal }) => {
+      const r = await apiGet<{ orders: OrderView[]; redacted?: boolean }>("/v1/orders", { query: { owner, environment }, signal });
+      return { orders: r.redacted ? [] : r.orders, redacted: r.redacted === true };
+    },
+  });
   const repeating = kind === "dca" || kind === "twap";
   const needsTrigger = kind === "stop-loss" || kind === "take-profit";
   const deployed = Boolean(config.data?.address);
@@ -156,7 +166,7 @@ export default function OrdersPage() {
             </div>
           </Card>
           <Card title={"Your orders"} kicker={`ARC ${environment.toUpperCase()}`}>
-            {!owner ? <EmptyState mood="happy" title={"No wallet"}>{"Connect a wallet to see your orders."}</EmptyState> : orders.isLoading ? <Skeleton h={160} /> : orders.isError ? <p className="m-note m-note--bad">{describeError(orders.error)}</p> : !orders.data?.orders.length ? (
+            {!owner ? <EmptyState mood="happy" title={"No wallet"}>{"Connect a wallet to see your orders."}</EmptyState> : orders.isLoading ? <Skeleton h={160} /> : orders.isError ? <p className="m-note m-note--bad">{describeError(orders.error)}</p> : orders.data?.redacted ? <EmptyState mood="watching" title={"Sign in to see them"}>{"Order levels stay private until they execute. Sign in on Arc with this wallet to list your orders."}</EmptyState> : !orders.data?.orders.length ? (
               <EmptyState mood="watching" title={"No orders yet"}>{"Use the form above: a stop-loss on cirBTC is a good first order."}</EmptyState>
             ) : orders.data.orders.map((o) => (
               <div key={o.hash} className="m-row" style={{ flexWrap: "wrap" }}>

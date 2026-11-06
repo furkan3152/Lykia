@@ -12,15 +12,17 @@
  * The server never signs for makers. The keeper key (LYKIA_KEEPER_PRIVATE_KEY,
  * optional) only executes orders that are due; the contract enforces the rest.
  */
-import { ORDER_KINDS, type Address, type OrderKind, type SignedOrderStruct } from "@lykia/core";
+import { findToken, fromBaseUnits, ORDER_KINDS, tokenAddress, type Address, type OrderKind, type SignedOrderStruct } from "@lykia/core";
+import { cronAuthorized } from "../platform/crypto.js";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 import type { ApiModule } from "../http/router.js";
 import { evmAddress, parseBody, parseParams, parseQuery } from "../http/validate.js";
-import { KEEPER_INTERVAL_MS, ordersService } from "../orders/service.js";
+import { KEEPER_INTERVAL_MS, ordersService, publicOrderView } from "../orders/service.js";
 import { sessionOf } from "../platform/session.js";
-import { environmentOf, environmentSchema } from "./common.js";
+import { assertSignable, environmentOf, environmentSchema, ownerProof, usdOf, valueVerdict } from "./common.js";
+
 
 const decimal = z.string().regex(/^(?:0|[1-9]\d*)(?:\.\d+)?$/u);
 const uint = z.string().regex(/^\d{1,78}$/u);
@@ -40,6 +42,7 @@ const draftSchema = z.object({
   slippageBps: z.number().int().min(0).max(1000).optional(),
   expiresInSeconds: z.number().int().min(600).max(365 * 86_400).optional(),
   maxTipBps: z.number().int().min(0).max(100).optional(),
+  fence: z.unknown().optional(),
 });
 
 const orderSchema = z.object({
@@ -73,8 +76,7 @@ const submitSchema = z.object({
 const timers = new WeakMap<AppContext, NodeJS.Timeout>();
 
 async function mayRunKeeper(ctx: AppContext, req: Parameters<typeof sessionOf>[1]): Promise<boolean> {
-  const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.authorization === `Bearer ${secret}`) return true;
+  if (cronAuthorized(req.headers.authorization)) return true;
   const session = await sessionOf(ctx, req);
   return Boolean(session && ctx.config.platform.adminAddresses.includes(session.address.toLowerCase()));
 }
@@ -89,19 +91,43 @@ export const ordersModule: ApiModule = {
       res.json(await s().config(environmentOf(ctx, q.environment)));
     });
 
+    // Each execution of an order is one swap the keeper may run: the owner's Fence and the mainnet beta cap judge one
+    // execution's value at draft time and again when the signed order is stored (so a hand-built order is judged too).
+    const judge = async (environment: "mainnet" | "testnet", owner: Address, sell: string, buy: string, perExecution: string, fence?: unknown) => {
+      const sellToken = findToken(environment, sell);
+      const buyToken = findToken(environment, buy);
+      if (!sellToken || !buyToken) throw new LykiaHttpError("INVALID_REQUEST", 400, "Orders trade registry tokens (see /v1/tokens).");
+      const fx = [sellToken.symbol, buyToken.symbol].sort().join("/") === "EURC/USDC";
+      const verdict = await valueVerdict(ctx, { environment, owner, fence, steps: [{ id: "s1", kind: fx ? "fx" : "swap", venue: "lykia-orders", usd: await usdOf(ctx, sellToken.symbol, perExecution), tokens: [{ symbol: sellToken.symbol, address: tokenAddress(sellToken, environment) as Address, listed: true, acquired: false }, { symbol: buyToken.symbol, address: tokenAddress(buyToken, environment) as Address, listed: true, acquired: true }] }] });
+      assertSignable(verdict);
+      return verdict;
+    };
+
     router.post("/orders/draft", ctx.limits.heavy, async (req, res) => {
       const b = parseBody(req, draftSchema);
-      res.json(await s().draft({ ...b, owner: b.owner as Address, environment: environmentOf(ctx, b.environment) }));
+      const environment = environmentOf(ctx, b.environment);
+      const single = b.kind === "limit" || b.kind === "stop-loss" || b.kind === "take-profit";
+      const executions = single ? 1 : Math.max(2, Math.min(1000, b.executions ?? 4));
+      const verdict = await judge(environment, b.owner as Address, b.sell, b.buy, (Number(b.amount) / executions).toFixed(6), b.fence);
+      res.json({ ...(await s().draft({ ...b, owner: b.owner as Address, environment })), verdict });
     });
 
     router.post("/orders", ctx.limits.heavy, async (req, res) => {
       const b = parseBody(req, submitSchema);
-      res.status(201).json(await s().submit(environmentOf(ctx, b.environment), b.order as SignedOrderStruct, b.signature as `0x${string}`, b.kind, b.summary));
+      const environment = environmentOf(ctx, b.environment);
+      const sell = findToken(environment, b.order.tokenIn);
+      const buy = findToken(environment, b.order.tokenOut);
+      if (!sell || !buy) throw new LykiaHttpError("INVALID_REQUEST", 400, "Orders trade registry tokens (see /v1/tokens).");
+      await judge(environment, b.order.maker as Address, sell.symbol, buy.symbol, fromBaseUnits(BigInt(b.order.amountIn) / BigInt(Math.max(1, b.order.executions)), sell.decimals));
+      res.status(201).json(await s().submit(environment, b.order as SignedOrderStruct, b.signature as `0x${string}`, b.kind, b.summary));
     });
 
     router.get("/orders", async (req, res) => {
       const q = parseQuery(req, z.object({ owner: evmAddress, environment: environmentSchema.optional() }));
-      res.json({ orders: await s().list(environmentOf(ctx, q.environment), q.owner as Address) });
+      const orders = await s().list(environmentOf(ctx, q.environment), q.owner as Address);
+      // Resting levels are private until they execute: the full view only for the proven owner.
+      if (await ownerProof(ctx, req, q.owner)) return void res.json({ orders, redacted: false });
+      res.json({ orders: orders.map(publicOrderView), redacted: true });
     });
 
     router.get("/orders/:hash/cancel-tx", async (req, res) => {

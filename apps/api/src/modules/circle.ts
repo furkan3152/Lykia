@@ -2,7 +2,10 @@
  * Official Circle products on Arc. Keyless products work for everyone;
  * keyed ones answer 503 with the variable they need when it is missing.
  * Nothing here signs: every value-moving step comes back unsigned or as
- * typed data for the owner's (or agent's) wallet.
+ * typed data for the owner's (or agent's) wallet. The one exception is
+ * opt-in: with LYKIA_CIRCLE_SERVER_WALLETS=true the server creates Circle
+ * developer-controlled wallets bound to their creator, and payouts can be
+ * executed from them (POST /v1/payouts/:id/execute).
  *
  *   GET  /circle/status                      every product: live, configured, needs key, not on Arc
  *   GET  /circle/services                    Agent Marketplace x402 services (filter to Arc)
@@ -22,13 +25,13 @@
  *   POST /circle/stablefx/quote | /trade     StableFX RFQ (Circle StableFX access)
  *   GET  /circle/stablefx/trades/:id
  *   POST /circle/stablefx/funding/presign | /fund   taker funding: typed data to sign, then StableFX delivers via Permit2
- *   POST /circle/wallets/agent               SCA agent wallet on Arc (CIRCLE_API_KEY + CIRCLE_ENTITY_SECRET)
+ *   POST /circle/wallets/agent               SCA agent wallet on Arc, bound to its creator (opt-in: LYKIA_CIRCLE_SERVER_WALLETS)
  *   GET  /circle/usyc/eligibility            USYC entitlement of a wallet (Entitlements.canCall on the Teller)
  *   POST /circle/usyc/prepare                entitled wallets only: Fence verdict + unsigned subscribe / redeem
- *   GET  /circle/wallets/:id/balances
+ *   GET  /circle/wallets/:id/balances        the creator's own wallets only
  *   GET  /oracles                            Chainlink vs Pyth, display rates (EUR, TRY)
  */
-import { contractAddress, evaluateFence, fenceForProfile, findCctpDestination, getToken, networkFor, toBaseUnitsBig, verdictTag, type Address } from "@lykia/core";
+import { contractAddress, evaluateFence, fenceForProfile, findCctpDestination, fromBaseUnits, getToken, networkFor, toBaseUnitsBig, verdictTag, type Address } from "@lykia/core";
 import { z } from "zod";
 import type { Hex } from "viem";
 import { randomBytes } from "node:crypto";
@@ -46,6 +49,7 @@ import { draftGatewayTransferEstimated, gatewayTransferStatus, submitGatewayTran
 import { circleStatus } from "../circle/status.js";
 import { stablefxFund, stablefxFundingPresign, stablefxQuote, stablefxTrade, stablefxTradeStatus } from "../circle/stablefx.js";
 import { createAgentWallet, walletBalances } from "../circle/wallets.js";
+import { assertServerWallets, ownedWallet, recordWallet } from "../circle/walletRegistry.js";
 import { planUsyc, usycEligibility } from "../circle/usyc.js";
 import { shape } from "../engine/calls.js";
 import { arcRequirement, authorizationTypedData, fetchChallenge, payAndFetch, paymentHeader, type PaymentRequirement } from "../circle/x402buyer.js";
@@ -55,7 +59,7 @@ import { getProfile } from "../personal/profile.js";
 import { mustSession } from "../platform/session.js";
 import { typedCollection } from "../platform/typed.js";
 import { services } from "../services.js";
-import { environmentOf, environmentSchema, fenceFrom } from "./common.js";
+import { assertSignable, environmentOf, environmentSchema, fenceFrom, usdOf, valueVerdict } from "./common.js";
 
 const amountSchema = z.string().regex(/^\d{1,12}(?:\.\d{1,6})?$/u, "A USDC amount like 25 or 0.5.");
 
@@ -67,6 +71,22 @@ interface PendingPayment {
   readonly requirement: PaymentRequirement;
   readonly authorization: Record<string, string>;
   readonly from: Address;
+}
+
+/** A bridge step out of Arc for the Fence: USDC moved to a destination chain. */
+function bridgeStep(venue: "cctp" | "gateway", amount: string, environment: "mainnet" | "testnet", destination: string, recipient: Address) {
+  return { id: "s1", kind: "bridge" as const, venue, usd: amount, destination, recipient, tokens: [{ symbol: "USDC", address: contractAddress("usdc", environment) as Address, listed: true, acquired: false }] };
+}
+
+/** The depositor, recipient and USDC amount of a signed Gateway burn intent (bytes32-padded addresses, 6-decimal value). */
+function burnSpec(intent: unknown): { depositor: Address; recipient: Address; amount: string } | null {
+  const spec = (intent as { spec?: { sourceDepositor?: unknown; destinationRecipient?: unknown; value?: unknown } } | null)?.spec;
+  const addr = (v: unknown) => (typeof v === "string" && /^0x0{24}[0-9a-fA-F]{40}$/u.test(v) ? (`0x${v.slice(26)}`.toLowerCase() as Address) : null);
+  const depositor = addr(spec?.sourceDepositor);
+  const recipient = addr(spec?.destinationRecipient);
+  const value = typeof spec?.value === "string" || typeof spec?.value === "number" ? String(spec.value) : null;
+  if (!depositor || !recipient || !value || !/^\d{1,30}$/u.test(value)) return null;
+  return { depositor, recipient, amount: fromBaseUnits(BigInt(value), 6) };
 }
 
 function needKey(name: string): never {
@@ -96,10 +116,13 @@ export const circleModule: ApiModule = {
     });
 
     router.post("/circle/cctp/forward", ctx.limits.heavy, async (req, res) => {
-      const b = parseBody(req, z.object({ owner: evmAddress, recipient: evmAddress.optional(), destination: z.string().max(20), amount: amountSchema, environment: environmentSchema.optional(), fast: z.boolean().optional() }));
+      const b = parseBody(req, z.object({ owner: evmAddress, recipient: evmAddress.optional(), destination: z.string().max(20), amount: amountSchema, environment: environmentSchema.optional(), fast: z.boolean().optional(), fence: z.unknown().optional() }));
       const dest = findCctpDestination(b.destination);
       if (!dest) throw new LykiaHttpError("INVALID_REQUEST", 400, "Unknown CCTP destination.");
-      res.json(await forwardedBridge(ctx.fetch, { environment: environmentOf(ctx, b.environment), owner: b.owner as Address, recipient: (b.recipient ?? b.owner) as Address, destination: dest.key, amountUnits: toBaseUnitsBig(b.amount, 6), fast: b.fast === true }));
+      const environment = environmentOf(ctx, b.environment);
+      const verdict = await valueVerdict(ctx, { environment, owner: b.owner as Address, fence: b.fence, steps: [bridgeStep("cctp", b.amount, environment, dest.key, (b.recipient ?? b.owner) as Address)] });
+      assertSignable(verdict);
+      res.json({ ...(await forwardedBridge(ctx.fetch, { environment, owner: b.owner as Address, recipient: (b.recipient ?? b.owner) as Address, destination: dest.key, amountUnits: toBaseUnitsBig(b.amount, 6), fast: b.fast === true })), verdict });
     });
 
     router.get("/circle/cctp/status", async (req, res) => {
@@ -108,8 +131,11 @@ export const circleModule: ApiModule = {
     });
 
     router.post("/circle/gateway/transfer/draft", async (req, res) => {
-      const b = parseBody(req, z.object({ owner: evmAddress, recipient: evmAddress.optional(), destination: z.string().max(20), amount: amountSchema, environment: environmentSchema.optional(), forward: z.boolean().optional() }));
-      res.json(await draftGatewayTransferEstimated(ctx.fetch, { environment: environmentOf(ctx, b.environment), depositor: b.owner as Address, ...(b.recipient ? { recipient: b.recipient as Address } : {}), destination: b.destination, valueUnits: toBaseUnitsBig(b.amount, 6), forward: b.forward === true }));
+      const b = parseBody(req, z.object({ owner: evmAddress, recipient: evmAddress.optional(), destination: z.string().max(20), amount: amountSchema, environment: environmentSchema.optional(), forward: z.boolean().optional(), fence: z.unknown().optional() }));
+      const environment = environmentOf(ctx, b.environment);
+      const verdict = await valueVerdict(ctx, { environment, owner: b.owner as Address, fence: b.fence, steps: [bridgeStep("gateway", b.amount, environment, b.destination, (b.recipient ?? b.owner) as Address)] });
+      assertSignable(verdict);
+      res.json({ ...(await draftGatewayTransferEstimated(ctx.fetch, { environment, depositor: b.owner as Address, ...(b.recipient ? { recipient: b.recipient as Address } : {}), destination: b.destination, valueUnits: toBaseUnitsBig(b.amount, 6), forward: b.forward === true })), verdict });
     });
 
     router.get("/circle/gateway/transfers/:id", async (req, res) => {
@@ -127,15 +153,24 @@ export const circleModule: ApiModule = {
       if (body && Array.isArray(body.burnIntents)) {
         const b = parseBody(req, z.object({ destination: z.string().max(20), environment: environmentSchema.optional(), burnIntents: z.array(z.unknown()).min(1).max(8), signatures: z.array(z.string().regex(/^0x[0-9a-fA-F]{130}$/u)).min(1).max(8), forward: z.boolean().optional() }));
         if (!gatewayChain(b.destination)) throw new LykiaHttpError("INVALID_REQUEST", 400, "Unknown Gateway destination.");
-        return res.json(await submitGatewayTransfer(ctx.fetch, { environment: environmentOf(ctx, b.environment), destination: b.destination, burnIntents: b.burnIntents, signatures: b.signatures as Hex[], forward: b.forward === true }));
+        const environment = environmentOf(ctx, b.environment);
+        // Intents the caller drafted are judged like ours: each depositor's Fence and the beta cap, on the value in the signed spec.
+        for (const intent of b.burnIntents) {
+          const spec = burnSpec(intent);
+          if (!spec) throw new LykiaHttpError("INVALID_REQUEST", 400, "Each burn intent needs spec.sourceDepositor, spec.destinationRecipient and spec.value.");
+          assertSignable(await valueVerdict(ctx, { environment, owner: spec.depositor, steps: [bridgeStep("gateway", spec.amount, environment, b.destination, spec.recipient)] }));
+        }
+        return res.json(await submitGatewayTransfer(ctx.fetch, { environment, destination: b.destination, burnIntents: b.burnIntents, signatures: b.signatures as Hex[], forward: b.forward === true }));
       }
-      const b = parseBody(req, z.object({ owner: evmAddress, recipient: evmAddress.optional(), destination: z.string().max(20), amount: amountSchema, environment: environmentSchema.optional(), forward: z.boolean().optional() }));
+      const b = parseBody(req, z.object({ owner: evmAddress, recipient: evmAddress.optional(), destination: z.string().max(20), amount: amountSchema, environment: environmentSchema.optional(), forward: z.boolean().optional(), fence: z.unknown().optional() }));
       const environment = environmentOf(ctx, b.environment);
       const forward = b.forward === true;
+      const verdict = await valueVerdict(ctx, { environment, owner: b.owner as Address, fence: b.fence, steps: [bridgeStep("gateway", b.amount, environment, b.destination, (b.recipient ?? b.owner) as Address)] });
+      assertSignable(verdict);
       const draft = await draftGatewayTransferEstimated(ctx.fetch, { environment, depositor: b.owner as Address, ...(b.recipient ? { recipient: b.recipient as Address } : {}), destination: b.destination, valueUnits: toBaseUnitsBig(b.amount, 6), forward });
       const transferId = `gwd_${randomBytes(9).toString("base64url")}`;
       await gatewayDrafts.put(transferId, { environment, destination: b.destination, burnIntent: draft.burnIntents[0], owner: b.owner.toLowerCase(), ...(forward ? { forward } : {}) }, { ttlMs: 30 * 60_000 });
-      res.json({ typedData: draft.typedData[0], transferId, fee: draft.fee, forward });
+      res.json({ typedData: draft.typedData[0], transferId, fee: draft.fee, forward, verdict });
     });
 
     router.post("/circle/gateway/transfer/attest", ctx.limits.heavy, async (req, res) => {
@@ -210,17 +245,32 @@ export const circleModule: ApiModule = {
       res.json(await screenAddress(ctx.fetch, ctx.config.circle.apiKey, environmentOf(ctx, b.environment), b.address, ctx.clock.now()));
     });
 
+    const fxQuotes = typedCollection<{ owner: string; environment: "mainnet" | "testnet" }>(ctx, "stablefx_quotes");
     const fxKey = (): string => ctx.config.stablefxApiKey ?? needKey("CIRCLE_API_KEY with StableFX access (or STABLEFX_API_KEY)");
     router.post("/circle/stablefx/quote", async (req, res) => {
-      const b = parseBody(req, z.object({ from: z.enum(["USDC", "EURC"]), to: z.enum(["USDC", "EURC"]), amount: amountSchema, side: z.enum(["from", "to"]).optional(), type: z.enum(["reference", "tradable"]).optional(), tenor: z.enum(["instant", "hourly", "daily"]).optional(), recipientAddress: evmAddress.optional(), environment: environmentSchema.optional() }));
+      const b = parseBody(req, z.object({ from: z.enum(["USDC", "EURC"]), to: z.enum(["USDC", "EURC"]), amount: amountSchema, side: z.enum(["from", "to"]).optional(), type: z.enum(["reference", "tradable"]).optional(), tenor: z.enum(["instant", "hourly", "daily"]).optional(), recipientAddress: evmAddress.optional(), environment: environmentSchema.optional(), fence: z.unknown().optional() }));
       if (b.from === b.to) throw new LykiaHttpError("INVALID_REQUEST", 400, "from and to must differ.");
       const apiKey = fxKey();
       if ((b.type ?? "tradable") === "tradable" && !b.recipientAddress) throw new LykiaHttpError("INVALID_REQUEST", 400, "Tradable quotes need recipientAddress.");
+      const environment = environmentOf(ctx, b.environment);
+      if ((b.type ?? "tradable") === "tradable") {
+        // Judged at quote time (the taker's Fence and the beta cap), remembered for the trade.
+        const priced = b.side === "to" ? b.to : b.from;
+        const usd = await usdOf(ctx, priced, b.amount);
+        const verdict = await valueVerdict(ctx, { environment, owner: b.recipientAddress as Address, fence: b.fence, steps: [{ id: "s1", kind: "fx", venue: "stablefx", usd, tokens: [{ symbol: b.from, address: contractAddress(b.from === "USDC" ? "usdc" : "eurc", environment) as Address, listed: true, acquired: false }, { symbol: b.to, address: contractAddress(b.to === "USDC" ? "usdc" : "eurc", environment) as Address, listed: true, acquired: true }] }] });
+        assertSignable(verdict);
+        const quote = (await stablefxQuote(ctx.fetch, apiKey, { from: b.from, to: b.to, amount: b.amount, side: b.side ?? "from", type: "tradable", tenor: b.tenor ?? "instant", environment, recipientAddress: b.recipientAddress as string })) as { id?: unknown };
+        if (typeof quote.id === "string") await fxQuotes.put(quote.id, { owner: (b.recipientAddress as string).toLowerCase(), environment }, { ttlMs: 30 * 60_000 });
+        return void res.json({ ...(quote as object), verdict });
+      }
       res.json(await stablefxQuote(ctx.fetch, apiKey, { from: b.from, to: b.to, amount: b.amount, side: b.side ?? "from", type: b.type ?? "tradable", tenor: b.tenor ?? "instant", environment: environmentOf(ctx, b.environment), ...(b.recipientAddress ? { recipientAddress: b.recipientAddress } : {}) }));
     });
     router.post("/circle/stablefx/trade", async (req, res) => {
       const b = parseBody(req, z.object({ quoteId: z.string().min(8).max(64), address: evmAddress, message: z.unknown(), signature: z.string().regex(/^0x[0-9a-fA-F]{130}$/u), environment: environmentSchema.optional() }));
       const apiKey = fxKey();
+      // A trade needs a quote Lykia judged for this taker (Fence and beta cap at quote time). Funding follows only trades made here.
+      const judged = (await fxQuotes.get(b.quoteId))?.value;
+      if (!judged || judged.owner !== b.address.toLowerCase()) throw new LykiaHttpError("NOT_FOUND", 404, "Quote it through POST /v1/circle/stablefx/quote (tradable, with this address as recipientAddress) first, so the Fence and the beta cap judge it.");
       const trade = await stablefxTrade(ctx.fetch, apiKey, { quoteId: b.quoteId, address: b.address, message: b.message, signature: b.signature, environment: environmentOf(ctx, b.environment) });
       res.status(201).json({ ...(trade as object), next: "Fund it: POST /v1/circle/stablefx/funding/presign with the contractTradeId, sign the typed data, then POST /v1/circle/stablefx/fund. An unfunded trade does not settle." });
     });
@@ -250,41 +300,46 @@ export const circleModule: ApiModule = {
       const environment = environmentOf(ctx, b.environment);
       const owner = b.owner as Address;
       const { plan, eligibility } = await planUsyc(ctx.chains, { environment, owner, side: b.side, amountUnits: toBaseUnitsBig(b.amount, 6) });
-      const fence = fenceFrom(b.fence) ?? fenceForProfile(await getProfile(ctx, owner));
       const usdc = { symbol: "USDC", address: contractAddress("usdc", environment) as Address, listed: getToken("USDC") !== null };
       const usyc = { symbol: "USYC", address: contractAddress("usyc", environment) as Address, listed: getToken("USYC") !== null };
-      const verdict = evaluateFence(fence, {
+      // The Fence and the mainnet beta cap (a redeem home is waived like every homeward move).
+      const verdict = await valueVerdict(ctx, {
         environment,
-        signer: b.signer ?? "wallet",
         owner,
-        steps: [{ id: "s1", kind: b.side === "subscribe" ? "deposit" : "withdraw", venue: "usyc-teller", usd: plan.usd, tokens: b.side === "subscribe" ? [{ ...usdc, acquired: false }, { ...usyc, acquired: true }] : [{ ...usyc, acquired: false }, { ...usdc, acquired: true }] }],
-        spent: await services(ctx).intents.spent(environment, owner),
-        now: ctx.clock.now(),
+        fence: b.fence,
+        signer: b.signer ?? "wallet",
+        steps: [{ id: "s1", kind: b.side === "subscribe" ? "deposit" : "withdraw", venue: "usyc-teller", usd: plan.usd, tokens: b.side === "subscribe" ? [{ ...usdc, acquired: false }, { ...usyc, acquired: true }] : [{ ...usyc, acquired: false }, { ...usdc, acquired: true }], ...(b.side === "redeem" ? { recipient: owner } : {}) }],
       });
       const intentId = `usyc_${randomBytes(9).toString("base64url")}`;
       const transactions = verdict.signable ? shape(plan.calls, plan.approval, { environment, chainId: networkFor(environment).chainId, from: owner, memo: { intentId, stepId: "s1", verdict: verdictTag(verdict.digest) }, account: b.account ?? "eoa" }) : [];
       res.json({ side: plan.side, amountUnits: plan.amountUnits.toString(), previewUnits: plan.previewUnits.toString(), eligibility: { subscribe: eligibility.subscribe, redeem: eligibility.redeem }, verdict, transactions, note: "Unsigned. USYC settles T+0 through Circle's Teller on Arc; the preview is the Teller's own rate at this block." });
     });
 
-    router.post("/circle/wallets/agent", ctx.limits.heavy, async (req, res) => {
+    // Opt-in (LYKIA_CIRCLE_SERVER_WALLETS=true): wallets live under the operator's Circle entity, so each one is bound
+    // to the address that created it, and only that address can use it (payouts, execution, balances).
+    const makeWallet = async (req: Parameters<typeof mustSession>[1], refId: string, name: string, env: "mainnet" | "testnet" | undefined) => {
       const session = await mustSession(ctx, req);
-      const b = parseBody(req, z.object({ name: z.string().min(1).max(50), refId: z.string().min(1).max(50), environment: environmentSchema.optional() }));
+      assertServerWallets(ctx);
       const { apiKey, entitySecret, walletSetId } = ctx.config.circle;
-      if (!apiKey || !entitySecret) needKey("CIRCLE_API_KEY and CIRCLE_ENTITY_SECRET");
-      const wallet = await createAgentWallet(ctx.fetch, { apiKey, entitySecret, walletSetId }, { environment: environmentOf(ctx, b.environment), refId: `${session.address.slice(0, 10)}:${b.refId}`, name: b.name }, ctx.clock.now());
-      res.status(201).json({ wallet, note: "SCA wallet on Arc: Lykia checks every step against the Fence before it reaches this wallet. Compile the Fence into Circle policies with POST /v1/circle/policies/compile, add a Gas Station policy in the Circle Console to sponsor gas, and optionally bind a Lykia smart account session for on-chain enforcement." });
+      const environment = environmentOf(ctx, env);
+      const wallet = await createAgentWallet(ctx.fetch, { apiKey: apiKey!, entitySecret: entitySecret!, walletSetId }, { environment, refId: `${session.address.slice(0, 10)}:${refId}`, name }, ctx.clock.now());
+      await recordWallet(ctx, { walletId: wallet.id, creator: session.address, address: wallet.address, environment, blockchain: wallet.blockchain });
+      return wallet;
+    };
+    router.post("/circle/wallets/agent", ctx.limits.heavy, async (req, res) => {
+      const b = parseBody(req, z.object({ name: z.string().min(1).max(50), refId: z.string().min(1).max(50), environment: environmentSchema.optional() }));
+      const wallet = await makeWallet(req, b.refId, b.name, b.environment);
+      res.status(201).json({ wallet, note: "SCA developer-controlled wallet on Arc, bound to your address: only you can use its id. This server signs for it with the operator's Circle entity secret, after the Fence and the beta cap pass. Compile the Fence into Circle policies with POST /v1/circle/policies/compile and add a Gas Station policy in the Circle Console to sponsor gas." });
     });
     router.post("/circle/agent-wallets", ctx.limits.heavy, async (req, res) => {
-      const session = await mustSession(ctx, req);
       const b = parseBody(req, z.object({ agentId: z.string().min(1).max(50), name: z.string().min(1).max(50).optional(), environment: environmentSchema.optional() }));
-      const { apiKey, entitySecret, walletSetId } = ctx.config.circle;
-      if (!apiKey || !entitySecret) needKey("CIRCLE_API_KEY and CIRCLE_ENTITY_SECRET");
-      const wallet = await createAgentWallet(ctx.fetch, { apiKey, entitySecret, walletSetId }, { environment: environmentOf(ctx, b.environment), refId: `${session.address.slice(0, 10)}:${b.agentId}`, name: b.name ?? b.agentId }, ctx.clock.now());
-      res.status(201).json({ address: wallet.address, walletId: wallet.id, wallet, note: "SCA wallet on Arc, the default agent signer: Lykia's Fence preflight checks every step first; a Gas Station policy in the Circle Console can sponsor its gas. Binding a Lykia smart account session is optional." });
+      const wallet = await makeWallet(req, b.agentId, b.name ?? b.agentId, b.environment);
+      res.status(201).json({ address: wallet.address, walletId: wallet.id, wallet, note: "SCA developer-controlled wallet on Arc, bound to your address. This server signs for it with the operator's Circle entity secret after the Fence and the beta cap pass; a Gas Station policy in the Circle Console can sponsor its gas." });
     });
     router.get("/circle/wallets/:id/balances", async (req, res) => {
-      await mustSession(ctx, req);
+      const session = await mustSession(ctx, req);
       const { id } = parseParams(req, z.object({ id: z.string().uuid() }));
+      await ownedWallet(ctx, id, session.address);
       if (!ctx.config.circle.apiKey) needKey("CIRCLE_API_KEY");
       res.json(await walletBalances(ctx.fetch, ctx.config.circle.apiKey, id));
     });

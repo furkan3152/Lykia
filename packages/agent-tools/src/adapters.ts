@@ -59,7 +59,7 @@ export async function runOpenAiToolCall(executor: LykiaToolExecutor, call: { rea
   return { role: "tool" as const, tool_call_id: call.id, content: asText(result) };
 }
 
-/* ------------------------------------------- Anthropic (Claude) tool use */
+/* ------------------------------------------- Anthropic tool use */
 
 export interface AnthropicTool {
   readonly name: string;
@@ -78,8 +78,8 @@ export async function runAnthropicToolUse(executor: LykiaToolExecutor, block: { 
 }
 
 /**
- * The zero-code path for the Claude Agent SDK, Claude Code and any MCP
- * client: Lykia's MCP server. Pass the result as `mcpServers`.
+ * The zero-code path for any MCP client (IDE assistants, agent SDKs):
+ * Lykia's MCP server. Pass the result as `mcpServers`.
  */
 export function lykiaMcpServer(options: { readonly baseUrl?: string; readonly apiKey?: string } = {}) {
   const base = (options.baseUrl ?? "https://lykia-api-akdogan1.vercel.app").replace(/\/+$/u, "");

@@ -12,8 +12,9 @@
  *     rest of its chunk is planned again without it.
  *  3. Each chunk becomes one Multicall3From batch (fee transfers + memo-
  *     wrapped transfers), checked with eth_call.
- *  4. The payer signs each batch, or the developer's Circle
- *     developer-controlled wallet executes it. Settlement is read from the
+ *  4. The payer signs each batch, or (opt-in servers only) a Circle
+ *     developer-controlled wallet the developer created through this API
+ *     executes it; that wallet's address is the payer. Settlement is read from the
  *     receipt's Memo events, row by row.
  */
 import {
@@ -48,19 +49,22 @@ import { services } from "../services.js";
 import type { JsonValue } from "../store/types.js";
 import type { FlowCaller } from "./access.js";
 import { buildBatch, checkBatch, memoEvents, memoIdFor, verifySubmitted, type ReceiptLog } from "./batch.js";
-import { circleConfigured, circleContractExecution, circleTransaction } from "./circleExec.js";
+import { circleContractExecution, circleTransaction } from "./circleExec.js";
+import { assertServerWallets, ownedWallet } from "../circle/walletRegistry.js";
 import { businessEvent } from "./events.js";
 import { listOwned, payouts, RECORD_TTL_MS } from "./stores.js";
 import { lockedOr } from "../platform/requestState.js";
+import { listAll } from "../store/types.js";
 
 const MAX_BATCH_ROWS = 12;
 
 export interface CreatePayoutInput {
-  readonly payer: Address;
+  /** Required for wallet execution; with circleWalletId the payer is the wallet's own address. */
+  readonly payer?: Address;
   readonly environment?: ArcEnvironment;
   readonly rows: readonly PayoutRowInput[];
   readonly fence?: Fence;
-  /** A Circle developer-controlled wallet (its address is the payer) that executes the batches. */
+  /** A Circle developer-controlled wallet the caller created (its address is the payer) that executes the batches. Opt-in servers only. */
   readonly circleWalletId?: string;
   readonly dryRun?: boolean;
   /** Accept a Fence "confirm" verdict (the caller has shown the owner what it asks). */
@@ -120,9 +124,20 @@ export async function createPayout(ctx: AppContext, caller: FlowCaller, input: C
   const environment = input.environment ?? lockedOr(caller.project?.network ?? ctx.config.mode);
   const issues = validatePayoutRows(input.rows, environment);
   if (issues.length > 0) throw new LykiaHttpError("INVALID_REQUEST", 400, `Invalid payout: ${issues.slice(0, 5).map((i) => `${i.path}: ${i.message}`).join("; ")}`, { issues: issues.slice(0, 50) });
-  const payer = input.payer.toLowerCase() as Address;
   const execution: Payout["execution"] = input.circleWalletId ? "circle" : "wallet";
-  if (execution === "circle" && !circleConfigured(ctx)) throw new LykiaHttpError("CIRCLE_NOT_CONFIGURED", 503, "Circle execution needs CIRCLE_API_KEY and CIRCLE_ENTITY_SECRET on this server.");
+  // A Circle wallet signs with the operator's entity secret: only its creator may pay from it, and the payer is the
+  // wallet's own address, so the Fence, the beta cap, balances and the security layer all judge the real payer.
+  let payer: Address;
+  if (input.circleWalletId) {
+    assertServerWallets(ctx);
+    const wallet = await ownedWallet(ctx, input.circleWalletId, caller.developer);
+    if (input.payer && input.payer.toLowerCase() !== wallet.address) throw new LykiaHttpError("PAYER_MISMATCH", 409, `A Circle wallet pays from its own address (${wallet.address}); leave payer out or send that address.`, { walletAddress: wallet.address });
+    if (wallet.environment !== environment) throw new LykiaHttpError("INVALID_REQUEST", 400, `That Circle wallet is on Arc ${wallet.environment}, not ${environment}.`);
+    payer = wallet.address as Address;
+  } else {
+    if (!input.payer) throw new LykiaHttpError("INVALID_REQUEST", 400, "Send payer (the wallet that signs the batches), or circleWalletId.");
+    payer = input.payer.toLowerCase() as Address;
+  }
   const paused = await pauseOf(ctx, payer);
   if (paused) throw new LykiaHttpError("SECURITY_BLOCKED", 409, `${payer} is paused (${paused.by}): ${paused.reason}`);
   const fence = fenceFor(caller, input);
@@ -354,6 +369,10 @@ export async function executeWithCircle(ctx: AppContext, caller: FlowCaller, id:
   const payout = await getPayout(ctx, caller, id);
   if (payout.execution !== "circle" || !payout.circleWalletId) throw new LykiaHttpError("INVALID_REQUEST", 400, "This payout is signed by the payer's wallet, not a Circle wallet.");
   const walletId = payout.circleWalletId;
+  assertServerWallets(ctx);
+  // Checked again at execution: the wallet still belongs to the payout's developer and still is the payer.
+  const wallet = await ownedWallet(ctx, walletId, payout.developer);
+  if (wallet.address !== payout.payer.toLowerCase()) throw new LykiaHttpError("PAYER_MISMATCH", 409, "This payout's payer is not the Circle wallet's address.");
   const before = payout.status;
   let sent = 0;
   for (const batch of payout.batches) {
@@ -371,7 +390,7 @@ export async function executeWithCircle(ctx: AppContext, caller: FlowCaller, id:
 /** One reconciliation pass: late receipts and Circle transactions. */
 export async function tickPayouts(ctx: AppContext): Promise<number> {
   let changed = 0;
-  for (const doc of await payouts(ctx).list({ limit: 2000 })) {
+  for (const doc of await listAll(payouts(ctx))) {
     const payout = doc.value;
     const pending = payout.batches.filter((b) => b.status === "submitted");
     if (pending.length === 0) continue;

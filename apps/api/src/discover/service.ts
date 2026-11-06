@@ -208,7 +208,7 @@ class DiscoverService {
       collateralOn: "Arc (USDC)",
       markets,
       notes: [
-        "Market data from Extended's public API. Extended is a perpetuals exchange whose USDC collateral sits on Arc among other chains; orders match on Extended's own engine.",
+        "Market data from Extended's public API. Extended is a perpetuals exchange that settles on Arc (it moved settlement from Starknet to Arc in October 2026) with USDC as its primary collateral; orders match on Extended's own engine.",
         "Lykia shows this read-only. Trading needs an Extended account; to hedge on Arc itself, use a conditional order (stop-loss, take-profit, limit) or a standing order.",
       ],
     };

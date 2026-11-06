@@ -9,10 +9,11 @@ First public release on Arc mainnet.
 
 ### Added
 
-- The League: Lykia's products as cities, each a real project
+- The League, which hosts cities: each a real project
   (`project.league`), with public `GET /v1/league`, developer listing
-  requests and an audited admin council; an idempotent seed for Lykia Pay,
-  Lykia Agents and the coming Lykia Perps. Cities run on their own subdomain
+  requests and an audited admin council; an idempotent seed for the official
+  cities (Lykia Pay, Lykia Agents, later Lykia Perps), which are being
+  launched and are not listed yet. Cities run on their own subdomain
   (`LYKIA_ROOT_DOMAIN`, `/c/<slug>`) with task-first city shells.
 - The Mint (the developer portal as seven steps) and Letoon (the team
   console, admins only, enforced on the server).

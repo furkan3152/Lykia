@@ -34,6 +34,8 @@ import { LykiaHttpError } from "../http/errors.js";
 import { assertPublicUrl, type HostResolver } from "../http/netguard.js";
 import type { JsonValue } from "../store/types.js";
 import { typedCollection } from "./typed.js";
+import { listConsents } from "./consent.js";
+import { getProject } from "./projects.js";
 import { hmacHex, purposeKey, randomHex, randomToken, safeEqual } from "./crypto.js";
 
 export const RETRY_DELAYS_MS = [30_000, 120_000, 600_000, 3_600_000, 21_600_000] as const;
@@ -64,7 +66,11 @@ interface StoredEndpoint {
   readonly developer: string;
   readonly url: string;
   readonly events: readonly WebhookEvent[];
-  /** Owner addresses whose events this endpoint receives (the developer's own address is always included). */
+  /**
+   * Legacy: owner addresses this endpoint once listed. Only the developer's
+   * own address is honoured; another owner's events reach an endpoint only
+   * through that owner's consent to one of the developer's projects.
+   */
   readonly owners: readonly string[];
   /** Projects whose events this endpoint receives. */
   readonly projects?: readonly string[];
@@ -202,14 +208,26 @@ export class WebhookService {
     return typedCollection<{ readonly id: string }>(this.ctx, "webhook_queue");
   }
 
+  /** Every endpoint, page by page (the store returns at most 1,000 per call; nothing is cut off). */
+  private async allEndpoints() {
+    const out: Awaited<ReturnType<ReturnType<WebhookService["endpoints"]>["list"]>> = [];
+    let after: string | undefined;
+    for (;;) {
+      const page = await this.endpoints().list({ limit: 1000, ...(after ? { after } : {}) });
+      out.push(...page);
+      if (page.length < 1000) return out;
+      after = page[page.length - 1]!.id;
+    }
+  }
+
   /** `<owner>:<inverted time>:<event id>`: the event feed (GET /v1/events, `lykia webhooks listen`). */
   private events() {
     return typedCollection<StoredEvent>(this.ctx, "webhook_events");
   }
 
-  async create(developer: string, input: { readonly url: string; readonly events?: readonly WebhookEvent[] | readonly string[]; readonly owners?: readonly string[]; readonly projects?: readonly string[]; readonly description?: string | null; readonly maxEndpoints?: number }): Promise<WebhookEndpointView> {
+  async create(developer: string, input: { readonly url: string; readonly events?: readonly WebhookEvent[] | readonly string[]; readonly projects?: readonly string[]; readonly description?: string | null; readonly maxEndpoints?: number }): Promise<WebhookEndpointView> {
     const dev = developer.toLowerCase();
-    const mine = (await this.endpoints().list({ limit: 1000 })).filter((d) => d.value.developer === dev && !d.value.disabled);
+    const mine = (await this.allEndpoints()).filter((d) => d.value.developer === dev && !d.value.disabled);
     const max = input.maxEndpoints ?? MAX_ENDPOINTS;
     if (mine.length >= max) throw new LykiaHttpError("WEBHOOK_LIMIT", 409, `At most ${max} endpoints per developer.`);
     const url = await assertPublicUrl(input.url, "url", this.deps.resolve);
@@ -224,7 +242,7 @@ export class WebhookService {
       developer: dev,
       url: url.toString(),
       events,
-      owners: [...new Set([dev, ...(input.owners ?? []).map((o) => o.toLowerCase())])],
+      owners: [dev],
       projects: [...new Set(input.projects ?? [])],
       secretBox: seal(this.ctx, secret),
       createdAt: new Date(this.ctx.clock.now()).toISOString(),
@@ -236,7 +254,7 @@ export class WebhookService {
   }
 
   async list(developer: string): Promise<WebhookEndpointView[]> {
-    return (await this.endpoints().list({ limit: 1000 })).filter((d) => d.value.developer === developer.toLowerCase()).map((d) => view(d.value));
+    return (await this.allEndpoints()).filter((d) => d.value.developer === developer.toLowerCase()).map((d) => view(d.value));
   }
 
   private async own(developer: string, id: string): Promise<StoredEndpoint> {
@@ -278,16 +296,6 @@ export class WebhookService {
     const next = { ...(await this.own(developer, id)), secretBox: seal(this.ctx, secret) };
     await this.endpoints().put(id, next);
     return view(next, secret);
-  }
-
-  /** Subscribes an endpoint to one more owner's events (project webhooks follow the project's users). */
-  async addOwner(developer: string, id: string, owner: string): Promise<boolean> {
-    const doc = await this.endpoints().get(id);
-    if (!doc || doc.value.developer !== developer.toLowerCase() || doc.value.disabled) return false;
-    const who = owner.toLowerCase();
-    if (doc.value.owners.includes(who) || doc.value.owners.length >= 1_000) return false;
-    await this.endpoints().put(id, { ...doc.value, owners: [...doc.value.owners, who] });
-    return true;
   }
 
   /** Newest first. */
@@ -343,8 +351,15 @@ export class WebhookService {
   }
 
   async getEvent(owner: string, id: string): Promise<WebhookPayload | null> {
-    const docs = await this.events().list({ prefix: `${owner.toLowerCase()}:`, limit: 1000 });
-    return docs.find((d) => d.value.payload.id === id)?.value.payload ?? null;
+    const prefix = `${owner.toLowerCase()}:`;
+    let after: string | undefined;
+    for (;;) {
+      const docs = await this.events().list({ prefix, limit: 1000, ...(after ? { after } : {}) });
+      const hit = docs.find((d) => d.value.payload.id === id);
+      if (hit) return hit.value.payload;
+      if (docs.length < 1000) return null;
+      after = docs[docs.length - 1]!.id;
+    }
   }
 
   /** Legacy entry point: `emit(event, owner, data)`. Prefer `emitEvent` from platform/events.ts. */
@@ -363,10 +378,27 @@ export class WebhookService {
     const owner = target.owner ? target.owner.toLowerCase() : null;
     const project = target.project ?? null;
     const names = namesFor(canonical);
-    const targets = (await this.endpoints().list({ limit: 1000 })).filter((d) => {
+    // Who may hear about this owner: the owner's own endpoints, and the endpoints of projects the owner consented to.
+    const consented = owner !== null ? await listConsents(this.ctx, owner).catch(() => []) : [];
+    const consentProjects = new Set(consented.map((c) => c.projectId));
+    const consentDevelopers = new Map(consented.map((c) => [c.projectId, c.developer]));
+    const consentHooks = new Set<string>();
+    for (const c of consented) {
+      const p = await getProject(this.ctx, c.projectId).catch(() => null);
+      if (p?.webhookId && p.owner.toLowerCase() === c.developer) consentHooks.add(p.webhookId);
+    }
+    const projectOwner = project !== null ? (target.projectOwner?.toLowerCase() ?? (await getProject(this.ctx, project).catch(() => null))?.owner.toLowerCase() ?? null) : null;
+    const targets = (await this.allEndpoints()).filter((d) => {
       const e = d.value;
       if (e.disabled || !e.events.some((name) => names.includes(name))) return false;
-      return (owner !== null && e.owners.includes(owner)) || (project !== null && ((e.projects ?? []).includes(project) || e.id === target.projectWebhookId));
+      if (owner !== null) {
+        if (e.developer === owner) return true;
+        if (consentHooks.has(e.id)) return true;
+        if ((e.projects ?? []).some((p) => consentProjects.has(p) && consentDevelopers.get(p) === e.developer)) return true;
+      }
+      // Project events go only to the project owner's own endpoints.
+      if (project !== null && projectOwner !== null && e.developer === projectOwner) return (e.projects ?? []).includes(project) || e.id === target.projectWebhookId;
+      return false;
     });
     const now = this.ctx.clock.now();
     const livemode = target.livemode ?? !(typeof data === "object" && data !== null && !Array.isArray(data) && (data as Record<string, unknown>).environment === "testnet");
@@ -425,7 +457,7 @@ export class WebhookService {
     const dev = developer.toLowerCase();
     const canonical = input.type ? canonicalEvent(input.type) : "test.ping";
     if (!canonical) throw new LykiaHttpError("INVALID_REQUEST", 400, `Unknown event type ${input.type}.`);
-    const endpoints = input.endpointId ? [await this.own(dev, input.endpointId)] : (await this.endpoints().list({ limit: 1000 })).map((d) => d.value).filter((e) => e.developer === dev && !e.disabled);
+    const endpoints = input.endpointId ? [await this.own(dev, input.endpointId)] : (await this.allEndpoints()).map((d) => d.value).filter((e) => e.developer === dev && !e.disabled);
     const now = this.ctx.clock.now();
     const eventId = `evt_${randomHex(10)}`;
     const out: WebhookDelivery[] = [];

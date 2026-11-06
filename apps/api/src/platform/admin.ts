@@ -16,6 +16,7 @@ import { keccak256, type Address, type Hex } from "viem";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { typedCollection } from "./typed.js";
+import { listAll } from "../store/types.js";
 
 /** Whether `code` is `contract`'s runtime code: true, false, or null when there is no artifact to compare with. */
 export type CodeCheck = (contract: string, code: Hex) => boolean | null;
@@ -76,7 +77,7 @@ export async function recordDeployment(ctx: AppContext, input: RecordDeploymentI
 }
 
 export async function listDeployments(ctx: AppContext, environment?: ArcEnvironment): Promise<DeploymentRecord[]> {
-  return (await typedCollection<DeploymentRecord>(ctx, "deployments").list({ limit: 1000 })).map((d) => d.value).filter((d) => !environment || d.environment === environment);
+  return (await listAll(typedCollection<DeploymentRecord>(ctx, "deployments"))).map((d) => d.value).filter((d) => !environment || d.environment === environment);
 }
 
 const DEFAULT_FLAGS: Readonly<Record<FeatureFlag, boolean>> = { "agents.llm": true, "agents.keeper": false, "pack.onchain": true, x402: true, "developer.signup": true, "routing.halt": false };

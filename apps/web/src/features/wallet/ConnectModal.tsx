@@ -38,7 +38,8 @@ export function ConnectModal() {
       close();
     } catch (e) {
       const text = e instanceof Error ? e.message.split("\n")[0]! : String(e);
-      setWalletError(/rejected|denied/i.test(text) ? "The wallet request was rejected." : text);
+      // Plain words only: raw wallet and RPC messages stay out of the interface.
+      setWalletError(/rejected|denied/i.test(text) ? "The wallet request was rejected." : /already pending|pending request/i.test(text) ? "The wallet already has a request open. Finish or close it there, then try again." : /not (found|installed)|no provider/i.test(text) ? "That wallet was not found in this browser." : "The wallet could not connect. Try again, or pick another wallet.");
     }
   };
 

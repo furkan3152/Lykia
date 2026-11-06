@@ -7,6 +7,7 @@ import { ConnectModal } from "../features/wallet/ConnectModal";
 import { canRestorePasskey, useWallet } from "../features/wallet/store";
 import { useLykiaWallet } from "../features/wallet/useLykiaWallet";
 import { toast } from "../mosaic";
+import { classifyTxError } from "../features/route/txErrors";
 
 
 export default function WalletButton() {
@@ -36,7 +37,7 @@ export default function WalletButton() {
     );
   } else if (wallet.wrongChain) {
     control = (
-      <button type="button" className="m-btn m-btn--sm m-btn--ochre" onClick={() => void wallet.switchToArc().catch((e: unknown) => toast.error("Could not switch", { description: e instanceof Error ? e.message.split("\n")[0] : String(e), from: "LYKO" }))}>
+      <button type="button" className="m-btn m-btn--sm m-btn--ochre" onClick={() => void wallet.switchToArc().catch((e: unknown) => toast.error("Could not switch", { description: classifyTxError(e, "chain").title, from: "LYKO" }))}>
         SWITCH TO ARC
       </button>
     );

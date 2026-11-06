@@ -1,5 +1,5 @@
 /**
- * The model seam. Lyko and the specialists talk to Claude through this
+ * The model seam. Lyko and the specialists talk to the model through this
  * narrow interface, so tests can script a model turn by turn and nothing
  * else in the agents layer imports the SDK. The key comes from
  * ANTHROPIC_API_KEY and is never logged or echoed.

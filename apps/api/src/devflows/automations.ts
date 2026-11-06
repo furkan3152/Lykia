@@ -50,6 +50,7 @@ import { actsFor, assertActsFor, type FlowCaller } from "./access.js";
 import { businessEvent, onBusinessEvent, type BusinessEvent } from "./events.js";
 import { automations, listOwned, RECORD_TTL_MS } from "./stores.js";
 import { lockedOr } from "../platform/requestState.js";
+import { listAll } from "../store/types.js";
 
 export type StoredAutomation = UnifiedAutomation & { readonly fence: Fence };
 
@@ -93,6 +94,7 @@ export async function createAutomation(ctx: AppContext, caller: FlowCaller, inpu
   let fence = input.fence ?? (caller.project ? projectFence(caller.project) : DEFAULT_FENCE);
   if (caller.project) fence = tightenFence(fence, caller.project);
   const owner = input.owner.toLowerCase() as Address;
+  await assertActsFor(ctx, caller, owner);
   const mine = await listOwned(automations(ctx), caller.developer);
   if (mine.length >= 100) throw new LykiaHttpError("CONFLICT", 409, "At most 100 automations per developer.");
   const st = standingTrigger(input.trigger);
@@ -150,18 +152,18 @@ export async function controlAutomation(ctx: AppContext, caller: FlowCaller, id:
   }
   if (id.startsWith("so_")) {
     const order = await services(ctx).standing.get(id);
-    assertActsFor(caller, order.owner);
+    await assertActsFor(ctx, caller, order.owner);
     return services(ctx).standing.setStatus(id, action === "pause" ? "paused" : action === "resume" ? "active" : "cancelled");
   }
   if (id.startsWith("al_")) {
     if (!owner) throw new LykiaHttpError("INVALID_REQUEST", 400, "Alerts need the owner (?owner=0x…).");
-    assertActsFor(caller, owner);
+    await assertActsFor(ctx, caller, owner);
     if (action === "delete") return { deleted: await alertsService(ctx).remove(owner, id), id };
     return alertsService(ctx).update(owner, id, { paused: action === "pause" });
   }
   if (/^0x[0-9a-f]{40}:aut_/u.test(id)) {
     const who = id.split(":")[0] as Address;
-    assertActsFor(caller, who);
+    await assertActsFor(ctx, caller, who);
     if (action === "delete") return setAutomationEnabled(ctx, who, id, false);
     return setAutomationEnabled(ctx, who, id, action === "resume");
   }
@@ -189,13 +191,13 @@ export async function ownerInstructionSources(ctx: AppContext, owner: Address) {
 /**
  * Unified automations, plus the owner's standing orders, alerts, agent
  * automations and orders when `owner` is given and the caller may act for
- * that owner (their own session, or a secret key). A session for another
+ * that owner (their own session, or a key the owner consented to). Anyone else
  * address only sees its own unified automations.
  */
 export async function listAllAutomations(ctx: AppContext, caller: FlowCaller, owner?: Address): Promise<{ automations: StoredAutomation[]; entries: AutomationListEntry[] }> {
   const mine = (await listOwned(automations(ctx), caller.developer)) as StoredAutomation[];
   const entries: AutomationListEntry[] = mine.map((a) => ({ id: a.id, source: "automation", name: a.name, trigger: describeAutomationTrigger(a.trigger), action: a.action.type === "plan" ? "plan intent" : "notify webhook", status: a.status, controllable: true }));
-  if (owner && actsFor(caller, owner)) {
+  if (owner && (await actsFor(ctx, caller, owner))) {
     const backed = new Set(mine.map((a) => a.backing.id).filter(Boolean));
     const { standing, alerts, agent, orders } = await ownerInstructionSources(ctx, owner);
     for (const o of standing) if (!backed.has(o.id)) entries.push({ id: o.id, source: "standing", name: o.text, trigger: describeTrigger(o.trigger), action: "plan intent", status: o.status, controllable: o.status === "active" || o.status === "paused" });
@@ -237,7 +239,7 @@ export async function tickAutomations(ctx: AppContext): Promise<{ checked: numbe
   let checked = 0;
   let fired = 0;
   const now = ctx.clock.now();
-  const all = (await automations(ctx).list({ limit: 5000 })).map((d) => d.value as StoredAutomation).filter((a) => a.status === "active" && a.backing.kind === "native" && a.trigger.type !== "event");
+  const all = (await listAll(automations(ctx))).map((d) => d.value as StoredAutomation).filter((a) => a.status === "active" && a.backing.kind === "native" && a.trigger.type !== "event");
   for (const a of all) {
     try {
       checked += 1;
@@ -278,7 +280,7 @@ export function wireAutomationEvents(ctx: AppContext): void {
   WIRED.add(ctx);
   onBusinessEvent(ctx, async (event: BusinessEvent) => {
     if (event.type === "automation.fired") return;
-    const all = (await automations(ctx).list({ limit: 5000 })).map((d) => d.value as StoredAutomation);
+    const all = (await listAll(automations(ctx))).map((d) => d.value as StoredAutomation);
     for (const a of all) {
       if (a.status !== "active" || a.developer !== event.developer || a.trigger.type !== "event" || a.trigger.event !== event.type) continue;
       if (a.projectId && event.projectId && a.projectId !== event.projectId) continue;

@@ -2082,6 +2082,89 @@
           }
         },
         {
+          "name": "A read-only token for the MCP personal tools (memory, contacts, profile); never usable as a session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/mcp-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "mcp-token"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "A read-only token for the MCP personal tools (memory, contacts, profile); never usable as a session\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Revoke an MCP read-only token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/mcp-token/revoke",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "mcp-token",
+                "revoke"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Revoke an MCP read-only token\n\nAuth: session."
+          }
+        },
+        {
           "name": "A SIWE nonce and a ready EIP-4361 message for Arc",
           "request": {
             "method": "POST",
@@ -3855,6 +3938,112 @@
               }
             },
             "description": "Prepare an x402 payment\n\nAuth: key."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Consent",
+      "item": [
+        {
+          "name": "Revoke a project's consent",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/consents/:projectId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "consents",
+                ":projectId"
+              ],
+              "variable": [
+                {
+                  "key": "projectId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "The project's keys stop acting for this owner and its webhooks stop carrying this owner's events.\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Projects the signed-in owner lets act for them",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/consents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "consents"
+              ]
+            },
+            "description": "A project's secret keys may act for an owner other than the key's own developer (agents, Fold, standing orders, automations, saved chat state, webhook events) only while that owner's consent is on record. Session only.\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Let a project act for the signed-in owner",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/consents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "consents"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Grants the project's secret keys the right to act for this owner and adds this owner's events to the project's webhooks. Session only: an API key can never grant consent.\n\nAuth: session."
           }
         }
       ]
@@ -7896,7 +8085,7 @@
                 "mcp"
               ]
             },
-            "description": "Point Claude Code, the Claude Agent SDK, Cursor or any MCP client at /v1/mcp with a Lykia-Key header.\n\nAuth: key, scope: build."
+            "description": "Point any MCP client (IDE assistants, desktop chat apps, agent SDKs) at /v1/mcp with a Lykia-Key header.\n\nAuth: key, scope: build."
           }
         }
       ]
@@ -8682,7 +8871,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"payer\": \"\",\n  \"rows\": []\n}",
+              "raw": "{\n  \"rows\": []\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -8824,7 +9013,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"payer\": \"\",\n  \"csv\": \"\"\n}",
+              "raw": "{\n  \"csv\": \"\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -8876,7 +9065,7 @@
           }
         },
         {
-          "name": "One reconciliation pass (payout receipts, invoice memos, automations)",
+          "name": "One full background pass: standing orders, conditional orders, alerts, webhook retries, payout receipts, invoice memos and automations",
           "request": {
             "method": "POST",
             "header": [
@@ -8900,7 +9089,7 @@
                 "tick"
               ]
             },
-            "description": "One reconciliation pass (payout receipts, invoice memos, automations)\n\nAuth: secret."
+            "description": "For external pingers on serverless hosts: send Authorization: Bearer $CRON_SECRET (or an admin session). Idempotent; ping it as often as schedules must hold.\n\nAuth: secret."
           }
         }
       ]

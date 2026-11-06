@@ -17,6 +17,7 @@ import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { typedCollection } from "../platform/typed.js";
 import { abiFunction, adapterKnowledge, contractsOf, manifestAbi } from "./runtime.js";
+import { listAll } from "../store/types.js";
 
 const ROUTABLE_CACHE_MS = 30_000;
 const COLLECTION = "adapters";
@@ -60,7 +61,7 @@ export async function getAdapter(ctx: AppContext, id: string): Promise<AdapterRe
 }
 
 export async function listAdapters(ctx: AppContext, filter: { readonly status?: AdapterStatus; readonly submittedBy?: string } = {}): Promise<AdapterRecord[]> {
-  const docs = await col(ctx).list({ limit: 1000 });
+  const docs = await listAll(col(ctx));
   return docs.map((d) => d.value).filter((r) => (!filter.status || r.status === filter.status) && (!filter.submittedBy || r.submittedBy.toLowerCase() === filter.submittedBy.toLowerCase()));
 }
 

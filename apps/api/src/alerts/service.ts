@@ -37,6 +37,7 @@ import { services } from "../services.js";
 import { agentServices } from "../agents/index.js";
 import { randomHex } from "../platform/crypto.js";
 import type { JsonValue } from "../store/types.js";
+import { listAll } from "../store/types.js";
 
 export const ALERT_CHECK_MS = 60_000;
 const FIRING_TTL_MS = 30 * 86_400_000;
@@ -146,7 +147,7 @@ class AlertsService {
 
   /** One pass over every active rule in `environment`. */
   async tick(environment: ArcEnvironment): Promise<{ checked: number; fired: number }> {
-    const all = (await this.rules().list({ limit: 2000 })).map((d) => d.value as unknown as AlertRule).filter((r) => !r.paused && r.environment === environment);
+    const all = (await listAll(this.rules())).map((d) => d.value as unknown as AlertRule).filter((r) => !r.paused && r.environment === environment);
     let fired = 0;
     const s = services(this.ctx);
     const priceSymbols = [...new Set(all.filter((r) => r.kind.startsWith("price-")).map((r) => r.token as string))];

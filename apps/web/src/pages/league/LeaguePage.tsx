@@ -25,7 +25,7 @@ export default function LeaguePage() {
   const dataKey = `${cities.map((c) => c.league.state).join(",")}|${lit}`;
   return (
     <div>
-      <PageHead kicker="THE MINT · LEAGUE" title={<>The League · <em>Lykia's cities.</em></>} sub="The Lycian League was a union of coastal cities that struck one shared coinage. Lykia's products are its cities: each one is a real project built in The Mint, with its own brand, modules and Fence caps, running on the same engine. Lykia never holds funds or keys in any of them." mood="proud" />
+      <PageHead kicker="THE MINT · LEAGUE" title={<>The League · <em>Lykia's cities.</em></>} sub="The Lycian League was a union of coastal cities that struck one shared coinage. The League hosts cities: each one is a real project built in The Mint, with its own brand, modules and Fence caps, running on the same engine. Official cities are being launched. Lykia never holds users' keys in any of them." mood="proud" />
 
       <section className="m-wrap" style={{ marginTop: 26 }} aria-label="The coast of the League">
         <SceneFrame build={(t) => coast(cities.map((c) => ({ state: c.league.state })), t)} width={COAST_W} height={COAST_H} dataKey={dataKey} assembleKey={cities.length} labels={labels} label={`The Lycian coast with ${cities.length} harbours, one per city. ${live} lighthouses are lit: those cities are live.`} />
@@ -47,7 +47,7 @@ export default function LeaguePage() {
         ) : league.isError ? (
           <EmptyState mood="alert" title="The League did not answer">{"The API could not be reached. The cities are still there; try again in a moment."}</EmptyState>
         ) : cities.length === 0 ? (
-          <EmptyState mood="watching" title="No city is listed yet">{"The official cities appear once the Lykia team strikes them in Letoon."}</EmptyState>
+          <EmptyState mood="watching" title="No city is listed yet">{"The League hosts cities; official cities are being launched. Nothing here is live until it is listed, and the counts above read zero until then."}</EmptyState>
         ) : (
           <CoinCarousel>
             {cities.map((c, i) => <CityCard key={c.slug} city={c} index={i} />)}

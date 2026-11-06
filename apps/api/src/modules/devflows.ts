@@ -17,6 +17,7 @@
  * developer-controlled wallet.
  */
 import { AGENT_API_TOOLS, PRICE_FEEDS, STEP_KINDS, AUTOMATION_EVENTS, parsePayoutCsv, type Address, type FenceFacts, type PlanAction, type StepKind } from "@lykia/core";
+import { cronAuthorized } from "../platform/crypto.js";
 import type { Request } from "express";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
@@ -31,6 +32,8 @@ import { controlAutomation, createAutomation, getAutomation, listAllAutomations,
 import { createInvoice, getInvoice, listInvoices, payUrl, planInvoicePayment, publicInvoice, recordInvoicePayment, voidInvoice } from "../devflows/invoices.js";
 import { createPayout, executeWithCircle, getPayout, listPayouts, payoutView, submitBatch } from "../devflows/payouts.js";
 import { flowTick } from "../devflows/tick.js";
+import { fullTick } from "../scheduler.js";
+import { asSystem } from "../personal/guard.js";
 import { verifySupplied, verifyVerdict } from "../devflows/verdicts.js";
 import { environmentSchema, fenceFrom, publicBaseUrl } from "./common.js";
 import { factsSchema } from "./fence.js";
@@ -45,11 +48,11 @@ const schedule = z.object({ every: z.enum(["day", "week", "month"]), weekday: we
 
 const payoutRow = z.object({ to: z.string().max(42), token: z.string().min(2).max(42), amount: z.string().max(40), reference: z.string().max(64).optional(), memo: z.string().max(120).optional() });
 const payoutBase = z.object({
-  payer: evmAddress,
+  payer: evmAddress.optional().describe("The paying wallet. Required unless circleWalletId is given; with it, the payer is that wallet's own address."),
   projectId: projectId.optional(),
   environment: environmentSchema.optional(),
   fence: fenceDoc.optional(),
-  circleWalletId: z.string().uuid().optional().describe("Execute from this Circle developer-controlled wallet (its address is the payer)."),
+  circleWalletId: z.string().uuid().optional().describe("Opt-in servers only (LYKIA_CIRCLE_SERVER_WALLETS): execute from a Circle developer-controlled wallet you created through POST /v1/circle/wallets/agent. Its address becomes the payer; a wallet someone else created is refused."),
   dryRun: z.boolean().optional(),
   confirm: z.boolean().optional(),
 });
@@ -139,7 +142,7 @@ documentRoutes([
   { method: "post", path: "/v1/automations", tag: "Automations", summary: "Create an automation (price, schedule, balance or event; plan or notify)", scope: "automation", auth: "secret", body: automationSchema, response: ok, idempotent: true },
   { method: "get", path: "/v1/automations", tag: "Automations", summary: "Unified list (with the owner's standing orders, alerts, agent automations and orders)", scope: "read", auth: "secret", query: z.object({ owner: evmAddress.optional() }), response: ok },
   { method: "get", path: "/v1/automations/:id", tag: "Automations", summary: "One automation", scope: "read", auth: "secret", params: AutomationParams, response: ok },
-  { method: "post", path: "/v1/reconcile/tick", tag: "Payouts", summary: "One reconciliation pass (payout receipts, invoice memos, automations)", auth: "secret", response: ok },
+  { method: "post", path: "/v1/reconcile/tick", tag: "Payouts", summary: "One full background pass: standing orders, conditional orders, alerts, webhook retries, payout receipts, invoice memos and automations", description: "For external pingers on serverless hosts: send Authorization: Bearer $CRON_SECRET (or an admin session). Idempotent; ping it as often as schedules must hold.", auth: "secret", response: ok },
   { method: "post", path: "/v1/automations/:id/pause", tag: "Automations", summary: "Pause", scope: "automation", auth: "secret", params: AutomationParams, response: ok },
   { method: "post", path: "/v1/automations/:id/resume", tag: "Automations", summary: "Resume", scope: "automation", auth: "secret", params: AutomationParams, response: ok },
   { method: "delete", path: "/v1/automations/:id", tag: "Automations", summary: "Delete", scope: "automation", auth: "secret", params: AutomationParams, response: ok },
@@ -152,8 +155,7 @@ function issuesError(issues: readonly { path: string; message: string }[], what:
 }
 
 async function mayTick(ctx: AppContext, req: Request): Promise<boolean> {
-  const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.authorization === `Bearer ${secret}`) return true;
+  if (cronAuthorized(req.headers.authorization)) return true;
   const session = await sessionOf(ctx, req);
   return Boolean(session && ctx.config.platform.adminAddresses.includes(session.address.toLowerCase()));
 }
@@ -172,7 +174,7 @@ export const devflowsModule: ApiModule = {
     router.post("/payouts", ctx.limits.heavy, async (req, res) => {
       const body = parseBody(req, payoutSchema);
       const caller = await flowCaller(ctx, req, "payouts", { projectId: body.projectId ?? null });
-      const payout = await createPayout(ctx, caller, { ...body, payer: body.payer as Address, ...(body.fence ? { fence: fenceFrom(body.fence)! } : {}) } as Parameters<typeof createPayout>[2]);
+      const payout = await createPayout(ctx, caller, { ...body, ...(body.payer ? { payer: body.payer as Address } : {}), ...(body.fence ? { fence: fenceFrom(body.fence)! } : {}) } as Parameters<typeof createPayout>[2]);
       res.status(body.dryRun ? 200 : 201).json(payoutView(payout));
     });
     router.post("/payouts/parse-csv", async (req, res) => {
@@ -185,7 +187,7 @@ export const devflowsModule: ApiModule = {
       const caller = await flowCaller(ctx, req, "payouts", { projectId: body.projectId ?? null });
       const parsed = parsePayoutCsv(csv);
       if (parsed.issues.length > 0) throw issuesError(parsed.issues, "CSV");
-      const payout = await createPayout(ctx, caller, { ...body, rows: parsed.rows, payer: body.payer as Address, ...(body.fence ? { fence: fenceFrom(body.fence)! } : {}) } as Parameters<typeof createPayout>[2]);
+      const payout = await createPayout(ctx, caller, { ...body, rows: parsed.rows, ...(body.payer ? { payer: body.payer as Address } : {}), ...(body.fence ? { fence: fenceFrom(body.fence)! } : {}) } as Parameters<typeof createPayout>[2]);
       res.status(body.dryRun ? 200 : 201).json(payoutView(payout));
     });
     router.get("/payouts", async (req, res) => {
@@ -337,7 +339,7 @@ export const devflowsModule: ApiModule = {
 
     router.post("/reconcile/tick", ctx.limits.heavy, async (req, res) => {
       if (!(await mayTick(ctx, req))) throw new LykiaHttpError("NOT_FOUND", 404, "Not found.");
-      res.json(await flowTick(ctx));
+      res.json(await asSystem(() => fullTick(ctx)));
     });
   },
   start(ctx) {

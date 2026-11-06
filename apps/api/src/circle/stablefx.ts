@@ -13,7 +13,7 @@
 import { randomUUID } from "node:crypto";
 import type { ArcEnvironment } from "@lykia/core";
 import type { FetchLike } from "../health/dependencies.js";
-import { circleFetch } from "./http.js";
+import { circleFetch, upstreamReason } from "./http.js";
 import { LykiaHttpError } from "../http/errors.js";
 
 const STABLEFX_BASE: Readonly<Record<ArcEnvironment, string>> = {
@@ -29,7 +29,7 @@ async function call(fetchImpl: FetchLike, apiKey: string, environment: ArcEnviro
     signal: AbortSignal.timeout(10_000),
   }, "StableFX");
   const text = await response.text();
-  if (!response.ok) throw new LykiaHttpError(response.status === 401 || response.status === 403 ? "FORBIDDEN" : "UPSTREAM_UNAVAILABLE", response.status === 401 || response.status === 403 ? 403 : 502, `StableFX answered ${response.status}.`, { stablefx: text.slice(0, 500) });
+  if (!response.ok) throw new LykiaHttpError(response.status === 401 || response.status === 403 ? "FORBIDDEN" : "UPSTREAM_UNAVAILABLE", response.status === 401 || response.status === 403 ? 403 : 502, `StableFX answered ${response.status}.`, { stablefx: upstreamReason(text) });
   // The fund endpoint answers a blank 200.
   if (text.trim() === "") return {};
   const json = JSON.parse(text) as { data?: unknown };

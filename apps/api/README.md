@@ -32,16 +32,19 @@ All variables are optional; see [`.env.example`](./.env.example).
 | `LYKIA_WEB_ORIGIN` | (none) | extra CORS origins; localhost dev origins are allowed outside production |
 | `LYKIA_DATABASE_URL` | (none) | Postgres for intents, hash claims, Tag cards, spend counters and x402 nonces; in-memory without it |
 | `ARC_MAINNET_RPC_URL`, `ARC_TESTNET_RPC_URL` | (none) | extra RPC endpoints, tried before `rpc.mainnet.arc.io` / `rpc.testnet.arc.io` |
-| `ANTHROPIC_API_KEY`, `LYKIA_AGENT_MODEL` | (none), `claude-sonnet-5-5` | Lyko and the specialists run on Claude with Lykia's tools; without a key the deterministic path answers |
+| `ANTHROPIC_API_KEY`, `LYKIA_AGENT_MODEL` | (none), (none) | the model path for Lyko and the specialists, with Lykia's tools. Both are required for it: there is no default model id. Without them the deterministic reader answers |
 | `LYKIA_AGENT_MAX_STEPS`, `LYKIA_AGENT_MAX_TOKENS` | `6`, `4096` | model rounds per agent per turn, output tokens per call |
+| `LYKIA_MODEL_DAILY_CALLS` | `2000` | global cap on model calls per UTC day, counted in the shared store; past it every caller falls back to the deterministic reader until the day turns (`0` keeps the model off) |
+| `LYKIA_RATE_LIMIT_SHARED` | `20` | per-IP requests per minute on `/v1/agent/chat` and `/v1/ai/*`, counted in the shared store so the limit holds across serverless instances |
 | `LYKIA_SESSION_SECRET` | (none) | 32+ characters; signs sessions and derives the keys that hash API keys and seal webhook secrets. Development uses a per-process secret when it is unset; production refuses sign-in without it |
 | `LYKIA_SIWE_DOMAINS`, `LYKIA_ADMIN_ADDRESSES` | (none) | extra sign-in domains (host[:port]); addresses with the admin role |
 | `CIRCLE_API_KEY` | (none) | Circle platform key: Compliance Engine screening, developer-controlled wallets, StableFX (when the key has access) |
 | `CIRCLE_ENTITY_SECRET`, `CIRCLE_WALLET_SET_ID` | (none) | entity secret (32 bytes hex, registered with Circle) for developer-controlled wallets; an existing wallet set to reuse |
+| `LYKIA_CIRCLE_SERVER_WALLETS` | (off) | `true` opts this server in to creating Circle developer-controlled wallets for signed-in users and executing payouts from them with the entity secret above. Each wallet is bound to the address that created it. Off: those routes answer 403 |
 | `STABLEFX_API_KEY` | (none) | a separate StableFX key, if StableFX access sits on its own key |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` | (none) | the Lyko bot: `/start <code>` links a chat to a signed-in address and alerts arrive there; the token is never logged. Point the bot at the API once with `POST /v1/telegram/setup` (admin) |
 | `LYKIA_KEEPER_PRIVATE_KEY` | (none) | optional keeper wallet that executes due conditional orders (it earns the tip and holds only gas). Without it anyone can run orders via `/v1/orders/:hash/execute-tx` |
-| `CRON_SECRET` | (none) | Bearer secret for `/cron/orders` and `/cron/alerts` on serverless hosts, and for the keeper and alert-check routes |
+| `CRON_SECRET` | (none) | Bearer secret for `/cron/standing`, `/cron/orders` and `/cron/alerts` (Vercel Cron, daily each) and for `POST /v1/reconcile/tick` (one full background pass, for an external pinger when schedules must hold more often than daily), the keeper and the alert-check routes; compared in constant time |
 | `LYKIA_GUARD_ADDRESS` | (none) | ERC-8354 guard that answers validation requests for Fence verdicts (own key; see docs/tag.md) |
 | `LYKIA_X402_PAY_TO`, `LYKIA_X402_PRICE_USDC`, `LYKIA_X402_FACILITATOR_URL` | the fee recipient, `0.01`, Circle's facilitator | x402 paid routes; `PAY_TO=off` disables them. Circle's facilitator settles with `CIRCLE_API_KEY`; without the key the routes keep answering 402. `FACILITATOR_URL=off` runs verify-only |
 | `LYKIA_BETA_CAP_USD` | `1000/5000` | Mainnet beta cap per step / per day per owner, above every Fence while the contracts are unaudited; `off` removes it |
@@ -154,12 +157,12 @@ Agent Tag routes live under `/v1/tags`.
 
 | route | answer |
 |---|---|
-| `POST /v1/agent/chat` | `{ message, owner?, threadId?, environment?, fence? }`. The reply is Server-Sent Events: `thread`, `notice`, `reading`, `task`, `tool`, `step`, `block`, `thinking-summary`, `proposal`, `clarify`, `draft`, `program`, `text`, `error`, `done`. A `step` is one piece of real work (reading the request, the wallet, searching routes, checking the Fence): it is sent with `state: "running"` when it starts and again, same `id`, with `ok`, `warn` or `fail`, a short `result` and the measured `ms` when it ends. A `block` is a typed card (`gas`, `fence`, `balance`, `rate`, `herded`, `settled`; see `@lykia/core/api/answer`) whose numbers come from server data, never from model prose; the `text` stays the fallback. Alerts and automations Lyko sets up are saved only when the request proves control of `owner` (its Lykia-Session, or a secret key with the agents scope); otherwise `draft` carries a link to the prefilled form. Send `Accept: application/json` (or use the original `messages` array) to get the same events collected in one JSON document instead. |
+| `POST /v1/agent/chat` | `{ message, owner?, threadId?, environment?, fence? }`. The reply is Server-Sent Events: `thread`, `notice`, `reading`, `task`, `tool`, `step`, `block`, `thinking-summary`, `proposal`, `clarify`, `draft`, `program`, `text`, `error`, `done`. A `step` is one piece of real work (reading the request, the wallet, searching routes, checking the Fence): it is sent with `state: "running"` when it starts and again, same `id`, with `ok`, `warn` or `fail`, a short `result` and the measured `ms` when it ends. A `block` is a typed card (`gas`, `fence`, `balance`, `rate`, `herded`, `settled`; see `@lykia/core/api/answer`) whose numbers come from server data, never from model prose; the `text` stays the fallback. Alerts and automations Lyko sets up are saved only when the request proves control of `owner` (its Lykia-Session, or a secret key with the agents scope that may act for the owner: its own developer, or an owner who consented to the key's project via `POST /v1/consents`); otherwise `draft` carries a link to the prefilled form. Without that proof the chat also uses no profile, memory, contacts or Pack of the owner, and its thread is anonymous. Send `Accept: application/json` (or use the original `messages` array) to get the same events collected in one JSON document instead. |
 | `GET /v1/agent/threads?owner=` / `GET /v1/agent/threads/:id?owner=` / `POST /v1/agent/threads` | thread memory per owner: the last 40 messages, kept for 30 days |
 | `GET /v1/agent/insights?owner=&environment=` | insights on the Flock: idle cash, FX exposure, concentration, health factor, unpriced holdings, look-alike tokens, low gas. Each one comes with a sentence the deck can plan with one tap. |
 | `GET/POST /v1/agent/automations`, `POST /v1/agent/automations/:id/(enable\|disable)`, `POST /v1/agent/automations/run` | bounded automations, fired by an insight or a timer. They produce proposals only. |
 | `POST /v1/agent/check` | `{ fence?, facts }` -> a verdict, for agents that check a move before making it |
-| `GET /v1/pack?owner=&environment=` | the owner's agent tree. Each agent comes with its Fence hash and budget: caps, the amount allocated to children, what is free and what was spent. |
+| `GET /v1/pack?owner=&environment=` | the owner's agent tree. For the proven owner (session, or a key that may act for the owner) each agent comes with its name, mission, Fence and budget: caps, the amount allocated to children, what is free and what was spent. Anyone else gets the public view (role, capabilities, Fence hash, signer, session, status; `redacted: true`). `GET /v1/pack/:id/budget` needs the owner. |
 | `POST /v1/pack` | creates a root agent: `{ owner, name, role, fence?, mission?, signer?, agentId? }` |
 | `POST /v1/pack/:id/spawn` | creates a sub-agent. Its Fence must sit inside the parent's (`SUB_FENCE_VIOLATION`) and its caps must fit in the parent's free budget (`BUDGET_EXCEEDED`). Both errors list every field that broke the rule. |
 | `POST /v1/pack/:id/revoke` | revokes the agent and its whole subtree, and frees its allocation |
@@ -189,6 +192,8 @@ Bounds and safety:
 
 | route | answer |
 |---|---|
+| `GET /v1/consents`, `POST /v1/consents`, `DELETE /v1/consents/:projectId` | the signed-in owner's consents: which projects' secret keys may act for them (and whose webhooks carry their events). Session only |
+| `POST /v1/auth/mcp-token`, `POST /v1/auth/mcp-token/revoke` | a read-only token for the MCP personal tools (memory, contacts, profile); never usable as a session |
 | `POST /v1/auth/nonce`, `POST /v1/auth/verify`, `GET /v1/auth/session`, `POST /v1/auth/logout` | Sign-In with Ethereum (EIP-4361) on Arc (5042, 5042002) and common wallet chains. Nonces are single use. EOA and ERC-1271 signatures are both accepted. The session token travels in the `Lykia-Session` header. |
 | `POST /v1/developers/register`, `GET /v1/developers/me` | developer profile |
 | `GET/POST /v1/developers/keys`, `POST /v1/developers/keys/:id/(rotate\|revoke)` | API keys, sent in the `Lykia-Key` header. Secret keys look like `lk_sk_…`. Publishable keys look like `lk_pk_…`: they are limited to read and plan, and only work from their allowed origins. Each key has scopes and its own per-minute and per-day quota. Only an HMAC of a key is stored, and the full key is shown once. |
@@ -230,7 +235,7 @@ See [docs/circle.md](../../docs/circle.md). `GET /v1/circle/status` lists every 
 | `POST /v1/circle/x402/prepare`, `POST /v1/circle/x402/pay` | pay an x402 service from Arc: the price and payee are judged by the Fence, the owner or agent signs EIP-3009, Lykia relays the paid request |
 | `POST /v1/circle/screen`, `GET /v1/circle/compliance/:address` | Compliance Engine screening (`CIRCLE_API_KEY`); plans also screen external recipients and a DENIED one joins the Fence's deny list |
 | `POST /v1/circle/stablefx/quote`, `/trade`, `GET /v1/circle/stablefx/trades/:id` | StableFX RFQ taker flow (Circle StableFX access) |
-| `POST /v1/circle/agent-wallets` (alias `/v1/circle/wallets/agent`), `GET /v1/circle/wallets/:id/balances` | an SCA agent wallet on Arc for a Pack agent (`CIRCLE_API_KEY` + `CIRCLE_ENTITY_SECRET`) |
+| `POST /v1/circle/agent-wallets` (alias `/v1/circle/wallets/agent`), `GET /v1/circle/wallets/:id/balances` | opt-in (`LYKIA_CIRCLE_SERVER_WALLETS=true` + `CIRCLE_API_KEY` + `CIRCLE_ENTITY_SECRET`, else 403): an SCA developer-controlled wallet on Arc, bound to the signed-in address that created it; only that address can read its balances or pay from it |
 | `GET /v1/oracles` | Chainlink against Pyth (read on chain on Arc), and display rates |
 | `GET /v1/jobs/:id`, `POST /v1/jobs/draft`, `/:id/fund`, `/:id/complete`, `/:id/reject`, `/:id/refund` | ERC-8183 agent jobs on Arc testnet: unsigned escrow calls |
 
@@ -241,7 +246,7 @@ See [docs/circle.md](../../docs/circle.md). `GET /v1/circle/status` lists every 
 | `GET /v1/orders/config` | LykiaOrders address, fee, EIP-712 domain and types, Chainlink feeds |
 | `POST /v1/orders/draft` | typed data to sign, the allowance still needed, per-execution fee, tip and minimum |
 | `POST /v1/orders` | stores a signed order (signature checked, nonce and state read on chain) |
-| `GET /v1/orders?owner=` | orders with live status (`open`, `waiting`, `filled`, `cancelled`, `expired`, `invalid`) |
+| `GET /v1/orders?owner=` | orders with live status (`open`, `waiting`, `filled`, `cancelled`, `expired`, `invalid`); the full view (levels, amounts, summary) only for the proven owner, otherwise hash, kind and status with `redacted: true` |
 | `GET /v1/orders/:hash/cancel-tx`, `/execute-tx?keeper=` | unsigned transactions for the maker / any keeper |
 | `POST /v1/orders/keeper/tick` | one keeper pass (admin or `CRON_SECRET`); also every 30 s in-process and on `/cron/orders` |
 | `GET/POST /v1/alerts`, `PATCH/DELETE /v1/alerts/:id` | rules: `price-above/below` (Chainlink), `health-below`, `transfer-in/out`, `scent-warning`, `order-filled` |

@@ -5,6 +5,7 @@
  * client with `setLlmClient`.
  */
 import type { AppContext } from "../context.js";
+import { modelBudget } from "../http/sharedLimits.js";
 import type { HostResolver } from "../http/netguard.js";
 import { WebhookService } from "../platform/webhooks.js";
 import type { JsonValue } from "../store/types.js";
@@ -80,7 +81,14 @@ export function agentServices(ctx: AppContext): AgentServices {
   const built: AgentServices = {
     pack,
     webhooks,
-    llm: () => (LLM_OVERRIDE.has(ctx) ? (LLM_OVERRIDE.get(ctx) ?? null) : anthropicClient(ctx)),
+    // The daily model budget is a global breaker: past it, every caller gets null and uses the deterministic reader.
+    llm: () => {
+      const client = LLM_OVERRIDE.has(ctx) ? (LLM_OVERRIDE.get(ctx) ?? null) : anthropicClient(ctx);
+      if (!client) return null;
+      const budget = modelBudget(ctx);
+      if (!budget.open()) return null;
+      return { model: client.model, turn: async (request) => { await budget.spend(); return client.turn(request); } };
+    },
   };
   GRAPH.set(ctx, built);
   return built;

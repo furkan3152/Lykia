@@ -12,6 +12,6 @@ for documentation; Lykia's MCP server does the planning and Fence checks.
 | [lykia-plan-and-route](skills/lykia-plan-and-route/SKILL.md) | Turning an intent into a plan across Arc venues |
 | [lykia-pay-marketplace-service](skills/lykia-pay-marketplace-service/SKILL.md) | Paying for an x402 service from the Agent Marketplace |
 
-Install in Claude Code: `/plugin marketplace add ./skills` then
+Install in an assistant that reads this plugin format: `/plugin marketplace add ./skills` then
 `/plugin install lykia-skills@lykia`. Lykia is built on Arc Network and
 Circle's products; it is not affiliated with or endorsed by Circle.

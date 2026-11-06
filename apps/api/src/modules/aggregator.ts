@@ -121,7 +121,6 @@ function optionsOf(body: { format?: BuildOptions["format"]; batch?: BuildOptions
 }
 
 async function build(ctx: Parameters<ApiModule["register"]>[1], req: Request, kind: ActionKind | undefined, body: z.infer<typeof buildBody>) {
-  // TODO(platform): emitEvent("aggregator.build.created", ...) once the event catalogue lists aggregator events.
   if (body.quoteId) return buildAction(ctx, { quoteId: body.quoteId }, optionsOf(body), req);
   const k = kind ?? body.kind;
   if (!k) throw new LykiaHttpError("INVALID_REQUEST", 400, "Send a quoteId, or the action's kind and params.");

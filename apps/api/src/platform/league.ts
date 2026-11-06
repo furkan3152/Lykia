@@ -37,11 +37,12 @@ import { auditSafe, PLATFORM_CHAIN } from "../security/audit.js";
 import { dayKey } from "./gate.js";
 import { forgetProjectOrigins, ownProject, takenSlugs, verifiedOrigins } from "./projects.js";
 import { typedCollection } from "./typed.js";
+import { listAll } from "../store/types.js";
 
 const projects = (ctx: AppContext) => typedCollection<Project>(ctx, "projects");
 
 async function allProjects(ctx: AppContext): Promise<Project[]> {
-  return (await projects(ctx).list({ limit: 10_000 })).map((d) => d.value);
+  return (await listAll(projects(ctx))).map((d) => d.value);
 }
 
 /* ------------------------------------------------------------ usage */

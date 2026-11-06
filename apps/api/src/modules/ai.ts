@@ -20,6 +20,7 @@ import { evmAddress, parseBody } from "../http/validate.js";
 import { documentRoutes } from "../platform/openapi/registry.js";
 import { buildFields } from "./aggregator.js";
 import { environmentSchema, fenceFrom } from "./common.js";
+import { sharedLimit } from "../http/sharedLimits.js";
 
 const venueId = z.string().regex(/^[a-z0-9-]{2,48}$/u);
 const routeBody = z
@@ -98,7 +99,9 @@ documentRoutes([
 export const aiModule: ApiModule = {
   name: "ai",
   register(router, ctx) {
-    router.post("/ai/route", ctx.limits.heavy, async (req, res) => {
+    // Counted across every instance (the heavy bucket counts per process): these routes can reach the model provider.
+    const shared = sharedLimit(ctx, "ai", ctx.config.rateLimits.sharedPerMinute ?? 20);
+    router.post("/ai/route", ctx.limits.heavy, shared, async (req, res) => {
       const body = parseBody(req, routeBody);
       const fence = fenceFrom(body.constraints?.fence);
       const c = body.constraints;
@@ -119,7 +122,7 @@ export const aiModule: ApiModule = {
       );
     });
 
-    router.post("/ai/compile", ctx.limits.heavy, async (req, res) => {
+    router.post("/ai/compile", ctx.limits.heavy, shared, async (req, res) => {
       const body = parseBody(req, compileBody);
       const fence = fenceFrom(body.constraints?.fence);
       const c = body.constraints;
@@ -143,7 +146,7 @@ export const aiModule: ApiModule = {
       res.json({ ...result, view: programView(result, body.overrides ?? {}) });
     });
 
-    router.post("/ai/explain-route", ctx.limits.heavy, async (req, res) => {
+    router.post("/ai/explain-route", ctx.limits.heavy, shared, async (req, res) => {
       const body = parseBody(req, explainBody);
       const llm = agentServices(ctx).llm();
       if ("quoteId" in body) {

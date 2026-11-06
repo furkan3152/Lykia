@@ -95,7 +95,7 @@ export default function MintPage() {
 
   return (
     <div>
-      <PageHead kicker="THE MINT · DEVELOPER PORTAL" title={<>Strike a city. <em>Ship it anywhere.</em></>} sub="The routing, the Fence checks and the assistant behind Lykia, as a REST API, an MCP server, SDKs and drop-in components. Every app you build is a city: your brand, your modules, your Fence caps, your fee. The server never signs." mood="happy">
+      <PageHead kicker="THE MINT · DEVELOPER PORTAL" title={<>Strike a city. <em>Ship it anywhere.</em></>} sub="The routing, the Fence checks and the assistant behind Lykia, as a REST API, an MCP server, SDKs and drop-in components. Every app you build is a city: your brand, your modules, your Fence caps, your fee. Plans come back unsigned for the owner's wallet." mood="happy">
         <div className="flex justify-center gap-2 flex-wrap" style={{ marginTop: 18 }}>
           {siwe.signedIn ? <Tag tone="ok">SIGNED IN · {siwe.session?.roles.join(", ").toUpperCase()}</Tag> : <Button onClick={() => void siwe.signIn()} disabled={siwe.busy}>{"SIGN IN ON ARC (SIWE)"}</Button>}
         </div>
@@ -128,7 +128,7 @@ export default function MintPage() {
           <div style={{ display: "grid", gap: 24, gridTemplateColumns: "minmax(0, 1fr)" }}>
             <Strike onPreview={preview} />
             <div className="m-grid-4">
-              {[["Widget", "@lykia/widget · React components + hooks"], ["Embed", "@lykia/embed · one script tag"], ["Agent tools", "@lykia/agent-tools · AI SDK, LangChain, OpenAI, Claude"], ["MCP + REST", "/v1/mcp · /v1 · x402 · webhooks"]].map(([t, d]) => (
+              {[["Widget", "@lykia/widget · React components + hooks"], ["Embed", "@lykia/embed · one script tag"], ["Agent tools", "@lykia/agent-tools · AI SDK, LangChain, OpenAI, Anthropic adapters"], ["MCP + REST", "/v1/mcp · /v1 · x402 · webhooks"]].map(([t, d]) => (
                 <div key={t} className="m-frame m-card m-center"><h3 style={{ fontSize: 20 }}>{t}</h3><p className="m-small m-muted">{d}</p></div>
               ))}
             </div>

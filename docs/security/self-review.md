@@ -82,8 +82,13 @@ No code change was needed for any Slither finding.
 - The router and orders are owned by a single wallet until the owner moves
   them to the 2-of-3 Safe behind `LykiaTimelock` (`docs/security/ownership.md`).
 - Off-chain components (planner, Fence evaluator, Circle policy compiler)
-  are tested but also unaudited; the server never signs, which bounds the
-  damage of an API bug to what the owner or a capped session signs.
+  are tested but also unaudited; the server never holds user keys and plans
+  come back unsigned, which bounds the damage of an API bug to what the owner
+  or a capped session signs. The optional server signers (a gas-only keeper
+  and, opt-in, Circle developer-controlled wallets bound to their creator)
+  are the exception: the keeper can only submit orders their owners signed,
+  and a compromised server with the entity secret controls opted-in Circle
+  wallets, within the Fence and beta-cap checks it runs.
 - Circle wallet policies apply only to mainnet Agent Wallets and are set by
   the owner; if the owner never runs the commands, only Lykia's preflight
   enforces the Fence for that wallet.

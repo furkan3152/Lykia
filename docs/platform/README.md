@@ -10,8 +10,8 @@ brand, or take one part of Lykia and shape it.
 | React components | `@lykia/widget` | React apps that want the assistant, send, swap, earn, bridge, the Fence, Scent, the Flock or the Pack in their brand. |
 | Headless hooks | `@lykia/widget` (hooks) | Apps that keep their own markup and use Lykia's logic. |
 | Web components | `@lykia/embed` | Any page: one script tag, sandboxed frames, DOM events. |
-| Agent tools | `@lykia/agent-tools` | AI agents on the Vercel AI SDK, LangChainJS, OpenAI or Anthropic. |
-| MCP | the API's `/v1/mcp` | Claude Code, the Claude Agent SDK, Cursor and other MCP clients. No code. |
+| Agent tools | `@lykia/agent-tools` | Agents on the Vercel AI SDK, LangChainJS, OpenAI function calling or Anthropic tool use. |
+| MCP | the API's `/v1/mcp` | Any MCP client: IDE assistants, desktop chat apps, agent SDKs. No code. |
 | SDK | `@lykia/sdk` | Servers and custom clients; modular subpaths and typed events. |
 | REST | `/v1` | Everything above is built on it (`/v1/openapi.json`). |
 | Aggregator | `/v1/aggregator`, `/v1/build/*` | Best execution on Arc: quote -> build for every action ([aggregator.md](aggregator.md)). |
@@ -34,8 +34,10 @@ custom strings.
 
 ## What never changes
 
-- The server never signs. Every plan comes back with its Fence verdict and
-  the user's wallet signs each step.
+- The server never holds user keys. Every plan comes back with its Fence
+  verdict and the user's wallet signs each step. (Optional server signers,
+  a gas-only keeper and opt-in Circle developer-controlled wallets, are off
+  unless the operator configures them.)
 - A project can only tighten a user's Fence, never loosen it.
 - Lykia's protocol fee and the app fee are shown before signing and paid in
   the same transaction as the step.

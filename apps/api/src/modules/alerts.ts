@@ -15,6 +15,7 @@
  *   POST   /telegram/setup             point the bot at this API (admin)
  */
 import { createHash } from "node:crypto";
+import { cronAuthorized, secretMatches } from "../platform/crypto.js";
 import { ALERT_CHANNELS, ALERT_KINDS, type AlertChannel, type AlertKind } from "@lykia/core";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
@@ -43,8 +44,7 @@ function telegramSecret(ctx: AppContext): string | null {
 }
 
 async function isAdminOrCron(ctx: AppContext, req: Parameters<typeof sessionOf>[1]): Promise<boolean> {
-  const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.authorization === `Bearer ${secret}`) return true;
+  if (cronAuthorized(req.headers.authorization)) return true;
   const session = await sessionOf(ctx, req);
   return Boolean(session && ctx.config.platform.adminAddresses.includes(session.address.toLowerCase()));
 }
@@ -95,7 +95,7 @@ export const alertsModule: ApiModule = {
     });
     router.post("/telegram/webhook", async (req, res) => {
       const expected = telegramSecret(ctx);
-      if (!expected || req.get("x-telegram-bot-api-secret-token") !== expected) throw new LykiaHttpError("NOT_FOUND", 404, "Not found.");
+      if (!secretMatches(req.get("x-telegram-bot-api-secret-token"), expected)) throw new LykiaHttpError("NOT_FOUND", 404, "Not found.");
       await s().telegramUpdate(req.body as never);
       res.json({ ok: true });
     });

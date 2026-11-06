@@ -17,6 +17,6 @@ SENTENCE="put 50 USDC to work" node examples/sdk-node/index.mjs
 PRIVATE_KEY=0x… EXECUTE=1 node examples/sdk-node/index.mjs  # real, from your own wallet
 ```
 
-The key never leaves your machine; Lykia's server never signs. While Lykia's
+The key never leaves your machine; Lykia's server never signs your plans. While Lykia's
 contracts are unaudited, mainnet moves are capped at $1,000 per step and
 $5,000 per day for everyone (`GET /v1/fees`).

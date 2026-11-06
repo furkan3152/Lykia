@@ -4,7 +4,7 @@
   "description": "The Lykia command line: log in with a key, manage keys, quote, plan a sentence, forward webhooks to localhost and tail request logs. Built on Arc Network. No dependencies.",
   "keywords": ["lykia", "arc", "circle", "usdc", "cli", "webhooks", "agents"],
   "license": "MIT",
-  "homepage": "https://lykia-akdogan1.vercel.app/build",
+  "homepage": "https://lykia-akdogan1.vercel.app/mint",
   "repository": { "type": "git", "url": "git+https://github.com/furkan3152/lykia.git", "directory": "packages/cli" },
   "type": "module",
   "bin": { "lykia": "./bin/lykia.mjs" },

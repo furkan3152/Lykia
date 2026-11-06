@@ -26,7 +26,7 @@ function steps(path: PathId): readonly Step[] {
     case "agents":
       return [{ title: "Get a secret key", body: "Agents run on your server: create a secret key in Keys. Never ship it to a browser." }, { title: "Install the tools", body: "JSON Schema tools with adapters for the Vercel AI SDK, LangChainJS, OpenAI and Anthropic. No dependencies.", code: "npm install @lykia/agent-tools" }, { title: "Give them to your model", body: "Every plan comes back with its Fence verdict. The user's wallet signs.", code: agentSnippet() }];
     case "mcp":
-      return [{ title: "Get a secret key", body: "Create a secret key in Keys." }, { title: "Add the server", body: "Claude Code, the Claude Agent SDK, Cursor and any MCP client. No code.", code: mcpSnippet(apiOrigin) }, { title: "Ask", body: "\"Check this token, then plan a 100 USDC swap if it is clean.\" The tools read and propose; nothing signs on the server." }];
+      return [{ title: "Get a secret key", body: "Create a secret key in Keys." }, { title: "Add the server", body: "Any MCP client: IDE assistants, desktop chat apps and agent SDKs. No code.", code: mcpSnippet(apiOrigin) }, { title: "Ask", body: "\"Check this token, then plan a 100 USDC swap if it is clean.\" The tools read and propose; nothing signs on the server." }];
     case "sdk":
       return [{ title: "Get a key", body: "A secret key on a server, a browser key in a page." }, { title: "Install the SDK", body: "Import the whole client or only the parts you use.", code: "npm install @lykia/sdk" }, { title: "Plan and follow", body: "Typed events: plan-created, step-signed, settled.", code: sdkSnippet(DEFAULT_STUDIO) }];
   }

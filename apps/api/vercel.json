@@ -22,6 +22,14 @@
     {
       "path": "/cron/standing",
       "schedule": "17 6 * * *"
+    },
+    {
+      "path": "/cron/orders",
+      "schedule": "23 12 * * *"
+    },
+    {
+      "path": "/cron/alerts",
+      "schedule": "41 18 * * *"
     }
   ]
 }

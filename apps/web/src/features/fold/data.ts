@@ -103,9 +103,13 @@ export function useExplain(o: FoldOwner, question: FoldQuestion, enabled: boolea
 
 export function useFoldPack(o: FoldOwner) {
   const q = useQuery({
-    queryKey: ["pack", o.address, o.environment],
+    queryKey: ["pack", o.address, o.environment, o.signedIn],
     enabled: Boolean(o.address),
-    queryFn: ({ signal }) => apiGet<{ agents: PackAgentView[] }>("/v1/pack", { query: { owner: o.address, environment: o.environment }, signal }),
+    // Names, Fences and budgets come back only for the signed-in owner; a redacted answer lists nothing here.
+    queryFn: async ({ signal }) => {
+      const r = await apiGet<{ agents: PackAgentView[]; redacted?: boolean }>("/v1/pack", { query: { owner: o.address, environment: o.environment }, signal });
+      return { agents: r.redacted ? [] : r.agents };
+    },
   });
   const sample = useMemo(() => (o.sample ? { agents: samplePack() } : undefined), [o.sample]);
   return { ...q, data: q.data ?? sample };

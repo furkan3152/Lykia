@@ -5,7 +5,7 @@
     "title": "Lykia API",
     "version": "0.1.0",
     "summary": "Agents and stablecoins on Arc Network through one API, from a one-line quote to enterprise payouts.",
-    "description": "Built on Arc Network and Circle's rails. Plan money moves in plain words, check them against a Fence, hand unsigned steps to the user's wallet and follow them to finality. The server never signs.\n\nAuthenticate with `Lykia-Key` (lk_live_… or lk_test_…; test keys only reach testnet) or a `Lykia-Session` from wallet sign-in. Pin behaviour with `Lykia-Version` (2026-06-01, 2026-11-01). Send `Idempotency-Key` on POSTs. Every answer carries `X-Request-Id`; every error is `{ error: { code, message, details?, requestId } }`.",
+    "description": "Built on Arc Network and Circle's rails. Plan money moves in plain words, check them against a Fence, hand unsigned steps to the user's wallet and follow them to finality. The server never holds user keys; intents come back unsigned. Optional server signers (a gas-only keeper, opt-in Circle developer-controlled wallets) are off unless the operator configures them.\n\nAuthenticate with `Lykia-Key` (lk_live_… or lk_test_…; test keys only reach testnet) or a `Lykia-Session` from wallet sign-in. Pin behaviour with `Lykia-Version` (2026-06-01, 2026-11-01). Send `Idempotency-Key` on POSTs. Every answer carries `X-Request-Id`; every error is `{ error: { code, message, details?, requestId } }`.",
     "contact": {
       "name": "Lykia",
       "url": "https://lykia-akdogan1.vercel.app"
@@ -64,6 +64,9 @@
     },
     {
       "name": "Circle"
+    },
+    {
+      "name": "Consent"
     },
     {
       "name": "Contracts"
@@ -7634,6 +7637,169 @@
         ]
       }
     },
+    "/v1/auth/mcp-token": {
+      "post": {
+        "operationId": "postAuthMcpToken",
+        "summary": "A read-only token for the MCP personal tools (memory, contacts, profile); never usable as a session",
+        "tags": [
+          "Auth"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ttlHours": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 168
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/mcp-token/revoke": {
+      "post": {
+        "operationId": "postAuthMcpTokenRevoke",
+        "summary": "Revoke an MCP read-only token",
+        "tags": [
+          "Auth"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "token"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/auth/nonce": {
       "post": {
         "operationId": "postAuthNonce",
@@ -11678,6 +11844,294 @@
             }
           }
         }
+      }
+    },
+    "/v1/consents": {
+      "get": {
+        "operationId": "getConsents",
+        "summary": "Projects the signed-in owner lets act for them",
+        "description": "A project's secret keys may act for an owner other than the key's own developer (agents, Fold, standing orders, automations, saved chat state, webhook events) only while that owner's consent is on record. Session only.",
+        "tags": [
+          "Consent"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "consents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "owner": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "developer": {
+                            "type": "string"
+                          },
+                          "projectName": {
+                            "type": "string"
+                          },
+                          "grantedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "owner",
+                          "projectId",
+                          "developer",
+                          "projectName",
+                          "grantedAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "consents"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postConsents",
+        "summary": "Let a project act for the signed-in owner",
+        "description": "Grants the project's secret keys the right to act for this owner and adds this owner's events to the project's webhooks. Session only: an API key can never grant consent.",
+        "tags": [
+          "Consent"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "owner": {
+                      "type": "string"
+                    },
+                    "projectId": {
+                      "type": "string"
+                    },
+                    "developer": {
+                      "type": "string"
+                    },
+                    "projectName": {
+                      "type": "string"
+                    },
+                    "grantedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "owner",
+                    "projectId",
+                    "developer",
+                    "projectName",
+                    "grantedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "projectId": {
+                    "type": "string",
+                    "pattern": "^prj_[a-z0-9]{12}$"
+                  }
+                },
+                "required": [
+                  "projectId"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/consents/{projectId}": {
+      "delete": {
+        "operationId": "deleteConsentsByProjectId",
+        "summary": "Revoke a project's consent",
+        "description": "The project's keys stop acting for this owner and its webhooks stop carrying this owner's events.",
+        "tags": [
+          "Consent"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^prj_[a-z0-9]{12}$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revoked": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "revoked"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ]
       }
     },
     "/v1/contracts/decode": {
@@ -20455,6 +20909,11 @@
                       "2026-06-01",
                       "2026-11-01"
                     ]
+                  },
+                  "projectId": {
+                    "type": "string",
+                    "pattern": "^prj_[a-z0-9]{12}$",
+                    "description": "Bind a secret key to one of your projects: the project's Fence and limits apply, and the key may act for owners who granted that project consent (POST /v1/consents)."
                   }
                 },
                 "required": [
@@ -23592,7 +24051,7 @@
       "post": {
         "operationId": "postMcp",
         "summary": "Model Context Protocol (streamable HTTP): plan, Scent, Flock, Fence and more as tools",
-        "description": "Point Claude Code, the Claude Agent SDK, Cursor or any MCP client at /v1/mcp with a Lykia-Key header.",
+        "description": "Point any MCP client (IDE assistants, desktop chat apps, agent SDKs) at /v1/mcp with a Lykia-Key header.",
         "tags": [
           "MCP"
         ],
@@ -25156,7 +25615,8 @@
                 "type": "object",
                 "properties": {
                   "payer": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The paying wallet. Required unless circleWalletId is given; with it, the payer is that wallet's own address."
                   },
                   "projectId": {
                     "type": "string",
@@ -25177,7 +25637,7 @@
                   "circleWalletId": {
                     "type": "string",
                     "format": "uuid",
-                    "description": "Execute from this Circle developer-controlled wallet (its address is the payer)."
+                    "description": "Opt-in servers only (LYKIA_CIRCLE_SERVER_WALLETS): execute from a Circle developer-controlled wallet you created through POST /v1/circle/wallets/agent. Its address becomes the payer; a wallet someone else created is refused."
                   },
                   "dryRun": {
                     "type": "boolean"
@@ -25223,7 +25683,6 @@
                   }
                 },
                 "required": [
-                  "payer",
                   "rows"
                 ]
               }
@@ -25581,7 +26040,8 @@
                 "type": "object",
                 "properties": {
                   "payer": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The paying wallet. Required unless circleWalletId is given; with it, the payer is that wallet's own address."
                   },
                   "projectId": {
                     "type": "string",
@@ -25602,7 +26062,7 @@
                   "circleWalletId": {
                     "type": "string",
                     "format": "uuid",
-                    "description": "Execute from this Circle developer-controlled wallet (its address is the payer)."
+                    "description": "Opt-in servers only (LYKIA_CIRCLE_SERVER_WALLETS): execute from a Circle developer-controlled wallet you created through POST /v1/circle/wallets/agent. Its address becomes the payer; a wallet someone else created is refused."
                   },
                   "dryRun": {
                     "type": "boolean"
@@ -25617,7 +26077,6 @@
                   }
                 },
                 "required": [
-                  "payer",
                   "csv"
                 ]
               }
@@ -25713,7 +26172,8 @@
     "/v1/reconcile/tick": {
       "post": {
         "operationId": "postReconcileTick",
-        "summary": "One reconciliation pass (payout receipts, invoice memos, automations)",
+        "summary": "One full background pass: standing orders, conditional orders, alerts, webhook retries, payout receipts, invoice memos and automations",
+        "description": "For external pingers on serverless hosts: send Authorization: Bearer $CRON_SECRET (or an admin session). Idempotent; ping it as often as schedules must hold.",
         "tags": [
           "Payouts"
         ],
@@ -31780,13 +32240,6 @@
                     },
                     "maxItems": 64
                   },
-                  "owners": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    },
-                    "maxItems": 1000
-                  },
                   "projects": {
                     "type": "array",
                     "items": {
@@ -31805,7 +32258,8 @@
                 },
                 "required": [
                   "url"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
           }

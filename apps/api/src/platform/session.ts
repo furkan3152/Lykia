@@ -26,6 +26,13 @@ export interface SessionClaims {
   readonly sid: string;
   readonly iat: number;
   readonly exp: number;
+  /**
+   * A narrowed token: "personal-read" tokens only read the owner's memory,
+   * contacts and profile through the MCP personal tools. They are never a
+   * session (sessionOf ignores them), so a token pasted into a third-party
+   * client cannot sign in, plan, save or change anything.
+   */
+  readonly scope?: "personal-read";
 }
 
 export interface SessionContext {
@@ -38,9 +45,9 @@ function sign(ctx: AppContext, body: string): string {
   return createHmac("sha256", purposeKey(ctx, "session")).update(`${PREFIX}.${body}`, "utf8").digest("base64url");
 }
 
-export function issueToken(ctx: AppContext, address: string, ttlMs = SESSION_TTL_MS): { readonly token: string; readonly claims: SessionClaims } {
+export function issueToken(ctx: AppContext, address: string, ttlMs = SESSION_TTL_MS, scope?: SessionClaims["scope"]): { readonly token: string; readonly claims: SessionClaims } {
   const now = ctx.clock.now();
-  const claims: SessionClaims = { sub: address.toLowerCase(), sid: `ses_${randomHex(12)}`, iat: now, exp: now + ttlMs };
+  const claims: SessionClaims = { sub: address.toLowerCase(), sid: `ses_${randomHex(12)}`, iat: now, exp: now + ttlMs, ...(scope ? { scope } : {}) };
   const body = Buffer.from(JSON.stringify(claims), "utf8").toString("base64url");
   return { token: `${PREFIX}.${body}.${sign(ctx, body)}`, claims };
 }
@@ -79,7 +86,8 @@ export async function sessionOf(ctx: AppContext, req: Request): Promise<SessionC
   let session: SessionContext | null = null;
   if (header) {
     const claims = verifyToken(ctx, header.trim());
-    if (claims && !(await ctx.store.collection("revoked_sessions").get(claims.sid))) session = { claims, address: claims.sub, roles: await rolesOf(ctx, claims.sub) };
+    // A narrowed token (scope set) is never a session.
+    if (claims && !claims.scope && !(await ctx.store.collection("revoked_sessions").get(claims.sid))) session = { claims, address: claims.sub, roles: await rolesOf(ctx, claims.sub) };
   }
   SESSIONS.set(req, session);
   return session;

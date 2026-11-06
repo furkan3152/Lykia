@@ -25,7 +25,7 @@ Every other failure throws a `LykiaError` with the API's stable `code`, the HTTP
 
 ## Plan, sign, submit
 
-The server never signs. It plans an intent, the Fence judges the plan, and the API hands out unsigned transactions. You sign them in the owner's wallet and submit the transaction hashes. On Arc, finality is deterministic, so a same-chain step is settled as soon as its receipt exists.
+The server never signs intents. It plans an intent, the Fence judges the plan, and the API hands out unsigned transactions. You sign them in the owner's wallet and submit the transaction hashes. On Arc, finality is deterministic, so a same-chain step is settled as soon as its receipt exists.
 
 ```ts
 import { createWalletClient, custom } from "viem";
@@ -77,7 +77,7 @@ If you only want the result, `agent.ask` returns the reply, the proposals and ev
 
 ### Spawn a sub-agent with a carved budget
 
-Pack writes need a `Lykia-Session` for the owner (sign in with `auth.nonce` and `auth.verify`) or a secret key with the `agents` scope.
+Pack writes need a `Lykia-Session` for the owner (sign in with `auth.nonce` and `auth.verify`), or a secret key with the `agents` scope that may act for that owner: the key's own developer address, or an owner who granted the key's project consent with `POST /v1/consents` from their own session (see docs/platform/keys-and-scopes.md).
 
 A sub-agent's Fence must sit inside its parent's Fence: every limit is equal or tighter, and every list is a subset. Its caps are reserved out of the parent's free budget.
 

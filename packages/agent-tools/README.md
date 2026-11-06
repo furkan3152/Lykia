@@ -17,6 +17,15 @@ const lykia = createLykiaExecutor({ apiKey: process.env.LYKIA_SECRET_KEY, owner:
 const { text } = await generateText({ model, tools: aiSdkTools(lykia, { jsonSchema }), maxSteps: 5, prompt });
 ```
 
+Tools that act for the owner (`spawn_agent`, `standing_order`) need a secret
+key that may act for `owner`: your own developer address, or an owner who
+granted your project consent. Bind the key to a project
+(`POST /v1/developers/keys { "label": "agent", "projectId": "prj_…" }`) and
+have each user grant consent once from their own wallet session
+(`POST /v1/consents { "projectId": "prj_…" }`, revocable with
+`DELETE /v1/consents/:projectId`). Without consent those tools answer 403;
+planning, Fence checks, quotes and reads still work.
+
 ## Tools
 
 | Tool | What it does |
@@ -49,7 +58,7 @@ Pass a list of tool names to any adapter to expose fewer tools, or
 
 ## MCP: the zero-code path
 
-Claude Code, the Claude Agent SDK, Cursor and any MCP client can use
+Any MCP client (IDE assistants, desktop chat apps, agent SDKs) can use
 Lykia's MCP server directly:
 
 ```ts

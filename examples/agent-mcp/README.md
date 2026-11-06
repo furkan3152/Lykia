@@ -13,7 +13,7 @@ whether an agent may send 25 USDC to a stranger (no: strangers need the
 allowlist) and to the owner (yes), then plans a sentence with `lykia_plan`.
 The plan comes back unsigned, with every step's Lykia fee.
 
-To use Lykia from Claude Desktop, Cursor or any other MCP client:
+To use Lykia from any MCP client (an IDE assistant, a desktop chat app or an agent SDK):
 
 ```json
 { "mcpServers": { "lykia": { "url": "https://lykia-api-akdogan1.vercel.app/v1/mcp" } } }

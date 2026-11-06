@@ -36,6 +36,8 @@ export const EXISTING_ROUTES: readonly DocumentedRoute[] = [
   r("post", "/auth/verify", "Auth", "Verify a signed SIWE message and get a session token", "public", { body: z.object({ message: z.string(), signature: z.string() }) }),
   r("get", "/auth/session", "Auth", "The current session and its roles", "session"),
   r("post", "/auth/logout", "Auth", "Revoke the current session", "session"),
+  r("post", "/auth/mcp-token", "Auth", "A read-only token for the MCP personal tools (memory, contacts, profile); never usable as a session", "session", { body: z.object({ ttlHours: z.number().int().min(1).max(168).optional() }) }),
+  r("post", "/auth/mcp-token/revoke", "Auth", "Revoke an MCP read-only token", "session", { body: z.object({ token: z.string() }) }),
   // Developers
   r("post", "/developers/register", "Developers", "Become a developer", "session", { body: z.object({ name: z.string().min(1).max(64), website: z.string().url().nullable().optional() }) }),
   r("get", "/developers/me", "Developers", "Profile, fee settings and usage", "session"),
@@ -262,7 +264,7 @@ export const EXISTING_ROUTES: readonly DocumentedRoute[] = [
   r("post", "/security/pause", "Security", "Pause an agent, venue or owner", "session", { body: z.object({}).passthrough() }),
   r("post", "/security/resume", "Security", "Lift a pause", "session", { body: z.object({}).passthrough() }),
   // MCP
-  r("post", "/mcp", "MCP", "Model Context Protocol (streamable HTTP): plan, Scent, Flock, Fence and more as tools", "key", { scope: "build", description: "Point Claude Code, the Claude Agent SDK, Cursor or any MCP client at /v1/mcp with a Lykia-Key header." }),
+  r("post", "/mcp", "MCP", "Model Context Protocol (streamable HTTP): plan, Scent, Flock, Fence and more as tools", "key", { scope: "build", description: "Point any MCP client (IDE assistants, desktop chat apps, agent SDKs) at /v1/mcp with a Lykia-Key header." }),
   r("get", "/mcp", "MCP", "MCP session stream", "key"),
   r("delete", "/mcp", "MCP", "Close an MCP session", "key"),
   // x402

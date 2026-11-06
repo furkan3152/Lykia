@@ -12,6 +12,7 @@ import type { ApiKeyScope } from "@lykia/core/api/platform";
 import type { Request } from "express";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
+import { hasConsent } from "../platform/consent.js";
 import { keyOf } from "../platform/gate.js";
 import { scopeAllows } from "../platform/scopes.js";
 import { getProject, ownProject } from "../platform/projects.js";
@@ -24,6 +25,8 @@ export interface FlowCaller {
   readonly developer: string;
   readonly project: Project | null;
   readonly via: "secret" | "session";
+  /** The key's project when it is acting for an owner through that owner's consent (chat tools, compiled programs). */
+  readonly consentProject?: string | null;
 }
 
 /** The caller of a developer flow route. `scope` is the key scope it needs. */
@@ -52,13 +55,17 @@ export async function flowCaller(ctx: AppContext, req: Request, scope: ApiKeySco
 
 /**
  * An owner's standing instructions (standing orders, alerts, agent
- * automations) are managed by the owner's own session or by a secret key
- * (server to server; the gate has already checked its scope).
+ * automations) are managed by the owner's own session, or by a secret key
+ * acting for its own developer or for an owner who granted the caller's
+ * project consent (POST /v1/consents from the owner's session).
  */
-export function actsFor(caller: FlowCaller, owner: string): boolean {
-  return caller.via === "secret" || caller.developer === owner.toLowerCase();
+export async function actsFor(ctx: AppContext, caller: FlowCaller, owner: string): Promise<boolean> {
+  if (caller.developer === owner.toLowerCase()) return true;
+  if (caller.via !== "secret") return false;
+  const projectId = caller.project?.id ?? caller.consentProject ?? null;
+  return projectId !== null && (await hasConsent(ctx, owner, projectId));
 }
 
-export function assertActsFor(caller: FlowCaller, owner: string): void {
-  if (!actsFor(caller, owner)) throw new LykiaHttpError("FORBIDDEN", 403, "Only the owner (or a secret key) can change that.");
+export async function assertActsFor(ctx: AppContext, caller: FlowCaller, owner: string): Promise<void> {
+  if (!(await actsFor(ctx, caller, owner))) throw new LykiaHttpError("FORBIDDEN", 403, "Only the owner, or a project key the owner granted consent to (POST /v1/consents), can change that.");
 }

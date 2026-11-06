@@ -20,7 +20,6 @@ import { openSse } from "../http/sse.js";
 import { evmAddress, parseBody, parseParams, txHash } from "../http/validate.js";
 import { fenceForProfile, projectFence, tightenFence } from "@lykia/core";
 import { countProject, integratorFeeOf, projectOf } from "../platform/projects.js";
-import { agentServices } from "../agents/index.js";
 import { memoryService } from "../personal/memory.js";
 import { screenAddress } from "../circle/compliance.js";
 import { deviationBps, pythPrices } from "../oracles/pyth.js";
@@ -30,7 +29,10 @@ import { getProfile } from "../personal/profile.js";
 import { readWithMemory } from "../personal/reader.js";
 import { services } from "../services.js";
 import { securityPostflight, securityPreflight } from "../security/index.js";
-import { actionsFrom, environmentOf, environmentSchema, fenceFrom } from "./common.js";
+import { actionsFrom, environmentOf, environmentSchema, fenceFrom, ownerProof } from "./common.js";
+import { keyOf } from "../platform/gate.js";
+import { sessionOf } from "../platform/session.js";
+import { typedCollection } from "../platform/typed.js";
 
 const POLL_INTERVAL_MS = 15_000;
 const IdParams = z.object({ id: z.string().regex(/^out_[A-Za-z0-9_-]{6,32}$/u) });
@@ -56,6 +58,7 @@ const pollers = new WeakMap<AppContext, NodeJS.Timeout>();
 export const intentsModule: ApiModule = {
   name: "intents",
   register(router, ctx) {
+    const creators = typedCollection<{ creator: string }>(ctx, "intent_creators");
     router.post("/intents", ctx.limits.heavy, async (req, res) => {
       const body = parseBody(req, createSchema);
       let actions;
@@ -122,11 +125,14 @@ export const intentsModule: ApiModule = {
         preferences: { favorites: profile.venues.favorites, blocked: profile.venues.blocked, maxRisk: profile.risk },
         ...(integratorFeeOf(project) ? { integrator: integratorFeeOf(project) } : {}),
       });
-      if (project) {
-        await countProject(ctx, project.id, "plans").catch(() => undefined);
-        if (project.webhookId) await agentServices(ctx).webhooks.addOwner(project.owner, project.webhookId, owner).catch(() => false);
+      // A project key never subscribes the named owner to the project's webhook: that takes the owner's consent (POST /v1/consents).
+      if (project) await countProject(ctx, project.id, "plans").catch(() => undefined);
+      if (result.stored) {
+        await memoryService(ctx).record(owner, result.intent, { source, actions }).catch(() => null);
+        // Who planned it (a key's developer or a signed-in address): besides the owner, only they may stop it.
+        const creator = keyOf(req)?.owner ?? (await sessionOf(ctx, req))?.address ?? null;
+        if (creator) await creators.put(result.intent.id, { creator: creator.toLowerCase() }, { ttlMs: 30 * 86_400_000 }).catch(() => undefined);
       }
-      if (result.stored) await memoryService(ctx).record(owner, result.intent, { source, actions }).catch(() => null);
       const contactNotes = confirmContacts.map((c) => `${c.name} (${c.address}) comes from memory and has no confirmed send yet: confirm the first payment yourself.`);
       const extra = { ...(memoryNote ? { memory: memoryNote } : {}), ...(confirmContacts.length > 0 ? { confirmContacts } : {}), ...(notes.length + contactNotes.length > 0 ? { notes: [...notes, ...contactNotes] } : {}) };
       res.status(result.stored ? 201 : 200).json({ ...result, ...extra });
@@ -165,8 +171,16 @@ export const intentsModule: ApiModule = {
       res.json({ stepId: sid, ...entry, note: entry.forwarded ? "Circle's Forwarding Service minted on the destination; nothing to do." : "Call receiveMessage(message, attestation) on the destination MessageTransmitterV2 to mint, or let any relayer do it." });
     });
 
+    // Stopping is the owner's call (session, or a key that may act for the owner), or whoever planned it.
+    // Submitting needs no such proof: every hash is checked on Arc against the prepared, bound transaction.
     router.post("/intents/:id/stop", async (req, res) => {
       const { id } = parseParams(req, IdParams);
+      const { intent } = await services(ctx).intents.get(id);
+      if (!(await ownerProof(ctx, req, intent.owner))) {
+        const caller = keyOf(req)?.owner ?? (await sessionOf(ctx, req))?.address ?? null;
+        const planned = (await creators.get(id))?.value.creator ?? null;
+        if (!caller || caller.toLowerCase() !== planned) throw new LykiaHttpError(caller ? "FORBIDDEN" : "UNAUTHORIZED", caller ? 403 : 401, "Only the plan's owner (Lykia-Session) or whoever planned it can stop it.");
+      }
       res.json(await services(ctx).intents.stop(id));
     });
 
