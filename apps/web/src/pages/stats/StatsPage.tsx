@@ -41,7 +41,7 @@ export default function StatsPage() {
           <Stat label="ACCOUNTS CREATED" value={s ? n(s.onchain.accountsCreated) : "…"} hint="LykiaAccount factory" />
           <Stat label="SETTLED STEPS" value={s ? n(s.onchain.memoSteps) : "…"} hint="each with an Arc Memo" />
           <Stat label="VALUE ROUTED" value={s ? `$${Number(s.routed.usd).toLocaleString("en-US")}` : "…"} hint={s ? `${s.routed.intents} plans` : undefined} />
-          <Stat label="ROUTABLE PROTOCOLS" value={s ? n(s.ecosystem.routable) : "…"} hint={s ? `${s.ecosystem.protocols} in the registry` : undefined} />
+          <Stat label="ROUTABLE VENUES" value={s ? n(s.ecosystem.routable) : "…"} hint={s ? `${s.ecosystem.protocols} protocols mapped on Arc` : undefined} />
         </div>
         <div className="m-grid-4" style={{ marginTop: 12 }}>
           <Stat label="DEVELOPER KEYS" value={s ? n(s.platform.developerKeys) : "…"} />

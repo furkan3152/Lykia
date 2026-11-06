@@ -20,7 +20,7 @@ and links each one to its official entry on https://www.arc.io/ecosystem.
 | Part | What it means | Where it shows |
 |---|---|---|
 | Built on Circle's rails | USDC is Arc's gas and Lykia's unit of account. CCTP, Gateway, StableFX, Circle Wallets, Compliance screening, the x402 facilitator and the Agent Marketplace do the moving; Lykia uses every one that is live on Arc. | `GET /v1/circle/status`, the Circle quay on `/ecosystem` |
-| Routing value to every Arc protocol | Every protocol on Arc is in the registry. Lykia compares the routable ones for each move and records why it chose one. Teams can integrate in an afternoon. | `GET /v1/ecosystem`, `/ecosystem`, `docs/integrate-your-protocol.md` |
+| Mapping every Arc protocol, routing through the executable ones | Every protocol on Arc is in the registry, marked routable, read-only or mapped. Only venues with an executable adapter are routable; Lykia compares them for each move and records why it chose one. Teams can integrate in an afternoon. | `GET /v1/ecosystem`, `/ecosystem`, `docs/integrate-your-protocol.md` |
 | Keeping every agent inside its Fence | The Fence checks every step before it can be signed: caps, recipients, venues, tokens, health factor, FX band, token checks and the Whistle (emergency stop). Each verdict is filed as an ERC-8354 policy attestation. | `docs/fence.md`, `POST /v1/fence/evaluate` |
 
 ## Words to use

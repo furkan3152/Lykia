@@ -134,7 +134,7 @@ A two-column workspace: the Fold bar and five tabs on the left (keys 1 to
 
 **Your Lyko** (`/app/you`) is the preferences page the memory never had: risk
 profile, liquidity floor, target mix with a band, gas floor, which insights to
-show and how to be told, the reply language and the Fold's own layout (tabs
+show and how to be told, and the Fold's own layout (tabs
 and bar cards, shown, hidden and ordered). Each setting says what it changes.
 They live on the server (`GET/PUT /v1/me/preferences`); the risk profile is
 written through to the profile, so the default Fence follows it everywhere.

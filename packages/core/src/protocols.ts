@@ -96,3 +96,44 @@ export function protocolsAt(address: string, environment: ArcEnvironment): { rea
   }
   return out;
 }
+
+/* ------------------------------------------------------------ coverage */
+
+/**
+ * What Lykia can do with a registry entry today:
+ * - routable: the engine has an executable adapter, so Lykia plans, checks and signs through it;
+ * - read-only: contracts verified on Arc, so prices and positions can be read, but no adapter executes;
+ * - mapped: in the registry (announced or listed on arc.io/ecosystem), nothing verified on chain yet.
+ * The registry maps everything known on Arc (tokens, bridges, oracles, infra, launchpads,
+ * protocols without adapters); only the routable subset can be part of a plan.
+ */
+export type ProtocolCoverage = "routable" | "read-only" | "mapped";
+
+export const COVERAGE_LABELS: Readonly<Record<ProtocolCoverage, string>> = { routable: "ROUTABLE", "read-only": "READ-ONLY", mapped: "MAPPED" };
+
+export function coverageOf(protocol: ProtocolDescriptor, environment: ArcEnvironment, executable: ReadonlySet<string>): ProtocolCoverage {
+  if (executable.has(protocol.id) && isLive(protocol, environment)) return "routable";
+  return isLive(protocol, environment) ? "read-only" : "mapped";
+}
+
+export interface RegistryCoverage {
+  /** Every registry entry on the network (routable + read-only + mapped). */
+  readonly protocols: number;
+  /** Contracts verified on chain (routable + read-only). */
+  readonly verified: number;
+  readonly routable: number;
+  readonly readOnly: number;
+  readonly mapped: number;
+}
+
+/** The counts, computed from the registry and the engine's executable set; never hard-coded. */
+export function registryCoverage(environment: ArcEnvironment, executable: ReadonlySet<string>): RegistryCoverage {
+  const rows = protocolsFor(environment);
+  const by = (c: ProtocolCoverage) => rows.filter((p) => coverageOf(p, environment, executable) === c).length;
+  return { protocols: rows.length, verified: rows.filter((p) => isLive(p, environment)).length, routable: by("routable"), readOnly: by("read-only"), mapped: by("mapped") };
+}
+
+/** "9 venues Lykia can route through today · 94 protocols mapped on Arc". */
+export function coverageLine(counts: Pick<RegistryCoverage, "routable" | "protocols">): string {
+  return `${counts.routable} venue${counts.routable === 1 ? "" : "s"} Lykia can route through today · ${counts.protocols} protocol${counts.protocols === 1 ? "" : "s"} mapped on Arc`;
+}

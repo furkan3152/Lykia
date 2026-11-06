@@ -1,11 +1,12 @@
 /**
  * Your Lyko: how Lyko decides and speaks for you, and what it remembers.
  * Preferences (risk profile, liquidity floor, target mix, gas floor, which
- * insights to show and how to be told, the reply language and the Fold's
- * own layout) live on the server beside your memory; each one says what it
- * changes. Voice and look, and Memory, are the other two tabs.
+ * insights to show and how to be told, and the Fold's own layout) live on
+ * the server beside your memory; each one says what it changes. Lyko always
+ * replies in English and understands any language, so there is no language
+ * setting. Voice and look, and Memory, are the other two tabs.
  */
-import { DEFAULT_FOLD_PREFERENCES, FOLD_CARDS, FOLD_INSIGHT_KINDS, FOLD_INSIGHT_NAMES, FOLD_TABS, foldPreferenceEffects, LANGUAGE_NAMES, REPLY_LANGUAGES, type FoldCard, type FoldInsightKind, type FoldPreferences, type FoldRisk, type FoldTab } from "@lykia/core";
+import { DEFAULT_FOLD_PREFERENCES, FOLD_CARDS, FOLD_INSIGHT_KINDS, FOLD_INSIGHT_NAMES, FOLD_TABS, foldPreferenceEffects, type FoldCard, type FoldInsightKind, type FoldPreferences, type FoldRisk, type FoldTab } from "@lykia/core";
 import React, { useEffect, useMemo, useState } from "react";
 
 import { navigate } from "../../app/routes/history";
@@ -160,14 +161,6 @@ function Preferences() {
             {(["live", "daily", "weekly"] as const).map((c) => <button key={c} type="button" role="radio" aria-checked={draft.insights.cadence === c} onClick={() => set("insights", { ...draft.insights, cadence: c })}>{c === "live" ? "as it happens" : c === "daily" ? "once a day" : "once a week"}</button>)}
           </div>
           <Effect text={effects.insights} />
-        </section>
-
-        <section className="fd-card m-frame m-frame--thin" aria-labelledby="lang-h">
-          <header className="fd-card__head"><h3 id="lang-h">{"Reply language"}</h3><span className="m-kick">{"THE APP STAYS IN ENGLISH"}</span></header>
-          <select className="m-select" value={draft.replyLanguage} onChange={(e) => set("replyLanguage", e.target.value as FoldPreferences["replyLanguage"])} aria-label="Reply language">
-            {REPLY_LANGUAGES.map((l) => <option key={l} value={l}>{l === "auto" ? "The language I write in" : LANGUAGE_NAMES[l]}</option>)}
-          </select>
-          <Effect text={effects.replyLanguage} />
         </section>
 
         <section className="fd-card m-frame m-frame--thin yl-span3" aria-labelledby="layout-h">

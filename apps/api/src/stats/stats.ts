@@ -13,7 +13,7 @@
  * Every number says where it comes from; a number that could not be read is
  * null, never zero. Cached for five minutes in memory (no timers).
  */
-import { isLive, PROTOCOLS, type ArcEnvironment, type IntentGraph } from "@lykia/core";
+import { registryCoverage, type ArcEnvironment, type IntentGraph } from "@lykia/core";
 import type { AppContext } from "../context.js";
 import { EXECUTABLE_VENUES } from "../engine/adapters.js";
 import { routedVolume } from "../ecosystem/ecosystem.js";
@@ -33,7 +33,8 @@ export interface StatsResponse {
   };
   readonly routed: { readonly intents: number; readonly steps: number; readonly usd: string; readonly window: string };
   readonly platform: { readonly developerKeys: number | null; readonly integrators: number | null; readonly agents: number | null; readonly capped: boolean };
-  readonly ecosystem: { readonly protocols: number; readonly verified: number; readonly routable: number };
+  /** Registry counts (core registryCoverage): mapped on Arc, verified, routable, read-only, mapped only. */
+  readonly ecosystem: { readonly protocols: number; readonly verified: number; readonly routable: number; readonly readOnly: number; readonly mapped: number };
   readonly circle: { readonly productsUsed: readonly string[] };
   readonly sources: Readonly<Record<string, string>>;
   readonly at: string;
@@ -86,7 +87,6 @@ export async function publicStats(ctx: AppContext, environment: ArcEnvironment):
     countOf(ctx, "verdict_index"),
   ]);
   const executable = EXECUTABLE_VENUES[environment];
-  const listed = PROTOCOLS.filter((p) => p.deployments[environment] !== undefined);
   const cents = Object.values(volume.byVenue).reduce((n, r) => n + r.cents, 0);
   const routedSteps = Object.values(volume.byVenue).reduce((n, r) => n + r.steps, 0);
   const capped = [keys, projects, agents, verdicts].some((v) => v === SCAN_LIMIT);
@@ -95,7 +95,7 @@ export async function publicStats(ctx: AppContext, environment: ArcEnvironment):
     onchain: { contracts: deployments.map((d) => ({ name: d.name, address: d.address })), accountsCreated, memoSteps: steps, verdictsIndexed: verdicts },
     routed: { intents: volume.intents, steps: routedSteps, usd: (cents / 100).toFixed(2), window: "Intents kept by the API (30 days)" },
     platform: { developerKeys: keys, integrators: projects, agents, capped },
-    ecosystem: { protocols: listed.length, verified: listed.filter((p) => isLive(p, environment)).length, routable: listed.filter((p) => executable.has(p.id)).length },
+    ecosystem: registryCoverage(environment, executable),
     circle: { productsUsed: ["USDC", "EURC", "CCTP V2", "Gateway", "StableFX", "Developer-controlled wallets", "Agent Wallets policies", "Gas Station", "Compliance Engine", "x402 Facilitator", "Agent Marketplace"] },
     sources: {
       contracts: "Deployments recorded by the owner console, each verified with eth_getCode",

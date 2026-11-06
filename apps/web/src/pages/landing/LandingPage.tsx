@@ -249,7 +249,7 @@ export default function LandingPage() {
         <div className="m-center">
           <span className="m-kick">{"POWERED BY CIRCLE"}</span>
           <h2 id="better-together" className="m-h2" style={{ marginTop: 8 }}>{"Better together with Circle"}</h2>
-          <p className="m-sub" style={{ marginTop: 8 }}>{"Wherever Circle already runs something, Lykia uses it instead of rebuilding it, and adds what an agent still needs on top: routing to every Arc protocol and a Fence that understands DeFi."}</p>
+          <p className="m-sub" style={{ marginTop: 8 }}>{"Wherever Circle already runs something, Lykia uses it instead of rebuilding it, and adds what an agent still needs on top: routing across the Arc venues it has executable adapters for, and a Fence that understands DeFi."}</p>
         </div>
         <ul className="together" aria-label="Which Circle product each Lykia feature uses">
           {TOGETHER.map(([feature, product, line]) => (

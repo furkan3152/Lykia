@@ -63,8 +63,9 @@ most three facts with numbers; then one next step. No greeting, no filler.
 API paths, SDK names and core types (`scent`, `pack`, `whistle`, `outrun`)
 are part of the public API and do not change with the labels.
 
-The interface is English only. The deterministic reader understands English
-sentences; with the model on, Lyko replies in the language the user writes in.
+The interface is English only, and so is Lyko: it always replies in English,
+whatever language the owner writes in. The model reads any language; the
+deterministic reader reads English and common Turkish phrasings.
 
 ## The League
 

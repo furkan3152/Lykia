@@ -17105,7 +17105,7 @@
       },
       "get": {
         "operationId": "getMePreferences",
-        "summary": "Your Lyko: risk profile, liquidity floor, target mix, gas floor, insights and notifications, reply language and the Fold's layout, with the effect of each",
+        "summary": "Your Lyko: risk profile, liquidity floor, target mix, gas floor, insights and notifications and the Fold's layout, with the effect of each",
         "tags": [
           "Fold"
         ],

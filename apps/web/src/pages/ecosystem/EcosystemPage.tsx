@@ -1,22 +1,24 @@
 /**
- * /ecosystem: the Arc ecosystem Lykia brings together. Circle's products are
- * the quay; every Arc protocol is a stall along it, with what Lykia does
- * with it, its TVL on Arc and the value Lykia has routed to it. Data from
+ * /ecosystem: the Arc ecosystem Lykia maps. Circle's products are the quay;
+ * every registry entry is a stall along it, marked routable (an executable
+ * adapter), read-only (verified, readable) or mapped (listed only), with its
+ * TVL on Arc and the value Lykia has routed to it. Data from
  * GET /v1/ecosystem, which any site may read and embed.
  */
 import { useMemo, useState } from "react";
 
 import { Link } from "../../app/routes/Link";
-import { CircleQuay, EcosystemStats, PartnerStalls } from "../../features/ecosystem/Harbour";
-import { ARC_ECOSYSTEM_DIRECTORY, POSITIONING } from "../../features/ecosystem/model";
+import { CircleQuay, CoverageLine, EcosystemStats, PartnerStalls } from "../../features/ecosystem/Harbour";
+import { ARC_ECOSYSTEM_DIRECTORY, COVERAGE_MEANING, POSITIONING } from "../../features/ecosystem/model";
 import { useEcosystem } from "../../features/ecosystem/useEcosystem";
 import { API_BASE } from "../../lib/env";
 import { Card, MeanderBand } from "../../mosaic";
 
 const FILTERS = [
   ["all", "EVERY PROTOCOL"],
-  ["routes", "ROUTABLE ON LYKIA"],
-  ["verified", "VERIFIED ON ARC"],
+  ["routes", "ROUTABLE"],
+  ["reads", "READ-ONLY"],
+  ["lists", "MAPPED"],
   ["lending", "LENDING"],
   ["dex", "DEX"],
   ["vault", "VAULTS"],
@@ -31,7 +33,7 @@ export default function EcosystemPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const data = useMemo(() => {
     if (!q.data) return undefined;
-    const keep = q.data.protocols.filter((p) => (filter === "all" ? true : filter === "routes" ? p.lykia === "routes" : filter === "verified" ? p.status === "verified" : p.category === filter));
+    const keep = q.data.protocols.filter((p) => (filter === "all" ? true : filter === "routes" || filter === "reads" || filter === "lists" ? p.lykia === filter : p.category === filter));
     return { ...q.data, protocols: keep };
   }, [q.data, filter]);
   const api = API_BASE;
@@ -44,13 +46,14 @@ export default function EcosystemPage() {
       <header className="m-head m-wrap">
         <span className="m-kick">{"THE MINT · HARBOUR · ECOSYSTEM"}</span>
         <h1 className="m-title">
-          Every Arc protocol, <em>one route away.</em>
+          Every Arc protocol mapped, <em>the routable ones one route away.</em>
         </h1>
         <p className="m-sub">{POSITIONING}</p>
+        <CoverageLine data={q.data} className="m-kick eco-coverage" />
         <p className="m-small" style={{ marginTop: 10 }}>
           {"The full list of who builds on Arc lives in the official "}
           <a href={ARC_ECOSYSTEM_DIRECTORY} target="_blank" rel="noreferrer noopener">{"Arc ecosystem directory"}</a>
-          {". This page shows which of those protocols are routable on Lykia, and links each one to its Arc entry."}
+          {". The registry maps everything known on Arc: tokens, bridges, oracles, infrastructure and protocols without an adapter. Only the venues with an executable adapter are routable; each card says which it is and links to its Arc entry."}
         </p>
       </header>
 
@@ -68,8 +71,13 @@ export default function EcosystemPage() {
       <section className="m-wrap" style={{ marginTop: 32 }} aria-labelledby="eco-stalls">
         <div className="m-center">
           <span className="m-kick">{"PROTOCOLS ON ARC"}</span>
-          <h2 id="eco-stalls" className="m-h2" style={{ marginTop: 8 }}>{"Routable, read or listed"}</h2>
-          <p className="m-small m-muted" style={{ marginTop: 8 }}>{"ROUTABLE ON LYKIA: Lykia plans, checks and executes through it. READ: prices and positions show in your portfolio. LISTED: in the registry, routable as soon as an adapter lands. Each card links to the protocol's official Arc ecosystem entry where one exists."}</p>
+          <h2 id="eco-stalls" className="m-h2" style={{ marginTop: 8 }}>{"Routable, read-only or mapped"}</h2>
+          <dl className="eco-legend m-small">
+            <div><dt>{"ROUTABLE"}</dt><dd>{COVERAGE_MEANING.routes}</dd></div>
+            <div><dt>{"READ-ONLY"}</dt><dd>{COVERAGE_MEANING.reads}</dd></div>
+            <div><dt>{"MAPPED"}</dt><dd>{COVERAGE_MEANING.lists}</dd></div>
+          </dl>
+          <p className="m-small m-muted" style={{ marginTop: 8 }}>{"Each card links to the protocol's official Arc ecosystem entry where one exists. Circle's own rails (USDC transfers, Gateway) are on the quay above."}</p>
         </div>
         <div className="eco-filters" role="group" aria-label="Filter protocols">
           {FILTERS.map(([key, label]) => (

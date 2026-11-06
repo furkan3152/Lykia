@@ -4,6 +4,7 @@
 @import "./city-desk.css";
 @import "./nav.css";
 @import "./chat.css";
+@import "./review.css";
 
 @tailwind base;
 @tailwind components;

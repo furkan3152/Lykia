@@ -12,6 +12,8 @@ export interface ChatActions {
   readonly retry?: () => void;
   /** Open a proposal's route (the artifact panel). */
   readonly openRoute?: (p: AgentProposal) => void;
+  /** Open the review-and-sign modal over the conversation. */
+  readonly openReview?: (p: AgentProposal) => void;
   readonly environment: ArcEnvironment;
 }
 

@@ -1,14 +1,12 @@
 /**
  * The route artifact: the outrun drawn as a harbor scene, the Fence seal
- * with every reason, the stops with "why this route", and one-signature
- * execution per step in the owner's wallet.
+ * with every reason and the stops with "why this route". Signing happens in
+ * one place, the review modal (ReviewModal.tsx): one "Review and sign"
+ * button opens it here, in the Fold's draft sheet and on the Pay page.
  */
-import type { CreateIntentResponse, SubmitStepResponse } from "@lykia/core/api/intents";
 import type { AgentProposal } from "@lykia/core/api/agents";
-import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
-import { Link } from "../../app/routes/Link";
 import { useLykiaStore } from "../../lib/lykiaStore";
 import { useLamp } from "../../lib/pulseStore";
 import { Button, Seal, Skeleton, Tag, cx } from "../../mosaic";
@@ -17,18 +15,15 @@ import { BetaRibbon } from "../ecosystem/BetaRibbon";
 import { SceneFrame } from "../scenes/SceneFrame";
 import { artifactView, pct } from "./model";
 import { useIntent } from "./useIntent";
-import { useStepRunner } from "./useStepRunner";
-import { SecurityBlock } from "../security/SecurityBlock";
+import { ReviewModal } from "./ReviewModal";
 
-export function RouteArtifact({ proposal, intentId, onClose }: { proposal?: AgentProposal | null; intentId: string | null; onClose?: () => void }) {
+export function RouteArtifact({ proposal, intentId, onClose, onReview }: { proposal?: AgentProposal | null; intentId: string | null; onClose?: () => void; onReview?: () => void }) {
   const query = useIntent(intentId);
-  const qc = useQueryClient();
   const lit = useLamp();
   const setLastOutrun = useLykiaStore((s) => s.setLastOutrun);
-  const [confirmed, setConfirmed] = useState(false);
-  const runner = useStepRunner(intentId, (r: SubmitStepResponse) => {
-    qc.setQueryData<CreateIntentResponse>(["intent", intentId], (old) => (old ? { ...old, outrun: r.outrun, intent: { ...old.intent, steps: old.intent.steps.map((s) => (s.id === r.step.id ? r.step : s)) } } : old));
-  });
+  // Where no host page owns the modal (the Fold's draft sheet, Pay), the artifact opens its own.
+  const [reviewing, setReviewing] = useState(false);
+  const review = onReview ?? (() => setReviewing(true));
   useEffect(() => {
     if (intentId) setLastOutrun(intentId);
   }, [intentId, setLastOutrun]);
@@ -123,23 +118,10 @@ export function RouteArtifact({ proposal, intentId, onClose }: { proposal?: Agen
                     explorer ↗
                   </a>
                 ))}
-                {s.turn === "signer" && view.signable ? (
-                  <div style={{ marginTop: 10 }}>
-                    <Button size="sm" onClick={() => void runner.run(s.id, confirmed)} disabled={runner.phase[s.id] === "preparing" || runner.phase[s.id] === "signing" || runner.phase[s.id] === "submitting" || (view.decision === "confirm" && !confirmed)}>
-                      {runner.phase[s.id] === "signing" ? "SIGN IN WALLET…" : runner.phase[s.id] === "submitting" ? "CHECKING ARC…" : runner.phase[s.id] === "preparing" ? "PREPARING…" : runner.connected ? "SIGN ONCE" : "CONNECT TO SIGN"}
-                    </Button>
-                    <SecurityBlock report={runner.security[s.id]} />
-                    {runner.walletKind === "passkey" ? <p className="m-small m-muted" style={{ marginTop: 6 }}>Your passkey wallet sends this step as one user operation through Circle's bundler; Lykia verifies it on Arc by its user operation hash.</p> : null}
-                  </div>
-                ) : null}
+                {s.turn === "signer" && view.signable ? <Tag tone="sea">{"NEXT TO SIGN"}</Tag> : null}
               </div>
             ))}
           </div>
-          {view.decision === "confirm" ? (
-            <label className="m-note" style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} /> I read the Fence's lines and confirm this plan.
-            </label>
-          ) : null}
           {view.fold.length > 0 ? <p className="m-kick" style={{ marginTop: 14, textAlign: "center" }}>FOLD · {view.fold.join(" · ")}</p> : null}
           {view.fees.length > 0 ? <p className="m-small m-muted" style={{ marginTop: 6, textAlign: "center" }}>Lykia fee for this plan · {view.fees.join(" · ")} · repay and withdrawals home are free</p> : null}
           {view.warnings.map((w) => (
@@ -147,11 +129,13 @@ export function RouteArtifact({ proposal, intentId, onClose }: { proposal?: Agen
               {w}
             </p>
           ))}
-          <div className="flex justify-center" style={{ marginTop: 14 }}>
-            <Link to={`/app/outrun/${encodeURIComponent(view.id)}`} className="m-btn m-btn--ghost m-btn--sm">
-              OPEN THE OUTRUN
-            </Link>
-          </div>
+          {view.signable && view.next ? (
+            <div className="flex justify-center" style={{ marginTop: 14 }}>
+              <Button size="lg" onClick={review}>
+                {view.settled > 0 ? "Review and sign the next step" : "Review and sign"}
+              </Button>
+            </div>
+          ) : null}
         </>
       ) : intentId && query.isLoading ? (
         <div style={{ display: "grid", gap: 8 }}>
@@ -180,6 +164,7 @@ export function RouteArtifact({ proposal, intentId, onClose }: { proposal?: Agen
           ) : null}
         </div>
       ) : null}
+      {!onReview && intentId ? <ReviewModal key={intentId} intentId={intentId} proposal={proposal ?? null} open={reviewing} onClose={() => setReviewing(false)} /> : null}
     </div>
   );
 }

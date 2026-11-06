@@ -1,3 +1,5 @@
+import { coverageLine } from "@lykia/core";
+
 /** GET /v1/ecosystem, as the web reads it. */
 export interface EcosystemProtocolView {
   readonly id: string;
@@ -19,14 +21,20 @@ export interface EcosystemView {
   readonly positioning: string;
   readonly directory?: { readonly url: string; readonly note: string };
   readonly protocols: readonly EcosystemProtocolView[];
-  readonly totals: { readonly protocols: number; readonly verified: number; readonly routable: number; readonly tvlUsd: number | null; readonly routed: { readonly intents: number; readonly steps: number; readonly usd: string; readonly window: string } };
+  /** protocols = every registry entry mapped on Arc; routable = venues with an executable adapter. */
+  readonly totals: { readonly protocols: number; readonly verified: number; readonly routable: number; readonly readOnly?: number; readonly mapped?: number; readonly summary?: string; readonly tvlUsd: number | null; readonly routed: { readonly intents: number; readonly steps: number; readonly usd: string; readonly window: string } };
   readonly circle: readonly { readonly id: string; readonly name: string; readonly state: string; readonly lykia: string; readonly docs: string }[];
   readonly pulse: { readonly block: number; readonly blockTimeMs: number | null; readonly tps: number | null; readonly transferCostUsd: string | null } | null;
   readonly builders: { readonly freeTier: { readonly perMinute: number; readonly perDay: number }; readonly x402: { readonly mode: string; readonly note: string } };
   readonly sources: { readonly tvl: string; readonly tvlAt: string | null };
 }
 
-export const POSITIONING = "Built on Arc Network and Circle's products: every Arc protocol routable on Lykia, every agent inside its Fence.";
+export const POSITIONING = "Built on Arc Network and Circle's products: every Arc protocol mapped, the ones with an executable adapter routable on Lykia, and every agent inside its Fence.";
+
+/** "9 venues Lykia can route through today · 94 protocols mapped on Arc", computed from the API's registry counts. */
+export function coverageSummary(totals: EcosystemView["totals"] | undefined): string | null {
+  return totals ? coverageLine(totals) : null;
+}
 
 /** The official Arc ecosystem directory; Lykia links to it rather than competing with it. */
 export const ARC_ECOSYSTEM_DIRECTORY = "https://www.arc.io/ecosystem";
@@ -39,10 +47,17 @@ export function usdShort(value: number | null): string {
   return `$${Math.round(value)}`;
 }
 
+/** What each status means, in the words every page uses. */
+export const COVERAGE_MEANING: Readonly<Record<EcosystemProtocolView["lykia"], string>> = {
+  routes: "Lykia has an executable adapter: it plans, checks and signs through it.",
+  reads: "Contracts verified on Arc: prices and positions show in your portfolio, but Lykia does not execute through it yet.",
+  lists: "Mapped in the registry from the Arc ecosystem; nothing verified on chain yet, so Lykia neither reads nor routes it.",
+};
+
 export const LYKIA_ROLE: Readonly<Record<EcosystemProtocolView["lykia"], { readonly label: string; readonly tone: "ok" | "sea" | "ghost" }>> = {
-  routes: { label: "ROUTABLE ON LYKIA", tone: "ok" },
-  reads: { label: "READ", tone: "sea" },
-  lists: { label: "LISTED", tone: "ghost" },
+  routes: { label: "ROUTABLE", tone: "ok" },
+  reads: { label: "READ-ONLY", tone: "sea" },
+  lists: { label: "MAPPED", tone: "ghost" },
 };
 
 /** Circle product states, in plain words. */

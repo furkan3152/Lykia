@@ -76,7 +76,7 @@ export function serviceManifest(ctx: AppContext, origin: string) {
   return {
     x402Version: 2,
     name: "Lykia",
-    description: "Fence checks, token Scent and route quotes for agents on Arc Network. Built on Circle's rails, routing value to every Arc protocol, keeping every agent inside its Fence.",
+    description: "Fence checks, token Scent and route quotes for agents on Arc Network. Built on Circle's rails, routing value through every Arc venue with an executable adapter (every other Arc protocol is mapped), keeping every agent inside its Fence.",
     provider: { name: "Lykia", url: origin.replace("lykia-api-", "lykia-"), category: "DeFi infrastructure" },
     enabled: payTo !== null,
     payTo,
@@ -141,7 +141,7 @@ export function openApi(ctx: AppContext, origin: string) {
   paths["/v1/health"] = { get: { operationId: "health", summary: "Service health and features", tags: ["public"], responses: { "200": { description: "Health." } } } };
   return {
     openapi: "3.1.0",
-    info: { title: "Lykia API", version: ctx.config.version, description: "Built on Circle's rails, routing value to every Arc protocol, keeping every agent inside its Fence. Paid routes take USDC on Arc over x402.", contact: { name: "Lykia", url: origin.replace("lykia-api-", "lykia-") } },
+    info: { title: "Lykia API", version: ctx.config.version, description: "Built on Circle's rails, routing value through every Arc venue with an executable adapter (every other Arc protocol is mapped), keeping every agent inside its Fence. Paid routes take USDC on Arc over x402.", contact: { name: "Lykia", url: origin.replace("lykia-api-", "lykia-") } },
     servers: [{ url: origin }],
     tags: [{ name: "x402", description: "Pay per call in USDC on Arc." }, { name: "public", description: "Free, no key." }],
     paths,

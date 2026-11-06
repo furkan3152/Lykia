@@ -5447,7 +5447,7 @@
           }
         },
         {
-          "name": "Your Lyko: risk profile, liquidity floor, target mix, gas floor, insights and notifications, reply language and the Fold's layout, with the effect of each",
+          "name": "Your Lyko: risk profile, liquidity floor, target mix, gas floor, insights and notifications and the Fold's layout, with the effect of each",
           "request": {
             "method": "GET",
             "header": [
@@ -5471,7 +5471,7 @@
                 "preferences"
               ]
             },
-            "description": "Your Lyko: risk profile, liquidity floor, target mix, gas floor, insights and notifications, reply language and the Fold's layout, with the effect of each\n\nAuth: session."
+            "description": "Your Lyko: risk profile, liquidity floor, target mix, gas floor, insights and notifications and the Fold's layout, with the effect of each\n\nAuth: session."
           }
         },
         {

@@ -20,7 +20,8 @@ export const WIDGETS = ["flock", "insights", "outruns", "pack", "pulse", "standi
 export type Widget = (typeof WIDGETS)[number];
 
 export interface Profile {
-  readonly language: "auto" | "en" | "tr";
+  /** Always "en": Lyko replies in English and reads any language. Older stored values load as "en". */
+  readonly language: "en";
   readonly currency: Currency;
   readonly network: "mainnet" | "testnet";
   readonly theme: Theme;
@@ -40,7 +41,7 @@ export interface Profile {
 }
 
 export const DEFAULT_PROFILE: Profile = {
-  language: "auto",
+  language: "en",
   currency: "USD",
   network: "mainnet",
   theme: "day",
@@ -67,7 +68,7 @@ export function sanitizeProfile(raw: unknown): Profile {
   const pick = <T>(value: unknown, allowed: readonly T[], fallback: T): T => (allowed.includes(value as T) ? (value as T) : fallback);
   const widgets = Array.isArray(v.widgets) ? v.widgets.filter((w): w is Widget => (WIDGETS as readonly string[]).includes(w as string)) : [];
   return {
-    language: pick(v.language, ["auto", "en", "tr"], DEFAULT_PROFILE.language),
+    language: "en",
     currency: pick(v.currency, ["USD", "EUR", "TRY"], DEFAULT_PROFILE.currency),
     network: pick(v.network, ["mainnet", "testnet"], DEFAULT_PROFILE.network),
     theme: pick(v.theme, ["day", "night", "auto"], DEFAULT_PROFILE.theme),

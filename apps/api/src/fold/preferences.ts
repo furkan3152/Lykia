@@ -15,7 +15,9 @@ const store = (ctx: AppContext) => typedCollection<FoldPreferences>(ctx, "fold_p
 export async function getPreferences(ctx: AppContext, owner: Address | null | undefined): Promise<FoldPreferences> {
   if (!owner) return DEFAULT_FOLD_PREFERENCES;
   const [doc, profile] = await Promise.all([store(ctx).get(owner.toLowerCase()).catch(() => null), getProfile(ctx, owner)]);
-  const base = doc ? { ...DEFAULT_FOLD_PREFERENCES, ...doc.value } : DEFAULT_FOLD_PREFERENCES;
+  // Older documents may carry `replyLanguage`; Lyko always replies in English, so it is dropped on read.
+  const { replyLanguage: _retired, ...stored } = (doc?.value ?? {}) as FoldPreferences & { replyLanguage?: unknown };
+  const base: FoldPreferences = doc ? { ...DEFAULT_FOLD_PREFERENCES, ...stored } : DEFAULT_FOLD_PREFERENCES;
   // The profile owns the risk tier; a profile edit made elsewhere shows up here.
   return { ...base, risk: doc ? base.risk : foldRiskOf(profile.risk) };
 }

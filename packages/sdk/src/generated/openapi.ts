@@ -442,7 +442,7 @@ export const LYKIA_OPERATIONS: { readonly [K in LykiaOperationId]: OperationInfo
   getMemory: { method: "GET", path: "/v1/memory", tag: "Personal", summary: "What Lyko remembers", auth: "session", scope: null, idempotent: false },
   getMemoryExport: { method: "GET", path: "/v1/memory/export", tag: "Personal", summary: "Export memory", auth: "session", scope: null, idempotent: false },
   getMemoryIntents: { method: "GET", path: "/v1/memory/intents", tag: "Personal", summary: "Remembered plans", auth: "session", scope: null, idempotent: false },
-  getMePreferences: { method: "GET", path: "/v1/me/preferences", tag: "Fold", summary: "Your Lyko: risk profile, liquidity floor, target mix, gas floor, insights and notifications, reply language and the Fold's layout, with the effect of each", auth: "session", scope: null, idempotent: false },
+  getMePreferences: { method: "GET", path: "/v1/me/preferences", tag: "Fold", summary: "Your Lyko: risk profile, liquidity floor, target mix, gas floor, insights and notifications and the Fold's layout, with the effect of each", auth: "session", scope: null, idempotent: false },
   getMeThreads: { method: "GET", path: "/v1/me/threads", tag: "Fold", summary: "The owner's shared threads (Ask Lyko and Lyko on watch), newest first, with size, last line and origin", auth: "session", scope: null, idempotent: false },
   getNetworks: { method: "GET", path: "/v1/networks", tag: "Arc", summary: "Arc mainnet and testnet", auth: "public", scope: null, idempotent: false },
   getOpenapiJson: { method: "GET", path: "/v1/openapi.json", tag: "Platform", summary: "This OpenAPI 3.1 document", auth: "public", scope: null, idempotent: false },

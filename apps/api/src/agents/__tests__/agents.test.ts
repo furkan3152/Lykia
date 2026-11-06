@@ -13,6 +13,7 @@ import { SESSION_ABI, sessionSpecOf } from "../onchain.js";
 import { runTurn, type Emit } from "../orchestrator.js";
 import { insightsFrom } from "../insights.js";
 import { wrapUntrusted } from "../tools.js";
+import { ENGLISH_REPLY_RULE } from "../../language/english.js";
 import { parseAnswerBlock, parseChatStep } from "@lykia/core/api/answer";
 
 const OWNER = "0x82916bee18fcef517b26c72d7cb5f13694e1db41" as const;
@@ -275,6 +276,42 @@ describe("Lyko orchestration", () => {
     assert.equal(decodeFunctionData({ abi: SESSION_ABI, data: tx.transaction.data }).functionName, "createSession");
     const tree = (await (await fetch(`${served.url}/v1/pack?owner=${OWNER}&environment=mainnet`)).json()) as { agents: { role: string }[] };
     assert.ok(tree.agents.some((a) => a.role === "fx-hedger"));
+  });
+
+  // Turkish written as Unicode escapes: the repository is English only.
+  const TR_CONVERT = "50 USDC'yi EURC'ye \u00e7evir";
+  const TR_BUY_AND_LEND = "1 USDC ile EURC al ve en iyi getiriyle bor\u00e7 ver";
+  const TURKISH_LETTERS = /[\u00e7\u011f\u0131\u015f\u00f6\u00fc\u00c7\u011e\u0130\u015e\u00d6\u00dc]/u;
+
+  it("model path: a Turkish request reaches Lyko and every specialist with the English-only rule", async () => {
+    const client = scripted({
+      Lyko: [reply([toolUse("delegate", { role: "fx-hedger", task: "Convert 50 USDC to EURC." })]), reply([say("Ready to sign: 1 step, inside your Fence.")], "end_turn")],
+      "FX hedger": [reply([toolUse("plan_intent", { sentence: "convert 50 USDC to EURC" })]), reply([say("Planned the conversion.")], "end_turn")],
+    });
+    const events: { event: string; data: unknown }[] = [];
+    const result = await turn(client, TR_CONVERT, events);
+    assert.ok(client.calls.length >= 3);
+    for (const call of client.calls) assert.ok(call.system.includes(ENGLISH_REPLY_RULE), `every prompt carries the rule: ${call.system.slice(0, 40)}`);
+    assert.doesNotMatch(result.text, TURKISH_LETTERS);
+    assert.match(result.text, /^Ready to sign/u);
+  });
+
+  it("deterministic path: a Turkish request is understood and answered in English", async () => {
+    setLlmClient(ctx, null);
+    const ask = async (message: string) => (await (await fetch(`${served.url}/v1/agent/chat`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify({ message, owner: OWNER, environment: "mainnet" }) })).json()) as { mode: string; reply: string; events: { event: string; data: { agent?: string; task?: string } }[] };
+    const converted = await ask(TR_CONVERT);
+    assert.equal(converted.mode, "reader");
+    assert.doesNotMatch(converted.reply, TURKISH_LETTERS);
+    assert.doesNotMatch(converted.reply, /did not catch that/u, "the Turkish request was understood");
+    assert.match(converted.reply, /Convert|\*\*Next:\*\*/u);
+
+    // "Buy EURC with 1 USDC and lend it": the lend leg spends the swap's output, so both are planned as one route by Lyko.
+    const chained = await ask(TR_BUY_AND_LEND);
+    assert.doesNotMatch(chained.reply, TURKISH_LETTERS);
+    const tasks = chained.events.filter((e) => e.event === "task").map((e) => e.data);
+    assert.deepEqual(tasks.map((t) => t.agent), ["Lyko"]);
+    assert.equal(tasks[0]?.task, "fx + earn");
+    assert.doesNotMatch(chained.reply, /refers to the previous step/u);
   });
 });
 

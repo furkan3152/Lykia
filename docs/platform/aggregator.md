@@ -1,6 +1,6 @@
 # Aggregator API
 
-Lykia's aggregator is the best-execution layer for every Arc protocol: one
+Lykia's aggregator is the best-execution layer for every Arc venue it can execute through: one
 "quote -> build" shape for every action, built on the same planner, router,
 Fence and security layer the Lykia app uses. Built on Arc Network.
 

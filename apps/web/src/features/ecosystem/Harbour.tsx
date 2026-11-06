@@ -4,7 +4,7 @@
  * the API. Text only: no partner logos.
  */
 import { Card, Stat, Tag } from "../../mosaic";
-import { circleState, LYKIA_ROLE, usdShort, type EcosystemView } from "./model";
+import { circleState, COVERAGE_MEANING, coverageSummary, LYKIA_ROLE, usdShort, type EcosystemView } from "./model";
 
 export function CircleQuay({ data, compact = false }: { readonly data: EcosystemView | undefined; readonly compact?: boolean }) {
   const products = data?.circle ?? [];
@@ -41,9 +41,9 @@ export function PartnerStalls({ data, limit, filter = "all" }: { readonly data: 
           <li key={p.id} className="m-frame m-frame--thin eco-stall">
             <div className="eco-stall__head">
               <b>{p.name}</b>
-              <Tag tone={role.tone}>{role.label}</Tag>
+              <span title={COVERAGE_MEANING[p.lykia]}><Tag tone={role.tone}>{role.label}</Tag></span>
             </div>
-            <span className="m-kick">{`${p.category} · ${p.status === "verified" ? "VERIFIED ON ARC" : "ANNOUNCED"}`}</span>
+            <span className="m-kick">{`${p.category} · ${p.status === "verified" ? "VERIFIED ON ARC" : "ANNOUNCED"}${p.lykia === "routes" && p.verbs.some((v) => v !== "approve") ? ` · ${p.verbs.filter((v) => v !== "approve").join(", ").toUpperCase()}` : ""}`}</span>
             <p className="m-small m-muted eco-stall__sum">{p.summary}</p>
             <div className="eco-stall__foot m-small">
               <span>{`TVL ${usdShort(p.tvlUsd)}`}</span>
@@ -63,12 +63,19 @@ export function PartnerStalls({ data, limit, filter = "all" }: { readonly data: 
 
 export function EcosystemStats({ data }: { readonly data: EcosystemView | undefined }) {
   const t = data?.totals;
+  const readOnly = t ? (t.readOnly ?? t.verified - t.routable) : null;
   return (
     <div className="m-grid-4 eco-stats">
-      <Stat label="ARC PROTOCOLS" value={t ? String(t.protocols) : "…"} hint={t ? `${t.verified} verified on chain` : undefined} />
-      <Stat label="ROUTABLE ON LYKIA" value={t ? String(t.routable) : "…"} hint="executable venues" />
+      <Stat label="ROUTABLE TODAY" value={t ? String(t.routable) : "…"} hint="venues Lykia can route through" />
+      <Stat label="MAPPED ON ARC" value={t ? String(t.protocols) : "…"} hint={t ? `${readOnly} read-only · ${t.mapped ?? t.protocols - t.verified} mapped only` : undefined} />
       <Stat label="TVL ON ARC" value={t ? usdShort(t.tvlUsd) : "…"} hint={data?.sources.tvl ?? "DefiLlama"} />
       <Stat label="VALUE ROUTED" value={t ? `$${Number(t.routed.usd).toLocaleString("en-US")}` : "…"} hint={t ? `${t.routed.steps} settled steps` : undefined} />
     </div>
   );
+}
+
+/** One honest line: what Lykia routes through today and what it has mapped. */
+export function CoverageLine({ data, className }: { readonly data: EcosystemView | undefined; readonly className?: string }) {
+  const line = coverageSummary(data?.totals);
+  return <p className={className ?? "m-kick eco-coverage"} data-testid="coverage-line">{line ?? "…"}</p>;
 }

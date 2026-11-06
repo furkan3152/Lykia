@@ -7,7 +7,7 @@
  * Nothing here is estimated: TVL is null when DefiLlama does not list the
  * protocol on Arc, and routed volume counts only settled, priced steps.
  */
-import { isLive, PROTOCOLS, type ArcEnvironment, type IntentGraph, type ProtocolCategory } from "@lykia/core";
+import { coverageLine, coverageOf, isLive, PROTOCOLS, registryCoverage, type ArcEnvironment, type IntentGraph, type ProtocolCategory, type ProtocolCoverage } from "@lykia/core";
 import type { AppContext } from "../context.js";
 import { circleStatus } from "../circle/status.js";
 import { EXECUTABLE_VENUES } from "../engine/adapters.js";
@@ -77,6 +77,8 @@ export interface EcosystemProtocol {
   readonly evidence: string | null;
   /** What Lykia can do with it today: route (execute), read (prices, positions) or list. */
   readonly lykia: "routes" | "reads" | "lists";
+  /** The same, in the words the pages use: routable, read-only or mapped (core coverageOf). */
+  readonly coverage: ProtocolCoverage;
   readonly verbs: readonly string[];
   readonly tvlUsd: number | null;
   readonly routed: { readonly steps: number; readonly usd: string };
@@ -91,9 +93,15 @@ export interface EcosystemResponse {
   readonly directory: { readonly url: string; readonly note: string };
   readonly protocols: readonly EcosystemProtocol[];
   readonly totals: {
+    /** Every registry entry on the network: what Lykia has mapped on Arc. */
     readonly protocols: number;
     readonly verified: number;
+    /** Venues with an executable adapter: what Lykia can route through today. */
     readonly routable: number;
+    readonly readOnly: number;
+    readonly mapped: number;
+    /** "9 venues Lykia can route through today · 94 protocols mapped on Arc", from the counts above. */
+    readonly summary: string;
     readonly tvlUsd: number | null;
     readonly routed: { readonly intents: number; readonly steps: number; readonly usd: string; readonly window: string };
   };
@@ -104,7 +112,7 @@ export interface EcosystemResponse {
   readonly at: string;
 }
 
-const POSITIONING = "Built on Arc Network and Circle's products: every Arc protocol routable on Lykia, every agent inside its Fence.";
+const POSITIONING = "Built on Arc Network and Circle's products: every Arc protocol mapped, the ones with an executable adapter routable on Lykia, and every agent inside its Fence.";
 
 interface TvlCache {
   readonly at: number;
@@ -189,6 +197,7 @@ export async function ecosystem(ctx: AppContext, environment: ArcEnvironment): P
   const protocols: EcosystemProtocol[] = PROTOCOLS.filter((p) => p.deployments[environment] !== undefined).map((p) => {
     const deployment = p.deployments[environment];
     const verified = isLive(p, environment);
+    const coverage = coverageOf(p, environment, executable);
     const slug = LLAMA_SLUGS[p.id] ?? p.id;
     const routed = volume.byVenue[p.id] ?? { steps: 0, cents: 0 };
     return {
@@ -199,13 +208,15 @@ export async function ecosystem(ctx: AppContext, environment: ArcEnvironment): P
       website: p.website ?? null,
       status: verified ? "verified" : "announced",
       evidence: verified ? (deployment?.evidence ?? null) : null,
-      lykia: executable.has(p.id) ? "routes" : verified ? "reads" : "lists",
+      lykia: coverage === "routable" ? "routes" : coverage === "read-only" ? "reads" : "lists",
+      coverage,
       verbs: p.verbs,
       tvlUsd: tvl && environment === "mainnet" ? (tvl.arc[slug] ?? null) : null,
       routed: { steps: routed.steps, usd: usdOfCents(routed.cents) },
       arcEcosystem: arcEcosystemUrl(p.id),
     };
   });
+  const counts = registryCoverage(environment, executable);
   const order = { routes: 0, reads: 1, lists: 2 } as const;
   protocols.sort((a, b) => order[a.lykia] - order[b.lykia] || (b.tvlUsd ?? -1) - (a.tvlUsd ?? -1) || a.name.localeCompare(b.name));
   const tvls = protocols.map((p) => p.tvlUsd).filter((v): v is number => v !== null);
@@ -216,12 +227,11 @@ export async function ecosystem(ctx: AppContext, environment: ArcEnvironment): P
   return {
     environment,
     positioning: POSITIONING,
-    directory: { url: ARC_ECOSYSTEM_DIRECTORY, note: "The official Arc ecosystem directory. This hub shows which of those protocols are routable on Lykia, and links each one to its official entry." },
+    directory: { url: ARC_ECOSYSTEM_DIRECTORY, note: "The official Arc ecosystem directory. This hub maps those protocols, marks each one routable, read-only or mapped on Lykia, and links each to its official entry." },
     protocols,
     totals: {
-      protocols: protocols.length,
-      verified: protocols.filter((p) => p.status === "verified").length,
-      routable: protocols.filter((p) => p.lykia === "routes").length,
+      ...counts,
+      summary: coverageLine(counts),
       tvlUsd: tvls.length > 0 ? tvls.reduce((a, b) => a + b, 0) : null,
       routed: { intents: volume.intents, steps: routedSteps, usd: usdOfCents(routedCents), window: "Intents kept by the API (30 days)" },
     },

@@ -121,7 +121,7 @@ export default function YouPage() {
         <div className="m-grid-3">
           <Card title={"Language & display"} kicker="LANGUAGE · CURRENCY · NETWORK · THEME">
             <div style={{ display: "grid", gap: 10 }}>
-              <Field label={"Lyko replies in"}><Toggle light label="Lyko replies in" value={p.language} onChange={(v) => set("language", v)} options={[{ value: "auto", label: "MATCH ME" }, { value: "en", label: "ENGLISH" }, { value: "tr", label: "TURKISH" }]} /></Field>
+              <Field label={"Lyko replies in"} hint={"Lyko always replies in English and understands any language you write in."}><span className="m-small">{"ENGLISH"}</span></Field>
               <Field label={"Display currency"} hint={p.currency === "TRY" ? (tryRate ? `1 TRY ≈ $${tryRate.usd.toFixed(4)} · ${rateLabel(tryRate)}` : "No TRY rate right now; amounts show in USD.") : undefined}><Toggle light label="Currency" value={p.currency} onChange={(v) => set("currency", v)} options={[{ value: "USD", label: "USD" }, { value: "EUR", label: "EUR" }, { value: "TRY", label: "TRY" }]} /></Field>
               <Field label={"Default network"}><Toggle light label="Network" value={p.network} onChange={(v) => set("network", v)} options={[{ value: "mainnet", label: "MAINNET" }, { value: "testnet", label: "TESTNET" }]} /></Field>
               <Field label={"Theme"}><Toggle light label="Theme" value={p.theme} onChange={(v) => set("theme", v)} options={[{ value: "day", label: "DAY" }, { value: "night", label: "NIGHT" }, { value: "auto", label: "AUTO" }]} /></Field>

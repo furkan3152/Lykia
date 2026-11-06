@@ -36,7 +36,7 @@ export function profileEffects(profile: LykiaProfile): string[] {
     `Default Fence: Shepherd with a ${fence.limits?.maxSlippageBps} bps slippage ceiling${profile.risk === "low" ? " and verified tokens only" : ""}.`,
     `Routing risk ceiling: ${profile.risk}.`,
     `Amounts shown in ${profile.displayCurrency}; plans still settle in tokens.`,
-    `Lyko speaks ${profile.language === "auto" ? "your language" : profile.language === "tr" ? "Turkish" : "English"}, ${profile.persona.tone} and ${profile.persona.verbosity}.`,
+    `Lyko replies in English (it reads any language), ${profile.persona.tone} and ${profile.persona.verbosity}.`,
   ];
   if (profile.venues.favorites.length) out.push(`Favourite venues win ties: ${profile.venues.favorites.join(", ")}.`);
   if (profile.venues.blocked.length) out.push(`Never routed: ${profile.venues.blocked.join(", ")}.`);

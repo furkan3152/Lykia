@@ -1,6 +1,6 @@
 # Integrate your protocol
 
-Lykia is built on Circle's rails, routes value to every Arc protocol and keeps
+Lykia is built on Circle's rails, routes value through every Arc venue it has an adapter for and keeps
 every agent inside its Fence. When your protocol is integrated, every Lykia
 user, every agent that uses Lykia over MCP or x402 and every app built on the
 SDK can reach it in one sentence. Each move is checked against the user's

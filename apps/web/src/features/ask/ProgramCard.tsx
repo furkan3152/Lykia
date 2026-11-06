@@ -14,6 +14,7 @@ import { apiPost } from "../../lib/api";
 import { useEnvironment } from "../../lib/environment";
 import { Button, Seal, Tag, cx } from "../../mosaic";
 import { useLykiaWallet } from "../wallet/useLykiaWallet";
+import { useChatActions } from "./actions";
 
 const SAMPLE_OWNER = "0x000000000000000000000000000000000000dEaD";
 const KIND_LABEL: Readonly<Record<ChatProgramView["scheduled"][number]["kind"], string>> = { automation: "AUTOMATION", order: "LYKIAORDERS", alert: "ALERT", standing: "STANDING ORDER", budget: "FENCE BUDGET" };
@@ -50,6 +51,7 @@ function assumptionChoices(a: ChatProgramView["assumptions"][number]): string[] 
 }
 
 export function ProgramCard({ view: initial }: { view: ChatProgramView }) {
+  const { openReview } = useChatActions();
   const environment = useEnvironment();
   const { address } = useLykiaWallet();
   const [view, setView] = useState<ChatProgramView>(initial);
@@ -125,9 +127,15 @@ export function ProgramCard({ view: initial }: { view: ChatProgramView }) {
             {view.fees ? <p className="m-small m-muted" style={{ margin: 0 }}>{view.fees}</p> : null}
             {view.now.intentId ? (
               <div>
-                <Link to={`/app/outrun/${encodeURIComponent(view.now.intentId)}`} className="m-btn m-btn--sm">
-                  REVIEW AND SIGN
-                </Link>
+                {openReview ? (
+                  <Button size="sm" onClick={() => openReview({ intentId: view.now!.intentId, title: "Your plan for now", steps: view.now!.steps.map((st) => st.summary), decision: view.now!.decision === "unknown" ? "confirm" : view.now!.decision, reasons: view.now!.reasons, warnings: [], attribution: [], rationale: "" })}>
+                    REVIEW AND SIGN
+                  </Button>
+                ) : (
+                  <Link to={`/app/outrun/${encodeURIComponent(view.now.intentId)}`} className="m-btn m-btn--sm">
+                    REVIEW AND SIGN
+                  </Link>
+                )}
               </div>
             ) : null}
           </>

@@ -51,3 +51,32 @@ test("cctp destinations and actions", () => {
   assert.deepEqual(validateActions([{ verb: "send", token: "USDC", amount: { exact: "20" }, to: "0x1111111111111111111111111111111111111111", memo: "invoice 12" }]), []);
   assert.ok(validateActions([{ verb: "bridge", token: "USDC", amount: { exact: "0" }, destination: "narnia" }]).length >= 2);
 });
+
+test("coverage: routable, read-only and mapped are counted from the registry", async () => {
+  const { registryCoverage, coverageOf, coverageLine, protocolsFor, getProtocol } = await import("../dist/index.js");
+  const executable = new Set(["arc-transfer", "cctp", "gateway", "morpho-vaults", "morpho-blue", "aave-v4", "uniswap-v3", "uniswap-v4", "aerodrome-slipstream", "lykia-router"]);
+  const c = registryCoverage("mainnet", executable);
+  assert.equal(c.protocols, protocolsFor("mainnet").length);
+  assert.equal(c.routable + c.readOnly + c.mapped, c.protocols);
+  assert.equal(c.routable + c.readOnly, c.verified);
+  // lykia-router is an engine venue, not a registry entry: it never inflates the count.
+  assert.equal(c.routable, protocolsFor("mainnet").filter((p) => executable.has(p.id)).length);
+  assert.equal(coverageOf(getProtocol("aave-v4"), "mainnet", executable), "routable");
+  assert.equal(coverageOf(getProtocol("synthra"), "mainnet", executable), "read-only");
+  assert.equal(coverageOf(getProtocol("beefy"), "mainnet", executable), "mapped");
+  assert.equal(coverageLine({ routable: 9, protocols: 94 }), "9 venues Lykia can route through today · 94 protocols mapped on Arc");
+  assert.equal(coverageLine({ routable: 1, protocols: 1 }), "1 venue Lykia can route through today · 1 protocol mapped on Arc");
+});
+
+test("a yield choice names every venue it compared, best first", async () => {
+  const { chooseYield } = await import("../dist/index.js");
+  const route = chooseYield([
+    { venue: "aave-v4", label: "Aave V4 Main Spoke EURC", apy: "0.0067", tvlUsd: "1500000", risk: "medium", executable: true, notes: [] },
+    { venue: "morpho-vaults", label: "Morpho Galaxy EURC", apy: "0.0118", tvlUsd: "562000", risk: "high", executable: true, notes: [] },
+    { venue: "aave-v4", label: "Aave V4 Forex Spoke EURC", apy: "0.0067", tvlUsd: "68000", risk: "high", executable: true, notes: [] },
+    { venue: "morpho-vaults", label: "Morpho Steakhouse Prime EURC", apy: "0.0197", tvlUsd: "9900", risk: "high", executable: false, notes: [] },
+  ], "medium");
+  assert.equal(route.chosen.label, "Aave V4 Main Spoke EURC");
+  assert.match(route.reason, /Compared 4 venues: Morpho Steakhouse Prime EURC 1\.97% APY \(not executable\), Morpho Galaxy EURC 1\.18% APY, Aave V4 Forex Spoke EURC 0\.67% APY, Aave V4 Main Spoke EURC 0\.67% APY\./u);
+  assert.match(route.reason, /Morpho Galaxy EURC pay more but sit above the medium-risk ceiling/u);
+});

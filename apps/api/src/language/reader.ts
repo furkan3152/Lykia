@@ -1,6 +1,7 @@
 /**
- * The language reader: English sentences to plan actions and standing
- * orders. Deterministic (same text, same result), it refuses to
+ * The language reader: English sentences (and common Turkish ones, rewritten
+ * first by language/turkish.ts) to plan actions and standing orders. Replies
+ * are always English. Deterministic (same text, same result), it refuses to
  * guess amounts ("1,5" is ambiguous, so it asks, with choices), and answers
  * in Lyko's voice. Sheepdog commands and the hidden words come first.
  *
@@ -36,6 +37,7 @@ import {
   type Weekday,
 } from "@lykia/core";
 import type { ClarifyChoice, ParseResponse } from "@lykia/core/api/language";
+import { turkishToEnglish } from "./turkish.js";
 
 /** Word boundaries that work with any Unicode letter. */
 const L = "[\\p{L}\\p{N}_]";
@@ -330,7 +332,13 @@ function readClause(clause: string, previous: PlanAction | undefined): { action:
         to = target;
         from = inherited && inherited !== target ? inherited : target === "USDC" ? "EURC" : "USDC";
       }
-      if (w("buy").test(clause) && tokens.length === 1 && !target) {
+      // "buy EURC with 1 USDC", "buy EURC using USDC", "buy EURC for 1 USDC": the token after "buy" is what you get.
+      const bought = w("buy\\s+(?:some\\s+)?(?:\\d+(?:[.,]\\d+)?\\s*)?\\$?([\\p{L}\\p{N}]+)").exec(clause);
+      const boughtToken = findToken("mainnet", (bought?.[1] ?? "").replace(/['’].*$/u, ""))?.symbol;
+      if (boughtToken && tokens.length >= 2) {
+        to = boughtToken;
+        from = tokens.find((t) => t !== boughtToken);
+      } else if (w("buy").test(clause) && tokens.length === 1 && !target) {
         to = tokens[0];
         from = "USDC";
       } else if (w("sell").test(clause) && tokens.length === 1) {
@@ -458,7 +466,8 @@ function englishThousands(text: string): string {
 }
 
 export function readSentence(text: string, options: ReadOptions = {}): ParseResponse {
-  const trimmed = normalizePasture(englishThousands(text.trim().slice(0, 500)));
+  // Common Turkish phrasings are read too (language/turkish.ts); the reply is always English.
+  const trimmed = normalizePasture(englishThousands(turkishToEnglish(text.trim().slice(0, 500))));
   // A decimal comma ("1,5") is never guessed: in many locales it is one and a half, elsewhere it can be a thousands separator.
   if (/\d,\d/u.test(trimmed)) {
     const q = "Use a dot for decimals (1.5) and no thousands separators (1500).";

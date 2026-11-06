@@ -200,7 +200,9 @@ export class VenueRouter {
       });
     }
 
-    for (const spoke of aaveSpokes(environment).filter((s) => s.key === "main")) {
+    // Every Aave V4 Spoke that lends the token: Main and Forex both take USDC and EURC
+    // (supply simulated through Multicall3From on mainnet block 29836287, 2026-11-06).
+    for (const spoke of aaveSpokes(environment)) {
       const reserve = aaveReserve(spoke, token.symbol);
       if (!reserve) continue;
       const rate = rates.reserves.find((r) => sameAddr(r.spoke, spoke.address) && r.reserveId === reserve.reserveId);
@@ -433,7 +435,9 @@ export class VenueRouter {
     const withBuffer = (units: bigint) => (units * 1_02n + 99n) / 100n;
     const capped = (units: bigint) => (units > input.walletCollateral ? input.walletCollateral : units);
 
-    for (const spoke of aaveSpokes(environment).filter((s) => s.key === "main")) {
+    // Every Aave V4 Spoke that lends the token: Main and Forex both take USDC and EURC
+    // (supply simulated through Multicall3From on mainnet block 29836287, 2026-11-06).
+    for (const spoke of aaveSpokes(environment)) {
       const loanReserve = aaveReserve(spoke, loan.symbol);
       const collReserve = aaveReserve(spoke, coll.symbol);
       if (!loanReserve || !collReserve) continue;

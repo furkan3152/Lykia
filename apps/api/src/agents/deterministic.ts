@@ -39,6 +39,12 @@ function roleForAction(action: PlanAction): SpecialistRole {
   }
 }
 
+/** True when the action's amount is "what the previous step produced". */
+export function spendsPrevious(action: PlanAction): boolean {
+  const amount = (action as { amount?: unknown }).amount;
+  return typeof amount === "object" && amount !== null && (amount as { previous?: unknown }).previous === true;
+}
+
 /** Clarify options that start with this prefix ask the web to switch to mainnet and re-ask the rest. */
 export const PREVIEW_ON_MAINNET = "Preview on mainnet: ";
 
@@ -182,13 +188,17 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
   reading.end("ok", `${plural(parsed.actions.length, "action")}: ${parsed.actions.map((a) => a.verb).join(" + ")}`);
   if (!input.owner) return done("Connect a wallet so I can plan that.", []);
 
-  // Group consecutive actions by specialist, keeping order.
-  const groups: { role: SpecialistRole; actions: PlanAction[] }[] = [];
+  // Group consecutive actions by specialist, keeping order. An action that spends the previous
+  // step's output ("buy EURC … and lend it") stays with that step: planned apart, "it" has nothing to refer to.
+  const groups: { role: SpecialistRole; actions: PlanAction[]; chained: boolean }[] = [];
   for (const action of parsed.actions) {
     const role = roleForAction(action);
     const last = groups[groups.length - 1];
     if (last && last.role === role) last.actions.push(action);
-    else groups.push({ role, actions: [action] });
+    else if (last && spendsPrevious(action)) {
+      last.actions.push(action);
+      last.chained = true;
+    } else groups.push({ role, actions: [action], chained: false });
   }
 
   const proposals: AgentProposal[] = [];
@@ -196,7 +206,8 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
   const planned: { actions: readonly PlanAction[]; proposal: AgentProposal }[] = [];
   const intents: IntentGraph[] = [];
   for (const group of groups) {
-    const specialist = specialistFor(group.role, input.fence, input.pack);
+    // A chain across specialists is planned by Lyko under the owner's Fence: no single specialist's Fence covers every leg.
+    const specialist = group.chained ? { name: "Lyko", role: "orchestrator" as const, fence: input.fence } : specialistFor(group.role, input.fence, input.pack);
     const part = group.actions.map((a) => a.verb).join(" + ");
     emit("task", { agent: specialist.name, role: specialist.role, task: part });
     const routing = steps.start("route", "Searching routes", specialist.name);
@@ -257,7 +268,9 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
     const list = [...new Set(hard.length > 0 ? hard : p.reasons)];
     return list.length > 3 ? [...list.slice(0, 3), `${list.length - 3} more rule${list.length - 3 === 1 ? "" : "s"} below`] : list;
   };
-  const stepsList = final.flatMap((p) => p.steps).map((st) => `- ${st}`).join("\n");
+  // Earn steps say which venues were compared, from the route's own reason (core/routes.ts comparedLine).
+  const compared = intents.flatMap((i) => i.steps.filter((st) => st.route && /Compared \d+ venues?:/u.test(st.route.reason)).map((st) => `- **Why ${st.route!.chosen.label}:** ${st.route!.reason}`));
+  const stepsList = [...final.flatMap((p) => p.steps).map((st) => `- ${st}`), ...compared].join("\n");
   const text = denied
     ? `The Fence said no.\n\n${refusals(denied).map((r) => `- ${r}`).join("\n")}\n\n**Next:** ask for less, or change the rule in your Fence.`
     : final.some((p) => p.decision === "confirm")

@@ -12,7 +12,7 @@
  * Each stone has its own URL (/mint/:section). The old /build tabs and
  * hashes still land in the right place (app/routes/aliases.ts).
  */
-import type { Project } from "@lykia/core";
+import { coverageLine, type Project } from "@lykia/core";
 import { useEffect, useState } from "react";
 
 import { navigate } from "../../app/routes/history";
@@ -216,7 +216,7 @@ function Reference({ hash }: { readonly hash: string }) {
         <div style={{ display: "grid", gap: 16, gridTemplateColumns: "minmax(0, 1fr)" }}>
           <div className="m-frame m-card">
             <span className="m-kick">{"BUILT ON ARC NETWORK · POWERED BY CIRCLE"}</span>
-            <p className="m-small" style={{ marginTop: 6 }}>{"Circle moves the value: USDC, CCTP, Gateway, StableFX and the agent stack. Lykia brings every Arc protocol within one route of every user and agent, checks each move against a DeFi-aware Fence and files every verdict as an ERC-8354 policy attestation in the ERC-8004 Validation Registry."}</p>
+            <p className="m-small" style={{ marginTop: 6 }}>{"Circle moves the value: USDC, CCTP, Gateway, StableFX and the agent stack. Lykia maps every Arc protocol, routes through every venue it has an executable adapter for, checks each move against a DeFi-aware Fence and files every verdict as an ERC-8354 policy attestation in the ERC-8004 Validation Registry."}</p>
           </div>
           <CircleMarket compact />
         </div>
@@ -243,7 +243,7 @@ function IntegrateSection() {
     <section id="integrate" className="m-frame m-card" style={{ scrollMarginTop: 96 }} aria-labelledby="integrate-title">
       <span className="m-kick">{"INTEGRATE YOUR PROTOCOL"}</span>
       <h2 id="integrate-title" className="m-h2" style={{ marginTop: 6, fontSize: 26 }}>{"Reach every Lykia user and agent"}</h2>
-      <p className="m-small" style={{ marginTop: 6 }}>{`${eco.data ? `${eco.data.totals.protocols} Arc protocols are in the registry and ${eco.data.totals.routable} are routed today. ` : ""}Listing is free and open to every team building on Arc.`}</p>
+      <p className="m-small" style={{ marginTop: 6 }}>{`${eco.data ? `${coverageLine(eco.data.totals)}. ` : ""}Listing is free and open to every team building on Arc; an adapter makes a mapped protocol routable.`}</p>
       <div className="m-grid-3" style={{ marginTop: 14 }}>
         <div>
           <b>{"1. Registry entry"}</b>

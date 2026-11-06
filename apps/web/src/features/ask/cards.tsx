@@ -371,7 +371,7 @@ function SettledSeal({ block }: { readonly block: Extract<AnswerBlock, { kind: "
 
 
 export function ProposalCard({ p, compact = false }: { readonly p: AgentProposal; readonly compact?: boolean }) {
-  const { openRoute, environment } = useChatActions();
+  const { openRoute, openReview, environment } = useChatActions();
   const badges = memoryBadges(p);
   return (
     <CardShell kind="route" tone={p.decision === "deny" ? "terra" : p.decision === "confirm" ? "ochre" : "sea"} kick={p.intentId ? "PLAN · READY TO REVIEW" : "PLAN · DRY RUN"} title={planTitle(p.title)}>
@@ -397,11 +397,16 @@ export function ProposalCard({ p, compact = false }: { readonly p: AgentProposal
       {p.attribution.length > 0 ? <p className="m-card2__note">By {[...new Set(p.attribution.map((a) => a.agent))].join(", ")}</p> : null}
       <div className="m-card2__acts">
         {openRoute ? (
-          <button type="button" className="m-mini m-mini--solid" onClick={() => openRoute(p)}>
+          <button type="button" className="m-mini" onClick={() => openRoute(p)}>
             Open the route
           </button>
         ) : null}
-        {p.intentId ? (
+        {p.intentId && openReview ? (
+          <button type="button" className="m-mini m-mini--solid" onClick={() => openReview(p)}>
+            Review and sign
+          </button>
+        ) : p.intentId ? (
+          // Outside Ask Lyko the old review route opens the modal over Ask Lyko.
           <Link to={`/app/outrun/${encodeURIComponent(p.intentId)}`} className="m-mini">
             Review and sign
           </Link>

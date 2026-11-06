@@ -4,8 +4,10 @@
  *
  * - `lykia.fold-preferences/v1`, the "Your Lyko" preferences (risk profile,
  *   liquidity floor, target mix, gas floor, which insights to show, how to be
- *   told, the reply language and the Fold's own layout), with defaults,
- *   validation, merging and the effect each setting has, in words;
+ *   told and the Fold's own layout), with defaults, validation, merging and
+ *   the effect each setting has, in words. Lyko always replies in English
+ *   (it reads any language), so there is no reply-language setting; a
+ *   stored `replyLanguage` from older documents is ignored;
  * - the shock model behind the Flock's what-if slider and the assistant's
  *   "Am I safe if EURC drops 5%?" answer (one model, so they never disagree);
  * - allocation buckets by venue type for the Fold bar's tesserae strip;
@@ -62,8 +64,14 @@ export type FoldRisk = "careful" | "balanced" | "bold";
 export const FOLD_RISKS: readonly FoldRisk[] = ["careful", "balanced", "bold"];
 export type FoldNotify = "inbox" | "webhook" | "telegram";
 export type FoldCadence = "live" | "daily" | "weekly";
-export const REPLY_LANGUAGES = ["auto", "en", "es", "fr", "de", "pt", "it", "nl", "ja", "ko", "zh"] as const;
-export type ReplyLanguage = (typeof REPLY_LANGUAGES)[number];
+/** Fields older preference documents may still carry; read and dropped, never an error. */
+const RETIRED_FOLD_FIELDS = ["replyLanguage"] as const;
+
+function withoutRetired(input: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...input };
+  for (const key of RETIRED_FOLD_FIELDS) delete out[key];
+  return out;
+}
 
 export interface FoldPreferences {
   readonly schema: typeof FOLD_PREFERENCES_SCHEMA;
@@ -75,7 +83,6 @@ export interface FoldPreferences {
   /** Native USDC kept for gas. Decimal string. */
   readonly gasFloorUsdc: string;
   readonly insights: { readonly hidden: readonly FoldInsightKind[]; readonly notify: FoldNotify; readonly cadence: FoldCadence };
-  readonly replyLanguage: ReplyLanguage;
   /** The Fold's layout: visible tabs and bar cards, in order. */
   readonly layout: { readonly tabs: readonly FoldTab[]; readonly cards: readonly FoldCard[] };
   readonly updatedAt: string | null;
@@ -88,7 +95,6 @@ export const DEFAULT_FOLD_PREFERENCES: FoldPreferences = Object.freeze({
   targetMix: { usdcPct: 50, eurcPct: 10, earningPct: 40, bandPct: 10 },
   gasFloorUsdc: "0.5",
   insights: { hidden: [], notify: "inbox", cadence: "live" },
-  replyLanguage: "auto",
   layout: { tabs: [...FOLD_TABS], cards: [...FOLD_CARDS] },
   updatedAt: null,
 }) as FoldPreferences;
@@ -111,18 +117,19 @@ function uniqueFrom<T extends string>(value: unknown, allowed: readonly T[]): va
 /** Deep-merges a partial update (one level of objects; arrays replace). */
 export function mergeFoldPreferences(base: FoldPreferences, patch: unknown): unknown {
   if (!isRecord(patch)) return patch;
-  const out: Record<string, unknown> = { ...base };
-  for (const [key, value] of Object.entries(patch)) {
+  const out: Record<string, unknown> = withoutRetired({ ...base });
+  for (const [key, value] of Object.entries(withoutRetired(patch))) {
     const current = (base as unknown as Record<string, unknown>)[key];
     out[key] = isRecord(value) && isRecord(current) ? { ...current, ...value } : value;
   }
   return out;
 }
 
-export function validateFoldPreferences(input: unknown): { ok: true; preferences: FoldPreferences } | { ok: false; issues: FoldPreferenceIssue[] } {
+export function validateFoldPreferences(raw: unknown): { ok: true; preferences: FoldPreferences } | { ok: false; issues: FoldPreferenceIssue[] } {
   const issues: FoldPreferenceIssue[] = [];
   const add = (path: string, message: string) => issues.push({ path, message });
-  if (!isRecord(input)) return { ok: false, issues: [{ path: "", message: "Preferences are an object." }] };
+  if (!isRecord(raw)) return { ok: false, issues: [{ path: "", message: "Preferences are an object." }] };
+  const input = withoutRetired(raw);
   const known = new Set(Object.keys(DEFAULT_FOLD_PREFERENCES));
   for (const key of Object.keys(input)) if (!known.has(key)) add(key, "Unknown field.");
   if (input.schema !== FOLD_PREFERENCES_SCHEMA) add("schema", `Must be "${FOLD_PREFERENCES_SCHEMA}".`);
@@ -144,7 +151,6 @@ export function validateFoldPreferences(input: unknown): { ok: true; preferences
     if (!["inbox", "webhook", "telegram"].includes(ins.notify as string)) add("insights.notify", "inbox, webhook or telegram.");
     if (!["live", "daily", "weekly"].includes(ins.cadence as string)) add("insights.cadence", "live, daily or weekly.");
   }
-  if (!(REPLY_LANGUAGES as readonly unknown[]).includes(input.replyLanguage)) add("replyLanguage", `One of ${REPLY_LANGUAGES.join(", ")}.`);
   const layout = input.layout;
   if (!isRecord(layout)) add("layout", "An object with tabs and cards.");
   else {
@@ -168,7 +174,7 @@ export function foldRiskOf(tier: RiskTier): FoldRisk {
 const money = (v: string) => Number(v).toLocaleString("en-US", { maximumFractionDigits: 2 });
 
 export interface FoldPreferenceEffect {
-  readonly key: "risk" | "liquidityFloorUsd" | "targetMix" | "gasFloorUsdc" | "insights" | "replyLanguage" | "layout";
+  readonly key: "risk" | "liquidityFloorUsd" | "targetMix" | "gasFloorUsdc" | "insights" | "layout";
   readonly text: string;
 }
 
@@ -181,12 +187,9 @@ export function foldPreferenceEffects(p: FoldPreferences): FoldPreferenceEffect[
     { key: "targetMix", text: `Lyko will flag drift when USDC, EURC or earning moves more than ${p.targetMix.bandPct} points from ${p.targetMix.usdcPct} / ${p.targetMix.eurcPct} / ${p.targetMix.earningPct}.` },
     { key: "gasFloorUsdc", text: `Lyko will warn when gas drops below ${money(p.gasFloorUsdc)} USDC.` },
     { key: "insights", text: `${shown} of ${FOLD_INSIGHT_KINDS.length} insights on; news goes to your ${p.insights.notify}${p.insights.cadence === "live" ? " as it happens" : p.insights.cadence === "daily" ? " once a day" : " once a week"}.` },
-    { key: "replyLanguage", text: p.replyLanguage === "auto" ? "Lyko replies in the language you write in." : `Lyko replies in ${LANGUAGE_NAMES[p.replyLanguage]}.` },
     { key: "layout", text: `The Fold shows ${p.layout.tabs.length} tab${p.layout.tabs.length === 1 ? "" : "s"} and ${p.layout.cards.length} bar card${p.layout.cards.length === 1 ? "" : "s"}, in your order.` },
   ];
 }
-
-export const LANGUAGE_NAMES: Readonly<Record<ReplyLanguage, string>> = { auto: "your language", en: "English", es: "Spanish", fr: "French", de: "German", pt: "Portuguese", it: "Italian", nl: "Dutch", ja: "Japanese", ko: "Korean", zh: "Chinese" };
 
 /** A tab id from a path segment, or null. */
 export function foldTabOf(value: string | null | undefined): FoldTab | null {

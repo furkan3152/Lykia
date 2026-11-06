@@ -1,5 +1,5 @@
 /**
- * The aggregator: Lykia's best-execution layer for every Arc protocol,
+ * The aggregator: Lykia's best-execution layer for every Arc venue it can execute through,
  * served as one "quote -> build" shape for every action type.
  *
  *   quote  plan the action as a dry run with live quotes (the same planner,

@@ -29,7 +29,7 @@
     return "$" + Math.round(value);
   }
 
-  var ROLE = { routes: "ROUTED", reads: "READ", lists: "LISTED" };
+  var ROLE = { routes: "ROUTABLE", reads: "READ-ONLY", lists: "MAPPED" };
   var FONT = "font-family:ui-monospace,SFMono-Regular,Menlo,monospace;";
 
   function render(host, data) {
@@ -39,7 +39,7 @@
     var box = el("div", FONT + "border:4px solid #1f3a5f;background:#f7f0df;color:#1d1a16;padding:12px;max-width:100%;box-sizing:border-box;");
     var head = el("div", "display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:11px;letter-spacing:.12em;");
     head.appendChild(el("b", "", "THE ARC ECOSYSTEM · LIVE"));
-    head.appendChild(el("span", "", (data.totals.protocols || 0) + " PROTOCOLS · TVL " + usd(data.totals.tvlUsd)));
+    head.appendChild(el("span", "", (data.totals.routable || 0) + " ROUTABLE · " + (data.totals.protocols || 0) + " MAPPED · TVL " + usd(data.totals.tvlUsd)));
     box.appendChild(head);
     var list = el("ul", "list-style:none;margin:10px 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,180px),1fr));gap:6px;");
     var rows = (data.protocols || []).filter(function (p) {
@@ -48,7 +48,7 @@
     rows.slice(0, limit).forEach(function (p) {
       var li = el("li", "padding:8px;background:#fffaf0;box-shadow:inset 0 0 0 2px #c9b88f;min-width:0;");
       li.appendChild(el("div", "font-size:13px;font-weight:700;overflow-wrap:anywhere;", p.name));
-      li.appendChild(el("div", "font-size:10px;letter-spacing:.1em;margin-top:4px;color:#5b5346;", (ROLE[p.lykia] || "LISTED") + " · TVL " + usd(p.tvlUsd)));
+      li.appendChild(el("div", "font-size:10px;letter-spacing:.1em;margin-top:4px;color:#5b5346;", (ROLE[p.lykia] || "MAPPED") + " · TVL " + usd(p.tvlUsd)));
       list.appendChild(li);
     });
     box.appendChild(list);

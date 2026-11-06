@@ -1,18 +1,12 @@
-/** One outrun, full page: the harbor scene, the seal and every stop, live. */
+/**
+ * The old review route, /app/outrun/:id: Ask Lyko with the review modal
+ * open over it, so links from the Fold, toasts and older messages keep
+ * working. Closing the modal leaves the conversation at /app.
+ */
 import { useRouteParam } from "../../app/routes/useRoute";
-import { RouteArtifact } from "../../features/route/RouteArtifact";
-import { Frame, PageHead } from "../../mosaic";
+import AskPage from "../ask/AskPage";
 
 export default function OutrunPage() {
   const id = useRouteParam("id") ?? null;
-  return (
-    <div>
-      <PageHead kicker={`PLAN · ${id ?? ""}`} title={<>Where is the <em>money?</em></>} sub={"Each step of the plan, from the first call to where the money ends up. On Arc each step is final the moment its receipt exists."} mood="herding" />
-      <section className="m-wrap" style={{ marginTop: 28, maxWidth: 820 }}>
-        <Frame>
-          <RouteArtifact intentId={id} />
-        </Frame>
-      </section>
-    </div>
-  );
+  return <AskPage key={id ?? "none"} reviewId={id} />;
 }

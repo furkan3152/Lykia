@@ -127,8 +127,8 @@ export const ADMIN: readonly NavLink[] = [{ id: "letoon", href: "/letoon", label
  */
 export const REDIRECTED: readonly RouteId[] = ["move", "flock", "orders", "alerts", "automations", "activity", "whatif", "fence", "memory"];
 
-/** Routes deliberately outside every menu. `owner` is an alias of Letoon; `chatKit` is the development-only chat gallery. */
-export const UNLISTED: readonly RouteId[] = ["landing", "pay", "kit", "chatKit", "lykaion", "owner", "appNotFound", "notFound"];
+/** Routes deliberately outside every menu. `owner` is an alias of Letoon; `chatKit` and `reviewKit` are the development-only galleries. */
+export const UNLISTED: readonly RouteId[] = ["landing", "pay", "kit", "chatKit", "reviewKit", "lykaion", "owner", "appNotFound", "notFound"];
 
 /** The primary area a route belongs to, or null for account, secondary and unlisted pages. */
 export function areaOf(routeId: RouteId): NavArea | null {

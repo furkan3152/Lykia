@@ -4,10 +4,12 @@
  * account (Circle Modular Wallet, through user operations).
  */
 import type { Hex } from "viem";
-import { useAccount, useDisconnect, useSendTransaction, useSignMessage, useSignTypedData, useSwitchChain } from "wagmi";
+import { useAccount, useConfig, useDisconnect, useSendTransaction, useSignMessage, useSignTypedData, useSwitchChain } from "wagmi";
+import { getAccount, waitForTransactionReceipt } from "wagmi/actions";
 
 import { useUiStore } from "../../app/state/uiStore";
 import { chainFor } from "../../app/wallet/chains";
+import { sendSequentially } from "./sequence";
 import { useWallet } from "./store";
 
 export interface WalletTx {
@@ -15,6 +17,8 @@ export interface WalletTx {
   readonly data: `0x${string}`;
   readonly value: string | bigint;
   readonly chainId: number;
+  /** What the wallet shows, when known ("Approve 100 USDC to Aave"). */
+  readonly label?: string;
 }
 
 export interface LykiaWallet {
@@ -32,8 +36,14 @@ export interface LykiaWallet {
   signMessage(message: string): Promise<Hex>;
   signTypedData(typedData: Record<string, unknown>): Promise<Hex>;
   switchToArc(): Promise<void>;
+  /** Switches a browser wallet to `chainId` when it is on another chain; smart accounts check instead. */
+  ensureChain(chainId: number): Promise<void>;
   disconnect(): void;
 }
+
+/** How long to wait for each receipt before giving up (Arc is final in under a second). */
+const RECEIPT_TIMEOUT_MS = 60_000;
+
 
 export function useLykiaWallet(): LykiaWallet {
   const mode = useUiStore((s) => s.mode);
@@ -45,6 +55,7 @@ export function useLykiaWallet(): LykiaWallet {
   const { signMessageAsync } = useSignMessage();
   const { signTypedDataAsync } = useSignTypedData();
   const { disconnect } = useDisconnect();
+  const config = useConfig();
   const arc = chainFor(mode);
 
   if (passkey) {
@@ -68,22 +79,25 @@ export function useLykiaWallet(): LykiaWallet {
       signMessage: (m) => passkey.signMessage(m),
       signTypedData: (td) => passkey.signTypedData(td),
       switchToArc: async () => undefined,
+      ensureChain: async (target) => {
+        if (target !== chainFor(passkey.environment).id) throw new Error(`This passkey wallet is on Arc ${passkey.environment}; switch the network toggle to match the plan.`);
+      },
       disconnect: disconnectPasskey,
     };
   }
 
-  const sendBrowser = async (txs: readonly WalletTx[]) => {
-    const hashes: `0x${string}`[] = [];
-    let current = chainId;
-    for (const tx of txs) {
-      if (current !== tx.chainId) {
-        await switchChainAsync({ chainId: tx.chainId });
-        current = tx.chainId;
-      }
-      hashes.push(await sendTransactionAsync({ to: tx.to, data: tx.data, value: BigInt(tx.value), chainId: tx.chainId }));
-    }
-    return hashes;
+  // The live chain, not the one captured at render: a switch earlier in the same flow must count.
+  const liveChainId = () => getAccount(config).chainId ?? chainId;
+  const switchTo = async (target: number) => {
+    if (liveChainId() !== target) await switchChainAsync({ chainId: target });
   };
+  const sendBrowser = (txs: readonly WalletTx[]) =>
+    sendSequentially(txs, {
+      currentChainId: liveChainId,
+      switchChain: switchTo,
+      sendOne: (tx) => sendTransactionAsync({ to: tx.to, data: tx.data, value: BigInt(tx.value), chainId: tx.chainId }),
+      waitFor: (hash, target) => waitForTransactionReceipt(config, { hash, chainId: target, timeout: RECEIPT_TIMEOUT_MS }),
+    });
   return {
     kind: address ? "browser" : null,
     address,
@@ -98,6 +112,7 @@ export function useLykiaWallet(): LykiaWallet {
     switchToArc: async () => {
       await switchChainAsync({ chainId: arc.id });
     },
+    ensureChain: switchTo,
     disconnect: () => disconnect(),
   };
 }

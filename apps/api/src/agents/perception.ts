@@ -46,7 +46,7 @@ export async function perceive(ctx: AppContext, input: { environment: ArcEnviron
   parts.push(`pack=[${active.map((a) => `${a.id} ${a.role} "${a.name.replace(/"/gu, "'")}"`).join("; ") || "none"}]`);
   if (input.owner) {
     const profile = await getProfile(ctx, input.owner).catch(() => null);
-    if (profile) parts.push(`profile language=${profile.language} tone=${profile.persona.tone} verbosity=${profile.persona.verbosity} risk=${profile.risk} display=${profile.displayCurrency}${profile.explainLikeNew ? " explain=plain-words" : ""}${profile.venues.favorites.length ? ` favourites=${profile.venues.favorites.join(",")}` : ""}${profile.venues.blocked.length ? ` blocked=${profile.venues.blocked.join(",")}` : ""}`);
+    if (profile) parts.push(`profile tone=${profile.persona.tone} verbosity=${profile.persona.verbosity} risk=${profile.risk} display=${profile.displayCurrency}${profile.explainLikeNew ? " explain=plain-words" : ""}${profile.venues.favorites.length ? ` favourites=${profile.venues.favorites.join(",")}` : ""}${profile.venues.blocked.length ? ` blocked=${profile.venues.blocked.join(",")}` : ""}`);
     const recalling = input.emit ? stepsFor(input.emit).start("memory", "Recalling what you told me") : null;
     const memory = await memoryService(ctx).summary(input.owner).catch(() => null);
     recalling?.end("ok", memory ? "Your preferences and past plans" : "Nothing remembered yet");

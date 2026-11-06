@@ -1,0 +1,157 @@
+/*
+ * Review and sign: a modal over the conversation, laid like a mosaic. The
+ * stone frame opens from its centre, a field of tesserae lifts away
+ * diagonally to reveal the panel, then each section is set in place.
+ * Reduced motion (the OS setting or Lykia's Motion switch) shows the
+ * finished panel at once. On phones it is a full-height bottom sheet.
+ */
+
+.rv-scrim { position: fixed; inset: 0; z-index: 75; display: grid; place-items: center; padding: 24px; background: rgba(19, 35, 58, 0.58); animation: m-fade 200ms both; }
+.rv-dialog { position: relative; display: flex; flex-direction: column; width: min(980px, 100%); max-height: calc(100dvh - 48px); padding: 0; overflow: hidden; outline: none; animation: rv-frame 460ms var(--ease-out) both; }
+@keyframes rv-frame {
+  0% { clip-path: inset(48% 48% 48% 48%); }
+  45% { clip-path: inset(48% 0 48% 0); }
+  100% { clip-path: inset(0 0 0 0); }
+}
+
+/* The tesserae that lift away. */
+.rv-tiles { position: absolute; inset: 0; z-index: 6; display: grid; grid-template-columns: repeat(var(--cols, 12), 1fr); grid-auto-rows: 1fr; pointer-events: none; }
+.rv-tile { box-shadow: inset 0 0 0 2px var(--grout), inset 0 -3px 0 rgba(19, 35, 58, 0.18); animation: rv-tile 520ms var(--ease-out) both; animation-delay: calc(260ms + var(--d, 0) * 24ms); }
+.rv-tile--terra { background: var(--terra); }
+.rv-tile--ochre { background: var(--ochre); }
+.rv-tile--sea { background: var(--sea); }
+.rv-tile--navy { background: var(--navy); }
+.rv-tile--olive { background: var(--olive); }
+.rv-tile--cream { background: var(--cream); }
+@keyframes rv-tile {
+  0% { opacity: 1; transform: none; }
+  60% { opacity: 1; transform: translateY(-3px) rotate(-4deg) scale(0.86); }
+  100% { opacity: 0; visibility: hidden; transform: translateY(-10px) rotate(-10deg) scale(0.3); }
+}
+
+/* Sections set in place one after another. */
+.rv-lay { animation: rv-lay 360ms var(--ease-out) both; animation-delay: calc(560ms + var(--k, 0) * 70ms); }
+@keyframes rv-lay { from { opacity: 0; transform: translateY(8px); } }
+
+/* Head. */
+.rv-grab { display: none; }
+.rv-head { position: relative; display: grid; gap: 4px; padding: 18px 64px 14px 22px; border-bottom: 2px dashed var(--grout); background: var(--cream); }
+.rv-head h2 { font-size: 26px; outline: none; }
+.rv-head .m-kick { color: var(--terra); }
+.rv-x { position: absolute; top: 14px; right: 14px; display: grid; place-items: center; width: 40px; height: 40px; border: 0; cursor: pointer; background: var(--cream); box-shadow: inset 0 0 0 2px var(--navy), inset 0 -3px 0 var(--grout); }
+.rv-x:hover { background: #fff; }
+
+/* Body. */
+.rv-body { flex: 1; min-height: 0; overflow: auto; padding: 16px 22px 18px; display: grid; gap: 14px; align-content: start; }
+.rv-swap { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 12px; align-items: stretch; }
+.rv-fig { display: grid; gap: 6px; align-content: start; padding: 14px 16px; min-width: 0; background: #fffaf0; box-shadow: inset 0 0 0 2px var(--grout), inset 0 -4px 0 var(--grout); }
+.rv-fig--send { box-shadow: inset 4px 0 0 var(--terra), inset 0 0 0 2px var(--grout), inset 0 -4px 0 var(--grout); }
+.rv-fig--get { box-shadow: inset 4px 0 0 var(--ok), inset 0 0 0 2px var(--grout), inset 0 -4px 0 var(--grout); }
+.rv-fig__row { display: grid; gap: 2px; min-width: 0; }
+.rv-big { font-family: "Pixelify Sans", monospace; font-size: clamp(26px, 3.2vw, 36px); line-height: 1.05; overflow-wrap: anywhere; }
+.rv-sym { font-size: 0.6em; color: var(--ink-2); letter-spacing: 0.04em; }
+.rv-arrow { display: grid; place-items: center; width: 44px; color: var(--navy); }
+
+.rv-cols { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.rv-side { display: grid; gap: 14px; min-width: 0; }
+.rv-card { padding: 12px 14px 14px; background: var(--cream); box-shadow: inset 0 0 0 2px var(--grout); min-width: 0; }
+.rv-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 17px; margin-bottom: 8px; }
+
+/* Steps. */
+.rv-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.rv-step { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; padding: 10px; background: #fffdf7; box-shadow: inset 0 0 0 2px var(--grout); }
+.rv-step[data-active] { box-shadow: inset 0 0 0 2px var(--sea), inset 0 -3px 0 var(--sea); }
+.rv-step[data-status="settled"] { background: #eef5e8; }
+.rv-step[data-status="failed"] { box-shadow: inset 0 0 0 2px var(--bad); }
+.rv-step__n { display: grid; place-items: center; width: 30px; height: 30px; font-family: Silkscreen, monospace; font-size: 12px; color: #fff; background: var(--navy); box-shadow: inset 0 -3px 0 #0a1525; }
+.rv-step[data-status="settled"] .rv-step__n { background: var(--ok); box-shadow: inset 0 -3px 0 #2d5d32; }
+.rv-step[data-active] .rv-step__n { background: var(--sea); box-shadow: inset 0 -3px 0 var(--sea-2); }
+.rv-step__body { display: grid; gap: 6px; min-width: 0; }
+.rv-step__body > b { overflow-wrap: anywhere; }
+.rv-step__meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.rv-memo { display: block; font-family: "JetBrains Mono Variable", "JetBrains Mono", monospace; font-size: 11.5px; padding: 6px 8px; background: var(--lime); color: var(--ink-2); overflow-wrap: anywhere; }
+.rv-memo .m-kick { font-size: 9.5px; margin-right: 4px; }
+.rv-why summary { cursor: pointer; }
+.rv-why p { margin-top: 4px; }
+
+/* Fees, Fence, security. */
+.rv-fees { margin: 0 0 6px; display: grid; gap: 6px; }
+.rv-fees div { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 8px; padding: 6px 0; border-top: 2px dashed var(--grout); }
+.rv-fees div:first-child { border-top: 0; }
+.rv-fees dt { font-family: Silkscreen, monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+.rv-fees dd { margin: 0; font-size: 13px; }
+.rv-fence__row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.rv-fence .m-seal { animation-delay: 760ms; }
+.rv-reasons { margin: 8px 0 0; padding-left: 18px; }
+.rv-confirm { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 8px 10px; background: #fbefd6; box-shadow: inset 0 0 0 2px var(--ochre); font-size: 13px; cursor: pointer; }
+.rv-confirm input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--terra); }
+.rv-sec { display: grid; gap: 6px; }
+.rv-sec__head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.rv-sec__lines { margin: 0; padding-left: 18px; }
+.rv-sec__finding { display: flex; gap: 6px; align-items: baseline; }
+.rv-sec__wait { display: grid; gap: 6px; }
+.rv-diff { padding: 8px 10px; background: #fbe9e3; box-shadow: inset 4px 0 0 var(--terra); overflow-wrap: anywhere; }
+.rv-diff .m-kick { color: var(--terra); }
+
+/* Status. */
+.rv-status { display: grid; gap: 10px; max-height: 40%; overflow: auto; padding: 10px 22px 0; border-top: 2px dashed var(--grout); background: var(--cream); }
+.rv-status:empty { display: none; }
+.rv-banner { padding: 10px 12px; font-size: 14px; box-shadow: inset 4px 0 0 var(--tone, var(--sea)), inset 0 0 0 2px var(--grout); background: #fffdf7; }
+.rv-banner--sea { --tone: var(--sea); }
+.rv-banner--ochre { --tone: var(--ochre); background: #fdf5e2; }
+.rv-banner--ok { --tone: var(--ok); background: #f0f6ea; }
+.rv-banner--bad { --tone: var(--bad); background: #fbe9e3; }
+.rv-banner--ghost { --tone: var(--grout); }
+.rv-dialog[data-phase="quoting"] .rv-banner, .rv-dialog[data-phase="signing"] .rv-banner, .rv-dialog[data-phase="submitting"] .rv-banner { background-image: linear-gradient(90deg, transparent 0 40%, rgba(255, 255, 255, 0.7) 50%, transparent 60% 100%); background-size: 240% 100%; animation: rv-sweep 1.6s linear infinite; }
+@keyframes rv-sweep { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+.rv-settled { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; padding: 12px 14px; background: #eef5e8; box-shadow: inset 0 0 0 2px var(--ok); }
+.rv-settled b { font-family: "Pixelify Sans", monospace; font-size: 20px; }
+.rv-settled__seal { display: grid; place-items: center; width: 54px; height: 54px; color: #fff; background: var(--ok); box-shadow: 0 0 0 3px var(--cream), 0 0 0 6px var(--ok); transform: rotate(-6deg); animation: m-stamp 520ms var(--ease-spring) both; }
+.rv-settled .m-hash { margin-top: 6px; }
+.rv-failed { display: grid; gap: 6px; padding: 12px 14px; background: #fbe9e3; box-shadow: inset 4px 0 0 var(--bad), inset 0 0 0 2px #e9c3b8; }
+.rv-failed b { font-family: "Pixelify Sans", monospace; font-size: 19px; color: var(--terra-2); }
+.rv-failed code { display: block; margin-top: 4px; overflow-wrap: anywhere; color: var(--ink-2); }
+
+/* Footer: one unmistakable primary action. */
+.rv-foot { display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding: 12px 22px 14px; border-top: 2px dashed var(--grout); background: var(--cream); }
+.rv-primary { min-width: 260px; font-size: 14px; }
+.rv-primary[data-busy] { cursor: progress; }
+
+/* Desktop 1024 to 1440: the two columns breathe. */
+@media (min-width: 1280px) { .rv-dialog { width: min(1040px, 100%); } }
+
+/* Tablet: one column. */
+@media (max-width: 860px) {
+  .rv-cols { grid-template-columns: 1fr; }
+}
+
+/* Phones: a full-height bottom sheet. */
+@media (max-width: 640px) {
+  .rv-scrim { place-items: end stretch; padding: 0; }
+  .rv-dialog { width: 100%; height: 100dvh; max-height: 100dvh; --frame-w: 8px; border-width: 8px; animation: m-sheet-up 340ms var(--ease-out) both; }
+  .rv-grab { display: block; position: absolute; z-index: 7; top: 4px; left: 50%; width: 56px; height: 6px; margin-left: -28px; padding: 0; border: 0; background: var(--grout); cursor: pointer; }
+  .rv-head { padding: 18px 56px 12px 14px; }
+  .rv-head h2 { font-size: 21px; }
+  .rv-x { top: 12px; right: 8px; }
+  .rv-body { padding: 12px 14px 14px; }
+  .rv-swap { grid-template-columns: 1fr; }
+  .rv-arrow { width: auto; transform: rotate(90deg); height: 20px; }
+  .rv-status { padding: 8px 14px 0; }
+  .rv-foot { padding: 10px 14px calc(12px + env(safe-area-inset-bottom)); }
+  .rv-foot .m-btn { flex: 1; }
+  .rv-primary { min-width: 0; flex: 2 !important; }
+}
+
+/* Reduced motion: the finished panel, at once. */
+@media (prefers-reduced-motion: reduce) {
+  .rv-tiles { display: none; }
+  .rv-scrim, .rv-dialog, .rv-lay, .rv-settled__seal, .rv-fence .m-seal { animation: none !important; }
+  .rv-dialog[data-phase] .rv-banner { animation: none !important; }
+}
+html[data-motion="off"] .rv-tiles { display: none; }
+html[data-motion="off"] .rv-scrim, html[data-motion="off"] .rv-dialog, html[data-motion="off"] .rv-lay, html[data-motion="off"] .rv-banner { animation: none !important; }
+
+/* Night. */
+html[data-night="on"] .rv-head, html[data-night="on"] .rv-foot, html[data-night="on"] .rv-card { background: #1b2b47; color: #f2ead7; }
+html[data-night="on"] .rv-fig, html[data-night="on"] .rv-step, html[data-night="on"] .rv-banner { background: #20335a; color: #f2ead7; }
+html[data-night="on"] .rv-memo { background: #16243f; color: #cfc4ad; }

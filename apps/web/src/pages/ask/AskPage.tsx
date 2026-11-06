@@ -1,7 +1,9 @@
 /**
  * Ask Lyko: the conversation. The landing composer morphs into the dock
  * here, the bay shrinks into the scene strip, the first question lands as
- * the first bubble, and a proposal slides the route artifact in.
+ * the first bubble, and a proposal slides the route artifact in. "Review
+ * and sign" opens the review modal over the conversation; the old review
+ * route (/app/outrun/:id) renders this page with that modal open.
  */
 import { useLykiaWallet } from "../../features/wallet/useLykiaWallet";
 import type { ThreadView } from "@lykia/core/api/agents";
@@ -20,6 +22,7 @@ import { ChatActionsContext, type ChatActions } from "../../features/ask/actions
 import type { AgentProposal } from "@lykia/core/api/agents";
 import { useAsk } from "../../features/ask/store";
 import { RouteArtifact } from "../../features/route/RouteArtifact";
+import { ReviewModal } from "../../features/route/ReviewModal";
 import { apiGet } from "../../lib/api";
 import { useEnvironment } from "../../lib/environment";
 import { useLykiaStore } from "../../lib/lykiaStore";
@@ -42,7 +45,7 @@ const QUICK = [
   { en: "New agent", q: "Create a payroll agent with a 500 USDC daily budget", kick: "PACK · FENCE · TAG", hint: "A budget carved from yours" },
 ] as const;
 
-export default function AskPage() {
+export default function AskPage({ reviewId = null }: { readonly reviewId?: string | null } = {}) {
   const environment = useEnvironment();
   const { address } = useLykiaWallet();
   const fence = useLykiaStore((s) => s.fence);
@@ -88,8 +91,10 @@ export default function AskPage() {
 
   // Keep the URL on the thread once the server names it.
   useEffect(() => {
+    // Not while the old review route shows its modal: moving the URL would close it.
+    if (reviewId) return;
     if (convo.threadId && convo.threadId !== threadParam) navigate(`/app/ask/${encodeURIComponent(convo.threadId)}`, { replace: true });
-  }, [convo.threadId, threadParam]);
+  }, [convo.threadId, threadParam, reviewId]);
 
   const serverThread = useQuery({
     queryKey: ["thread", convo.threadId, address],
@@ -106,6 +111,12 @@ export default function AskPage() {
   }, [convo.messages]);
 
   const [picked, setPicked] = useState<AgentProposal | null>(null);
+  // The review modal: opened from a plan card, the route panel, or the old review route.
+  const [review, setReview] = useState<{ readonly intentId: string; readonly proposal: AgentProposal | null } | null>(() => (reviewId ? { intentId: reviewId, proposal: null } : null));
+  const closeReview = () => {
+    setReview(null);
+    if (reviewId) navigate("/app", { replace: true });
+  };
   const proposal = picked ?? latestProposal(convo);
   const artifactKey = proposal ? `${proposal.intentId ?? proposal.title}` : null;
   // Where the route would cover the conversation (narrow screens), it opens only when asked ("Open the route").
@@ -145,6 +156,9 @@ export default function AskPage() {
     openRoute: (p) => {
       setPicked(p);
       setArtifactClosed(null);
+    },
+    openReview: (p) => {
+      if (p.intentId) setReview({ intentId: p.intentId, proposal: p });
     },
   };
   const empty = convo.messages.length === 0 && !serverThread.data;
@@ -230,8 +244,18 @@ export default function AskPage() {
 
       {showArtifact && proposal ? (
         <aside className="m-artifact" aria-label="Route">
-          <RouteArtifact proposal={proposal} intentId={proposal.intentId} onClose={() => { setArtifactClosed(artifactKey); setPicked(null); }} />
+          <RouteArtifact proposal={proposal} intentId={proposal.intentId} onClose={() => { setArtifactClosed(artifactKey); setPicked(null); }} onReview={proposal.intentId ? () => setReview({ intentId: proposal.intentId!, proposal }) : undefined} />
         </aside>
+      ) : null}
+      {review ? (
+        <ReviewModal
+          key={review.intentId}
+          intentId={review.intentId}
+          proposal={review.proposal}
+          open
+          onClose={closeReview}
+          {...(lastUser && status !== "streaming" ? { onReplan: () => { closeReview(); ask(lastUser); } } : {})}
+        />
       ) : null}
     </div>
     </ChatActionsContext.Provider>

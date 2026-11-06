@@ -39,6 +39,7 @@ export type RouteId =
   | "owner"
   | "kit"
   | "chatKit"
+  | "reviewKit"
   | "lykaion"
   | "developers"
   | "orders"
@@ -93,7 +94,7 @@ export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze(
   scent: page("scent", "/app/scent/:token?", "app", "Scent · token check", "What can be proven about a token on Arc before anyone touches it. Never \"safe\".", () => import("../../pages/scent/ScentPage")),
   tag: page("tag", "/app/tag/:agentId?", "app", "Tag · agent identity", "Agent Tags on Arc: an ERC-8004 identity that pins the Fence it obeys.", () => import("../../pages/tag/TagPage")),
   outrun: page("outrun", "/app/outrun/:id", "app", "Outrun · plan", "Where the money is, step by step, from the first call to where it ends up.", () => import("../../pages/outrun/OutrunPage"), { robots: PRIVATE_ROBOTS }),
-  you: page("you", "/app/you", "app", "Your Lyko · preferences and memory", "How Lyko decides and speaks for you: risk profile, liquidity floor, target mix, gas floor, insights, the reply language, the Fold's layout, Lyko's voice and look, and everything Lyko remembers.", () => import("../../pages/you/YourLykoPage"), { robots: PRIVATE_ROBOTS }),
+  you: page("you", "/app/you", "app", "Your Lyko · preferences and memory", "How Lyko decides and speaks for you: risk profile, liquidity floor, target mix, gas floor, insights, the Fold's layout, Lyko's voice and look, and everything Lyko remembers.", () => import("../../pages/you/YourLykoPage"), { robots: PRIVATE_ROBOTS }),
   memory: page("memory", "/app/memory", "app", "Memory", "Memory lives in Your Lyko now.", LEGACY, { robots: PRIVATE_ROBOTS }),
   circle: page("circle", "/app/circle", "app", "Circle · rails", "Circle's products on Arc: Gateway unified balance, CCTP, StableFX, agent wallets, compliance, nanopayments and USYC.", () => import("../../pages/circle/CirclePage")),
   orders: page("orders", "/app/orders", "app", "Orders · limit, stop, DCA", "Conditional orders on Arc: limit, stop-loss, take-profit, DCA and TWAP, signed once and executed by keepers.", LEGACY),
@@ -110,12 +111,13 @@ export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze(
   league: page("league", "/league", "site", "The League · Lykia's cities", "Lykia's products as the cities of a league: Lykia Pay, Lykia Agents and what comes next, each a real project with its own brand, modules and Fence caps, live on Arc.", () => import("../../pages/league/LeaguePage")),
   city: page("city", "/league/:city", "site", "City of the League", "One city of the League: what it does, how it uses Lykia, whether it is live, and the city itself, running on Lykia.", () => import("../../pages/league/CityPage")),
   letoon: page("letoon", "/letoon/:section?", "app", "Letoon · team console", "The Lykia team's console: the League council, contracts and deployments, flags and the Whistle, Circle setup, the audit log and platform usage. Admins only.", () => import("../../pages/letoon/LetoonPage"), { robots: PRIVATE_ROBOTS }),
-  ecosystem: page("ecosystem", "/ecosystem", "site", "Harbour · ecosystem", "Every Arc protocol routable on Lykia, linked to its official Arc ecosystem entry, with Circle's products, TVL and the value Lykia routes, live.", () => import("../../pages/ecosystem/EcosystemPage")),
-  stats: page("stats", "/stats", "site", "Ledger · stats", "Lykia in numbers: on-chain counts on Arc mainnet, value routed, protocols routable and integrators. Public, aggregate, sourced.", () => import("../../pages/stats/StatsPage")),
+  ecosystem: page("ecosystem", "/ecosystem", "site", "Harbour · ecosystem", "Every Arc protocol mapped and marked routable, read-only or mapped on Lykia, linked to its official Arc ecosystem entry, with Circle's products, TVL and the value Lykia routes, live.", () => import("../../pages/ecosystem/EcosystemPage")),
+  stats: page("stats", "/stats", "site", "Ledger · stats", "Lykia in numbers: on-chain counts on Arc mainnet, value routed, venues routable, protocols mapped and integrators. Public, aggregate, sourced.", () => import("../../pages/stats/StatsPage")),
   legal: page("legal", "/legal/:doc?", "site", "Notice, risks and privacy", "Lykia's draft software notice and risk disclosure (open source, non-custodial, no warranty, beta caps) and privacy note.", () => import("../../pages/legal/LegalPage")),
   owner: page("owner", "/owner", "site", "Letoon · team console", "The owner console moved to Letoon.", () => import("../../pages/redirect/RedirectPage"), { robots: PRIVATE_ROBOTS }),
   kit: page("kit", "/kit", "site", "Mosaic kit", "Every Mosaic component and scene.", () => import("../../pages/kit/KitPage"), { robots: PRIVATE_ROBOTS }),
   chatKit: page("chatKit", "/app/kit/chat", "app", "Chat kit · sample", "Every Ask Lyko card and thinking state with sample data (development only; nothing here moves money).", () => import("../../pages/kit/ChatKitPage"), { robots: PRIVATE_ROBOTS, devOnly: true }),
+  reviewKit: page("reviewKit", "/app/kit/review", "app", "Review kit · sample", "Every state of the review-and-sign modal with sample data (development only; nothing here moves money).", () => import("../../pages/kit/ReviewKitPage"), { robots: PRIVATE_ROBOTS, devOnly: true }),
   lykaion: page("lykaion", "/lykaion", "site", "Lykaion", "Mount Lykaion, Arcadia, at night.", () => import("../../pages/lykaion/LykaionPage"), { robots: PRIVATE_ROBOTS }),
   developers: page("developers", "/developers", "site", "The Mint · build", BRAND_DESCRIPTION, () => import("../../pages/redirect/RedirectPage"), { robots: PRIVATE_ROBOTS }),
   appNotFound: page("appNotFound", "/app/*", "site", "Page not found", BRAND_DESCRIPTION, () => import("../../pages/notFound/NotFoundPage"), { robots: "noindex,follow" }),
@@ -123,7 +125,7 @@ export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze(
 });
 
 /** Matching order: specific routes first, the catch-alls last. `/app` itself is Ask. */
-const ORDER: readonly RouteId[] = ["landing", "ask", "fold", "move", "flock", "pastures", "pack", "fence", "scent", "tag", "outrun", "you", "memory", "circle", "orders", "markets", "discover", "alerts", "automations", "activity", "whatif", "security", "pay", "build", "mint", "league", "city", "letoon", "ecosystem", "stats", "legal", "owner", "kit", "chatKit", "lykaion", "developers", "appNotFound", "notFound"];
+const ORDER: readonly RouteId[] = ["landing", "ask", "fold", "move", "flock", "pastures", "pack", "fence", "scent", "tag", "outrun", "you", "memory", "circle", "orders", "markets", "discover", "alerts", "automations", "activity", "whatif", "security", "pay", "build", "mint", "league", "city", "letoon", "ecosystem", "stats", "legal", "owner", "kit", "chatKit", "reviewKit", "lykaion", "developers", "appNotFound", "notFound"];
 
 let compiled: ReadonlyArray<readonly [RouteDefinition, CompiledPattern]> | null = null;
 

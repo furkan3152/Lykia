@@ -127,7 +127,7 @@ OPERATIONS: Dict[str, Operation] = {
     "getMemory": Operation("GET", "/v1/memory", "Personal", "What Lyko remembers", None, False),
     "getMemoryExport": Operation("GET", "/v1/memory/export", "Personal", "Export memory", None, False),
     "getMemoryIntents": Operation("GET", "/v1/memory/intents", "Personal", "Remembered plans", None, False),
-    "getMePreferences": Operation("GET", "/v1/me/preferences", "Fold", "Your Lyko: risk profile, liquidity floor, target mix, gas floor, insights and notifications, reply language and the Fold's layout, with the effect of each", None, False),
+    "getMePreferences": Operation("GET", "/v1/me/preferences", "Fold", "Your Lyko: risk profile, liquidity floor, target mix, gas floor, insights and notifications and the Fold's layout, with the effect of each", None, False),
     "getMeThreads": Operation("GET", "/v1/me/threads", "Fold", "The owner's shared threads (Ask Lyko and Lyko on watch), newest first, with size, last line and origin", None, False),
     "getNetworks": Operation("GET", "/v1/networks", "Arc", "Arc mainnet and testnet", None, False),
     "getOpenapiJson": Operation("GET", "/v1/openapi.json", "Platform", "This OpenAPI 3.1 document", None, False),

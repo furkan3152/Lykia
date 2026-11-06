@@ -11,7 +11,11 @@ import type { RiskTier } from "./routes.js";
 export const PROFILE_SCHEMA = "lykia.profile/v1" as const;
 export const PROFILE_VERSION = 1;
 
-export type ProfileLanguage = "tr" | "en" | "auto";
+/**
+ * Lyko always replies in English and reads any language, so the only value
+ * is "en". Older profiles stored "tr" or "auto"; they load as "en".
+ */
+export type ProfileLanguage = "en";
 export type DisplayCurrency = "USD" | "EUR" | "TRY";
 export type LykoTone = "friendly" | "concise" | "formal" | "playful";
 export type Verbosity = "short" | "normal" | "detailed";
@@ -56,7 +60,7 @@ export interface LykiaProfile {
 export const DEFAULT_PROFILE: LykiaProfile = Object.freeze({
   schema: PROFILE_SCHEMA,
   version: PROFILE_VERSION,
-  language: "auto",
+  language: "en",
   theme: "day",
   displayCurrency: "USD",
   defaultNetwork: "testnet",
@@ -105,7 +109,7 @@ export function validateProfile(input: unknown): { ok: true; profile: LykiaProfi
   const known = new Set(Object.keys(DEFAULT_PROFILE));
   for (const key of Object.keys(p)) if (!known.has(key)) add(key, "Unknown field.");
   if (p.schema !== PROFILE_SCHEMA) add("schema", `Must be "${PROFILE_SCHEMA}".`);
-  if (!["tr", "en", "auto"].includes(p.language as string)) add("language", "tr, en or auto.");
+  // language: any stored value is accepted and read as "en" (see ProfileLanguage).
   if (!["USD", "EUR", "TRY"].includes(p.displayCurrency as string)) add("displayCurrency", "USD, EUR or TRY.");
   if (!["day", "night", "auto"].includes(p.theme as string)) add("theme", "day, night or auto.");
   if (p.defaultNetwork !== "mainnet" && p.defaultNetwork !== "testnet") add("defaultNetwork", "mainnet or testnet.");
@@ -147,7 +151,7 @@ export function validateProfile(input: unknown): { ok: true; profile: LykiaProfi
   if (!isRecord(m) || typeof m.enabled !== "boolean" || typeof m.learnContacts !== "boolean" || !(Number.isInteger(m.retentionDays) && (m.retentionDays as number) >= 1 && (m.retentionDays as number) <= 730)) add("memory", "enabled, learnContacts booleans and retentionDays 1..730.");
   if (!(Number.isInteger(p.version) && (p.version as number) >= 1)) add("version", "A positive integer.");
   if (issues.length > 0) return { ok: false, issues };
-  return { ok: true, profile: input as unknown as LykiaProfile };
+  return { ok: true, profile: { ...(input as unknown as LykiaProfile), language: "en" } };
 }
 
 /**
@@ -254,7 +258,7 @@ export function toWebProfile(p: LykiaProfile): WebProfile {
 export function fromWebProfile(input: Record<string, unknown>, current: LykiaProfile): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
   const str = (k: string) => (typeof input[k] === "string" ? (input[k] as string) : undefined);
-  if (str("language")) patch.language = input.language;
+  // "language" is ignored: replies are always in English.
   if (str("currency")) patch.displayCurrency = input.currency;
   if (str("network")) patch.defaultNetwork = input.network;
   if (str("theme")) patch.theme = input.theme;

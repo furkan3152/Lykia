@@ -78,6 +78,18 @@ function formatTvl(tvl: string | null | undefined): string {
  * to the larger venue. Falls back to the safest executable one when nothing
  * fits the risk ceiling. Null when nothing is executable.
  */
+/**
+ * "Compared 5 venues: A 4.71% APY, B 2.40% APY, …": every option the choice
+ * was made from, best first, so Lyko can say what it compared. The 1% Lykia
+ * fee is charged once on the deposit whichever venue wins, so the order net
+ * of fees is the APY order.
+ */
+export function comparedLine(options: readonly VenueOption[]): string {
+  const ranked = [...options].sort((a, b) => apyNumber(b) - apyNumber(a) || a.label.localeCompare(b.label));
+  const parts = ranked.map((o) => `${o.label} ${formatApy(o.apy)}${o.executable ? "" : " (not executable)"}`);
+  return `Compared ${options.length} venue${options.length === 1 ? "" : "s"}: ${parts.join(", ")}.`;
+}
+
 export function chooseYield(options: readonly VenueOption[], maxRisk: RiskTier = "medium"): RouteChoice | null {
   const executable = options.filter((o) => o.executable);
   if (executable.length === 0) return null;
@@ -92,7 +104,7 @@ export function chooseYield(options: readonly VenueOption[], maxRisk: RiskTier =
   if (runnerUp) reason += `; chosen over ${runnerUp.label} (${formatApy(runnerUp.apy)})`;
   if (skipped.length > 0) reason += `; ${skipped.map((s) => s.label).join(", ")} pay more but sit above the ${maxRisk}-risk ceiling`;
   if (fits.length === 0) reason += `; nothing fits ${maxRisk} risk, so the safest venue was taken`;
-  return { chosen, alternatives, reason: `${reason}.` };
+  return { chosen, alternatives, reason: `${reason}. ${comparedLine(options)}` };
 }
 
 /** Picks the executable swap option with the largest net output. */

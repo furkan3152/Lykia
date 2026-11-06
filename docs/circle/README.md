@@ -3,7 +3,7 @@
 Circle is not a competitor; Lykia is built on Circle's products and sends
 them traffic. Wherever Circle already runs something, Lykia uses it instead
 of rebuilding it, and adds what an agent still needs on top: a DeFi-aware
-Fence, routing to every Arc protocol, and records of every decision.
+Fence, routing through every Arc venue with an executable adapter, and records of every decision.
 
 Wording: "Built on Arc Network", "Powered by Circle", "built on Circle's
 products". Lykia does not claim to be a Circle or Arc partner, and does not
