@@ -19,10 +19,11 @@ function ownerKey(owner: Address | null): string {
 }
 
 export async function openThread(ctx: AppContext, owner: Address | null, environment: ArcEnvironment, threadId: string | undefined, firstMessage: string): Promise<ThreadView> {
-  if (threadId) {
-    const doc = await threads(ctx).get(threadId);
-    if (!doc || !threadId.startsWith(`${ownerKey(owner)}:`)) throw new LykiaHttpError("NOT_FOUND", 404, "No such thread for this owner.");
-    return doc.value;
+  // A thread the caller cannot continue (expired, or started under another wallet or before one was
+  // connected) never blocks the chat: Lyko starts a fresh thread and the client follows the new id.
+  if (threadId && threadId.startsWith(`${ownerKey(owner)}:`)) {
+    const doc = await threads(ctx).get(threadId).catch(() => null);
+    if (doc) return doc.value;
   }
   const now = new Date(ctx.clock.now()).toISOString();
   const thread: ThreadView = { id: `${ownerKey(owner)}:thr_${randomHex(6)}`, owner: (owner ?? "0x0000000000000000000000000000000000000000") as Address, environment, title: firstMessage.slice(0, 80), createdAt: now, updatedAt: now, messages: [] };

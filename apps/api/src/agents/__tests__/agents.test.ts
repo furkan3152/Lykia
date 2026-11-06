@@ -232,6 +232,18 @@ describe("Lyko orchestration", () => {
     }
   });
 
+  it("starts a fresh thread when the client sends one it cannot continue", async () => {
+    setLlmClient(ctx, null);
+    for (const threadId of ["anon:thr_doesnotexist", "0x1111111111111111111111111111111111111111:thr_abcdef"]) {
+      const res = await fetch(`${served.url}/v1/agent/chat`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify({ message: "swap 1 USDC for EURC", owner: OWNER, environment: "mainnet", threadId }) });
+      assert.equal(res.status, 200, threadId);
+      const body = (await res.json()) as { threadId: string; stopReason: string };
+      assert.notEqual(body.threadId, threadId);
+      assert.ok(body.threadId.startsWith(`${OWNER.toLowerCase()}:`));
+      assert.notEqual(body.stopReason, "error");
+    }
+  });
+
   it("lists an owner's threads and automations only for that owner", async () => {
     for (const path of ["/v1/agent/threads", "/v1/agent/automations"]) {
       const anonymous = await fetch(`${served.url}${path}?owner=${OWNER}`);
