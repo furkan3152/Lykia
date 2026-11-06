@@ -9,7 +9,7 @@ import { after, before, beforeEach, describe, it } from "node:test";
 import { ManualClock } from "../../clock.js";
 import { LykiaHttpError } from "../../http/errors.js";
 import { MemoryStore } from "../memory.js";
-import { PostgresStore } from "../postgres.js";
+import { isConnectFailure, isDroppedConnection, PostgresStore } from "../postgres.js";
 import type { Store } from "../types.js";
 
 interface Backend {
@@ -230,5 +230,16 @@ describe("PostgresStore failures", () => {
 
   it("validates the table prefix", () => {
     assert.throws(() => new PostgresStore({ url: "postgresql://x@localhost/x", tablePrefix: "bad-prefix;" }));
+  });
+});
+
+describe("postgres connection retry rules", () => {
+  it("retries connect failures for any statement and dropped connections only for reads", () => {
+    assert.equal(isConnectFailure("timeout exceeded when trying to connect"), true);
+    assert.equal(isConnectFailure("Connection terminated due to connection timeout"), true);
+    assert.equal(isConnectFailure("Connection terminated unexpectedly"), false);
+    assert.equal(isDroppedConnection("Connection terminated unexpectedly"), true);
+    assert.equal(isConnectFailure('duplicate key value violates unique constraint "x"'), false);
+    assert.equal(isDroppedConnection('relation "x" does not exist'), false);
   });
 });

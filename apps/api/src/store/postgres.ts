@@ -84,6 +84,18 @@ function toNumber(value: string | number | null): number | null {
 
 const DOC_COLUMNS = "id, doc, version, updated_at, expires_at";
 
+const QUERY_RETRIES = 2;
+
+/** The client never reached the database: safe to retry any statement. */
+export function isConnectFailure(message: string): boolean {
+  return /timeout exceeded when trying to connect|Connection terminated due to connection timeout|ECONNREFUSED|ECONNRESET.*connect|getaddrinfo/iu.test(message);
+}
+
+/** The connection died while a statement was in flight: retried only for reads. */
+export function isDroppedConnection(message: string): boolean {
+  return /Connection terminated unexpectedly|Client has encountered a connection error|ECONNRESET/iu.test(message);
+}
+
 export class PostgresStore implements Store {
   readonly kind = "postgres" as const;
   readonly pool: pg.Pool;
@@ -104,8 +116,11 @@ export class PostgresStore implements Store {
     this.pool = new pg.Pool({
       connectionString: options.url,
       max: options.poolSize ?? 5,
-      idleTimeoutMillis: 30_000,
-      connectionTimeoutMillis: 5_000,
+      // Serverless Postgres drops idle connections and can take seconds to wake from suspend:
+      // release idle clients early, keep sockets alive, and give a cold start time to answer.
+      idleTimeoutMillis: 10_000,
+      connectionTimeoutMillis: 15_000,
+      keepAlive: true,
     });
     this.pool.on("error", (error) => {
       this.log?.error("postgres pool error", { error: error.message });
@@ -137,14 +152,28 @@ export class PostgresStore implements Store {
     return this.schema;
   }
 
-  /** Query with lazy schema creation; database errors map to 503 STORE_UNAVAILABLE. */
+  /**
+   * Query with lazy schema creation; database errors map to 503 STORE_UNAVAILABLE.
+   * A connection that could not be opened is retried (nothing reached the database); a connection
+   * dropped mid-flight is retried only for reads, so a write is never applied twice.
+   */
   async query<R extends pg.QueryResultRow>(text: string, values: readonly unknown[]): Promise<pg.QueryResult<R>> {
-    try {
-      await this.ensureSchema();
-      return await this.pool.query<R>(text, [...values]);
-    } catch (error) {
-      this.log?.error("postgres query failed", { error: error instanceof Error ? error.message : String(error) });
-      throw storeUnavailable();
+    const read = /^\s*select\b/iu.test(text);
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await this.ensureSchema();
+        return await this.pool.query<R>(text, [...values]);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const retry = attempt < QUERY_RETRIES && (isConnectFailure(message) || (read && isDroppedConnection(message)));
+        if (retry) {
+          this.log?.warn("postgres connection retry", { attempt: attempt + 1, error: message });
+          await new Promise((resolve) => setTimeout(resolve, 250 * 2 ** attempt));
+          continue;
+        }
+        this.log?.error("postgres query failed", { error: message });
+        throw storeUnavailable();
+      }
     }
   }
 

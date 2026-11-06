@@ -3,9 +3,25 @@
   "installCommand": "cd ../.. && npm ci",
   "buildCommand": "cd ../.. && npm run build:api",
   "outputDirectory": "public",
+  "regions": [
+    "iad1"
+  ],
   "functions": {
-    "api/index.js": { "maxDuration": 300, "includeFiles": "dist/**" }
+    "api/index.js": {
+      "maxDuration": 300,
+      "includeFiles": "dist/**"
+    }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
-  "crons": [{ "path": "/cron/standing", "schedule": "17 6 * * *" }]
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/cron/standing",
+      "schedule": "17 6 * * *"
+    }
+  ]
 }
