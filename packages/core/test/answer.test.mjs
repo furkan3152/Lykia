@@ -8,7 +8,7 @@ const ADDR = "0x7a3f9c21b4e8d05f6a1c3e9b2d4f6a8c0e1b3d5f";
 test("the chat stream names its step and block events", () => {
   assert.ok(CHAT_EVENT_NAMES.includes("step"));
   assert.ok(CHAT_EVENT_NAMES.includes("block"));
-  assert.deepEqual([...ANSWER_BLOCK_KINDS].sort(), ["balance", "fence", "gas", "herded", "rate", "settled"]);
+  assert.deepEqual([...ANSWER_BLOCK_KINDS].sort(), ["balance", "fence", "gas", "herded", "positions", "rate", "settled"]);
   assert.ok(CHAT_STEP_KINDS.includes("fence") && CHAT_STEP_KINDS.includes("route"));
 });
 
@@ -28,4 +28,11 @@ test("chat steps validate strictly", () => {
   assert.deepEqual(parseChatStep(step), { ...step, ms: 612 });
   assert.equal(parseChatStep({ ...step, state: "done" }), null);
   assert.equal(parseChatStep({ ...step, kind: "magic" }), null);
+});
+
+test("the positions block validates its rows and states", () => {
+  const block = { kind: "positions", netUsd: "18471.2", weightedApyPercent: "0.62", lowestHealth: "1.1999", rows: [{ venue: "Aave V4", label: "Aave V4 Forex Spoke · USDC borrowed", state: "at-risk", valueUsd: "-50607.15", doing: "At risk: health 1.20, under your 1.5 floor · liquidation at 1.00" }], unavailable: ["Morpho Blue"] };
+  assert.deepEqual(parseAnswerBlock({ ...block, extra: 1 }), block);
+  assert.equal(parseAnswerBlock({ ...block, rows: [{ ...block.rows[0], state: "on-fire" }] }), null);
+  assert.equal(parseAnswerBlock({ ...block, netUsd: "lots" }), null);
 });

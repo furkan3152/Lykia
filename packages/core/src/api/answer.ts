@@ -61,10 +61,22 @@ export type AnswerBlock =
   /** Alerts, automations and orders Lyko set up (saved) or drafted (a link to finish). */
   | { readonly kind: "herded"; readonly items: readonly { readonly kind: "alert" | "automation" | "order"; readonly label: string; readonly saved: boolean; readonly href: string; readonly next: string | null }[] }
   /** A step that settled on chain. */
-  | { readonly kind: "settled"; readonly summary: string; readonly tx: string };
+  | { readonly kind: "settled"; readonly summary: string; readonly tx: string }
+  /** Where the owner's money is and what it is doing: the largest positions with their state, and the venues that could not be read. */
+  | { readonly kind: "positions"; readonly netUsd: string | null; readonly weightedApyPercent: string | null; readonly lowestHealth: string | null; readonly rows: readonly PositionsCardRow[]; readonly unavailable: readonly string[] };
+
+export interface PositionsCardRow {
+  readonly venue: string;
+  readonly label: string;
+  readonly state: string;
+  readonly valueUsd: string | null;
+  readonly doing: string;
+}
+
+const POSITION_CARD_STATES = ["earning", "idle", "borrowing", "at-risk", "out-of-range", "pending", "escrowed", "committed"] as const;
 
 export type AnswerBlockKind = AnswerBlock["kind"];
-export const ANSWER_BLOCK_KINDS: readonly AnswerBlockKind[] = ["gas", "fence", "balance", "rate", "herded", "settled"];
+export const ANSWER_BLOCK_KINDS: readonly AnswerBlockKind[] = ["gas", "fence", "balance", "rate", "herded", "settled", "positions"];
 
 /** At most this many blocks ride on one answer. */
 export const MAX_BLOCKS = 6;
@@ -156,6 +168,27 @@ export function parseAnswerBlock(raw: unknown): AnswerBlock | null {
       });
       if (items.some((i) => i === null)) return null;
       return { kind: "herded", items: items as { kind: "alert" | "automation" | "order"; label: string; saved: boolean; href: string; next: string | null }[] };
+    }
+    case "positions": {
+      const netUsd = nullable(o.netUsd, decimal);
+      const weightedApyPercent = nullable(o.weightedApyPercent, decimal);
+      const lowestHealth = nullable(o.lowestHealth, decimal);
+      if (netUsd === undefined || weightedApyPercent === undefined || lowestHealth === undefined) return null;
+      if (!Array.isArray(o.rows) || o.rows.length > 10) return null;
+      const rows = o.rows.map((r) => {
+        const x = obj(r);
+        const venue = str(x?.venue, 60);
+        const label = str(x?.label, 120);
+        const state = typeof x?.state === "string" && (POSITION_CARD_STATES as readonly string[]).includes(x.state) ? x.state : null;
+        const valueUsd = nullable(x?.valueUsd, decimal);
+        const doing = str(x?.doing, 200);
+        return venue && label && state && valueUsd !== undefined && doing ? { venue, label, state, valueUsd, doing } : null;
+      });
+      const unavailableRaw = o.unavailable === undefined ? [] : o.unavailable;
+      if (!Array.isArray(unavailableRaw) || unavailableRaw.length > 12) return null;
+      const unavailable = unavailableRaw.map((u) => str(u, 60));
+      if (rows.some((r) => r === null) || unavailable.some((u) => u === null)) return null;
+      return { kind: "positions", netUsd, weightedApyPercent, lowestHealth, rows: rows as PositionsCardRow[], unavailable: unavailable as string[] };
     }
     case "settled": {
       const summary = str(o.summary, 200);

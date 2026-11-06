@@ -38,3 +38,4 @@ export * from "./drafts.js";
 export * from "./program.js";
 export * from "./programCompile.js";
 export * from "./fold.js";
+export * from "./positions.js";

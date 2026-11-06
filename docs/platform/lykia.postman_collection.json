@@ -5452,6 +5452,53 @@
           }
         },
         {
+          "name": "Every position the address holds in every venue Lykia supports on Arc: the wallet, Aave V4 (Main and Forex Spokes), Morpho vaults and Morpho Blue markets, Uniswap v3 and v4 and Aerodrome Slipstream LP NFTs, USYC, the Circle Gateway unified balance and, for the proven owner, CCTP transfers in flight, open LykiaOrders orders and scheduled payments. Each position carries its amount, USD value, state (earning, idle, borrowing, at-risk, out-of-range, pending, escrowed, committed), what it is doing, APY, health, range and fees where they apply, one-tap Lyko actions, its source (chain, api, history), the block and an explorer link. A venue that cannot be read comes back unavailable with the reason, never as zero. Each venue is read with its own time limit and cached for 20 seconds per address.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fold/positions/:address",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fold",
+                "positions",
+                ":address"
+              ],
+              "query": [
+                {
+                  "key": "environment",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "venues",
+                  "value": "",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "address",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Every position the address holds in every venue Lykia supports on Arc: the wallet, Aave V4 (Main and Forex Spokes), Morpho vaults and Morpho Blue markets, Uniswap v3 and v4 and Aerodrome Slipstream LP NFTs, USYC, the Circle Gateway unified balance and, for the proven owner, CCTP transfers in flight, open LykiaOrders orders and scheduled payments. Each position carries its amount, USD value, state (earning, idle, borrowing, at-risk, out-of-range, pending, escrowed, committed), what it is doing, APY, health, range and fees where they apply, one-tap Lyko actions, its source (chain, api, history), the block and an explorer link. A venue that cannot be read comes back unavailable with the reason, never as zero. Each venue is read with its own time limit and cached for 20 seconds per address.\n\nAuth: public."
+          }
+        },
+        {
           "name": "The owner's proposals, newest first; plans that settled become done and plans that failed become stopped",
           "request": {
             "method": "GET",

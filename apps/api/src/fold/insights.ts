@@ -6,7 +6,7 @@
  * when there is a sensible move, a one-tap draft that goes through the
  * proposal system. Unpriced holdings are flagged, never counted as zero.
  */
-import { assessToken, currentMix, fenceForProfile, fromBaseUnits, riskTierOf, type Address, type ArcEnvironment, type FoldInsightKind, type FoldPreferences, type IntentGraph } from "@lykia/core";
+import { assessToken, currentMix, fenceForProfile, fromBaseUnits, riskTierOf, type Address, type ArcEnvironment, type FoldInsightKind, type FoldPreferences, type IntentGraph, type Position, type PositionsResponse } from "@lykia/core";
 import type { PackAgentView } from "@lykia/core/api/agents";
 import type { FlockSnapshot } from "@lykia/core/api/flock";
 import type { FoldFigure, FoldInsight, FoldInsightsResponse, FoldInstruction } from "@lykia/core/api/fold";
@@ -23,6 +23,7 @@ import { getPreferences } from "./preferences.js";
 import { handledInsights, listProposals } from "./proposals.js";
 import { ownerIntents } from "./trails.js";
 import { settle, withTimeout } from "./util.js";
+import { readPositions } from "../positions/service.js";
 
 const usd = (n: number) => `$${n.toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: n > 0 && n < 1 ? 2 : 0 })}`;
 const amount = (n: number) => (n >= 100 ? String(Math.floor(n)) : n.toFixed(2).replace(/\.?0+$/u, ""));
@@ -45,6 +46,23 @@ export interface InsightInputs {
   readonly orders: readonly { readonly hash: string; readonly summary: string; readonly symbol: string | null; readonly trigger: number | null; readonly above: boolean }[];
   readonly bestLowRiskApy: { readonly name: string; readonly apy: number } | null;
   readonly heldApy: { readonly name: string; readonly apy: number; readonly usd: number } | null;
+  /** The position map, when it could be read: health factors, LP ranges and orders come from it. */
+  readonly positions?: PositionsResponse | null;
+}
+
+/** One health factor per lending account (an Aave Spoke, a Morpho market) from the position map. */
+export function healthFromPositions(positions: PositionsResponse): { venue: string; account: string; label: string; healthFactor: string | null; debt: Position | null }[] {
+  const out = new Map<string, { venue: string; account: string; label: string; healthFactor: string | null; debt: Position | null }>();
+  for (const v of positions.venues) {
+    for (const p of v.positions) {
+      if (!p.health || p.health.factor === null) continue;
+      const account = p.id.split(":").slice(0, 2).join(":");
+      const prev = out.get(account);
+      const debt = Number(p.valueUsd ?? 0) < 0 ? p : (prev?.debt ?? null);
+      out.set(account, { venue: p.venue, account, label: p.label.split(" · ")[0] ?? p.venueName, healthFactor: p.health.factor, debt });
+    }
+  }
+  return [...out.values()];
 }
 
 export function computeInsights(input: InsightInputs): Omit<FoldInsight, "handled">[] {
@@ -71,22 +89,26 @@ export function computeInsights(input: InsightInputs): Omit<FoldInsight, "handle
     });
   }
 
-  // health-factor: lending positions near the Fence floor.
-  for (const h of snap.health) {
+  // health-factor: lending positions near the Fence floor (per account from the position map when it was read).
+  const lendingRead = input.positions ? input.positions.venues.filter((v) => v.venueKind === "lending" || v.venueKind === "market" || v.venue === "lykia-practice") : [];
+  const fromMap = input.positions && lendingRead.length > 0 && lendingRead.every((v) => v.status === "ok") ? healthFromPositions(input.positions) : null;
+  const healthRows = fromMap ?? snap.health.map((h) => ({ venue: h.venue, account: h.venue, label: h.venue, healthFactor: h.healthFactor, debt: null as Position | null }));
+  for (const h of healthRows) {
     const hf = num(h.healthFactor);
+    const id = fromMap ? `health-${h.account.replace(/[^a-z0-9-]+/giu, "-").slice(0, 60)}` : `health-${h.venue}`;
     if (hf === null) {
-      out.push({ id: `health-${h.venue}`, kind: "health-factor", severity: "watch", title: `The health factor on ${h.venue} could not be read`, explain: "Without it nobody can judge how close the position is to liquidation, so the Fence refuses new borrowing there until it reads again.", figures: figures(["Venue", h.venue], ["Health factor", "unknown"]), draft: null });
+      out.push({ id, kind: "health-factor", severity: "watch", title: `The health factor on ${h.label} could not be read`, explain: "Without it nobody can judge how close the position is to liquidation, so the Fence refuses new borrowing there until it reads again.", figures: figures(["Venue", h.label], ["Health factor", "unknown"]), draft: null });
       continue;
     }
     if (hf >= input.minHealthFactor * 1.25) continue;
-    const debt = snap.holdings.find((x) => x.where === h.venue && x.kind === "debt");
+    const debt = h.debt ? { usd: h.debt.valueUsd, symbol: h.debt.symbol } : snap.holdings.find((x) => x.where === h.venue && x.kind === "debt");
     const debtUsd = Math.abs(num(debt?.usd) ?? 0);
     const repay = debtUsd * 0.25;
     out.push({
-      id: `health-${h.venue}`,
+      id,
       kind: "health-factor",
       severity: hf < input.minHealthFactor + 0.1 ? "act" : "watch",
-      title: `Health factor ${hf.toFixed(2)} on ${h.venue}`,
+      title: `Health factor ${hf.toFixed(2)} on ${h.label}`,
       explain: `Your Fence floor is ${input.minHealthFactor}. A price move could push the position under it and toward liquidation. Repaying part of the debt, or adding collateral, raises it.`,
       figures: figures(["Health factor now", hf.toFixed(2)], ["Your Fence floor", String(input.minHealthFactor)], ["Debt on this venue", debtUsd > 0 ? usd(debtUsd) : "unknown"], ...(repay > 0 ? ([["Repaying a quarter", usd(repay)]] as [string, string][]) : [])),
       draft: repay >= 1 ? { label: "Repay a quarter", sentence: `Repay ${amount(repay)} ${debt?.symbol ?? "USDC"} on ${h.venue}` } : null,
@@ -199,7 +221,30 @@ export function computeInsights(input: InsightInputs): Omit<FoldInsight, "handle
   // yield-change: a better low-risk rate, after fees, than where the money earns now.
   if (input.bestLowRiskApy && input.heldApy && input.bestLowRiskApy.apy - input.heldApy.apy >= 0.75 && input.heldApy.usd >= 100) {
     const gain = (input.heldApy.usd * (input.bestLowRiskApy.apy - input.heldApy.apy)) / 100 - input.heldApy.usd * 0.01 * 2;
-    if (gain > 0) out.push({ id: "yield-change", kind: "yield-change", severity: "info", title: `${input.bestLowRiskApy.name} pays ${input.bestLowRiskApy.apy.toFixed(2)}%`, explain: `Your ${input.heldApy.name} position earns ${input.heldApy.apy.toFixed(2)}%. Moving it gains about ${usd(gain)} a year after Lykia's fee on both legs.`, figures: figures(["Earning now", `${input.heldApy.apy.toFixed(2)}%`], ["Best low-risk", `${input.bestLowRiskApy.apy.toFixed(2)}%`], ["Position", usd(input.heldApy.usd)], ["Yearly gain after fees", usd(gain)]), draft: { label: "Move it", sentence: `Withdraw ${amount(input.heldApy.usd)} USDC from my vault and put it to work at low risk` } });
+    if (gain > 0) out.push({ id: "yield-change", kind: "yield-change", severity: "info", title: `${input.bestLowRiskApy.name} pays ${input.bestLowRiskApy.apy.toFixed(2)}%`, explain: `Your ${input.heldApy.name} position earns ${input.heldApy.apy.toFixed(2)}%. Moving it gains about ${usd(gain)} a year after Lykia's fee on both legs.`, figures: figures(["Earning now", `${input.heldApy.apy.toFixed(2)}%`], ["Best low-risk", `${input.bestLowRiskApy.apy.toFixed(2)}%`], ["Position", usd(input.heldApy.usd)], ["Yearly gain after fees", usd(gain)]), draft: { label: "Move it", sentence: `Withdraw ${amount(input.heldApy.usd)} USDC from ${/Aave/u.test(input.heldApy.name) ? (input.heldApy.name.split(" · ")[0] ?? "Aave V4") : "my vault"} and put it to work at low risk` } });
+  }
+
+  // lp-out-of-range: liquidity that earns no fees until the price comes back into its band.
+  for (const p of (input.positions?.venues ?? []).flatMap((v) => v.positions)) {
+    if (p.state !== "out-of-range" || !p.range) continue;
+    const value = Math.abs(num(p.valueUsd) ?? 0);
+    if (value < 1) continue;
+    out.push({
+      id: `lp-${p.id.split(":").slice(-1)[0]}-${p.venue}`.slice(0, 80),
+      kind: "lp-out-of-range",
+      severity: value >= 500 ? "watch" : "info",
+      title: `${p.label} is out of range`,
+      explain: `The price is ${p.range.price} ${p.range.quote}, outside your ${p.range.lower}–${p.range.upper} band, so this liquidity earns no fees and sits in one token. Moving the range or removing the liquidity puts it back to work; Lykia cannot do that in one step yet, so Lyko can walk you through it.`,
+      figures: figures(["Price now", `${p.range.price} ${p.range.quote}`], ["Your band", `${p.range.lower}–${p.range.upper}`], ["Value", usd(value)]),
+      draft: null,
+    });
+  }
+
+  // order-expiring: an open order whose deadline is within a day.
+  for (const p of (input.positions?.venues ?? []).flatMap((v) => v.positions)) {
+    if (p.state !== "escrowed" || !p.facts?.some((f) => f.label === "Expiring")) continue;
+    const expires = p.facts.find((f) => f.label === "Expires")?.value ?? null;
+    out.push({ id: `order-expiring-${p.id.slice(-12)}`, kind: "order-expiring", severity: "watch", title: `${p.label} expires within a day`, explain: "If it does not fill before its deadline, nothing happens and the reserved amount stays in your wallet. Sign a new order to keep it running.", figures: figures(["Reserved", `${p.amount} ${p.symbol}`], ...(expires ? ([["Expires", expires]] as [string, string][]) : [])), draft: null });
   }
 
   const rank = { act: 0, watch: 1, info: 2 } as const;
@@ -224,7 +269,7 @@ async function gatherInputs(ctx: AppContext, environment: ArcEnvironment, owner:
   const snap = snapshot ?? (await services(ctx).flock.snapshot(environment, owner));
   const [prefs, profile] = await Promise.all([personal ? getPreferences(ctx, owner) : getPreferences(ctx, null), personal ? getProfile(ctx, owner) : getProfile(ctx, null)]);
   const fence = fenceForProfile({ ...profile, risk: riskTierOf(prefs.risk) });
-  const [approvals, instructions, standing, pack, spent, intents, rates] = await Promise.all([
+  const [approvals, instructions, standing, pack, spent, intents, rates, positions] = await Promise.all([
     settle(staleApprovals(ctx, environment, owner), []),
     personal ? settle(instructionsFor(ctx, owner), []) : Promise.resolve([]),
     personal ? settle(services(ctx).standing.list(owner), []) : Promise.resolve([]),
@@ -232,6 +277,7 @@ async function gatherInputs(ctx: AppContext, environment: ArcEnvironment, owner:
     settle(services(ctx).intents.spent(environment, owner), { dayUsd: null, weekUsd: null }),
     personal ? settle(ownerIntents(ctx, owner), []) : Promise.resolve([]),
     personal ? settle(withTimeout(services(ctx).yields.rates(environment), 2_500), null) : Promise.resolve(null),
+    settle(withTimeout(readPositions(ctx, environment, owner, { personal }), 9_000), null),
   ]);
   const eurUsd = Number(snap.prices.EURC?.usd ?? "1.1") || 1.1;
   const orders = personal
@@ -241,6 +287,9 @@ async function gatherInputs(ctx: AppContext, environment: ArcEnvironment, owner:
   const lowRisk = vaultRates.filter((v) => Number(v.tvlUsd ?? 0) >= 10_000_000).sort((a, b) => Number(b.apy) - Number(a.apy))[0];
   const held = snap.holdings.find((h) => h.kind === "vault" && vaultRates.some((v) => v.address.toLowerCase() === h.token.toLowerCase()));
   const heldRate = held ? vaultRates.find((v) => v.address.toLowerCase() === held.token.toLowerCase()) : undefined;
+  // From the position map: the largest USDC position that earns (a vault or an Aave supply), with its own rate.
+  const earningUsdc = (positions?.venues ?? []).flatMap((v) => v.positions).filter((p) => p.symbol === "USDC" && p.state === "earning" && p.apy && (p.venueKind === "vault" || p.venueKind === "lending") && Number(p.valueUsd ?? 0) > 0).sort((a, b) => Number(b.valueUsd) - Number(a.valueUsd))[0];
+  const heldApy = earningUsdc ? { name: earningUsdc.label, apy: Number(earningUsdc.apy!.percent), usd: Number(earningUsdc.valueUsd) } : held && heldRate ? { name: heldRate.name || held.symbol, apy: Number(heldRate.apy) * 100, usd: Number(held.usd ?? 0) } : null;
   return {
     snapshot: snap,
     preferences: prefs,
@@ -261,7 +310,8 @@ async function gatherInputs(ctx: AppContext, environment: ArcEnvironment, owner:
         return { hash: o.hash, summary: o.summary, symbol, trigger: Number.isFinite(trigger) && trigger > 0 ? trigger : null, above: o.order.triggerAbove };
       }),
     bestLowRiskApy: lowRisk ? { name: lowRisk.name || "A Morpho vault", apy: Number(lowRisk.apy) * 100 } : null,
-    heldApy: held && heldRate ? { name: heldRate.name || held.symbol, apy: Number(heldRate.apy) * 100, usd: Number(held.usd ?? 0) } : null,
+    heldApy,
+    positions,
   };
 }
 

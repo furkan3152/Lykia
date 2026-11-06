@@ -96,7 +96,7 @@ export function FoldBar(p: FoldBarProps) {
             <>
               <span className="m-kick">{p.sample ? "NET WORTH · SAMPLE FLOCK" : "NET WORTH"}</span>
               <div className="fd-bar__big">{p.loading ? <span className="m-skel" style={{ display: "inline-block", width: 220, height: 40 }} /> : <RollingNumber value={worth} label={`Net worth ${worth}`} />}</div>
-              {p.unpriced ? <span className="m-small m-muted">{"Something is unpriced: shown as unpriced, never as zero."}</span> : null}
+              {p.unpriced ? <span className="m-small m-muted">{"Plus something unpriced: left out, never counted as zero."}</span> : null}
             </>
           ) : null}
           {show("allocation") ? <AllocationStrip holdings={p.holdings} /> : null}

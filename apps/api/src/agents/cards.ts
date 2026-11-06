@@ -13,6 +13,7 @@
 import { fromBaseUnits, type Address, type ArcEnvironment, type Fence, type IntentGraph } from "@lykia/core";
 import { parseAnswerBlock, parseChatStep, type AnswerBlock, type ChatStep, type ChatStepKind } from "@lykia/core/api/answer";
 import type { FlockSnapshot } from "@lykia/core/api/flock";
+import type { PositionsResponse } from "@lykia/core";
 import type { AppContext } from "../context.js";
 import { getPreferences } from "../fold/preferences.js";
 import { services } from "../services.js";
@@ -103,6 +104,18 @@ export function balanceCard(snap: FlockSnapshot): AnswerBlock | null {
   return { kind: "balance", totalUsd: snap.totalUsd === null ? null : trimDecimal(snap.totalUsd, 2), holdings };
 }
 
+/** Where the money is: the largest positions by value with their state and one line each, and the venues that could not be read. */
+export function positionsCard(res: PositionsResponse): AnswerBlock | null {
+  const rows = res.venues
+    .flatMap((v) => v.positions)
+    .slice()
+    .sort((a, b) => Math.abs(Number(b.valueUsd ?? 0)) - Math.abs(Number(a.valueUsd ?? 0)))
+    .slice(0, 8)
+    .map((p) => ({ venue: p.venueName.slice(0, 60), label: p.label.slice(0, 120), state: p.state, valueUsd: p.valueUsd === null ? null : trimDecimal(p.valueUsd, 2), doing: p.doing.slice(0, 200) }));
+  const lowest = res.summary.lowestHealth?.factor ?? null;
+  return { kind: "positions", netUsd: res.summary.netUsd === null ? null : trimDecimal(res.summary.netUsd, 2), weightedApyPercent: res.summary.weightedApyPercent, lowestHealth: lowest === null ? null : trimDecimal(lowest, 4), rows, unavailable: res.summary.unavailable.slice(0, 12).map((u) => u.slice(0, 60)) };
+}
+
 /** The rate tile for a pair: the oracle reference, and the Fence's FX band when it has one. */
 export async function rateCard(ctx: AppContext, base: string, quote: string, fence: Fence, quoted?: string): Promise<AnswerBlock | null> {
   const prices = await services(ctx).prices.prices([base, quote]).catch(() => null);
@@ -153,7 +166,7 @@ export function fenceCard(intent: Pick<IntentGraph, "verdict">, fence: Fence): A
 
 /* -------------------------------------------------------------- questions */
 
-export type InfoQuestion = { readonly kind: "gas" } | { readonly kind: "balance" } | { readonly kind: "rate"; readonly base: string; readonly quote: string };
+export type InfoQuestion = { readonly kind: "gas" } | { readonly kind: "balance" } | { readonly kind: "positions" } | { readonly kind: "rate"; readonly base: string; readonly quote: string };
 
 const ACTION_VERB = /\b(?:send|pay|swap|convert|move|bridge|deposit|withdraw|earn|put|buy|sell|stake|lend|borrow|hedge|keep|sweep|create|set|every|rebalance|allocate|split|top up|alert|notify|remind)\b/iu;
 
@@ -165,6 +178,7 @@ const ACTION_VERB = /\b(?:send|pay|swap|convert|move|bridge|deposit|withdraw|ear
 export function infoQuestion(text: string): InfoQuestion | null {
   const t = text.trim().toLowerCase();
   if (t.length > 160 || ACTION_VERB.test(t)) return null;
+  if (/\b(?:where(?:'s| is| are) my (?:money|funds|usdc)|what(?:'s| is) my money doing|what are my (?:funds|positions) doing|my positions|position map)\b/u.test(t)) return { kind: "positions" };
   if (/\bgas\b/u.test(t)) return { kind: "gas" };
   if (/\b(?:eurc|euro|eur)\b/u.test(t) && /\b(?:rate|price|worth|fx|quote|exchange)\b/u.test(t)) return { kind: "rate", base: "USDC", quote: "EURC" };
   if (/\b(?:balance|balances|holdings|portfolio|my flock|what do i (?:hold|have|own)|how much (?:do i|have i))\b/u.test(t)) return { kind: "balance" };

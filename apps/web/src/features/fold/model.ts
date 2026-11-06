@@ -21,7 +21,7 @@ export interface FoldTabMeta {
 }
 
 export const FOLD_TAB_META: Readonly<Record<FoldTab, FoldTabMeta>> = {
-  flock: { id: "flock", label: "Flock", sub: "holdings", line: "What you hold across Arc: the wallet, lending and vaults, Gateway, USYC and orders in escrow." },
+  flock: { id: "flock", label: "Flock", sub: "holdings", line: "Every position in every protocol Lykia supports: where it is, what it is worth, its state and what it is doing." },
   trails: { id: "trails", label: "Trails", sub: "activity", line: "Everything that happened: settled steps with their memo and Fence verdict, plans, refusals and fees." },
   herding: { id: "herding", label: "Herding", sub: "instructions", line: "Every standing instruction in one list, and what waits for your signature." },
   pack: { id: "pack", label: "Pack", sub: "agents", line: "Your agents, their budgets, Tags and last moves, with a Whistle for each." },

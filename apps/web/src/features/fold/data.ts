@@ -3,11 +3,11 @@
  * resolves to the labelled sample; with a wallet, public reads are live;
  * signed in (SIWE), the personal ones are too.
  */
-import { DEFAULT_FOLD_PREFERENCES, type ArcEnvironment, type FoldPreferences } from "@lykia/core";
+import { DEFAULT_FOLD_PREFERENCES, POSITION_VENUES, summarizePositions, type ArcEnvironment, type FoldPreferences, type PositionsResponse, type PositionsSummary, type PositionVenueInfo, type VenueRead } from "@lykia/core";
 import type { PackAgentView } from "@lykia/core/api/agents";
 import type { FlockSnapshot } from "@lykia/core/api/flock";
 import type { FoldAnswerResponse, FoldExplainArtifact, FoldInsightsResponse, FoldInstructionsResponse, FoldProposal, FoldQuestion, FoldSummaryResponse, FoldTrailsResponse, PreferencesResponse } from "@lykia/core/api/fold";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
 import { useSearchParam } from "../../app/routes/useRoute";
@@ -17,6 +17,7 @@ import { useLykiaStore } from "../../lib/lykiaStore";
 import { useSession } from "../../lib/session";
 import { useLykiaWallet } from "../wallet/useLykiaWallet";
 import { sampleInsights, samplePack, sampleSnapshot } from "./model";
+import { samplePositions } from "./positionsModel";
 
 export interface FoldOwner {
   /** The address the Fold reads: ?address=, else the connected wallet, else null (sample). */
@@ -51,6 +52,69 @@ export function useFoldSnapshot(o: FoldOwner) {
     refetchInterval: 30_000,
     queryFn: ({ signal }) => apiGet<FlockSnapshot>(`/v1/flock/${o.address}`, { query: { environment: o.environment }, signal, timeoutMs: 20_000 }),
   });
+}
+
+export interface VenueSlot {
+  readonly info: PositionVenueInfo;
+  /** The venue's read once it answered (ok, unavailable or private); null while it loads. */
+  readonly read: VenueRead | null;
+  readonly loading: boolean;
+  readonly refetch: () => void;
+}
+
+export interface PositionMap {
+  readonly slots: readonly VenueSlot[];
+  readonly summary: PositionsSummary;
+  readonly healthFloor: string;
+  readonly at: string | null;
+  readonly block: string | null;
+  readonly sample: boolean;
+  readonly loading: boolean;
+}
+
+/**
+ * The position map, read in a few groups of venues so pens fill as their
+ * group answers and the slow, event-scanned venues never hold the rest. A request that fails to
+ * reach Lykia becomes that venue's "unavailable" read with a retry; it is
+ * never shown as zero. Signed out: the labelled sample.
+ */
+/** Venues read together: fast chain reads, LP enumeration, event-scanned venues, and the owner's own records. Four requests stream the map in without crowding the API's rate limit. */
+export const POSITION_GROUPS: readonly (readonly string[])[] = [
+  ["wallet", "aave-v4", "morpho-vaults", "usyc", "gateway", "lykia-practice"],
+  ["uniswap-v3", "aerodrome-slipstream"],
+  ["uniswap-v4", "morpho-blue"],
+  ["cctp", "lykia-orders", "arc-transfer"],
+];
+
+export function usePositions(o: FoldOwner): PositionMap {
+  const venues = POSITION_VENUES[o.environment];
+  const groups = POSITION_GROUPS.map((g) => g.filter((id) => venues.some((v) => v.id === id))).filter((g) => g.length > 0);
+  const results = useQueries({
+    queries: groups.map((g) => ({
+      queryKey: ["fold-positions", o.address, o.environment, o.signedIn, g.join(",")],
+      enabled: Boolean(o.address),
+      refetchInterval: 60_000,
+      retry: 1,
+      queryFn: ({ signal }: { signal: AbortSignal }) => apiGet<PositionsResponse>(`/v1/fold/positions/${o.address}`, { query: { environment: o.environment, venues: g.join(",") }, signal, timeoutMs: 30_000 }),
+    })),
+  });
+  const at = useMountedAt();
+  const sample = useMemo(() => (o.sample ? samplePositions(at, o.environment) : null), [o.sample, at, o.environment]);
+  if (sample) {
+    const slots = venues.map((info) => ({ info, read: sample.venues.find((r) => r.venue === info.id) ?? null, loading: false, refetch: () => undefined }));
+    return { slots, summary: sample.summary, healthFloor: sample.healthFloor, at: sample.at, block: sample.block, sample: true, loading: false };
+  }
+  const slots: VenueSlot[] = venues.map((info) => {
+    const gi = groups.findIndex((g) => g.includes(info.id));
+    const q = results[gi];
+    const answered = q?.data?.venues.find((r) => r.venue === info.id) ?? null;
+    const failed: VenueRead | null = !answered && q?.isError ? { venue: info.id, venueName: info.name, venueKind: info.kind, status: "unavailable", reason: "Lykia's API did not answer for this venue.", positions: [], source: "chain", method: "", readAt: new Date().toISOString(), block: null, ms: 0 } : null;
+    return { info, read: answered ?? failed, loading: !answered && !failed, refetch: () => void q?.refetch() };
+  });
+  const reads = slots.map((s) => s.read).filter((r): r is VenueRead => r !== null);
+  const first = results.find((q) => q.data)?.data;
+  const blocks = reads.map((r) => (r.block ? Number(r.block) : 0));
+  return { slots, summary: summarizePositions(reads), healthFloor: first?.healthFloor ?? "1.5", at: first?.at ?? null, block: blocks.length > 0 && Math.max(...blocks) > 0 ? String(Math.max(...blocks)) : null, sample: false, loading: slots.some((s) => s.loading) };
 }
 
 export function useFoldInsights(o: FoldOwner) {

@@ -18,6 +18,9 @@ import { useChatActions } from "./actions";
 import { planTitle, ruleName, type HerdItem } from "./cardModel";
 import { HashChip, RichLine } from "./Markdown";
 import { memoryBadges } from "./memoryRefs";
+import { StateIcon } from "../fold/positions/art";
+import { STATE_COLOR, stateLabel } from "../fold/positionsModel";
+import type { PositionState } from "@lykia/core";
 
 
 const fmt = (v: string | number, max = 4) => Number(v).toLocaleString("en-US", { maximumFractionDigits: max });
@@ -461,6 +464,42 @@ export function TroubleCard({ message }: { readonly message: string }) {
   );
 }
 
+/* ----------------------------------------------------------- positions */
+
+function PositionsCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "positions" }> }) {
+  const money = (v: number) => `${v < 0 ? "−" : ""}$${Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: Math.abs(v) >= 1000 ? 0 : 2 })}`;
+  const note = [block.weightedApyPercent !== null ? `Earning ${block.weightedApyPercent}% weighted` : null, block.lowestHealth !== null ? `lowest health ${Number(block.lowestHealth).toFixed(2)}` : null, block.unavailable.length > 0 ? `not read: ${block.unavailable.join(", ")}` : null].filter(Boolean).join(" · ");
+  return (
+    <CardShell kind="positions" tone="olive" kick="THE FLOCK · WHERE YOUR MONEY IS" title={
+        <span className="m-fig m-fig--xl">
+          {block.netUsd === null ? "partly unpriced" : <><span className="m-fig__cur">$</span>{Number(block.netUsd).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>}
+        </span>
+      }>
+      <ul className="m-poslist">
+        {block.rows.map((r) => {
+          const state = r.state as PositionState;
+          const v = r.valueUsd === null ? null : Number(r.valueUsd);
+          return (
+            <li key={`${r.venue}${r.label}`} style={{ ["--sc" as string]: STATE_COLOR[state] }}>
+              <span className="m-poslist__state" title={stateLabel(state)}><StateIcon state={state} size={11} /></span>
+              <span className="m-poslist__main">
+                <b>{r.label}</b>
+                <small>{r.doing}</small>
+              </span>
+              <span className="m-poslist__usd num" data-tone={v !== null && v < 0 ? "bad" : undefined}>{v === null ? "unpriced" : money(v)}</span>
+            </li>
+          );
+        })}
+      </ul>
+      {block.rows.length === 0 ? <p className="m-card2__note">Nothing deployed on this network yet.</p> : null}
+      <p className="m-card2__note">{note || "Read from the chain and Circle's APIs."}</p>
+      <div className="m-card2__acts">
+        <Link to="/app/fold/flock" className="m-mini">Open the position map</Link>
+      </div>
+    </CardShell>
+  );
+}
+
 /** One block as its card. */
 export function BlockCard({ block }: { readonly block: AnswerBlock }) {
   switch (block.kind) {
@@ -476,6 +515,8 @@ export function BlockCard({ block }: { readonly block: AnswerBlock }) {
       return <HerdedCard items={block.items} />;
     case "settled":
       return <SettledSeal block={block} />;
+    case "positions":
+      return <PositionsCard block={block} />;
     default:
       return null;
   }

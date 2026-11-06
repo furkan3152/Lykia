@@ -56,6 +56,7 @@ import { readSentence } from "../language/reader.js";
 import { compileIntent } from "../compiler/service.js";
 import { deliver } from "../compiler/deliver.js";
 import type { LlmTool } from "./llm.js";
+import { readPositions } from "../positions/service.js";
 import { foldInsights } from "../fold/insights.js";
 
 export interface ActingAgent {
@@ -158,6 +159,26 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
     async run(_input, tc) {
       const snap = await services(tc.ctx).flock.snapshot(tc.environment, needOwner(tc));
       return { summary: `Flock read: total ${snap.totalUsd === null ? "partly unpriced" : `$${snap.totalUsd}`}, ${snap.holdings.length} holdings`, data: snap };
+    },
+  }),
+  spec({
+    name: "positions",
+    description: "Read where the owner's money is and what it is doing, in every venue Lykia supports on Arc: wallet tokens, Aave V4 supplies and borrows with health factors, Morpho vaults and Morpho Blue markets, Uniswap v3/v4 and Aerodrome Slipstream LP positions with range and fees, USYC, the Circle Gateway balance and, for the proven owner, CCTP transfers in flight, open orders and scheduled payments. Each position has a state (earning, idle, borrowing, at-risk, out-of-range, pending, escrowed, committed), a value, an APY where known and one plain line of what it is doing. Venues that could not be read are named, never zeroed. Use it to answer 'where is my money and what is it doing?', then call show_card with card 'positions'.",
+    capability: "read",
+    schema: z.object({}).strict(),
+    json: obj({}),
+    async run(_input, tc) {
+      const res = await readPositions(tc.ctx, tc.environment, needOwner(tc), { personal: tc.ownerVerified });
+      const all = res.venues.flatMap((v) => v.positions);
+      return {
+        summary: `${all.length} position(s); net ${res.summary.netUsd === null ? "partly unpriced" : `$${res.summary.netUsd}`}${res.summary.unavailable.length > 0 ? `; not read: ${res.summary.unavailable.join(", ")}` : ""}`,
+        data: {
+          summary: res.summary,
+          healthFloor: res.healthFloor,
+          positions: all.map((p) => ({ venue: p.venue, label: p.label, state: p.state, amount: p.amount, symbol: p.symbol, valueUsd: p.valueUsd, doing: p.doing, apy: p.apy?.percent ?? null, health: p.health?.factor ?? null, inRange: p.range?.inRange ?? null, feesUsd: p.fees?.valueUsd ?? null, actions: p.actions.filter((a) => a.mode === "draft").map((a) => a.sentence) })),
+          venues: res.venues.map((v) => ({ venue: v.venue, status: v.status, ...(v.reason ? { reason: v.reason } : {}), ...(v.coverage ? { coverage: v.coverage } : {}) })),
+        },
+      };
     },
   }),
   spec({

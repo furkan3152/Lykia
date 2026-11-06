@@ -41,6 +41,8 @@ export const FOLD_INSIGHT_KINDS = [
   "agent-budget",
   "unsettled",
   "yield-change",
+  "lp-out-of-range",
+  "order-expiring",
 ] as const;
 export type FoldInsightKind = (typeof FOLD_INSIGHT_KINDS)[number];
 
@@ -58,6 +60,8 @@ export const FOLD_INSIGHT_NAMES: Readonly<Record<FoldInsightKind, string>> = {
   "agent-budget": "Agents near their budget",
   unsettled: "Steps still settling",
   "yield-change": "A better low-risk rate",
+  "lp-out-of-range": "Liquidity out of range",
+  "order-expiring": "Orders about to expire",
 };
 
 export type FoldRisk = "careful" | "balanced" | "bold";

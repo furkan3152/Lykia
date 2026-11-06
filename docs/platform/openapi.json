@@ -15926,7 +15926,9 @@
                               "order-near-trigger",
                               "agent-budget",
                               "unsettled",
-                              "yield-change"
+                              "yield-change",
+                              "lp-out-of-range",
+                              "order-expiring"
                             ]
                           },
                           "severity": {
@@ -16307,6 +16309,630 @@
           {
             "LykiaSession": []
           },
+          {
+            "LykiaKey": []
+          }
+        ]
+      }
+    },
+    "/v1/fold/positions/{address}": {
+      "get": {
+        "operationId": "getFoldPositionsByAddress",
+        "summary": "Every position the address holds in every venue Lykia supports on Arc: the wallet, Aave V4 (Main and Forex Spokes), Morpho vaults and Morpho Blue markets, Uniswap v3 and v4 and Aerodrome Slipstream LP NFTs, USYC, the Circle Gateway unified balance and, for the proven owner, CCTP transfers in flight, open LykiaOrders orders and scheduled payments. Each position carries its amount, USD value, state (earning, idle, borrowing, at-risk, out-of-range, pending, escrowed, committed), what it is doing, APY, health, range and fees where they apply, one-tap Lyko actions, its source (chain, api, history), the block and an explorer link. A venue that cannot be read comes back unavailable with the reason, never as zero. Each venue is read with its own time limit and cached for 20 seconds per address.",
+        "tags": [
+          "Fold"
+        ],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mainnet",
+                "testnet"
+              ]
+            }
+          },
+          {
+            "name": "venues",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 400,
+              "description": "Comma-separated venue ids to read (default all): wallet, aave-v4, morpho-vaults, morpho-blue, uniswap-v3, uniswap-v4, aerodrome-slipstream, usyc, gateway, cctp, lykia-orders, arc-transfer, lykia-practice"
+            },
+            "description": "Comma-separated venue ids to read (default all): wallet, aave-v4, morpho-vaults, morpho-blue, uniswap-v3, uniswap-v4, aerodrome-slipstream, usyc, gateway, cctp, lykia-orders, arc-transfer, lykia-practice"
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "address": {
+                      "type": "string"
+                    },
+                    "environment": {
+                      "type": "string"
+                    },
+                    "at": {
+                      "type": "string"
+                    },
+                    "block": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "venues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "venue": {
+                            "type": "string"
+                          },
+                          "venueName": {
+                            "type": "string"
+                          },
+                          "venueKind": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "ok",
+                              "unavailable",
+                              "private"
+                            ]
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "positions": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "venue": {
+                                  "type": "string"
+                                },
+                                "venueName": {
+                                  "type": "string"
+                                },
+                                "venueKind": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "assets": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "symbol": {
+                                        "type": "string"
+                                      },
+                                      "token": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "amount": {
+                                        "type": "string"
+                                      },
+                                      "valueUsd": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "role": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "symbol",
+                                      "token",
+                                      "amount",
+                                      "valueUsd",
+                                      "role"
+                                    ]
+                                  }
+                                },
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "symbol": {
+                                  "type": "string"
+                                },
+                                "valueUsd": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "Signed USD value (debt is negative); null when unpriced, never zero"
+                                },
+                                "counts": {
+                                  "type": "string",
+                                  "enum": [
+                                    "net",
+                                    "overlay"
+                                  ],
+                                  "description": "overlay: money already counted elsewhere (orders, scheduled payments)"
+                                },
+                                "state": {
+                                  "type": "string",
+                                  "enum": [
+                                    "earning",
+                                    "idle",
+                                    "borrowing",
+                                    "at-risk",
+                                    "out-of-range",
+                                    "pending",
+                                    "escrowed",
+                                    "committed"
+                                  ]
+                                },
+                                "doing": {
+                                  "type": "string",
+                                  "description": "What the position is doing, in one plain line"
+                                },
+                                "apy": {
+                                  "type": "object",
+                                  "properties": {
+                                    "percent": {
+                                      "type": "string"
+                                    },
+                                    "kind": {
+                                      "type": "string"
+                                    },
+                                    "source": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "percent",
+                                    "kind",
+                                    "source"
+                                  ]
+                                },
+                                "earned": {
+                                  "type": "object",
+                                  "properties": {
+                                    "usd": {
+                                      "type": "string"
+                                    },
+                                    "since": {
+                                      "type": "string"
+                                    },
+                                    "method": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "usd",
+                                    "since",
+                                    "method"
+                                  ]
+                                },
+                                "health": {
+                                  "type": "object",
+                                  "properties": {
+                                    "factor": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "liquidationAtPercent": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "ltvPercent": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "floor": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "factor",
+                                    "liquidationAtPercent",
+                                    "ltvPercent",
+                                    "floor"
+                                  ]
+                                },
+                                "range": {
+                                  "type": "object",
+                                  "properties": {
+                                    "tickLower": {
+                                      "type": "number"
+                                    },
+                                    "tickUpper": {
+                                      "type": "number"
+                                    },
+                                    "tick": {
+                                      "type": "number"
+                                    },
+                                    "lower": {
+                                      "type": "string"
+                                    },
+                                    "upper": {
+                                      "type": "string"
+                                    },
+                                    "price": {
+                                      "type": "string"
+                                    },
+                                    "quote": {
+                                      "type": "string"
+                                    },
+                                    "inRange": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "tickLower",
+                                    "tickUpper",
+                                    "tick",
+                                    "lower",
+                                    "upper",
+                                    "price",
+                                    "quote",
+                                    "inRange"
+                                  ]
+                                },
+                                "fees": {
+                                  "type": "object",
+                                  "properties": {
+                                    "assets": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "symbol": {
+                                            "type": "string"
+                                          },
+                                          "token": {
+                                            "type": [
+                                              "string",
+                                              "null"
+                                            ]
+                                          },
+                                          "amount": {
+                                            "type": "string"
+                                          },
+                                          "valueUsd": {
+                                            "type": [
+                                              "string",
+                                              "null"
+                                            ]
+                                          },
+                                          "role": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "symbol",
+                                          "token",
+                                          "amount",
+                                          "valueUsd",
+                                          "role"
+                                        ]
+                                      }
+                                    },
+                                    "valueUsd": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "method": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "assets",
+                                    "valueUsd",
+                                    "method"
+                                  ]
+                                },
+                                "collateral": {
+                                  "type": "boolean"
+                                },
+                                "since": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "facts": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "label": {
+                                        "type": "string"
+                                      },
+                                      "value": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "label",
+                                      "value"
+                                    ]
+                                  }
+                                },
+                                "actions": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string"
+                                      },
+                                      "label": {
+                                        "type": "string"
+                                      },
+                                      "sentence": {
+                                        "type": "string"
+                                      },
+                                      "mode": {
+                                        "type": "string",
+                                        "enum": [
+                                          "draft",
+                                          "ask"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "label",
+                                      "sentence",
+                                      "mode"
+                                    ]
+                                  }
+                                },
+                                "source": {
+                                  "type": "string",
+                                  "enum": [
+                                    "chain",
+                                    "api",
+                                    "history"
+                                  ]
+                                },
+                                "readAt": {
+                                  "type": "string"
+                                },
+                                "block": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "explorer": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "venue",
+                                "venueName",
+                                "venueKind",
+                                "label",
+                                "assets",
+                                "amount",
+                                "symbol",
+                                "valueUsd",
+                                "counts",
+                                "state",
+                                "doing",
+                                "actions",
+                                "source",
+                                "readAt",
+                                "block",
+                                "explorer"
+                              ]
+                            }
+                          },
+                          "source": {
+                            "type": "string"
+                          },
+                          "method": {
+                            "type": "string"
+                          },
+                          "coverage": {
+                            "type": "string"
+                          },
+                          "readAt": {
+                            "type": "string"
+                          },
+                          "block": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ms": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "venue",
+                          "venueName",
+                          "venueKind",
+                          "status",
+                          "positions",
+                          "source",
+                          "method",
+                          "readAt",
+                          "block",
+                          "ms"
+                        ]
+                      }
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "netUsd": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "pricedNetUsd": {
+                          "type": "string"
+                        },
+                        "byState": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "weightedApyPercent": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "yearlyYieldUsd": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "lowestHealth": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "properties": {
+                            "venue": {
+                              "type": "string"
+                            },
+                            "label": {
+                              "type": "string"
+                            },
+                            "factor": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "venue",
+                            "label",
+                            "factor"
+                          ]
+                        },
+                        "positions": {
+                          "type": "number"
+                        },
+                        "unpriced": {
+                          "type": "number"
+                        },
+                        "unavailable": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "netUsd",
+                        "pricedNetUsd",
+                        "byState",
+                        "weightedApyPercent",
+                        "yearlyYieldUsd",
+                        "lowestHealth",
+                        "positions",
+                        "unpriced",
+                        "unavailable"
+                      ]
+                    },
+                    "personal": {
+                      "type": "boolean"
+                    },
+                    "healthFloor": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "address",
+                    "environment",
+                    "at",
+                    "block",
+                    "venues",
+                    "summary",
+                    "personal",
+                    "healthFloor"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "public",
+        "security": [
+          {},
           {
             "LykiaKey": []
           }

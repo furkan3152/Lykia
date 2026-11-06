@@ -24,7 +24,8 @@ import type { AppContext } from "../context.js";
 import { planActions } from "./engine.js";
 import { textOf, toolCallsOf, type LlmClient, type LlmMessage } from "./llm.js";
 import { runTool, toolDefinitions, toolsFor, wrapUntrusted, type ActingAgent, type ToolContext } from "./tools.js";
-import { balanceCard, emitBlock, gasCard, rateCard, stepsFor } from "./cards.js";
+import { balanceCard, emitBlock, gasCard, positionsCard, rateCard, stepsFor } from "./cards.js";
+import { readPositions } from "../positions/service.js";
 import { services } from "../services.js";
 import type { ChatStepKind } from "@lykia/core/api/agents";
 
@@ -47,7 +48,7 @@ How you work
 - Limit, stop-loss, take-profit, DCA and TWAP orders run on LykiaOrders: draft them with draft_order (amount is per execution) and tell the owner to sign on the Orders page. Never fake a TWAP or DCA with several plan_intent swaps.
 - Alerts (EURC or cirBTC price above/below, health factor below, incoming or outgoing transfers, Scent warnings, executed orders; delivered to the inbox, webhooks or Telegram): create them with create_alert. Never say you cannot create alerts.
 - Recurring automations (on a schedule, a price feed, a token balance or a payout/invoice event: re-plan one English sentence under the Fence, or notify webhooks): set them up with draft_automation. Never say you cannot set them up. "Every Friday, sweep idle USDC above 1 into the best vault" becomes a weekly schedule on fri with the plan sentence "keep 1 USDC liquid and earn the rest". If the time or time zone is missing, ask once with ask_owner. Each fire is only a proposal checked by the Fence that the owner signs; say so.
-- Cards: when the answer is about gas, balances or a conversion rate, call show_card once (gas, balance or rate) so the owner sees a gauge, a holdings mosaic or a rate tile. The server fills every number from the wallet and the oracles; you only pick the card. Plans, Fence refusals and drafts get their cards automatically.
+- Cards: when the answer is about gas, balances, where the money is or a conversion rate, call show_card once (gas, balance, positions or rate) so the owner sees a gauge, a holdings mosaic, the position map or a rate tile. The server fills every number from the wallet and the oracles; you only pick the card. Plans, Fence refusals and drafts get their cards automatically.
 - When create_alert or draft_automation returns saved: false, nothing was saved because this chat has not proven control of the owner's address. The chat shows the link from the result as a button; tell the owner to open it, sign in with their wallet (one message, no transaction), check the prefilled form and save it there. Never claim it was saved.
 
 Hard rules (also enforced in code)
@@ -93,10 +94,10 @@ const ORCHESTRATOR_TOOLS = [
   },
   {
     name: "show_card",
-    description: "Show the owner a card beside your answer: gas (native USDC against their gas floor), balance (their largest holdings) or rate (a conversion rate against the oracle reference and their FX band). The server fills every number; you only choose the card.",
+    description: "Show the owner a card beside your answer: gas (native USDC against their gas floor), balance (their largest holdings), positions (where the money is in every venue and what each position is doing) or rate (a conversion rate against the oracle reference and their FX band). The server fills every number; you only choose the card.",
     input_schema: {
       type: "object" as const,
-      properties: { card: { type: "string", enum: ["gas", "balance", "rate"] }, base: { type: "string", maxLength: 10, description: "rate only: the token sold, e.g. USDC" }, quote: { type: "string", maxLength: 10, description: "rate only: the token bought, e.g. EURC" } },
+      properties: { card: { type: "string", enum: ["gas", "balance", "positions", "rate"] }, base: { type: "string", maxLength: 10, description: "rate only: the token sold, e.g. USDC" }, quote: { type: "string", maxLength: 10, description: "rate only: the token bought, e.g. EURC" } },
       required: ["card"],
       additionalProperties: false,
     },
@@ -261,6 +262,9 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
         const base = String(args.base ?? "USDC").toUpperCase().slice(0, 10);
         const quote = String(args.quote ?? "EURC").toUpperCase().slice(0, 10);
         block = await rateCard(ctx, base, quote, fence);
+      } else if (card === "positions" && input.owner) {
+        const res = await readPositions(ctx, input.environment, input.owner, { personal: input.ownerVerified === true }).catch(() => null);
+        if (res) block = positionsCard(res);
       } else if ((card === "gas" || card === "balance") && input.owner) {
         const snap = await services(ctx).flock.snapshot(input.environment, input.owner).catch(() => null);
         if (snap) block = card === "gas" ? await gasCard(ctx, input.environment, input.owner, snap, input.owner.toLowerCase() === "0x000000000000000000000000000000000000dead") : balanceCard(snap);

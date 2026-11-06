@@ -13,6 +13,7 @@
  *   GET  /fold/trails?owner               Trails: settled steps with memo, verdict and fee; plans; failures; refusals
  *   GET  /fold/explain?owner&question     a structured artifact (yield, whatif, week, approvals)
  *   GET  /fold/whatif/:address            the shared shock model on the live Flock
+ *   GET  /fold/positions/:address         every position in every venue Lykia supports (?venues= to read some)
  *   POST /fold/answer                     a follow-up chip, answered and written to the shared thread
  *   GET|PUT|DELETE /me/preferences        "Your Lyko" (backed by the owner's memory and profile)
  *   GET  /me/threads                      the shared threads (Ask Lyko and Lyko on watch write to the same ones)
@@ -21,7 +22,7 @@
  * agents scope). Nothing here signs or moves funds: drafts are plans under
  * the owner's Fence, with Lykia's fee and the beta cap, for the owner to sign.
  */
-import { DEFAULT_FENCE, FOLD_INSIGHT_KINDS, fenceForProfile, foldPreferenceEffects, NO_SHOCK, riskTierOf, type Address, type FoldShocks } from "@lykia/core";
+import { DEFAULT_FENCE, FOLD_INSIGHT_KINDS, POSITION_STATES, POSITION_VENUES, fenceForProfile, foldPreferenceEffects, NO_SHOCK, riskTierOf, type Address, type FoldShocks } from "@lykia/core";
 import type { FoldSummaryResponse, PreferencesResponse } from "@lykia/core/api/fold";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
@@ -32,6 +33,7 @@ import { agentServices } from "../agents/index.js";
 import { threadSummaries } from "../agents/memory.js";
 import { answer, explain, whatIfFor } from "../fold/answers.js";
 import { foldInsights, markSeen } from "../fold/insights.js";
+import { readPositions } from "../positions/service.js";
 import { instructionsView } from "../fold/instructions.js";
 import { getPreferences, resetPreferences, updatePreferences } from "../fold/preferences.js";
 import { createProposal, getProposal, listFeed, listProposals, moveProposal } from "../fold/proposals.js";
@@ -65,7 +67,60 @@ const proposal = z.object({ id: z.string(), owner: z.string(), status: statusSch
 const instruction = z.object({ id: z.string(), source: z.string(), sourceLabel: z.string(), name: z.string(), status: z.string(), trigger: z.string(), nextRunAt: z.string().nullable(), nextRunLabel: z.string(), lastRunAt: z.string().nullable(), lastResult: z.string().nullable(), controllable: z.boolean(), editSentence: z.string() }).passthrough();
 const artifact = z.object({ kind: questionSchema, title: z.string(), summary: z.string(), lines: z.array(z.object({ label: z.string(), value: z.string(), note: z.string().nullable() })), sources: z.array(z.string()), at: z.string() });
 
+const positionAsset = z.object({ symbol: z.string(), token: z.string().nullable(), amount: z.string(), valueUsd: z.string().nullable(), role: z.string() });
+const position = z
+  .object({
+    id: z.string(),
+    venue: z.string(),
+    venueName: z.string(),
+    venueKind: z.string(),
+    label: z.string(),
+    assets: z.array(positionAsset),
+    amount: z.string(),
+    symbol: z.string(),
+    valueUsd: z.string().nullable().describe("Signed USD value (debt is negative); null when unpriced, never zero"),
+    counts: z.enum(["net", "overlay"]).describe("overlay: money already counted elsewhere (orders, scheduled payments)"),
+    state: z.enum(POSITION_STATES as unknown as [string, ...string[]]),
+    doing: z.string().describe("What the position is doing, in one plain line"),
+    apy: z.object({ percent: z.string(), kind: z.string(), source: z.string() }).optional(),
+    earned: z.object({ usd: z.string(), since: z.string(), method: z.string() }).optional(),
+    health: z.object({ factor: z.string().nullable(), liquidationAtPercent: z.string().nullable(), ltvPercent: z.string().nullable(), floor: z.string() }).optional(),
+    range: z.object({ tickLower: z.number(), tickUpper: z.number(), tick: z.number(), lower: z.string(), upper: z.string(), price: z.string(), quote: z.string(), inRange: z.boolean() }).optional(),
+    fees: z.object({ assets: z.array(positionAsset), valueUsd: z.string().nullable(), method: z.string() }).optional(),
+    collateral: z.boolean().optional(),
+    since: z.string().nullable().optional(),
+    facts: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
+    actions: z.array(z.object({ kind: z.string(), label: z.string(), sentence: z.string(), mode: z.enum(["draft", "ask"]) })),
+    source: z.enum(["chain", "api", "history"]),
+    readAt: z.string(),
+    block: z.string().nullable(),
+    explorer: z.string().nullable(),
+  })
+  .passthrough();
+const venueRead = z.object({ venue: z.string(), venueName: z.string(), venueKind: z.string(), status: z.enum(["ok", "unavailable", "private"]), reason: z.string().optional(), positions: z.array(position), source: z.string(), method: z.string(), coverage: z.string().optional(), readAt: z.string(), block: z.string().nullable(), ms: z.number() });
+const positionsResponse = z.object({
+  address: z.string(),
+  environment: z.string(),
+  at: z.string(),
+  block: z.string().nullable(),
+  venues: z.array(venueRead),
+  summary: z.object({ netUsd: z.string().nullable(), pricedNetUsd: z.string(), byState: z.record(z.string()), weightedApyPercent: z.string().nullable(), yearlyYieldUsd: z.string().nullable(), lowestHealth: z.object({ venue: z.string(), label: z.string(), factor: z.string() }).nullable(), positions: z.number(), unpriced: z.number(), unavailable: z.array(z.string()) }),
+  personal: z.boolean(),
+  healthFloor: z.string(),
+});
+const venueIds = [...new Set([...POSITION_VENUES.mainnet, ...POSITION_VENUES.testnet].map((v) => v.id))];
+const PositionsQuery = z.object({
+  environment: environmentSchema.optional(),
+  venues: z
+    .string()
+    .max(400)
+    .optional()
+    .transform((v) => (v ? v.split(",").map((x) => x.trim()).filter((x) => venueIds.includes(x)) : undefined))
+    .describe(`Comma-separated venue ids to read (default all): ${venueIds.join(", ")}`),
+});
+
 documentRoutes([
+  { method: "get", path: "/v1/fold/positions/:address", tag: "Fold", summary: "Every position the address holds in every venue Lykia supports on Arc: the wallet, Aave V4 (Main and Forex Spokes), Morpho vaults and Morpho Blue markets, Uniswap v3 and v4 and Aerodrome Slipstream LP NFTs, USYC, the Circle Gateway unified balance and, for the proven owner, CCTP transfers in flight, open LykiaOrders orders and scheduled payments. Each position carries its amount, USD value, state (earning, idle, borrowing, at-risk, out-of-range, pending, escrowed, committed), what it is doing, APY, health, range and fees where they apply, one-tap Lyko actions, its source (chain, api, history), the block and an explorer link. A venue that cannot be read comes back unavailable with the reason, never as zero. Each venue is read with its own time limit and cached for 20 seconds per address.", auth: "public", params: AddressParams, query: PositionsQuery, response: positionsResponse },
   { method: "get", path: "/v1/fold/insights/:address", tag: "Fold", summary: "Lyko on watch: deterministic insights for an address (idle USDC, health factor, FX drift, runway, approvals, red-flag tokens, gas, caps, orders, agent budgets, unsettled steps, better rates), each with the figures behind it and an optional one-tap draft. Signed in as the owner: preferences, handled flags and the morning brief apply.", auth: "public", params: AddressParams, query: z.object({ environment: environmentSchema.optional() }), response: z.object({ owner: z.string(), environment: z.string(), at: z.string(), insights: z.array(insight), brief: z.object({ since: z.string().nullable(), lines: z.array(z.string()) }), personal: z.boolean() }) },
   { method: "post", path: "/v1/fold/seen", tag: "Fold", summary: "Mark the morning brief as seen: the next brief lists only what changed after now", auth: "session", body: z.object({ owner: evmAddress, environment: environmentSchema.optional() }), response: z.object({ at: z.string() }) },
   { method: "get", path: "/v1/fold/summary/:address", tag: "Fold", summary: "The Fold bar: today's spend against the Fence's daily cap and the beta cap, and the counts of rules running, orders waiting, agents working and proposals waiting", auth: "public", params: AddressParams, query: z.object({ environment: environmentSchema.optional() }) },
@@ -104,6 +159,14 @@ export const foldModule: ApiModule = {
       const { environment } = parseQuery(req, z.object({ environment: environmentSchema.optional() }));
       const personal = (await ownerProof(ctx, req, address)) !== null;
       res.json(await foldInsights(ctx, environmentOf(ctx, environment), address as Address, personal));
+    });
+
+    router.get("/fold/positions/:address", ctx.limits.heavy, async (req, res) => {
+      const { address } = parseParams(req, AddressParams);
+      const q = parseQuery(req, PositionsQuery);
+      // Positions are public on chain; Lykia's own records (orders, transfers in flight, scheduled payments) need the owner's proof.
+      const personal = (await ownerProof(ctx, req, address)) !== null;
+      res.json(await readPositions(ctx, environmentOf(ctx, q.environment), address as Address, { personal, ...(q.venues ? { venues: q.venues } : {}) }));
     });
 
     router.post("/fold/seen", async (req, res) => {

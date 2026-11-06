@@ -21,6 +21,8 @@ export interface VaultRate {
   /** Net APY after the vault's fees, decimal fraction string. */
   readonly apy: string | null;
   readonly tvlUsd: string | null;
+  /** Curator names as the Morpho API lists them. */
+  readonly curators?: readonly string[];
 }
 
 export interface MarketRate {
@@ -104,15 +106,15 @@ export class YieldService {
     const data = (await graphql(
       this.deps.fetch,
       MORPHO_API,
-      `{ vaultV2s(first: 100, where: { chainId_in: [${ARC_MAINNET_CHAIN_ID}] }) { items { address name asset { symbol } totalAssetsUsd netApy apy } }
+      `{ vaultV2s(first: 100, where: { chainId_in: [${ARC_MAINNET_CHAIN_ID}] }) { items { address name asset { symbol } totalAssetsUsd netApy apy curators { items { name } } } }
          markets(first: 100, where: { chainId_in: [${ARC_MAINNET_CHAIN_ID}] }) { items { marketId loanAsset { symbol } collateralAsset { symbol } state { borrowApy supplyApy utilization supplyAssetsUsd } } } }`,
     )) as {
-      vaultV2s?: { items?: Array<{ address?: string; name?: string; asset?: { symbol?: string }; totalAssetsUsd?: number; netApy?: number; apy?: number }> };
+      vaultV2s?: { items?: Array<{ address?: string; name?: string; asset?: { symbol?: string }; totalAssetsUsd?: number; netApy?: number; apy?: number; curators?: { items?: Array<{ name?: string }> } }> };
       markets?: { items?: Array<{ marketId?: string; loanAsset?: { symbol?: string }; collateralAsset?: { symbol?: string } | null; state?: { borrowApy?: number; supplyApy?: number; utilization?: number; supplyAssetsUsd?: number } | null }> };
     };
     const vaults = (data.vaultV2s?.items ?? [])
       .filter((v): v is Required<Pick<typeof v, "address">> & typeof v => typeof v.address === "string")
-      .map((v) => ({ address: v.address as Address, name: v.name ?? "", asset: v.asset?.symbol ?? "", apy: num(v.netApy ?? v.apy), tvlUsd: num(v.totalAssetsUsd) }));
+      .map((v) => ({ address: v.address as Address, name: v.name ?? "", asset: v.asset?.symbol ?? "", apy: num(v.netApy ?? v.apy), tvlUsd: num(v.totalAssetsUsd), curators: (v.curators?.items ?? []).map((c) => c.name ?? "").filter((n) => n.length > 0) }));
     const markets = (data.markets?.items ?? [])
       .filter((m) => typeof m.marketId === "string" && m.state)
       .map((m) => ({

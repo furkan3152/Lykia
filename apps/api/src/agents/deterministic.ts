@@ -12,7 +12,9 @@ import { gasShortfall } from "@lykia/core/api/answer";
 import type { AgentProposal } from "@lykia/core/api/agents";
 import type { AppContext } from "../context.js";
 import { services } from "../services.js";
-import { balanceCard, emitBlock, fenceCard, gasCard, infoQuestion, quotedRate, rateCard, stepsFor, type InfoQuestion } from "./cards.js";
+import { balanceCard, emitBlock, fenceCard, gasCard, infoQuestion, positionsCard, quotedRate, rateCard, stepsFor, type InfoQuestion } from "./cards.js";
+import { readPositions } from "../positions/service.js";
+import { POSITION_STATE_LABELS, type PositionState } from "@lykia/core";
 import { readWithMemory } from "../personal/reader.js";
 import { isGoalLanguage } from "../compiler/lexicon.js";
 import { compileIntent } from "../compiler/service.js";
@@ -118,7 +120,30 @@ async function infoTurn(input: DeterministicInput, question: InfoQuestion): Prom
     emit("text", { text });
     return { text, proposals: [], stopReason: "end_turn" as const, delegations: 0, modelCalls: 0 };
   };
-  steps.start("intent", "Reading your question").end("ok", question.kind === "gas" ? "A question about gas" : question.kind === "balance" ? "A question about your holdings" : `The ${question.base}/${question.quote} rate`);
+  steps.start("intent", "Reading your question").end("ok", question.kind === "gas" ? "A question about gas" : question.kind === "balance" ? "A question about your holdings" : question.kind === "positions" ? "Where your money is and what it is doing" : `The ${question.base}/${question.quote} rate`);
+  if (question.kind === "positions") {
+    if (!input.owner) return done("Connect a wallet so I can read where its money is.");
+    const reading = steps.start("wallet", "Reading every venue");
+    const res = await readPositions(input.ctx, input.environment, input.owner, { personal: input.ownerVerified === true }).catch(() => null);
+    if (!res) {
+      reading.end("fail", "The venues could not be read");
+      return done("I couldn't read your positions just now.\n\n**Next:** try again in a moment.");
+    }
+    const all = res.venues.flatMap((v) => v.positions);
+    reading.end(res.summary.unavailable.length > 0 ? "warn" : "ok", `${plural(all.length, "position")} in ${plural(res.venues.filter((v) => v.positions.length > 0).length, "venue")}`, res.summary.unavailable.length > 0 ? `Not read: ${res.summary.unavailable.join(", ")}.` : undefined);
+    emitBlock(emit, positionsCard(res));
+    if (all.length === 0) return done(`Nothing is deployed on Arc ${input.environment} for this address${res.summary.unavailable.length > 0 ? `, though ${res.summary.unavailable.join(", ")} could not be read` : ""}.\n\n**Next:** fund it with USDC, or say “put 100 USDC to work”.`);
+    const risky = all.filter((p) => p.state === "at-risk" || p.state === "out-of-range");
+    const states = (Object.entries(res.summary.byState) as [PositionState, string][]).filter(([, v]) => Number(v) > 0).sort((a, b) => Number(b[1]) - Number(a[1]));
+    const lead = risky.length > 0 ? `${plural(risky.length, "position")} want${risky.length === 1 ? "s" : ""} attention: ${risky[0]!.doing.charAt(0).toLowerCase()}${risky[0]!.doing.slice(1)}.` : res.summary.netUsd !== null ? `Your money on Arc is worth ${usd(res.summary.netUsd)}, spread over ${plural(all.length, "position")}.` : `You have ${plural(all.length, "position")} on Arc; some are unpriced.`;
+    const facts = [
+      `- **By state:** ${states.slice(0, 4).map(([k, v]) => `${POSITION_STATE_LABELS[k].toLowerCase()} ${usd(v)}`).join(", ")}`,
+      ...(res.summary.weightedApyPercent !== null ? [`- **Earning:** ${res.summary.weightedApyPercent}% weighted${res.summary.yearlyYieldUsd !== null ? `, about ${usd(res.summary.yearlyYieldUsd)} a year net of borrowing` : ""}`] : []),
+      ...(res.summary.lowestHealth ? [`- **Lowest health:** ${Number(res.summary.lowestHealth.factor).toFixed(2)} on ${res.summary.lowestHealth.label}`] : res.summary.unavailable.length > 0 ? [`- **Not read:** ${res.summary.unavailable.join(", ")}`] : []),
+    ].slice(0, 3);
+    const next = risky[0]?.actions[0] ? `say “${risky[0].actions[0].sentence}”` : "open The Fold to see each position";
+    return done(`${lead}\n\n${facts.join("\n")}\n\n**Next:** ${next}.`);
+  }
   if (question.kind === "rate") {
     const pricing = steps.start("price", "Checking the reference rate");
     const card = await rateCard(input.ctx, question.base, question.quote, input.fence);
