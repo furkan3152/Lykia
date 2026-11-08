@@ -2,17 +2,47 @@
   "name": "@lykia/cli",
   "version": "0.1.0",
   "description": "The Lykia command line: log in with a key, manage keys, quote, plan a sentence, forward webhooks to localhost and tail request logs. Built on Arc Network. No dependencies.",
-  "keywords": ["lykia", "arc", "circle", "usdc", "cli", "webhooks", "agents"],
+  "keywords": [
+    "lykia",
+    "arc",
+    "circle",
+    "usdc",
+    "cli",
+    "webhooks",
+    "agents"
+  ],
   "license": "MIT",
   "homepage": "https://lykiaai.com/mint",
-  "repository": { "type": "git", "url": "git+https://github.com/furkan3152/lykia.git", "directory": "packages/cli" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/furkan3152/Lykia.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/furkan3152/Lykia/issues"
+  },
+  "author": "Furkan Akdogan (https://github.com/furkan3152)",
   "type": "module",
-  "bin": { "lykia": "./bin/lykia.mjs" },
+  "bin": {
+    "lykia": "./bin/lykia.mjs"
+  },
   "main": "./src/cli.mjs",
-  "exports": { ".": "./src/cli.mjs", "./package.json": "./package.json" },
-  "files": ["bin", "src", "README.md", "LICENSE"],
-  "engines": { "node": ">=20" },
-  "publishConfig": { "access": "public" },
+  "exports": {
+    ".": "./src/cli.mjs",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "test": "node --test \"test/*.test.mjs\""
   }

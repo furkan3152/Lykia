@@ -8,19 +8,20 @@
 The full story, the three pillars and the app's structure are in
 [product.md](product.md).
 
-Lykia is the unifier and amplifier of the Arc Network ecosystem. Circle is
-not a competitor: Lykia is built on Circle's products, and wherever Circle
-already runs something (wallet policies, CCTP, Gateway, StableFX, the x402
+Lykia brings the Arc Network ecosystem together. Circle is not a
+competitor: Lykia is built on Circle's products, and wherever Circle already
+runs something (wallet policies, CCTP, Gateway, StableFX, the x402
 facilitator, the Agent Marketplace) Lykia integrates it instead of
-rebuilding it (`docs/circle/README.md`). It sends traffic to every protocol
-and links each one to its official entry on https://www.arc.io/ecosystem.
+rebuilding it ([circle/README.md](circle/README.md)). It sends traffic to
+the protocols it can route through and links each protocol it maps to its
+official entry on https://www.arc.io/ecosystem.
 
 ## Three parts, one sentence
 
 | Part | What it means | Where it shows |
 |---|---|---|
-| Built on Circle's rails | USDC is Arc's gas and Lykia's unit of account. CCTP, Gateway, StableFX, Circle Wallets, Compliance screening, the x402 facilitator and the Agent Marketplace do the moving; Lykia uses every one that is live on Arc. | `GET /v1/circle/status`, the Circle quay on `/ecosystem` |
-| Mapping every Arc protocol, routing through the executable ones | Every protocol on Arc is in the registry, marked routable, read-only or mapped. Only venues with an executable adapter are routable; Lykia compares them for each move and records why it chose one. Teams can integrate in an afternoon. | `GET /v1/ecosystem`, `/ecosystem`, `docs/integrate-your-protocol.md` |
+| Built on Circle's rails | USDC is Arc's gas and Lykia's unit of account. CCTP and Gateway are routes in the engine. Circle Wallets, Compliance screening, StableFX (RFQ taker endpoints), the USYC Teller, the x402 facilitator and the Agent Marketplace are integrated beside it. | `GET /v1/circle/status`, the Circle quay on `/ecosystem` |
+| Mapping the protocols on Arc, routing through the executable ones | Each protocol Lykia knows on Arc is in the registry, marked routable, read-only or mapped. Only venues with an executable adapter are routable; Lykia compares them for each move and records why it chose one. Teams can integrate in an afternoon. | `GET /v1/ecosystem`, `/ecosystem`, `docs/integrate-your-protocol.md` |
 | Keeping every agent inside its Fence | The Fence checks every step before it can be signed: caps, recipients, venues, tokens, health factor, FX band, token checks and the Whistle (emergency stop). Each verdict is filed as an ERC-8354 policy attestation. | `docs/fence.md`, `POST /v1/fence/evaluate` |
 
 ## Words to use
@@ -30,7 +31,7 @@ and links each one to its official entry on https://www.arc.io/ecosystem.
   without the brand kit and permission.
 - "Routes to", "brings together", "sends traffic to" for protocols.
 - "Fence" and "Tag" as product terms, explained on first use. Plain words
-  elsewhere: "portfolio" (not Flock), "agents" (not Pack), "token check"
+  elsewhere: "holdings" (not Flock), "agents" (not Pack), "token check"
   (not Scent), "plan" (not Outrun), "emergency stop" next to "Whistle".
   See [product.md](product.md#vocabulary).
 

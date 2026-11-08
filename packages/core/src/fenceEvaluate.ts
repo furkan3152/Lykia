@@ -41,7 +41,7 @@ export interface StepFact {
   readonly slippageBps?: number;
   /** Lending: health factor after the step; null = could not be read. */
   readonly healthFactorAfter?: string | null;
-  /** StableFX: quote deviation from the reference rate; null = no reference. */
+  /** FX: quote deviation from the reference rate (Chainlink EURC/USD); null = no reference. */
   readonly fxDeviationBps?: number | null;
   /** Lykia's fee on this step; already included in `usd` (caps count it). */
   readonly fee?: { readonly line: string; readonly usd: string | null };

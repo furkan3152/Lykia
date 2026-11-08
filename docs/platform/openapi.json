@@ -8,7 +8,7 @@
     "description": "Built on Arc Network and Circle's rails. Plan money moves in plain words, check them against a Fence, hand unsigned steps to the user's wallet and follow them to finality. The server never holds user keys; intents come back unsigned. Optional server signers (a gas-only keeper, opt-in Circle developer-controlled wallets) are off unless the operator configures them.\n\nAuthenticate with `Lykia-Key` (lk_live_… or lk_test_…; test keys only reach testnet) or a `Lykia-Session` from wallet sign-in. Pin behaviour with `Lykia-Version` (2026-06-01, 2026-11-01). Send `Idempotency-Key` on POSTs. Every answer carries `X-Request-Id`; every error is `{ error: { code, message, details?, requestId } }`.",
     "contact": {
       "name": "Lykia",
-      "url": "https://api.lykiaai.com"
+      "url": "https://lykiaai.com"
     },
     "license": {
       "name": "MIT",
@@ -7362,7 +7362,7 @@
     "/v1/protocols": {
       "get": {
         "operationId": "getProtocols",
-        "summary": "Every Arc protocol in the registry",
+        "summary": "The protocol registry on Arc",
         "tags": [
           "Arc"
         ],
@@ -7500,7 +7500,7 @@
     "/v1/venues": {
       "get": {
         "operationId": "getVenues",
-        "summary": "Venues Lykia routes to, with live status",
+        "summary": "Registry venues with live status and whether Lykia can route through them",
         "tags": [
           "Arc"
         ],
@@ -13047,7 +13047,7 @@
     "/v1/data/protocols": {
       "get": {
         "operationId": "getDataProtocols",
-        "summary": "Every Arc protocol: status, TVL, APYs and routable adapters",
+        "summary": "The protocols mapped on Arc: status, TVL, APYs and routable adapters",
         "tags": [
           "Data"
         ],
@@ -14421,7 +14421,7 @@
     "/v1/ecosystem": {
       "get": {
         "operationId": "getEcosystem",
-        "summary": "Every Arc protocol, Circle product, TVL and value routed by Lykia",
+        "summary": "The protocols mapped on Arc, Circle's products, TVL and value routed by Lykia",
         "tags": [
           "Ecosystem"
         ],
@@ -16318,7 +16318,7 @@
     "/v1/fold/positions/{address}": {
       "get": {
         "operationId": "getFoldPositionsByAddress",
-        "summary": "Every position the address holds in every venue Lykia supports on Arc: the wallet, Aave V4 (Main and Forex Spokes), Morpho vaults and Morpho Blue markets, Uniswap v3 and v4 and Aerodrome Slipstream LP NFTs, USYC, the Circle Gateway unified balance and, for the proven owner, CCTP transfers in flight, open LykiaOrders orders and scheduled payments. Each position carries its amount, USD value, state (earning, idle, borrowing, at-risk, out-of-range, pending, escrowed, committed), what it is doing, APY, health, range and fees where they apply, one-tap Lyko actions, its source (chain, api, history), the block and an explorer link. A venue that cannot be read comes back unavailable with the reason, never as zero. Each venue is read with its own time limit and cached for 20 seconds per address.",
+        "summary": "Every position the address holds in every venue Lykia supports on Arc: the wallet, Aave V4 (Main and Forex Spokes), Morpho vaults (by curator: Galaxy, Keyrock, Steakhouse, Gauntlet, Bitwise) and Morpho Blue markets, Uniswap v3 and v4, Aerodrome Slipstream, Archery, Unitflow Finance V3 and SushiSwap V3 LP NFTs, USYC, the Circle Gateway unified balance and, for the proven owner, CCTP and Relay transfers in flight, open LykiaOrders orders and scheduled payments. Each position carries its amount, USD value, state (earning, idle, borrowing, at-risk, out-of-range, pending, escrowed, committed), what it is doing, APY, health, range and fees where they apply, one-tap Lyko actions, its source (chain, api, history), the block and an explorer link. A venue that cannot be read comes back unavailable with the reason, never as zero. Each venue is read with its own time limit and cached for 20 seconds per address.",
         "tags": [
           "Fold"
         ],

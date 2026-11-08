@@ -63,7 +63,7 @@ export interface Config {
     /** The domain League cities run under as subdomains (pay.<root>, agents.<root>); null until one is set. */
     readonly rootDomain: string | null;
   };
-  /** Circle StableFX RFQ credentials (fx steps are not executable without them). */
+  /** Circle StableFX RFQ credentials for the /v1/circle/stablefx/* taker endpoints (fx steps in a plan route on chain either way). */
   readonly stablefxApiKey: string | null;
   /** Circle platform credentials (Wallets, Compliance, StableFX). All optional; keyed features say so when missing. */
   readonly circle: {

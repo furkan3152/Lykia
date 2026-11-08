@@ -3,7 +3,7 @@
 Circle is not a competitor; Lykia is built on Circle's products and sends
 them traffic. Wherever Circle already runs something, Lykia uses it instead
 of rebuilding it, and adds what an agent still needs on top: a DeFi-aware
-Fence, routing through every Arc venue with an executable adapter, and records of every decision.
+Fence, routing through the Arc venues it has an executable adapter for, and records of every decision.
 
 Wording: "Built on Arc Network", "Powered by Circle", "built on Circle's
 products". Lykia does not claim to be a Circle or Arc partner, and does not
@@ -16,7 +16,7 @@ claim endorsement.
 | Agent wallets (default path) | Developer-controlled wallets, Agent Wallets | A Circle wallet signs; Lykia's Fence preflight checks every step first. A Lykia smart account is optional. | [policies.md](policies.md) |
 | Fence caps and allow/block lists | Agent Wallets spending policies | `POST /v1/circle/policies/compile` turns a Fence into the Circle policy and the CLI commands | [policies.md](policies.md) |
 | Bridging | CCTP V2 + Forwarding Service, Gateway (+ Forwarding Service) | Intent bridge steps and execution providers `circle-cctp`, `circle-gateway`; Circle mints on the destination | [providers.md](providers.md) |
-| FX | StableFX | Provider `circle-stablefx` (with access); quote, trade, funding presign and fund | [providers.md](providers.md) |
+| FX quotes | StableFX | Provider `circle-stablefx` (with access) lists a reference quote beside the engine's; the taker endpoints run quote, trade, funding presign and fund. Not a route: FX steps in a plan settle on chain | [providers.md](providers.md) |
 | Yield (restricted) | USYC Teller | Entitled wallets only: `GET /v1/circle/usyc/eligibility`, `POST /v1/circle/usyc/prepare` (Fence verdict + unsigned calls) | [../arc-circle-coverage.md](../arc-circle-coverage.md) |
 | Gas | Gas Station | SCA agent wallets, sponsored by a Console policy | [providers.md](providers.md) |
 | Recipient screening | Compliance Engine | DENIED becomes a Fence deny; an unscreened recipient is reported, never treated as approved | [../legal/software-notice.md](../legal/software-notice.md) |

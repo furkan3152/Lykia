@@ -15,7 +15,7 @@ Build-time environment (all public values, never secrets):
 |---|---|
 | `VITE_API_URL` | Origin of the Lykia API (default `http://localhost:3002`). |
 | `VITE_CIRCLE_CLIENT_KEY` | Circle Modular Wallets client key (from console.circle.com, Modular Wallets). Passkey wallets are hidden without it. |
-| `VITE_LYKIA_ROOT_DOMAIN` | The domain League cities run under (`pay.<domain>`). Unset until one is bought; `/c/<slug>` works without it. |
+| `VITE_LYKIA_ROOT_DOMAIN` | The domain League cities run under as `<slug>.<domain>` (`lykiaai.com` in production). `/c/<slug>` works without it. |
 | `VITE_CIRCLE_CLIENT_URL` | Circle Modular Wallets client URL (https). The app appends `/arc` or `/arcTestnet` per network. |
 
 ## Connecting
@@ -52,17 +52,15 @@ Data becomes landscape:
 
 ## Pages
 
-The navigation lives in `src/shell/nav.ts` (tested in `src/shell/__tests__/nav.test.ts`): five primary areas, each a metaphor with a plain subtitle ("Flock · portfolio") and a short tab row, plus the account pages, a short "More" list and, for admins only, Letoon. The reasoning is in [docs/product.md](../../docs/product.md) and the vocabulary in [docs/brand.md](../../docs/brand.md).
+The navigation lives in `src/shell/nav.ts` (tested in `src/shell/__tests__/nav.test.ts`): three primary areas, each a metaphor with a plain subtitle ("The Fold · everything you own and everything in motion"), plus Your Lyko in the avatar menu, a short "More" list and, for admins only, Letoon. If the agent can do something, there is no separate manual page for it. The reasoning is in [docs/product.md](../../docs/product.md#information-architecture) and the vocabulary in [docs/brand.md](../../docs/brand.md).
 
-| Area | Tabs (route) |
+| Area | What it holds (route) |
 |---|---|
-| **Ask Lyko** · assistant | Ask Lyko (`/app`, `/app/ask/:threadId`); a full plan opens at `/app/outrun/:id`. |
-| **Flock** · portfolio | Flock (`/app/flock/:address?`), Move (`/app/move/:tab?`), Pastures · yields (`/app/pastures`), What-if (`/app/whatif`). |
-| **Fence** · rules | Fence (`/app/fence`), Pack · agents (`/app/pack/:id?`), Tag · agent identity (`/app/tag/:id?`), Scent · token check (`/app/scent/:token?`), Watch · security (`/app/security`). |
-| **Herding** · orders and automations | Orders (`/app/orders`), Rounds · automations (`/app/automations`), Barks · alerts (`/app/alerts`), Tracks · activity (`/app/activity`). |
+| **Ask Lyko** · your agent | Every action: send, convert, earn, borrow, bridge, orders and automations (`/app`, `/app/ask/:threadId`); a full plan opens at `/app/outrun/:id`. |
+| **The Fold** · everything you own and everything in motion | Flock · holdings (with the what-if slider), Trails · activity, Herding · instructions, Pack · agents and Fence · rules (`/app/fold/:tab`), with Lyko on watch docked beside them. Detail pages reached from it: an agent (`/app/pack/:id`), a Tag (`/app/tag/:id`), a token check (`/app/scent/:token`), Watch · security (`/app/security`) and Pastures · yields (`/app/pastures`). |
 | **The Mint** · build | The Mint (`/mint/:section`: strike, workshop, cities, keys, usage, webhooks, reference), The League (`/league`, `/league/:city`), Harbour · ecosystem (`/ecosystem`), Circle (`/app/circle`), Ledger · stats (`/stats`). |
 
-Secondary: Settings (`/app/you`) and Memory (`/app/memory`); More: Perps markets, New pools, Notice and risks; Team: Letoon (`/letoon/:section`, admins only, the server decides). Old addresses redirect: `/build` (with its old tab names as hashes) and `/developers` to `/mint`, `/owner` to `/letoon` (`src/app/routes/aliases.ts`). Unlisted on purpose: payment links (`/pay/:id`), the design kit (`/kit`), the night scene (`/lykaion`) and the 404.
+Account: Your Lyko (`/app/you`: preferences, voice and look, memory). More: Perps markets, New pools, Notice and risks. Team: Letoon (`/letoon/:section`, admins only, the server decides). Old addresses redirect (`src/app/routes/aliases.ts`): `/app/move` to Ask Lyko with the intent filled in, `/app/flock` and `/app/whatif` to Flock, `/app/orders`, `/app/alerts` and `/app/automations` to Herding, `/app/activity` to Trails, `/app/fence` to Fence, `/app/memory` to Your Lyko, `/build` (with its old tab names as hashes) and `/developers` to `/mint`, and `/owner` to `/letoon`. Unlisted on purpose: payment links (`/pay/:id`), the design kit (`/kit`), the night scene (`/lykaion`) and the 404.
 
 ### The League, The Mint and Letoon
 

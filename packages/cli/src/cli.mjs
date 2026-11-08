@@ -140,7 +140,7 @@ export async function run(argv, io) {
       return 0;
     case "login": {
       const key = typeof args.key === "string" ? args.key : io.env.LYKIA_API_KEY;
-      if (!key || !KEY_PATTERN.test(key)) throw new CliError("Pass a Lykia key: lykia login --key lk_test_… (create one on /build, Keys tab).");
+      if (!key || !KEY_PATTERN.test(key)) throw new CliError("Pass a Lykia key: lykia login --key lk_test_… (create one in The Mint, /mint/keys).");
       if (key.startsWith("lk_pk_")) throw new CliError("That is a publishable (browser) key. Use a secret lk_test_ or lk_live_ key.");
       const next = { ...config, apiKey: key, ...(typeof args["base-url"] === "string" ? { baseUrl: args["base-url"] } : {}), ...(typeof args.version === "string" ? { apiVersion: args.version } : {}) };
       const c = client({ ...io, env: { ...io.env, LYKIA_API_KEY: key } }, next);

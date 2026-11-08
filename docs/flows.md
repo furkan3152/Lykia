@@ -1,7 +1,11 @@
 # Flows on Arc mainnet: prove it
 
-Every money flow Lykia offers, with its exact prepared calldata simulated on
-Arc mainnet by `eth_call`. Nothing was signed or broadcast.
+The money flows Lykia offers, each with its exact prepared calldata
+simulated on Arc mainnet by `eth_call`. Nothing was signed or broadcast.
+The matrix was recorded before the Archery, Unitflow Finance V3, SushiSwap
+and Relay adapters were added; those venues are covered by the API's tests
+(`apps/api/src/__tests__/venues-added.test.ts`) and not yet by a recorded
+`npm run prove` run.
 
 Run it yourself:
 

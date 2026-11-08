@@ -1,7 +1,7 @@
 # Embed: Routed by Lykia
 
-A live strip of the Arc ecosystem for any web page: every protocol, what
-Lykia does with it, and its TVL on Arc. Two lines of HTML, no build step,
+A live strip of the Arc ecosystem for any web page: the protocols Lykia
+maps, what Lykia does with each, and its TVL on Arc. Two lines of HTML, no build step,
 no cookies:
 
 ```html

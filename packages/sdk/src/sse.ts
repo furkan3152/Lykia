@@ -1,4 +1,4 @@
-/** Server-Sent Events over fetch (works in Node 18+, browsers, Deno, Bun and edge runtimes). */
+/** Server-Sent Events over fetch (works in Node 20+, browsers, Deno, Bun and edge runtimes). */
 export interface SseMessage<T = unknown> {
   readonly event: string;
   readonly data: T;

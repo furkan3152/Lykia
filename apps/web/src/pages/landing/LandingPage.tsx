@@ -42,14 +42,14 @@ const PROBLEM: readonly (readonly [string, string])[] = [
 /** How it works: one sentence in, one checked transaction out. */
 const STEPS: readonly (readonly [string, string, string])[] = [
   ["1", "Say the outcome", "\"Keep 5,000 USDC for payroll, put the rest in the best vault and hedge 20% into EURC.\" A sentence in the app, or one API call."],
-  ["2", "Lykia compiles a route", "Every capable Arc protocol and Circle rail (CCTP, Gateway, StableFX) is compared on the net result after fees, gas and slippage. The winner is simulated on Arc before you see it."],
+  ["2", "Lykia compiles a route", "Every protocol Lykia can route through on Arc, and Circle's CCTP and Gateway, is compared on the net result after fees, gas and slippage. The winner is simulated on Arc before you see it."],
   ["3", "The Fence decides, you sign once", "Your rules (caps, recipients, tokens, health factor, FX band) return allow, confirm or deny with reasons. Approve, act and an Arc Memo with the verdict go out as one transaction."],
 ];
 
 /** The three pillars, each pointing at the area of the app that carries it. */
 const PILLARS: readonly { title: string; kicker: string; line: string; links: readonly (readonly [string, string])[] }[] = [
-  { title: "Outcomes, not transactions", kicker: "ASK LYKO · FLOCK · HERDING", line: "Send, swap, earn, borrow and bridge by saying what you want, or with plain forms. Orders and automations re-plan under the same rules while you are away.", links: [["/app", "ASK LYKO"], ["/app/move", "MOVE"], ["/app/orders", "HERDING"]] },
-  { title: "Rules that hold", kicker: "FENCE · PACK · TAG", line: "The Fence is checked off chain before signing and on chain by Lykia's smart account. Sub-agents get a Fence inside yours, and a Tag (an ERC-8004 identity) pins the hash of the Fence an agent obeys.", links: [["/app/fence", "FENCE"], ["/app/pack", "PACK"], ["/app/tag", "TAG"]] },
+  { title: "Outcomes, not transactions", kicker: "ASK LYKO · FLOCK · HERDING", line: "Send, swap, earn, borrow and bridge by saying what you want, or with plain forms. Orders and automations re-plan under the same rules while you are away.", links: [["/app", "ASK LYKO"], ["/app/fold/flock", "FLOCK"], ["/app/fold/herding", "HERDING"]] },
+  { title: "Rules that hold", kicker: "FENCE · PACK · TAG", line: "The Fence is checked off chain before signing and on chain by Lykia's smart account. Sub-agents get a Fence inside yours, and a Tag (an ERC-8004 identity) pins the hash of the Fence an agent obeys.", links: [["/app/fold/fence", "FENCE"], ["/app/pack", "PACK"], ["/app/tag", "TAG"]] },
   { title: "One engine for every builder", kicker: "REST · MCP · SDK · x402", line: "The planner, the router and the Fence behind this app are a public API, an MCP server, TypeScript and Python SDKs and drop-in components. Your brand, your fee.", links: [["/mint", "THE MINT"], ["/league", "THE LEAGUE"]] },
 ];
 
@@ -58,14 +58,14 @@ const TOGETHER: readonly (readonly [string, string, string])[] = [
   ["Agent wallets", "Circle Wallets", "An optional agent signer a deployment can switch on, bound to the address that created it; gas can be sponsored by Gas Station."],
   ["Fence caps and allow lists", "Agent Wallet policies", "Your Fence compiles into the wallet's Circle spending policy; Lykia checks the rest."],
   ["Bridging", "CCTP V2 · Gateway", "Burn and mint USDC across chains, or spend one unified balance."],
-  ["FX", "StableFX", "USDC and EURC on Arc, checked against the Chainlink reference."],
+  ["FX quotes", "StableFX", "Reference RFQ quotes for USDC and EURC beside the on-chain route, which is checked against the Chainlink reference."],
   ["Recipient checks", "Compliance Engine", "A screened-out address becomes a Fence deny."],
   ["Paid agent services", "x402 · Agent Marketplace", "Agents find services and pay them in USDC, inside their caps."],
   ["Every plan", "USDC · EURC", "USDC is Arc's gas and Lykia's unit of account."],
 ];
 
-/** Mainnet flow proofs in docs/flows.md: simulated with eth_call, nothing signed. */
-const FLOWS = { passed: 33, refused: 7 } as const;
+/** Mainnet flow proofs in docs/flows.md (all three tables): simulated with eth_call, nothing signed. */
+const FLOWS = { passed: 35, refused: 8 } as const;
 
 interface StatsLite {
   readonly circle: { readonly integrated: readonly string[] };
@@ -236,7 +236,7 @@ export default function LandingPage() {
               ))}
             </ul>
           </Card>
-          <Card title={"Every flow, simulated on mainnet"} kicker={"ETH_CALL · NOTHING SIGNED"} footer={<div className="lp-links"><a className="m-btn m-btn--sm m-btn--navy" href={`${REPO}/blob/main/docs/flows.md`} target="_blank" rel="noreferrer">{"THE FLOW MATRIX"}</a><Link to="/stats" className="m-btn m-btn--sm m-btn--ghost">{"ALL STATS"}</Link></div>}>
+          <Card title={"The flow matrix, simulated on mainnet"} kicker={"ETH_CALL · NOTHING SIGNED"} footer={<div className="lp-links"><a className="m-btn m-btn--sm m-btn--navy" href={`${REPO}/blob/main/docs/flows.md`} target="_blank" rel="noreferrer">{"THE FLOW MATRIX"}</a><Link to="/stats" className="m-btn m-btn--sm m-btn--ghost">{"ALL STATS"}</Link></div>}>
             <p className="m-small">{"Send with a memo, FX, swaps, vault deposits, Aave V4 and Morpho borrow and repay, CCTP out, Gateway deposits, payouts, invoices and agent sessions: each built by the same code the API serves and run as one Multicall3From call on Arc. The refusals (beta cap, strangers, over-cap agents, the emergency stop) are on-chain errors from the contracts themselves."}</p>
           </Card>
         </div>

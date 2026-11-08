@@ -19,14 +19,14 @@ webhooks.
 
 ## A small app: a test key and a plan
 
-1. Sign in on `/build` with your wallet and press **Become a developer**.
+1. Sign in on The Mint (`/mint`) with your wallet and press **Become a developer**.
 2. On the **Keys** tab create a **test** key (`lk_test_…`). It only reaches
    Arc testnet and is never billed.
 3. Plan something:
 
 ```sh
 curl -s https://api.lykiaai.com/v1/intents \
-  -H "Lykia-Key: $LYKIA_KEY" -H "Content-Type: application/json" \
+  -H "Lykia-Key: $LYKIA_API_KEY" -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
   -d '{"owner":"0xYourWallet","text":"send 5 USDC to 0xFriend","dryRun":true}'
 ```
@@ -35,13 +35,13 @@ Or with an SDK:
 
 ```ts
 import { Lykia } from "@lykia/sdk";
-const lykia = new Lykia({ apiKey: process.env.LYKIA_KEY, environment: "testnet" });
+const lykia = new Lykia({ apiKey: process.env.LYKIA_API_KEY, environment: "testnet" });
 const { intent } = await lykia.intents.create({ owner, text: "send 5 USDC to 0xFriend" });
 ```
 
 ```python
 from lykia import Lykia
-lykia = Lykia(os.environ["LYKIA_KEY"], base_url="https://api.lykiaai.com", environment="testnet")
+lykia = Lykia(os.environ["LYKIA_API_KEY"], base_url="https://api.lykiaai.com", environment="testnet")
 plan = lykia.intents.create(owner, "send 5 USDC to 0xFriend")
 ```
 

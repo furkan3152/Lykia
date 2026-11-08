@@ -23,8 +23,8 @@
 
 ---
 
-Say the outcome. Lykia compiles it into a route across the protocols live on
-Arc and Circle's rails (CCTP, Gateway, StableFX), checks every step against
+Say the outcome. Lykia compiles it into a route across the protocols it can
+route through on Arc and Circle's rails (CCTP, Gateway), checks every step against
 a typed policy called the **Fence**, and hands the result to a wallet or an
 agent to sign. The same engine is an API, SDKs, an MCP server and
 embeddable components, so any team can add routing, policy checks and an
@@ -55,8 +55,8 @@ The Lykia team runs the League and the platform from **Letoon**, a console
 that only admin addresses can open.
 
 The product story, the app's structure and open decisions are in
-[docs/product.md](docs/product.md). Every flow is simulated on Arc mainnet in
-[docs/flows.md](docs/flows.md).
+[docs/product.md](docs/product.md). The money flows are simulated on Arc
+mainnet in [docs/flows.md](docs/flows.md).
 
 ## Contents
 
@@ -110,8 +110,9 @@ The product story, the app's structure and open decisions are in
 
 **Built on Circle's products**
 
-USDC, CCTP V2, Gateway, StableFX, Circle Wallets, the Compliance Engine and
-the x402 facilitator are first-class execution paths. A Fence can be
+USDC, CCTP V2 and Gateway are routes in the engine. Circle Wallets, the
+Compliance Engine, the x402 facilitator, StableFX (RFQ taker endpoints) and
+the USYC Teller (entitled wallets) are integrated beside it. A Fence can be
 compiled into a Circle Agent Wallet policy, so agents can run on a Circle
 wallet with Lykia's checks on top. See [docs/circle](docs/circle/README.md).
 

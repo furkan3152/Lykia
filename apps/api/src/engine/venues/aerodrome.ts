@@ -6,7 +6,7 @@
  * address through an eth_call state override; it asks the pool to swap and
  * reverts inside `uniswapV3SwapCallback` with the deltas, so the quote is
  * the pool's own math at the current state and nothing moves. Works for any
- * Uniswap V3 style pool (Aerodrome Slipstream, Synthra, SushiSwap V3).
+ * Uniswap v3 style pool (Aerodrome Slipstream, Synthra, SushiSwap V3).
  *
  * Execution: the Metarouter's verified source (Etherscan chain 5042,
  * V3/src/metarouter/Metarouter.sol, solc 0.8.36) takes

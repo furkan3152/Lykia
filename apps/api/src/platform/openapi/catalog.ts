@@ -63,8 +63,8 @@ export const EXISTING_ROUTES: readonly DocumentedRoute[] = [
   r("get", "/networks", "Arc", "Arc mainnet and testnet"),
   r("get", "/tokens", "Arc", "Verified tokens per network", "public", { query: env }),
   r("get", "/contracts", "Arc", "Verified Circle and protocol contracts", "public", { query: env }),
-  r("get", "/protocols", "Arc", "Every Arc protocol in the registry"),
-  r("get", "/venues", "Arc", "Venues Lykia routes to, with live status", "public", { query: env }),
+  r("get", "/protocols", "Arc", "The protocol registry on Arc"),
+  r("get", "/venues", "Arc", "Registry venues with live status and whether Lykia can route through them", "public", { query: env }),
   r("get", "/arc/pulse", "Arc", "Latest block, gas and finality on Arc", "public", { query: env }),
   r("get", "/arc/pulse/stream", "Arc", "Server-sent events: Arc pulse", "public", { query: env }),
   r("get", "/oracles", "Arc", "Chainlink and Pyth reference prices", "public", { query: env }),
@@ -239,7 +239,7 @@ export const EXISTING_ROUTES: readonly DocumentedRoute[] = [
   r("post", "/watch", "Discover", "Watch an address", "session", { body: z.object({ address }).passthrough() }),
   r("delete", "/watch/:address", "Discover", "Stop watching an address", "session"),
   // Ecosystem
-  r("get", "/ecosystem", "Ecosystem", "Every Arc protocol, Circle product, TVL and value routed by Lykia", "public", { query: env }),
+  r("get", "/ecosystem", "Ecosystem", "The protocols mapped on Arc, Circle's products, TVL and value routed by Lykia", "public", { query: env }),
   r("get", "/openapi.json", "Platform", "This OpenAPI 3.1 document"),
   // Admin
   r("get", "/admin/deployments", "Admin", "Recorded deployments", "session"),

@@ -8,7 +8,7 @@ export const CATEGORY_LABEL: Readonly<Record<LeagueCategory, string>> = { paymen
 
 /** Each module in plain words, metaphor first where the app has one. */
 export const MODULE_LABEL: Readonly<Record<ProjectModule, string>> = {
-  chat: "Ask Lyko · assistant",
+  chat: "Ask Lyko · your agent",
   send: "Send",
   swap: "Swap",
   earn: "Earn",
@@ -17,7 +17,7 @@ export const MODULE_LABEL: Readonly<Record<ProjectModule, string>> = {
   pack: "Pack · agents",
   fence: "Fence · rules",
   scent: "Scent · token check",
-  flock: "Flock · portfolio",
+  flock: "Flock · holdings",
   orders: "Orders",
   ecosystem: "Harbour · ecosystem",
 };

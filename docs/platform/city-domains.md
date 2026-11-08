@@ -76,6 +76,9 @@ Redeploy both projects (the web variable is read at build time).
 
 ### 5. Check
 
+The official cities are being launched and are not listed yet. Once a city
+is listed in the League:
+
 - `https://pay.lykiaai.com` shows Lykia Pay.
 - `https://agents.lykiaai.com` shows Lykia Agents.
 - `https://perps.lykiaai.com` shows the coming page.

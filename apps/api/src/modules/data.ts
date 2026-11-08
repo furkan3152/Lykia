@@ -3,7 +3,7 @@
  *
  *   GET  /data/tokens                     the token registry with prices and sources
  *   GET  /data/prices[?symbols=EURC,cirBTC]
- *   GET  /data/protocols                  every Arc protocol: status, TVL, APYs, routable adapters
+ *   GET  /data/protocols                  the protocols mapped on Arc: status, TVL, APYs, routable adapters
  *   GET  /data/portfolio/:address         balances and positions across venues, in USD
  *   GET  /security/screen/address/:address[?owner]   address screening
  *   GET  /security/scent/token/:token     Scent report for a token
@@ -47,7 +47,7 @@ const loose = z.object({}).passthrough();
 documentRoutes([
   { method: "get", path: "/v1/data/tokens", tag: "Data", summary: "Token registry with prices and sources", scope: "read", auth: "public", query: environmentQuery, response: z.object({ environment: environmentSchema, tokens: z.array(z.object({ symbol: z.string(), address: z.string().nullable(), decimals: z.number(), priceUsd: z.string().nullable(), priceSource: z.string().nullable() }).passthrough()) }).passthrough() },
   { method: "get", path: "/v1/data/prices", tag: "Data", summary: "USD prices (Chainlink on Arc, pegs, NAV)", scope: "read", auth: "public", query: pricesQuery, response: z.object({ prices: z.array(z.object({ symbol: z.string(), usd: z.string().nullable(), source: z.string() }).passthrough()) }).passthrough() },
-  { method: "get", path: "/v1/data/protocols", tag: "Data", summary: "Every Arc protocol: status, TVL, APYs and routable adapters", scope: "read", auth: "public", query: environmentQuery, response: z.object({ protocols: z.array(loose) }).passthrough() },
+  { method: "get", path: "/v1/data/protocols", tag: "Data", summary: "The protocols mapped on Arc: status, TVL, APYs and routable adapters", scope: "read", auth: "public", query: environmentQuery, response: z.object({ protocols: z.array(loose) }).passthrough() },
   { method: "get", path: "/v1/data/portfolio/:address", tag: "Data", summary: "Balances and positions across venues, in USD", scope: "read", auth: "public", params: AddressParams, query: environmentQuery, response: z.object({ totalUsd: z.string().nullable(), holdings: z.array(loose), venues: z.array(loose) }).passthrough() },
   { method: "get", path: "/v1/security/screen/address/:address", tag: "Security", summary: "Screen an address", description: "Blocklist (USDC/EURC), look-alikes against the owner's contacts, poisoning, contract Scent and Circle Compliance when configured.", scope: "read", auth: "public", params: AddressParams, query: screenQuery, response: z.object({ decision: z.enum(["pass", "warn", "block"]), findings: z.array(loose) }).passthrough() },
   { method: "get", path: "/v1/security/scent/token/:token", tag: "Security", summary: "Scent report for a token", scope: "read", auth: "public", params: TokenParams, query: environmentQuery, response: loose },

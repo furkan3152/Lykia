@@ -9,7 +9,7 @@ let session;
 async function rpc(method, params) {
   const response = await fetch(`${API}/v1/mcp`, {
     method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", ...(session ? { "mcp-session-id": session } : {}), ...(process.env.LYKIA_KEY ? { "Lykia-Key": process.env.LYKIA_KEY } : {}) },
+    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", ...(session ? { "mcp-session-id": session } : {}), ...(process.env.LYKIA_API_KEY ? { "Lykia-Key": process.env.LYKIA_API_KEY } : {}) },
     body: JSON.stringify({ jsonrpc: "2.0", id: ++id, method, params }),
   });
   session = response.headers.get("mcp-session-id") ?? session;

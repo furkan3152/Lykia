@@ -55,7 +55,7 @@ export const PAID_SERVICES: readonly PaidService[] = [
     method: "POST",
     path: "/v1/x402/quote",
     name: "Route quote",
-    description: "The best executable venue on Arc for a swap, deposit or borrow, with every alternative it beat and why. Covers Uniswap, Aerodrome, Morpho, Aave, Circle StableFX and every other venue Lykia routes to.",
+    description: "The best executable venue on Arc for a swap, deposit or borrow, with every alternative it beat and why. Covers Uniswap, Aerodrome, Morpho, Aave and every other venue Lykia can route through today.",
     example: { kind: "swap", environment: "mainnet", from: "USDC", to: "EURC", amount: "100" },
     category: "INFRASTRUCTURE",
     tags: ["routing", "defi", "swap", "lending", "arc", "usdc", "eurc"],

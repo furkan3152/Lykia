@@ -67,7 +67,7 @@ test("coverage: routable, read-only and mapped are counted from the registry", a
   assert.equal(coverageOf(getProtocol("aave-v4"), "mainnet", executable), "routable");
   assert.equal(coverageOf(getProtocol("synthra"), "mainnet", executable), "read-only");
   assert.equal(coverageOf(getProtocol("beefy"), "mainnet", executable), "mapped");
-  assert.equal(coverageLine({ routable: 9, protocols: 94 }), "9 protocols Lykia can route through today · 94 protocols mapped on Arc");
+  assert.equal(coverageLine({ routable: 13, protocols: 94 }), "13 protocols Lykia can route through today · 94 protocols mapped on Arc");
   assert.equal(coverageLine({ routable: 13, routableVia: 5, protocols: 94 }), "13 protocols Lykia can route through today, plus 5 curators' vaults via Morpho · 94 protocols mapped on Arc");
   assert.equal(coverageLine({ routable: 1, protocols: 1 }), "1 protocol Lykia can route through today · 1 protocol mapped on Arc");
 });

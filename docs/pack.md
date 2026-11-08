@@ -35,7 +35,7 @@ Revoking an agent revokes its whole subtree and frees its allocation at once.
 | fx-hedger | Keeps the USDC/EURC mix inside a tight band around the Chainlink reference rate. | read, propose |
 | yield-keeper | Moves idle stablecoins into vaults and back out. | read, propose |
 | bill-payer | Pays recurring bills to known payees, with small caps. | read, propose |
-| sentinel | Watches Scent, health factors and the pulse. It can blow the whistle but cannot move value. | read, whistle |
+| sentinel | Watches Scent, health factors and the pulse. It can blow the Whistle but cannot move value. | read, whistle |
 | researcher | Reads venues, quotes, prices and Scent, and drafts dry-run plans. | read, propose |
 | custom | Uses the Fence the owner gives it. A custom root agent can spawn sub-agents. | read, propose, spawn |
 

@@ -13,11 +13,11 @@ requirements:
 1. Ask Lykia's MCP server (`lykia`) to plan the sentence or typed actions,
    or call `POST /v1/intents` with `{ owner, environment, actions | sentence, fence? }`.
 2. Read the plan: each step names its venue, why it won, its fee and the
-   Fence verdict. Circle-native paths (CCTP, Gateway, StableFX) are labelled
-   "Powered by Circle".
+   Fence verdict. Circle-native paths (CCTP, Gateway) are labelled "Powered by
+   Circle".
 3. If the verdict is signable, the owner's wallet or the agent's Circle
    wallet signs the unsigned transactions in order.
-4. Track the steps until the Fold (`GET /v1/intents/{id}`).
+4. Track the steps until they settle (`GET /v1/intents/{id}`).
 
 ## Rules
 

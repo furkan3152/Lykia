@@ -2,7 +2,7 @@
 
 Lykia brings Circle's rails and Arc's features together with its own (the
 Fence, Scent, the Pack, the Outrun) and offers them as an interface and as
-infrastructure. Any app can add AI-assisted money moves on Arc in its own
+infrastructure. Any app can add assistant-planned money moves on Arc in its own
 brand, or take one part of Lykia and shape it.
 
 | Path | Package | For |
@@ -25,11 +25,11 @@ custom strings.
 
 ## Three steps
 
-1. Sign in on `/build` with your wallet (SIWE on Arc), become a developer
-   and create a project. Add your origin and prove it.
+1. Sign in on The Mint (`/mint`) with your wallet (SIWE on Arc), become a
+   developer and strike a project. Add your origin and prove it.
 2. Issue a browser key for the project (or a secret key for a server or an
    agent).
-3. Pick a path above. `/build` has a quickstart and a live playground for
+3. Pick a path above. The Mint has a quickstart and a live playground (the Workshop) for
    each; the playground writes the code for your brand and modules.
 
 ## What never changes
@@ -52,7 +52,7 @@ then [authentication](authentication.md), [keys and scopes](keys-and-scopes.md),
 [rate limits](rate-limits.md), [versioning](versioning.md)
 ([changelog](changelog.md)), [billing](billing.md), [SDKs](sdks.md) and the
 [CLI](cli.md). The reference is `GET /v1/openapi.json` (rendered at
-`/v1/reference` and on `/build`, API Reference tab).
+`/v1/reference` and in The Mint at `/mint/reference`).
 
 See also: [embed-protocol.md](embed-protocol.md) and
 [agents.md](agents.md). Runnable examples live in `examples/`.

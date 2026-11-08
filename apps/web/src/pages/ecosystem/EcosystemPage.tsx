@@ -46,7 +46,7 @@ export default function EcosystemPage() {
       <header className="m-head m-wrap">
         <span className="m-kick">{"THE MINT · HARBOUR · ECOSYSTEM"}</span>
         <h1 className="m-title">
-          Every Arc protocol mapped, <em>the routable ones one route away.</em>
+          The protocols on Arc, mapped, <em>the routable ones one route away.</em>
         </h1>
         <p className="m-sub">{POSITIONING}</p>
         <CoverageLine data={q.data} className="m-kick eco-coverage" />

@@ -7,7 +7,7 @@
  * recipient, amount, validity window and nonce locally with viem; it
  * settles only when a facilitator is configured (Circle's x402
  * facilitator, for example). Without one it runs verify-only and says so
- * in the PAYMENT-RESPONSE header. The server never holds a key.
+ * in the PAYMENT-RESPONSE header. The server holds no key for x402: the payer signs.
  */
 import { contractAddress, networkFor, type Address, type ArcEnvironment } from "@lykia/core";
 import type { RequestHandler } from "express";

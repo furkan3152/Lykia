@@ -21,7 +21,7 @@ import { LykiaProvider, LykiaChat, Swap } from "@lykia/widget";
 
 ## Setup
 
-1. Create a project on Lykia's `/build` page, add your origin and prove it
+1. Strike a project in Lykia's Mint (`/mint`), add your origin and prove it
    (DNS TXT or `/.well-known/lykia-verify.txt`).
 2. Issue a browser key (`lk_pk_…`). It only works from the project's
    verified origins and only plans and reads; it never moves money.
@@ -33,7 +33,7 @@ import { LykiaProvider, LykiaChat, Swap } from "@lykia/widget";
 |---|---|---|
 | `LykiaChat` | chat | The assistant, under Lyko's name or yours, with proposals. |
 | `Send` | send | Pay an address in USDC or EURC. |
-| `Swap` | swap | StableFX for USDC/EURC, the best AMM route otherwise. |
+| `Swap` | swap | USDC, EURC and cirBTC through the best on-chain route. |
 | `Earn` | earn | A vetted vault within the Fence's risk tier. |
 | `Bridge` | bridge | USDC to another chain with Circle CCTP. |
 | `Fence` | fence | Templates, caps and every rule an edit would loosen. |

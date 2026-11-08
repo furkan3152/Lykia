@@ -42,7 +42,7 @@ export const STEP_KINDS = Object.freeze([
 /**
  * - approve: ERC-20 allowance (folded into the next call through Multicall3From when possible);
  * - transfer: send to an address, with an Arc Memo (invoice, payroll line, agent job);
- * - swap: AMM swap; fx: StableFX RFQ trade USDC <-> EURC settled by FxEscrow;
+ * - swap: AMM swap; fx: USDC <-> EURC conversion, routed through the best on-chain pool and checked against the reference rate;
  * - deposit / withdraw: ERC-4626 vaults; supply / borrow / repay: lending markets;
  * - bridge: CCTP V2 burn on Arc for a native mint elsewhere; gateway-deposit: into the unified Gateway balance;
  * - register-agent: ERC-8004 identity (a Tag); attest: a Fence verdict filed to the ValidationRegistry.

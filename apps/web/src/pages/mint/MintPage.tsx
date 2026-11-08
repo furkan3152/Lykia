@@ -50,7 +50,7 @@ const MINT_SECTIONS: readonly { readonly id: MintSection; readonly label: string
 
 const SDK = `import { Lykia } from "@lykia/sdk";
 
-const lykia = new Lykia({ apiKey: process.env.LYKIA_KEY });
+const lykia = new Lykia({ apiKey: process.env.LYKIA_API_KEY });
 const plan = await lykia.intents.create({
   text: "put half my USDC to work",
   owner, environment: "mainnet",
@@ -216,7 +216,7 @@ function Reference({ hash }: { readonly hash: string }) {
         <div style={{ display: "grid", gap: 16, gridTemplateColumns: "minmax(0, 1fr)" }}>
           <div className="m-frame m-card">
             <span className="m-kick">{"BUILT ON ARC NETWORK · POWERED BY CIRCLE"}</span>
-            <p className="m-small" style={{ marginTop: 6 }}>{"Circle moves the value: USDC, CCTP, Gateway, StableFX and the agent stack. Lykia maps every Arc protocol, routes through every venue it has an executable adapter for, checks each move against a DeFi-aware Fence and files every verdict as an ERC-8354 policy attestation in the ERC-8004 Validation Registry."}</p>
+            <p className="m-small" style={{ marginTop: 6 }}>{"Circle moves the value: USDC, CCTP, Gateway and the agent stack. Lykia maps the protocols on Arc, routes through the ones it has an executable adapter for, checks each move against a DeFi-aware Fence and files every verdict as an ERC-8354 policy attestation in the ERC-8004 Validation Registry."}</p>
           </div>
           <CircleMarket compact />
         </div>

@@ -25,7 +25,7 @@ outside it. That one sentence covers both Scent and the Fence.
 
 The product language is English. The interface leads with metaphors from the
 shepherd's valley and pairs each with a short plain word, so a newcomer reads
-the product and a returning user reads the story ("Flock · portfolio"). Page
+the product and a returning user reads the story ("Flock · holdings"). Page
 titles, tabs and menus show the pair. The three top-level tiles (Ask Lyko,
 The Fold, The Mint) show only the name and a small hand-drawn pixel icon (Lyko's
 head, a sheepfold, a struck coin); their plain word rides in the tooltip and the

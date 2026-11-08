@@ -12,7 +12,7 @@ and corrected in this pass), **added** (integrated in this pass), **listed**
 (recognised and documented, not called), **gap** (useful, not done yet),
 **n/a** (not relevant to Lykia or not available on Arc).
 
-## Arc network
+## Arc Network
 
 | Capability | Status | Where in Lykia | Notes | Doc |
 |---|---|---|---|---|

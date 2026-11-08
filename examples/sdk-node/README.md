@@ -2,7 +2,7 @@
 
 The whole loop with `@lykia/sdk` and viem:
 
-1. **Plan** a sentence. Lykia compares every Arc venue and puts its 1% fee
+1. **Plan** a sentence. Lykia compares the venues it can route through on Arc and puts its 1% fee
    inside the step's own transaction.
 2. **Verdict**: the Fence answers allow, confirm or deny, one reason per rule.
 3. **Prepare** the unsigned calls (approve + act + memo, batched into one

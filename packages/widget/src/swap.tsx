@@ -1,4 +1,4 @@
-/** <Swap>: USDC, EURC and cirBTC; StableFX for USDC/EURC, the best AMM route otherwise. */
+/** <Swap>: USDC, EURC and cirBTC through the best on-chain route. */
 import { useState } from "react";
 import { ActionShell, AMOUNT_PATTERN, Field } from "./components/action.js";
 

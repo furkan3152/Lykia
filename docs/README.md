@@ -9,7 +9,7 @@ structure.
 ## Start here
 
 - [Product: story, pillars and structure](product.md)
-- [Mainnet flow proofs](flows.md): every flow simulated on Arc mainnet
+- [Mainnet flow proofs](flows.md): the money flows, simulated on Arc mainnet
 - [Circle integration](circle/README.md): which Circle product each feature uses
 
 ## Concepts

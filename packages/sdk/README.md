@@ -1,6 +1,6 @@
 # @lykia/sdk
 
-A typed client for the Lykia API, built on Arc Network. It works anywhere `fetch` and Web Crypto exist: Node 18 and later, browsers, Deno, Bun and edge runtimes. It has one dependency, `@lykia/core`, which supplies the contract types.
+A typed client for the Lykia API, built on Arc Network. It works anywhere `fetch` and Web Crypto exist: Node 20 and later, browsers, Deno, Bun and edge runtimes. It has one dependency, `@lykia/core`, which supplies the contract types.
 
 ```sh
 npm install @lykia/sdk
@@ -10,8 +10,8 @@ npm install @lykia/sdk
 import { Lykia } from "@lykia/sdk";
 
 const lykia = new Lykia({
-  baseUrl: "https://api.lykia.example",
-  apiKey: process.env.LYKIA_KEY,   // lk_sk_… on servers, lk_pk_… in browsers
+  baseUrl: "https://api.lykiaai.com",
+  apiKey: process.env.LYKIA_API_KEY,   // lk_sk_… on servers, lk_pk_… in browsers
   environment: "testnet",          // Arc testnet (5042002) or mainnet (5042)
 });
 ```
@@ -126,7 +126,7 @@ import { createTransport } from "@lykia/sdk/transport";
 import { intentsApi } from "@lykia/sdk/intents";
 import { projectsApi } from "@lykia/sdk/projects";
 
-const t = createTransport({ apiKey: process.env.LYKIA_KEY, project: "prj_…" });
+const t = createTransport({ apiKey: process.env.LYKIA_API_KEY, project: "prj_…" });
 const plan = await intentsApi(t).create({ owner, text: "send 25 USDC to 0x…" });
 const brand = await projectsApi(t).public(); // the project's brand, modules and disclosed fee
 ```

@@ -1,4 +1,4 @@
-/** "Add AI to your Arc app in 3 steps", once per integration path. */
+/** "Add an assistant to your Arc app in 3 steps", once per integration path. */
 import { useState } from "react";
 
 import { API_BASE } from "../../lib/env";
@@ -35,7 +35,7 @@ function steps(path: PathId): readonly Step[] {
 export function Quickstarts() {
   const [path, setPath] = useState<PathId>("widget");
   return (
-    <Card title="Add AI to your Arc app in 3 steps" kicker="PICK A PATH">
+    <Card title="Add an assistant to your Arc app in 3 steps" kicker="PICK A PATH">
       <Tabs label="Integration path" value={path} onChange={setPath} tabs={[{ id: "widget", label: "REACT WIDGET" }, { id: "embed", label: "HTML EMBED" }, { id: "hooks", label: "HEADLESS HOOKS" }, { id: "agents", label: "AGENT TOOLS" }, { id: "mcp", label: "MCP" }, { id: "sdk", label: "SDK" }]} />
       <ol style={{ listStyle: "none", padding: 0, margin: "14px 0 0", display: "grid", gap: 14 }}>
         {steps(path).map((s, i) => (

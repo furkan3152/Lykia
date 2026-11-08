@@ -80,7 +80,7 @@ test("framework adapters wrap the same tools", async () => {
   assert.equal(anthropicTools(["flock"])[0].input_schema.type, "object");
   const block = await runAnthropicToolUse(executor, { id: "toolu_1", name: "scent_token", input: { token: "bad" } });
   assert.equal(block.is_error, true);
-  assert.deepEqual(lykiaMcpServer({ baseUrl: "https://api.lykia.xyz", apiKey: "lk_sk_x" }), { lykia: { type: "http", url: "https://api.lykia.xyz/v1/mcp", headers: { "Lykia-Key": "lk_sk_x" } } });
+  assert.deepEqual(lykiaMcpServer({ baseUrl: "https://api.lykiaai.com", apiKey: "lk_sk_x" }), { lykia: { type: "http", url: "https://api.lykiaai.com/v1/mcp", headers: { "Lykia-Key": "lk_sk_x" } } });
 });
 
 test("developer flow tools are opt-in and build the documented calls", async () => {

@@ -22,9 +22,9 @@ which rules an agent was held to.
 
 | Pillar | What it means | Where it lives |
 |---|---|---|
-| **Outcomes, not transactions** | A sentence (or a form, or one API call) becomes a route across every capable Arc protocol and Circle rail. The route is scored on the net result, simulated on Arc, and sent as one transaction with an Arc Memo. Orders and automations re-plan under the same rules while the owner is away. | Ask Lyko, Flock, Herding |
+| **Outcomes, not transactions** | A sentence (or a form, or one API call) becomes a route across the protocols Lykia can route through on Arc and Circle's CCTP and Gateway. The route is scored on the net result, simulated on Arc, and sent as one transaction with an Arc Memo. Orders and automations re-plan under the same rules while the owner is away. | Ask Lyko, Flock, Herding |
 | **Rules that hold** | The Fence is a typed policy (caps, recipients, protocols, tokens, slippage, health factor, FX band, an emergency stop). It is checked off chain before signing, compiled into a Circle Agent Wallet policy, and enforced on chain by the Lykia smart account. Sub-agents get a Fence inside their parent's. A Tag (ERC-8004 identity) pins the hash of the Fence an agent obeys. | Fence |
-| **One engine for every builder** | The planner, router and Fence behind the app are a public REST and SSE API, an MCP server, TypeScript and Python SDKs, a CLI and drop-in components. A protocol becomes routable with one typed adapter. Every app built on it is a city of the League. | The Mint, the League |
+| **One engine for every builder** | The planner, router and Fence behind the app are a public REST and SSE API, an MCP server, TypeScript and Python SDKs, a CLI and drop-in components. A protocol becomes routable with one typed adapter. An app built on it can be listed as a city of the League. | The Mint, the League |
 
 The server never holds user keys, and plans come back unsigned. Two optional
 server roles sign, each off unless the operator configures it: a gas-only
@@ -205,15 +205,14 @@ sheets and an "Ask Lyko" bar stays within thumb reach. Targets are 44 px or more
 
 | Change | Why |
 |---|---|
-| Desk split: Orders, Automations, Alerts and Activity → **Automate**; What-if → **Portfolio** | These are the user's own standing instructions and their record. What-if is a question about holdings. |
+| Move, Orders, Alerts, Automations → **Ask Lyko** (forms survive only as the "edit the details" step of a draft) | If the agent can do something, there is no separate manual page for it. |
+| Flock, Activity, What-if, Fence and the standing instructions → tabs of **The Fold** (Flock, Trails, Herding, Pack, Fence; the what-if slider sits in Flock) | One place for what the owner holds, what happened and what is in motion. |
 | **Perps markets** and **New pools** → More | Read-only market data. Useful, but neither moves money under a Fence. Perps trade on Extended, not on Arc. |
-| Flock + Move + Pastures → **Portfolio** (Holdings, Move, Yields) | One place for "what I have and moving it". |
-| Fence + Pack + Tag + Scent + Security → **Rules** | All of these define or enforce what may happen. Security was only reachable by link before. |
-| You + Memory → **Settings** with a Memory tab, in the avatar menu | One account area instead of two unrelated pages. |
-| Circle, Ecosystem and Stats → **Build** (now The Mint, beside the League) | This is where a builder or a reviewer looks for integrations and numbers. |
+| You + Memory → **Your Lyko**, in the avatar menu | One account page instead of two unrelated ones. |
+| Build, Circle, Ecosystem and Stats → **The Mint** area, beside the League | This is where a builder or a reviewer looks for integrations and numbers. |
 | Owner console → **Letoon**, in the avatar menu for admins only | Only the team uses it; the server checks the role on every call. |
 | `DeskTabs` removed; the shell renders the area tabs | One tab component for every area. Pages no longer repeat the navigation. |
-| Page headers | The kicker names the area and section ("RULES · FENCE"). The titles say what the page does ("Check a token before you touch it", not "Let Lyko sniff it"). The medallion is smaller and hidden on phones. |
+| Page headers | The kicker names the area and section. The titles say what the page does ("Check a token before you touch it", not "Let Lyko sniff it"). The medallion is smaller and hidden on phones. |
 | ⌘K | It leads with "Jump to" pages. Sheepdog commands sit in a closed "Shepherd commands" section. The hidden-word counter is gone. The words still work. |
 | Empty states | Each says what to do next ("Connect a wallet, or paste any Arc address to read its holdings"), not just a mood. |
 | Landing | Rewritten as above. The duplicate ecosystem and Circle sections and the lore card grids were removed. |
@@ -243,22 +242,11 @@ These need a call that is bigger than a navigation change:
    and trading happens off Arc. Recommendation: remove it from the app and
    keep the API route. It does not serve the story and invites "is this a
    trading app?" questions.
-2. **New pools (`/app/discover`).** Recommendation: fold it into Token check
-   as a "Recently launched" list, then retire the page.
-3. **What-if (`/app/whatif`).** This is a client-side stress test. It is fine
-   in Portfolio, but it could become a card on Holdings instead of a page.
-4. **Rename URLs to match labels** (`/app/flock` → `/app/portfolio`,
-   `/app/pack` → `/app/agents`, `/app/scent` → `/app/check`). This needs
-   redirects and SDK and doc updates. The labels already changed, so this is
-   cosmetic.
-5. **Memory as its own page.** It could become a section of Settings and
-   lose its route.
-6. **The Arcadia night scene (`/lykaion`) and the design kit (`/kit`).**
+2. **New pools (`/app/discover`).** Recommendation: fold it into the token
+   check as a "Recently launched" list, then retire the page.
+3. **The Arcadia night scene (`/lykaion`) and the design kit (`/kit`).**
    Both are harmless and unlisted. Consider removing `/kit` from production
    builds.
-7. **`docs/circle.md` and `docs/circle/README.md` overlap.** Merge them into
-   one page under `docs/circle/`. The Circle integration work owns that
-   folder.
-8. **Value routed reads $0** on `/stats`, because there is no real usage yet.
+4. **Value routed reads $0** on `/stats`, because there is no real usage yet.
    This is honest, but a first real mainnet flow, signed and linked from the
    landing, would be stronger proof than simulations.

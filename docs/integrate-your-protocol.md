@@ -18,7 +18,7 @@ Integration is free and open to every team building on Arc Network.
   (DefiLlama) and the value Lykia has routed to you, live. The same data is
   public at `GET /v1/ecosystem` and in the embeddable "Routed by Lykia" strip
   (`examples/embed`).
-- **Free developer keys.** Sign in on `/build` with your wallet: 120 requests
+- **Free developer keys.** Sign in on The Mint (`/mint`) with your wallet: 120 requests
   per minute and 20,000 per day per key, no charge.
 - **No lock-in.** Users sign every transaction in their own wallets, directly
   against your contracts. Lykia never holds funds.

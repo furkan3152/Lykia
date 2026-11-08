@@ -15,9 +15,13 @@
   "homepage": "https://lykiaai.com/mint",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/furkan3152/lykia.git",
+    "url": "git+https://github.com/furkan3152/Lykia.git",
     "directory": "packages/core"
   },
+  "bugs": {
+    "url": "https://github.com/furkan3152/Lykia/issues"
+  },
+  "author": "Furkan Akdogan (https://github.com/furkan3152)",
   "type": "module",
   "sideEffects": false,
   "main": "./dist/index.js",

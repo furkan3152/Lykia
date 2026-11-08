@@ -329,7 +329,7 @@ assumption.
 
 ## 7. Evaluation
 
-The evaluation set lives in `apps/api/src/evals/`: `intents.ts` (52 cases and
+The evaluation set lives in `apps/api/src/evals/`: `intents.ts` (54 cases and
 their rubrics), `states.ts` (mocked chain state), `score.ts` and `run.ts`.
 Cases cover treasury and payroll, savings, hedging, agents with budgets,
 take-profit and stop-loss rules, DCA, sweeps, cross-chain transfers through
@@ -348,12 +348,12 @@ READER=deterministic BASE=http://localhost:3002 npm run eval:intents -w @lykia/a
 ONLY=studio,defensive VERBOSE=1 npm run eval:intents -w @lykia/api
 ```
 
-Results on 4 November 2026:
+Results:
 
 | Run | Cases | Checks |
 |---|---|---|
-| Offline, lexicon (46 English cases) | 46/46 | 194/194 |
-| Local HTTP API, lexicon forced (all 52) | 47/52: the 46 English cases, and the Spanish injection caught by the guard; the other 5 non-English cases need the model | 198/213 |
+| Offline, lexicon (the 48 English cases), 8 November 2026 | 48/48 | 203/203 |
+| Local HTTP API, lexicon forced, 4 November 2026 (52 cases at the time) | 47/52: the 46 English cases of the time, and the Spanish injection caught by the guard; the other 5 non-English cases need the model | 198/213 |
 | Live model path | not scored yet: `/v1/ai/compile` must be deployed with a model key | |
 
 The offline run is also a test (`compiler.test.ts`), so a lexicon change that

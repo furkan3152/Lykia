@@ -1,7 +1,7 @@
 /**
  * The ecosystem and the marketplace documents. All public and cacheable.
  *
- *   GET /ecosystem              every Arc protocol, Circle product, TVL, value routed by Lykia (CORS-open)
+ *   GET /ecosystem              the protocols mapped on Arc, Circle's products, TVL, value routed by Lykia (CORS-open)
  *   GET /openapi.json           OpenAPI 3.1 for every documented route (platform/openapi/document.ts)
  *   GET /.well-known/x402       (root) the x402 service manifest for marketplaces and agents
  */

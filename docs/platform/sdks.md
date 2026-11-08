@@ -5,7 +5,7 @@
 ```ts
 import { Lykia, constructEvent } from "@lykia/sdk";
 
-const lykia = new Lykia({ baseUrl, apiKey: process.env.LYKIA_KEY, apiVersion: "2026-11-01" });
+const lykia = new Lykia({ baseUrl, apiKey: process.env.LYKIA_API_KEY, apiVersion: "2026-11-01" });
 await lykia.intents.create({ owner, text: "swap 100 USDC to EURC" });
 await lykia.platform.keys.rotate(keyId, 3600);
 for await (const entry of lykia.platform.logs.all({ statusClass: "error" })) console.log(entry.requestId);
@@ -26,7 +26,7 @@ for await (const entry of lykia.platform.logs.all({ statusClass: "error" })) con
 ```python
 from lykia import Lykia, construct_event
 
-with Lykia(os.environ["LYKIA_KEY"], base_url=BASE, api_version="2026-11-01") as lykia:
+with Lykia(os.environ["LYKIA_API_KEY"], base_url=BASE, api_version="2026-11-01") as lykia:
     plan = lykia.intents.create(owner, "send 5 USDC to alice", environment="testnet")
     for entry in lykia.logs.iterate(statusClass="error"):
         print(entry["requestId"])

@@ -138,8 +138,10 @@ and the Fence judges it.
 
 Calls are shaped by `calls.ts`. An EOA signs one Multicall3From transaction
 `[approvals…, calls…, Memo(last call)]`, or a single Memo-wrapped call. Smart
-accounts get plain calls. Every adapter's batch was simulated with `eth_call`
-on Arc mainnet on 2026-11-01.
+accounts get plain calls. The batches of the adapters from `transfer` to
+`swap-aerodrome` were simulated with `eth_call` on Arc mainnet on 2026-11-01
+([docs/flows.md](../../../../docs/flows.md)); the Archery, Unitflow, Sushi,
+0x and Relay adapters are covered by `src/__tests__/venues-added.test.ts`.
 
 ## Knowledge and route search
 

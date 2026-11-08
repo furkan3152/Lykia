@@ -19,7 +19,8 @@ Fence and security layer the Lykia app uses. Built on Arc Network.
 
 - `route.steps`: each step's venue, summary and the reason it won;
 - `best` and `alternatives`: every venue the router priced (Uniswap v3/v4,
-  Aerodrome Slipstream, Morpho, Aave V4, routable adapter manifests, ...);
+  Aerodrome Slipstream, Archery, Unitflow Finance V3, SushiSwap, Morpho,
+  Aave V4, Relay, 0x with `ZEROX_API_KEY`, routable adapter manifests);
 - `priceImpactBps`: input value after fees against output value, at
   Chainlink prices (negative = better than the reference);
 - `gas`: units, price and the cost in USDC (Arc's gas token);
@@ -87,7 +88,7 @@ curl "$LYKIA_API/v1/aggregator/quote?tokenIn=USDC&tokenOut=EURC&amount=100&taker
 
 # Build from the quote id
 curl -X POST "$LYKIA_API/v1/aggregator/build" -H "content-type: application/json" \
-  -H "Lykia-Key: $LYKIA_KEY" -d '{"quoteId":"q_..."}'
+  -H "Lykia-Key: $LYKIA_API_KEY" -d '{"quoteId":"q_..."}'
 
 # A deposit for a smart account, as EIP-5792 wallet_sendCalls
 curl -X POST "$LYKIA_API/v1/build/deposit" -H "content-type: application/json" \
@@ -104,7 +105,7 @@ curl -X POST "$LYKIA_API/v1/build/bridge" -H "content-type: application/json" \
 import { Lykia } from "@lykia/sdk";
 // or, modular: import { aggregatorApi } from "@lykia/sdk/aggregator"; import { buildApi } from "@lykia/sdk/build";
 
-const lykia = new Lykia({ baseUrl: process.env.LYKIA_API, apiKey: process.env.LYKIA_KEY, environment: "mainnet" });
+const lykia = new Lykia({ baseUrl: process.env.LYKIA_API, apiKey: process.env.LYKIA_API_KEY, environment: "mainnet" });
 const quote = await lykia.aggregator.quote("swap", { taker, tokenIn: "USDC", tokenOut: "EURC", amount: "100", integratorFee: { bps: 20, recipient: myTreasury } });
 console.log(quote.best?.label, quote.priceImpactBps, quote.fees.totalUsd);
 const built = await lykia.aggregator.build(quote.id);
@@ -145,8 +146,8 @@ The MCP server (`/v1/mcp`) adds `lykia_aggregator_quote`, `lykia_build`,
 
 `apps/api/src/engine/providers.ts` defines the `ExecutionProvider`
 interface. Lykia's engine is always present; other providers (Circle App
-Kit, Gateway, CCTP, StableFX, Circle Wallets as the signer) register with
-`registerProvider` and are quoted beside it. A provider build still passes
+Kit, Gateway, CCTP, StableFX reference quotes, Circle Wallets as the
+signer) register with `registerProvider` and are quoted beside it. A provider build still passes
 the Fence first; on-chain provider transactions get Lykia's fee transfers in
 front and go through the security layer like any build.
 

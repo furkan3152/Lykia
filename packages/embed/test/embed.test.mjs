@@ -40,8 +40,8 @@ const KEY = "lk_pk_abcdefabcdef_" + "A".repeat(32);
 
 test("protocol helpers check every attribute and keep the key out of the URL", () => {
   assert.deepEqual(mod.appearanceParams((n) => ({ primary: "#0f766e", accent: "red", scheme: "dark", radius: "99", environment: "testnet", mosaic: "off" })[n] ?? null), { primary: "#0f766e", scheme: "dark", environment: "testnet", mosaic: "off" });
-  const url = mod.frameUrl("https://lykia.xyz", "swap", "prj_aaaaaaaaaaaa", { primary: "#0f766e" });
-  assert.equal(url, "https://lykia.xyz/embed/swap?project=prj_aaaaaaaaaaaa&v=1&primary=%230f766e");
+  const url = mod.frameUrl("https://lykiaai.com", "swap", "prj_aaaaaaaaaaaa", { primary: "#0f766e" });
+  assert.equal(url, "https://lykiaai.com/embed/swap?project=prj_aaaaaaaaaaaa&v=1&primary=%230f766e");
   assert.equal(mod.clampHeight(5), mod.MIN_FRAME_HEIGHT);
   assert.equal(mod.clampHeight(99999), mod.MAX_FRAME_HEIGHT);
   assert.equal(mod.clampHeight("x"), null);

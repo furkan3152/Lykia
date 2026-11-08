@@ -3,6 +3,8 @@
 The League lists Lykia's products and approved community apps as **cities**.
 Every city is a real [project](projects.md): its listing lives on
 `project.league` (`lykia.league/v1`, spec in `packages/core/src/league.ts`).
+The official cities (Lykia Pay, Lykia Agents, later Lykia Perps) are being
+launched; until they are listed, `GET /v1/league` returns none.
 
 | Field | Values |
 |---|---|

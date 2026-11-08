@@ -2,7 +2,7 @@
  * Verifying Lykia webhooks. The `Lykia-Signature` header is
  * `t=<unix seconds>,v1=<hex HMAC-SHA256(secret, "<t>.<raw body>")>`.
  * Pass the raw request body (not re-serialized JSON). Uses Web Crypto, so
- * it runs in Node 18+, edge runtimes, Deno and Bun.
+ * it runs in Node 20+, edge runtimes, Deno and Bun.
  */
 export const WEBHOOK_TOLERANCE_SECONDS = 300;
 

@@ -39,7 +39,7 @@ Tag (ERC-8004 identity) points to.
 | `caps.perStepUsd` / `perIntentUsd` / `dailyUsd` / `weeklyUsd` | USD limits, written as strings. |
 | `limits.maxSteps` / `limits.maxSlippageBps` | Size of a plan and the slippage ceiling. |
 | `lending.minHealthFactor` | The lowest health factor allowed after a borrow or a withdraw, for example `"1.5"`. |
-| `fx.maxDeviationBps` | How far a StableFX quote may be from the reference rate. |
+| `fx.maxDeviationBps` | How far a USDC/EURC quote may be from the reference rate (Chainlink EURC/USD). |
 | `scent.require` | `verified`, `no-red-flags` or `off`: the lowest Scent result a token may have before it can be acquired. |
 | `confirm.aboveUsd` / `confirm.when` | When the owner has to confirm: above an amount, for external recipients, for cross-chain moves, for agent proposals and for unlisted tokens. |
 | `schedule` | An IANA time zone and weekly windows. |

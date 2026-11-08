@@ -2,7 +2,7 @@
 
 The Lykia API: one Express 5 service for Arc Network. It reads the chain (pulse, the Flock, Scent), plans intents with live quotes and evaluates them against the owner's Fence, hands out unsigned transactions carrying Arc Memos, verifies submitted hashes against Arc receipts, drafts Tag (ERC-8004) identities, and serves Lyko, an MCP endpoint and x402 paid routes.
 
-The server never signs. Every value-moving transaction is signed in the owner's (or the agent's) own wallet.
+The server never holds user keys. Every value-moving transaction is signed in the owner's (or the agent's) own wallet. Two optional server roles do sign, each off unless the operator configures it: the gas-only keeper (`LYKIA_KEEPER_PRIVATE_KEY`), which executes due conditional orders already signed by their owners, and Circle developer-controlled wallets (`LYKIA_CIRCLE_SERVER_WALLETS=true`), which the server signs for with the operator's entity secret.
 
 ## Run
 
@@ -27,10 +27,12 @@ All variables are optional; see [`.env.example`](./.env.example).
 
 | variable | default | purpose |
 |---|---|---|
+| `NODE_ENV` | `development` | `production` turns on the production checks: exact https CORS origins only, and sign-in refuses to run without `LYKIA_SESSION_SECRET` |
 | `PORT`, `HOST` | `3002`, `0.0.0.0` | listen address |
 | `LYKIA_MODE` | `testnet` | default Arc environment when a request does not name one |
 | `LYKIA_WEB_ORIGIN` | (none) | extra CORS origins; localhost dev origins are allowed outside production |
-| `LYKIA_DATABASE_URL` | (none) | Postgres for intents, hash claims, Tag cards, spend counters and x402 nonces; in-memory without it |
+| `LYKIA_ROOT_DOMAIN` | (none) | the domain League cities run under as subdomains (`<slug>.lykiaai.com` in production); see [docs/platform/city-domains.md](../../docs/platform/city-domains.md) |
+| `LYKIA_DATABASE_URL` | (none) | Postgres for intents, hash claims, Tag cards, spend counters and x402 nonces; in-memory without it. `DATABASE_URL` and `POSTGRES_URL` are read as fallbacks |
 | `ARC_MAINNET_RPC_URL`, `ARC_TESTNET_RPC_URL` | (none) | extra RPC endpoints, tried before `rpc.mainnet.arc.io` / `rpc.testnet.arc.io` |
 | `ANTHROPIC_API_KEY`, `LYKIA_AGENT_MODEL` | (none), (none) | the model path for Lyko and the specialists, with Lykia's tools. Both are required for it: there is no default model id. Without them the deterministic reader answers |
 | `LYKIA_AGENT_MAX_STEPS`, `LYKIA_AGENT_MAX_TOKENS` | `6`, `4096` | model rounds per agent per turn, output tokens per call |
@@ -48,9 +50,14 @@ All variables are optional; see [`.env.example`](./.env.example).
 | `CRON_SECRET` | (none) | Bearer secret for `/cron/standing`, `/cron/orders` and `/cron/alerts` (Vercel Cron, daily each) and for `POST /v1/reconcile/tick` (one full background pass, for an external pinger when schedules must hold more often than daily), the keeper and the alert-check routes; compared in constant time |
 | `LYKIA_GUARD_ADDRESS` | (none) | ERC-8354 guard that answers validation requests for Fence verdicts (own key; see docs/tag.md) |
 | `LYKIA_X402_PAY_TO`, `LYKIA_X402_PRICE_USDC`, `LYKIA_X402_FACILITATOR_URL` | the fee recipient, `0.01`, Circle's facilitator | x402 paid routes; `PAY_TO=off` disables them. Circle's facilitator settles with `CIRCLE_API_KEY`; without the key the routes keep answering 402. `FACILITATOR_URL=off` runs verify-only |
+| `CIRCLE_X402_SELLER_WALLET_ID` | (none) | the Circle developer-controlled EOA wallet that is the x402 `payTo`; it signs the seller proof Circle's facilitator asks for |
 | `LYKIA_BETA_CAP_USD` | `1000/5000` | Mainnet beta cap per step / per day per owner, above every Fence while the contracts are unaudited; `off` removes it |
 | `LYKIA_RATE_LIMIT_DEFAULT`, `_HEAVY`, `_AUTH` | `600`, `60`, `20` | requests per minute per IP |
+| `LYKIA_LOG_LEVEL` | `debug` (development), `info` (production), `warn` (test) | `debug`, `info`, `warn`, `error` or `silent` |
+| `LYKIA_TRUST_PROXY` | `1` in production, else `0` | proxy hops in front of the API (0 to 3), for client IPs and rate limits |
+| `LYKIA_BUILD_COMMIT`, `RENDER_GIT_COMMIT` | (none) | the build commit, kept in the runtime config (no route reports it); Render sets the second on its own and it wins |
 | `LYKIA_FEE_BPS`, `LYKIA_FEE_RECIPIENT` | `100`, `0x8c52…ca1e` | Lykia protocol fee per value-moving step (100 = 1%, at most 300) and the address that receives it; see Protocol fee below |
+| `LYKIA_FEE_SCHEDULE`, `LYKIA_FEE_SCHEDULE_PLANS` | (none) | per-kind fees in basis points, and per-plan overrides for API customers; see [docs/fees.md](../../docs/fees.md) |
 
 ## Routes
 
@@ -138,7 +145,7 @@ Rules the engine keeps:
 | `GET /v1/x402/scent/:token` | the same report with a wider balance-slot search, paid per call over x402 |
 | `POST /v1/x402/fence/evaluate` | the Fence check, paid per call over x402 (validated before payment) |
 | `POST /v1/x402/quote` | the route quote across every executable Arc venue, paid per call over x402 |
-| `GET /v1/ecosystem` | every Arc protocol, Circle product, TVL on Arc (DefiLlama, cached) and the value Lykia routed; public, CORS-open, cached 60 s |
+| `GET /v1/ecosystem` | the protocols mapped on Arc, Circle's products, TVL on Arc (DefiLlama, cached) and the value Lykia routed; public, CORS-open, cached 60 s |
 | `GET /v1/openapi.json`, `GET /.well-known/x402` | OpenAPI 3.1 and the x402 service manifest for marketplaces and agents |
 
 Arc's public RPC does not offer `eth_simulateV1` or `debug_traceCall`, so Scent simulates with `eth_call` state overrides. The best verdict for a token outside the registry is `no-red-flags`; Scent never says "safe".
@@ -240,7 +247,7 @@ See [docs/circle.md](../../docs/circle.md). `GET /v1/circle/status` lists every 
 | `GET /v1/oracles` | Chainlink against Pyth (read on chain on Arc), and display rates |
 | `GET /v1/jobs/:id`, `POST /v1/jobs/draft`, `/:id/fund`, `/:id/complete`, `/:id/reject`, `/:id/refund` | ERC-8183 agent jobs on Arc testnet: unsigned escrow calls |
 
-### Desk: orders, alerts, discover, markets, activity
+### Orders, alerts, discover, markets and activity
 
 | route | what |
 |---|---|
@@ -267,7 +274,7 @@ Paid routes answer `402` with `{ x402Version: 2, accepts: [requirements] }` (als
 
 ## What is live
 
-Executable venues:
+Executable venues (`EXECUTABLE_VENUES` in `src/engine/adapters.ts`): 13 protocols on mainnet, plus the vaults of 5 curators reached through Morpho. `GET /v1/ecosystem` computes the same counts from the registry.
 
 | venue | mainnet | testnet |
 |---|---|---|
@@ -275,23 +282,30 @@ Executable venues:
 | `cctp` (CCTP V2 burn to EVM chains; inbound mints via `/v1/cctp/inbound`) | yes | yes |
 | `gateway` (Circle Gateway deposit) | yes | yes |
 | `morpho-vaults` (Morpho Vault V2, ERC-4626 deposit and withdraw, ranked by live APY) | yes | no deployment |
-| `aave-v4` (Main and Forex Spokes: supply, withdraw, borrow with cirBTC collateral, repay) | yes | no deployment |
+| Curators' Morpho vaults: `galaxy-curation`, `keyrock`, `steakhouse-financial`, `gauntlet`, `bitwise` (through the Morpho vault adapters) | yes | no deployment |
 | `morpho-blue` (cirBTC/USDC and cirBTC/EURC 86% LLTV: post collateral and borrow, repay by shares) | yes | no deployment |
+| `aave-v4` (Main and Forex Spokes: supply, withdraw, borrow with cirBTC collateral, repay) | yes | no deployment |
 | `uniswap-v3` (every fee tier and two-hop paths through USDC) | yes | no deployment |
 | `uniswap-v4` (hookless pools through UniversalRouter and Permit2) | yes | no deployment |
+| `aerodrome-slipstream` (through its Metarouter) | yes | no deployment |
+| `archery` (Slipstream-style pools through its SwapRouter) | yes | no deployment |
+| `unitflow-finance-v3` (Uniswap v3 fork router) | yes | no deployment |
+| `sushiswap` (Sushi swap API, settled by RedSnwapper with Lykia's minimum) | yes | no deployment |
+| `relay` (Relay depository deposit, filled on the destination chain) | yes | no deployment |
+| `zerox` (0x Swap API through AllowanceHolder) | only with `ZEROX_API_KEY` | no deployment |
 | `lykia-practice` (Lykia's own vault, USDC/EURC swap and cirBTC lending) | testnet only | once deployed from the contracts package |
 
 Listed for discovery but not executed:
 
-- Synthra and SushiSwap V3. Their pools are quoted exactly (see below), but neither has a verified router on Arc, so Lykia lists them without executing. Synthra pools show no swaps in the last ~300k blocks; the contract that swaps in the SushiSwap pool (0x09AD…4Afa) has no verified source.
-- Other venues: Synthra, Archery, SushiSwap V3, PancakeSwap Infinity, Kaleido, Uniswap v2, and Curve (deployed, no pools yet).
+- Synthra and direct SushiSwap V3 pools. Their pools are quoted exactly (see below), but neither has a verified router on Arc. Synthra pools show no swaps in the last ~300k blocks; the contract that swaps in the SushiSwap pool (0x09AD…4Afa) has no verified source. Sushi swaps go through the Sushi swap API instead.
+- Other venues: PancakeSwap Infinity, Kaleido, Uniswap v2, and Curve (deployed, no pools yet).
 - Launchpads: ArgusPad, FAZE, LIFT V2, Tolly.
 - Oracles: Chainlink, Pyth, Stork.
-- Circle services: the x402 facilitator, Gateway nanopayments, and the USYC Teller (its source is unverified).
+- Circle services outside the route search: StableFX (RFQ taker endpoints), the USYC Teller (entitled wallets, `/v1/circle/usyc/*`; its source is unverified), the x402 facilitator and Gateway nanopayments.
 
 Needs credentials or more work:
 
-- StableFX RFQ needs Circle credentials and a taker signature flow that this build does not implement. FX routes through the best on-chain pool instead (Uniswap v3 or v4), and the Fence checks the quote against Chainlink EURC/USD.
+- StableFX is not a route in the intent engine: its RFQ settles a quote the taker signs off chain, so it runs only through the `/v1/circle/stablefx/*` taker endpoints (with Circle StableFX access). FX steps in a plan route through the best on-chain pool, and the Fence checks the quote against Chainlink EURC/USD.
 - CCTP to Solana needs a token account as the mint recipient and is refused for now.
 - Lykia practice venues route only after they are deployed and recorded in `@lykia/core` contracts deployments.
 
@@ -307,7 +321,7 @@ Checked against the live network by `npm run smoke` (read-only, 15 checks):
 - live swap, earn and borrow routes
 - an Aave V4 approve + supply + withdraw batch
 
-Every adapter's prepared batch was also simulated with `eth_call` from funded addresses on mainnet: Aave supply and borrow, a Morpho Galaxy deposit, a Morpho Blue borrow, a Uniswap v4 FX through Permit2, and a Uniswap v3 two-hop swap.
+The prepared batches of the original adapters were also simulated with `eth_call` from funded addresses on mainnet: Aave supply and borrow, a Morpho Galaxy deposit, a Morpho Blue borrow, a Uniswap v4 FX through Permit2, a Uniswap v3 two-hop swap and an Aerodrome Slipstream swap ([docs/flows.md](../../docs/flows.md)). The Archery, Unitflow, Sushi, 0x and Relay adapters are covered by `src/__tests__/venues-added.test.ts`.
 
 ## Layout
 

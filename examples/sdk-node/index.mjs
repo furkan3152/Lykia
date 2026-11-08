@@ -12,7 +12,7 @@ const account = process.env.PRIVATE_KEY ? privateKeyToAccount(process.env.PRIVAT
 const owner = account?.address ?? process.env.OWNER ?? "0xada5bb90d0de0bd1b6f3938708f49295a8d1f7cb";
 const execute = process.env.EXECUTE === "1" && account !== null;
 
-const lykia = new Lykia({ baseUrl: API, environment: "mainnet", ...(process.env.LYKIA_KEY ? { apiKey: process.env.LYKIA_KEY } : {}) });
+const lykia = new Lykia({ baseUrl: API, environment: "mainnet", ...(process.env.LYKIA_API_KEY ? { apiKey: process.env.LYKIA_API_KEY } : {}) });
 const chain = createPublicClient({ chain: arc, transport: http() });
 
 const fees = await lykia.fees();

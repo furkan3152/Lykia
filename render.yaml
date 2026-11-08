@@ -30,6 +30,9 @@ services:
         sync: false
       - key: LYKIA_WEB_ORIGIN
         sync: false
+      # City subdomains: <slug>.lykiaai.com
+      - key: LYKIA_ROOT_DOMAIN
+        sync: false
       - key: LYKIA_SIWE_DOMAINS
         sync: false
       - key: LYKIA_ADMIN_ADDRESSES
@@ -53,7 +56,15 @@ services:
         sync: false
       - key: CIRCLE_WALLET_SET_ID
         sync: false
+      # Opt-in: "true" lets the server sign for Circle developer-controlled wallets.
+      - key: LYKIA_CIRCLE_SERVER_WALLETS
+        sync: false
+      - key: CIRCLE_X402_SELLER_WALLET_ID
+        sync: false
       - key: STABLEFX_API_KEY
+        sync: false
+      # 0x becomes routable only with this key.
+      - key: ZEROX_API_KEY
         sync: false
       - key: TELEGRAM_BOT_TOKEN
         sync: false

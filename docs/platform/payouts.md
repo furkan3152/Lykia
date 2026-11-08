@@ -93,7 +93,7 @@ curl -X POST https://<api>/v1/payouts/po_…/batches/0/submit -H "Lykia-Key: lk_
 
 ```ts
 import { Lykia } from "@lykia/sdk"; // or: import { payoutsApi } from "@lykia/sdk/payouts"
-const lykia = new Lykia({ apiKey: process.env.LYKIA_KEY, environment: "mainnet" });
+const lykia = new Lykia({ apiKey: process.env.LYKIA_API_KEY, environment: "mainnet" });
 const payout = await lykia.payouts.create({ payer, fence, rows });
 for (const batch of payout.batches) {
   if (!batch.transaction) continue;

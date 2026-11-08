@@ -29,7 +29,7 @@ export interface EcosystemView {
   readonly sources: { readonly tvl: string; readonly tvlAt: string | null };
 }
 
-export const POSITIONING = "Built on Arc Network and Circle's products: every Arc protocol mapped, the ones with an executable adapter routable on Lykia, and every agent inside its Fence.";
+export const POSITIONING = "Built on Arc Network and Circle's products: the protocols on Arc mapped, the ones with an executable adapter routable on Lykia, and every agent inside its Fence.";
 
 /** The coverage line, computed from the API's registry counts. */
 export function coverageSummary(totals: EcosystemView["totals"] | undefined): string | null {

@@ -11,7 +11,7 @@ export function CircleQuay({ data, compact = false }: { readonly data: Ecosystem
   const shown = compact ? products.filter((p) => p.state === "live" || p.state === "configured").slice(0, 8) : products;
   return (
     <Card title={"Powered by Circle"} kicker={"THE QUAY EVERY STALL STANDS ON"} tone="sea">
-      <p className="m-small">{"USDC is Arc's gas and its unit of account. CCTP, Gateway, StableFX and Circle's agent stack move the value; Lykia runs on them and sends more traffic their way."}</p>
+      <p className="m-small">{"USDC is Arc's gas and its unit of account. Lykia routes through CCTP and Gateway, and works with StableFX, USYC and Circle's agent stack beside its routes."}</p>
       <ul className={compact ? "eco-quay eco-quay--compact" : "eco-quay"} aria-label="Circle products on Arc">
         {shown.length === 0 ? <li className="m-skel" style={{ height: 40 }} /> : null}
         {shown.map((p) => {

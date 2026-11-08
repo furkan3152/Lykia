@@ -1926,7 +1926,7 @@
           }
         },
         {
-          "name": "Every Arc protocol in the registry",
+          "name": "The protocol registry on Arc",
           "request": {
             "method": "GET",
             "header": [
@@ -1949,7 +1949,7 @@
                 "protocols"
               ]
             },
-            "description": "Every Arc protocol in the registry\n\nAuth: public."
+            "description": "The protocol registry on Arc\n\nAuth: public."
           }
         },
         {
@@ -1987,7 +1987,7 @@
           }
         },
         {
-          "name": "Venues Lykia routes to, with live status",
+          "name": "Registry venues with live status and whether Lykia can route through them",
           "request": {
             "method": "GET",
             "header": [
@@ -2017,7 +2017,7 @@
                 }
               ]
             },
-            "description": "Venues Lykia routes to, with live status\n\nAuth: public."
+            "description": "Registry venues with live status and whether Lykia can route through them\n\nAuth: public."
           }
         }
       ]
@@ -4303,7 +4303,7 @@
           }
         },
         {
-          "name": "Every Arc protocol: status, TVL, APYs and routable adapters",
+          "name": "The protocols mapped on Arc: status, TVL, APYs and routable adapters",
           "request": {
             "method": "GET",
             "header": [
@@ -4334,7 +4334,7 @@
                 }
               ]
             },
-            "description": "Every Arc protocol: status, TVL, APYs and routable adapters\n\nAuth: public, scope: read."
+            "description": "The protocols mapped on Arc: status, TVL, APYs and routable adapters\n\nAuth: public, scope: read."
           }
         },
         {
@@ -4891,7 +4891,7 @@
       "name": "Ecosystem",
       "item": [
         {
-          "name": "Every Arc protocol, Circle product, TVL and value routed by Lykia",
+          "name": "The protocols mapped on Arc, Circle's products, TVL and value routed by Lykia",
           "request": {
             "method": "GET",
             "header": [
@@ -4921,7 +4921,7 @@
                 }
               ]
             },
-            "description": "Every Arc protocol, Circle product, TVL and value routed by Lykia\n\nAuth: public."
+            "description": "The protocols mapped on Arc, Circle's products, TVL and value routed by Lykia\n\nAuth: public."
           }
         }
       ]
@@ -5452,7 +5452,7 @@
           }
         },
         {
-          "name": "Every position the address holds in every venue Lykia supports on Arc: the wallet, Aave V4 (Main and Forex Spokes), Morpho vaults and Morpho Blue markets, Uniswap v3 and v4 and Aerodrome Slipstream LP NFTs, USYC, the Circle Gateway unified balance and, for the proven owner, CCTP transfers in flight, open LykiaOrders orders and scheduled payments. Each position carries its amount, USD value, state (earning, idle, borrowing, at-risk, out-of-range, pending, escrowed, committed), what it is doing, APY, health, range and fees where they apply, one-tap Lyko actions, its source (chain, api, history), the block and an explorer link. A venue that cannot be read comes back unavailable with the reason, never as zero. Each venue is read with its own time limit and cached for 20 seconds per address.",
+          "name": "Every position the address holds in every venue Lykia supports on Arc: the wallet, Aave V4 (Main and Forex Spokes), Morpho vaults (by curator: Galaxy, Keyrock, Steakhouse, Gauntlet, Bitwise) and Morpho Blue markets, Uniswap v3 and v4, Aerodrome Slipstream, Archery, Unitflow Finance V3 and SushiSwap V3 LP NFTs, USYC, the Circle Gateway unified balance and, for the proven owner, CCTP and Relay transfers in flight, open LykiaOrders orders and scheduled payments. Each position carries its amount, USD value, state (earning, idle, borrowing, at-risk, out-of-range, pending, escrowed, committed), what it is doing, APY, health, range and fees where they apply, one-tap Lyko actions, its source (chain, api, history), the block and an explorer link. A venue that cannot be read comes back unavailable with the reason, never as zero. Each venue is read with its own time limit and cached for 20 seconds per address.",
           "request": {
             "method": "GET",
             "header": [
@@ -5495,7 +5495,7 @@
                 }
               ]
             },
-            "description": "Every position the address holds in every venue Lykia supports on Arc: the wallet, Aave V4 (Main and Forex Spokes), Morpho vaults and Morpho Blue markets, Uniswap v3 and v4 and Aerodrome Slipstream LP NFTs, USYC, the Circle Gateway unified balance and, for the proven owner, CCTP transfers in flight, open LykiaOrders orders and scheduled payments. Each position carries its amount, USD value, state (earning, idle, borrowing, at-risk, out-of-range, pending, escrowed, committed), what it is doing, APY, health, range and fees where they apply, one-tap Lyko actions, its source (chain, api, history), the block and an explorer link. A venue that cannot be read comes back unavailable with the reason, never as zero. Each venue is read with its own time limit and cached for 20 seconds per address.\n\nAuth: public."
+            "description": "Every position the address holds in every venue Lykia supports on Arc: the wallet, Aave V4 (Main and Forex Spokes), Morpho vaults (by curator: Galaxy, Keyrock, Steakhouse, Gauntlet, Bitwise) and Morpho Blue markets, Uniswap v3 and v4, Aerodrome Slipstream, Archery, Unitflow Finance V3 and SushiSwap V3 LP NFTs, USYC, the Circle Gateway unified balance and, for the proven owner, CCTP and Relay transfers in flight, open LykiaOrders orders and scheduled payments. Each position carries its amount, USD value, state (earning, idle, borrowing, at-risk, out-of-range, pending, escrowed, committed), what it is doing, APY, health, range and fees where they apply, one-tap Lyko actions, its source (chain, api, history), the block and an explorer link. A venue that cannot be read comes back unavailable with the reason, never as zero. Each venue is read with its own time limit and cached for 20 seconds per address.\n\nAuth: public."
           }
         },
         {

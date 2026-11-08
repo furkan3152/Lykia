@@ -75,7 +75,7 @@ export interface Fence {
   readonly limits?: { readonly maxSteps?: number; readonly maxSlippageBps?: number };
   /** Lending: the health factor after a borrow or withdraw may not drop below this ("1.5"). */
   readonly lending?: { readonly minHealthFactor?: string };
-  /** StableFX: a quote may deviate at most this far from the reference rate. */
+  /** FX: a USDC/EURC quote may deviate at most this far from the reference rate (Chainlink EURC/USD). */
   readonly fx?: { readonly maxDeviationBps?: number };
   /** Lowest Scent result a token may have to be bought or received. */
   readonly scent?: { readonly require?: ScentRequirement };

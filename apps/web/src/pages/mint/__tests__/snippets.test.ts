@@ -17,7 +17,7 @@ describe("developer portal snippets", () => {
     assert.match(hooksSnippet(config), /useLykiaPlan/u);
     assert.match(sdkSnippet(config), /@lykia\/sdk\/intents/u);
     assert.match(agentSnippet(), /aiSdkTools\(lykia, \{ jsonSchema \}\)/u);
-    assert.equal(JSON.parse(mcpSnippet("https://api.lykia.xyz")).mcpServers.lykia.url, "https://api.lykia.xyz/v1/mcp");
+    assert.equal(JSON.parse(mcpSnippet("https://api.lykiaai.com")).mcpServers.lykia.url, "https://api.lykiaai.com/v1/mcp");
   });
   it("produce a project patch the API accepts", () => {
     const patch = projectPatch(config);

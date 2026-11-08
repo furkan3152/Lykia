@@ -6,7 +6,7 @@
  * controls `payTo` and binding the purpose and request body.
  * https://developers.circle.com/facilitator-service/quickstart
  *
- * Lykia's server holds no keys. The proof is signed by a Circle
+ * Lykia's server holds no private key for this. The proof is signed by a Circle
  * developer-controlled wallet that is the x402 payTo
  * (`CIRCLE_X402_SELLER_WALLET_ID`, an EOA wallet), through Circle's
  * `POST /v1/w3s/developer/sign/typedData`. Without that wallet no header is

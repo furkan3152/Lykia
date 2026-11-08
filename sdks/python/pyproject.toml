@@ -18,7 +18,7 @@ test = ["pytest>=7"]
 
 [project.urls]
 Homepage = "https://lykiaai.com/mint"
-Repository = "https://github.com/furkan3152/lykia"
+Repository = "https://github.com/furkan3152/Lykia"
 
 [tool.hatch.build.targets.wheel]
 packages = ["lykia"]

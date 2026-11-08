@@ -21,7 +21,8 @@
  *   vault-deposit/withdraw   also serve the curators' Morpho vaults (params.venue = the curator)
  *   practice-*               Lykia practice vault, swap and lending                testnet (once deployed)
  * Listed, not executable: StableFX RFQ (Circle credentials and a taker
- * signature flow), Synthra and SushiSwap V3 (exact quotes, no verified router),
+ * signature flow), Synthra and direct SushiSwap V3 pools (exact quotes, no verified
+ * router; Sushi swaps go through the swap API above),
  * USYC Teller (unverified source). Each registry entry's notes say why.
  */
 import {

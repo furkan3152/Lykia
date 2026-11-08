@@ -7,7 +7,7 @@ short time, and keyed reads count against your key's quota like every route.
 |---|---|---|
 | `GET /v1/data/tokens` | The registry: symbol, name, address, decimals, issuer, peg, pricing method, USD price and its source. | 30 s |
 | `GET /v1/data/prices[?symbols=EURC,cirBTC]` | USD prices: Chainlink on Arc, fiat pegs through Chainlink fiat feeds, USYC at NAV. Unpriced is `null`, never zero. | 15 s |
-| `GET /v1/data/protocols` | Every Arc protocol: status, what Lykia does with it, TVL (DefiLlama), live APYs and borrow rates (Morpho API, Aave API), and approved adapter manifests. | 60 s |
+| `GET /v1/data/protocols` | The protocols mapped on Arc: status, what Lykia does with it, TVL (DefiLlama), live APYs and borrow rates (Morpho API, Aave API), and approved adapter manifests. | 60 s |
 | `GET /v1/data/portfolio/:address` | The Flock: wallet balances, Morpho vaults, Aave V4 and Morpho Blue supplies and debts, the Gateway balance, positions at routable adapters, health factors, USD per venue. | 10 s in memory |
 | `GET /v1/security/screen/address/:address[?owner]` | Address screening: USDC/EURC blocklists, look-alikes against the owner's contacts, address poisoning, contract Scent, Circle Compliance when configured. `decision` is `pass`, `warn` or `block`. | none |
 | `GET /v1/security/scent/token/:token` | Scent: registry listing, proxy, privileged functions, owner, a simulated transfer. Scent never calls a token safe. | 60 s |

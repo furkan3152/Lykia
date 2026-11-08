@@ -2,9 +2,14 @@
 
 Lykia is built on Arc Network and uses Circle's own rails wherever they
 exist. Run `GET /v1/circle/status` to see what is live and what needs a
-key. Nothing in this list signs for the user: every step that moves value
-comes back as an unsigned call or as typed data for the owner's or the
-agent's wallet.
+key. Every step that moves value comes back as an unsigned call or as
+typed data for the owner's or the agent's wallet. The one exception is
+opt-in: with `LYKIA_CIRCLE_SERVER_WALLETS=true` the server signs for Circle
+developer-controlled wallets with the operator's entity secret (each wallet
+is bound to the address that created it, and every payout from it passes the
+Fence and the beta cap first). The map of which Lykia feature uses which
+Circle product is [circle/README.md](circle/README.md); this page is the
+per-product reference.
 
 ## Agent Stack, providers, Marketplace, mandates
 
@@ -34,7 +39,7 @@ next to Lykia MCP.
 | Compliance Engine | `CIRCLE_API_KEY` with Compliance Engine access | Screens external recipients before planning. A DENIED address joins the Fence's deny list, so the plan is refused with a reason. A screening that cannot run is reported as "not screened", never as approved. Circle's Compliance chain list does not name Arc yet, so Lykia asks for `ARC` and falls back to the same EVM address as `ETH`. |
 | Developer-controlled wallets | `CIRCLE_API_KEY`, `CIRCLE_ENTITY_SECRET` (optional `CIRCLE_WALLET_SET_ID`) | Creates an SCA agent wallet on ARC or ARC-TESTNET for a Pack agent, tagged with the agent id. The entity secret travels only as fresh RSA-OAEP ciphertext. |
 | Gas Station | the same, plus a policy in the Circle Console | Sponsors gas for those SCA wallets (Gas Station contract `0x7ceA357B5AC0639F89F9e378a1f03Aa5005C0a25` on both Arc networks). |
-| StableFX | `CIRCLE_API_KEY` with StableFX access, or `STABLEFX_API_KEY` | Runs the RFQ taker flow: quote, the taker signs the quote's Permit2 typed data, the trade, then funding (presign, signature, fund) and its status. Testnet calls go to Circle's sandbox host. Without access, USDC to EURC routes through Uniswap. Lykia never makes up a quote. |
+| StableFX | `CIRCLE_API_KEY` with StableFX access, or `STABLEFX_API_KEY` | Runs the RFQ taker flow: quote, the taker signs the quote's Permit2 typed data, the trade, then funding (presign, signature, fund) and its status. Testnet calls go to Circle's sandbox host. StableFX is not a route in the intent engine: USDC to EURC in a plan routes through the best on-chain pool either way. Lykia never makes up a quote. |
 
 ## Not used, and why
 

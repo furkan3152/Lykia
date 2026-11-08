@@ -23,7 +23,10 @@ This page is about the API (`apps/api`).
    start `node apps/api/dist/index.js`, health check `/health`, Node 22.12+.
 2. Copy the environment from the Vercel API project into Render's dashboard. Values are
    never committed: the Blueprint lists the keys with `sync: false`.
-   `RENDER_GIT_COMMIT` is read automatically as the build commit.
+   `RENDER_GIT_COMMIT` is read automatically as the build commit. Every variable the API
+   reads is listed in [apps/api/README.md](../apps/api/README.md#environment) and
+   [apps/api/.env.example](../apps/api/.env.example); set `LYKIA_ROOT_DOMAIN` (for
+   example `lykiaai.com`) if cities run on their own subdomains.
 3. In the web project, set `VITE_API_URL` to the Render URL (or a custom
    domain such as `api.<your domain>`), then redeploy the web app.
 4. Add the web origin to `LYKIA_WEB_ORIGIN` and its host to `LYKIA_SIWE_DOMAINS` on
