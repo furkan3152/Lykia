@@ -12,14 +12,22 @@ import { classifyPosition, riskFromTvl, TOKENS, tokenAddress, type Position } fr
 import { PRACTICE_LENDING_ABI } from "../engine/abis.js";
 import { practiceVenues } from "../engine/venues/practice.js";
 import { wadToRatio } from "../engine/venues/aave.js";
-import { ERC4626_ABI, morphoVaults } from "../flock/flock.js";
+import { ERC4626_ABI, morphoVaults, vaultVenue } from "../flock/flock.js";
 import { action, addressLink, asset, finish, fractionToPercent, sentenceAmount, valued, VenueUnavailable, type Reader } from "./context.js";
 
 const RISK_WORD = { low: "Low", medium: "Medium", high: "High" } as const;
 
+/**
+ * One reader for Morpho Vault V2 shares, run per venue: a curator's venue
+ * (galaxy-curation, keyrock, ...) reads that curator's vaults, morpho-vaults
+ * reads the registry vaults no curator entry claims. Every vault is read by
+ * exactly one venue, so nothing is counted twice.
+ */
 export const readMorphoVaults: Reader = async (r, venue) => {
-  const vaults = morphoVaults(r.environment);
-  if (vaults.length === 0) throw new VenueUnavailable("No Morpho vaults on this network.");
+  const all = morphoVaults(r.environment);
+  if (all.length === 0) throw new VenueUnavailable("No Morpho vaults on this network.");
+  const vaults = all.filter((v) => vaultVenue(v) === venue.id);
+  if (vaults.length === 0) return { positions: [], block: null, method: "Every registry Morpho vault is listed under its curator's venue; their positions are read there.", source: "chain" };
   const client = r.ctx.chains.client(r.environment);
   const shares = await client.multicall({ contracts: vaults.map((v) => ({ address: v.address, abi: ERC4626_ABI, functionName: "balanceOf", args: [r.owner] }) as const), allowFailure: true });
   const failed = shares.filter((s) => s.status !== "success").length;
@@ -44,7 +52,7 @@ export const readMorphoVaults: Reader = async (r, venue) => {
     const amount = Number(v.amount);
     positions.push(
       finish({
-        id: `morpho-vaults:${h.vault.address.toLowerCase()}`,
+        id: `${venue.id}:${h.vault.address.toLowerCase()}`,
         venue: venue.id,
         venueName: venue.name,
         venueKind: "vault",
@@ -57,7 +65,8 @@ export const readMorphoVaults: Reader = async (r, venue) => {
         state: classifyPosition({ kind: "vault", apyPercent: apy === null ? null : Number(apy) }),
         ...(apy !== null ? { apy: { percent: apy, kind: "vault" as const, source: "Morpho API (net of fees)" } } : {}),
         facts: [
-          { label: "Curator", value: rate?.curators && rate.curators.length > 0 ? rate.curators.join(", ") : "not listed" },
+          { label: "Curator", value: rate?.curators && rate.curators.length > 0 ? rate.curators.join(", ") : (h.vault.curator?.name ?? "not listed") },
+          { label: "Vault", value: "Morpho Vault V2 (ERC-4626)" },
           { label: "Lykia risk class", value: `${RISK_WORD[risk]} (by vault size)` },
           { label: "Vault size", value: tvl === null ? "unknown" : `$${Math.round(tvl).toLocaleString("en-US")}` },
           { label: "Shares", value: h.shares.toString() },

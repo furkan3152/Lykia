@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { DEFAULT_FENCE, contractAddress, decodeMemo, FENCE_TEMPLATES, type UnsignedTransaction } from "@lykia/core";
+import { DEFAULT_FENCE, contractAddress, decodeMemo, FENCE_TEMPLATES, venueFamily, type UnsignedTransaction } from "@lykia/core";
 import { decodeFunctionData } from "viem";
 import { MEMO_ABI, MULTICALL3_FROM_ABI } from "../engine/abis.js";
 import { approveCall, shape } from "../engine/calls.js";
@@ -28,7 +28,9 @@ describe("planner + fence", () => {
     arc.vaultAssets.set(GALAXY.toLowerCase(), 80_000_000_000_000n);
     const { graph, plans } = await planner(arc).plan({ ...base, environment: "mainnet", actions: [{ verb: "earn", token: "USDC", amount: { exact: "100" } }] });
     assert.equal(graph.steps[0]?.kind, "deposit");
-    assert.equal(graph.steps[0]?.venue, "morpho-vaults");
+    // Galaxy's vault is a Morpho Vault V2: the step names the curator, which routes through morpho-vaults.
+    assert.equal(graph.steps[0]?.venue, "galaxy-curation");
+    assert.deepEqual(venueFamily(graph.steps[0]!.venue), ["galaxy-curation", "morpho-vaults"]);
     assert.equal(plans.s1?.params.vault, GALAXY);
     assert.equal(graph.verdict.decision, "allow");
     assert.equal(graph.verdict.signable, true);

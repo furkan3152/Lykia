@@ -217,6 +217,7 @@ const EnvSchema = z.object({
   ARC_MAINNET_RPC_URL: optionalString,
   ARC_TESTNET_RPC_URL: optionalString,
   STABLEFX_API_KEY: optionalString,
+  ZEROX_API_KEY: optionalString,
   CIRCLE_API_KEY: optionalString,
   CIRCLE_ENTITY_SECRET: optionalString,
   CIRCLE_WALLET_SET_ID: optionalString,

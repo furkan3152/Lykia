@@ -10,6 +10,7 @@ import { sameAddress, type Address } from "./contracts.js";
 import type { StepKind } from "./intent.js";
 import type { ArcEnvironment } from "./networks.js";
 import { fenceHash, formatUsdMicros, normalizeFence, ratioBps, timeMinutes, usdMicros, WEEKDAYS, type Fence, type ScentRequirement } from "./fence.js";
+import { venueFamily } from "./protocols.js";
 
 export const VERDICT_SCHEMA = "lykia.verdict/v1" as const;
 
@@ -175,8 +176,11 @@ export function evaluateFence(input: Fence, facts: FenceFacts, options: FenceOpt
   let intentUnpriced = false;
   for (const step of facts.steps) {
     if (fence.kinds?.allow && !fence.kinds.allow.includes(step.kind)) deny("kinds", `${step.kind} is outside the Fence.`, step.id);
-    if (fence.venues?.deny?.includes(step.venue)) deny("venues", `${step.venue} is on the deny list.`, step.id);
-    else if (fence.venues?.allow && step.kind !== "approve" && !fence.venues.allow.includes(step.venue)) deny("venues", `${step.venue} is not an allowed venue.`, step.id);
+    // A venue that routes through another (a curator's Morpho vaults) answers to both ids.
+    const family = venueFamily(step.venue);
+    const denied = family.find((v) => fence.venues?.deny?.includes(v));
+    if (denied) deny("venues", `${denied === step.venue ? step.venue : `${step.venue} (through ${denied})`} is on the deny list.`, step.id);
+    else if (fence.venues?.allow && step.kind !== "approve" && !family.some((v) => fence.venues!.allow!.includes(v))) deny("venues", `${step.venue} is not an allowed venue.`, step.id);
 
     for (const token of step.tokens) {
       if (!token.listed) {

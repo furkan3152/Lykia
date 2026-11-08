@@ -32,6 +32,14 @@ export interface ProtocolDescriptor {
   /** Step kinds Lykia's engine can execute through this venue. */
   readonly verbs: readonly StepKind[];
   readonly tags?: readonly string[];
+  /**
+   * The registry venue whose contracts and adapter this entry routes through
+   * (a curator's vaults are Morpho Vault V2 vaults: `via: "morpho-vaults"`).
+   * Fence and profile venue rules naming the parent also cover the entry.
+   */
+  readonly via?: string;
+  /** What Lykia checked and decided for the entry: why it routes, or why it does not (yet). */
+  readonly notes?: readonly string[];
 }
 
 export interface ProtocolIssue {
@@ -46,6 +54,7 @@ export function validateProtocols(rows: readonly ProtocolDescriptor[]): Protocol
     if (!/^[a-z0-9-]{2,48}$/u.test(row.id)) issues.push({ id: row.id, message: "id must be kebab-case." });
     if (ids.has(row.id)) issues.push({ id: row.id, message: "Duplicate id." });
     ids.add(row.id);
+    if (row.via !== undefined && !rows.some((r) => r.id === row.via)) issues.push({ id: row.id, message: `via ${row.via} is not a registry id.` });
     for (const [env, deployment] of Object.entries(row.deployments)) {
       if (!deployment) continue;
       if (env === "testnet" && deployment.status === "live") issues.push({ id: row.id, message: "Testnet deployments use testnet-live." });
@@ -65,6 +74,12 @@ export const PROTOCOLS: readonly ProtocolDescriptor[] = Object.freeze(ALL_ROWS);
 
 export function getProtocol(id: string): ProtocolDescriptor | null {
   return PROTOCOLS.find((p) => p.id === id) ?? null;
+}
+
+/** The ids a venue answers to in Fence and profile rules: itself, then the venue it routes through. */
+export function venueFamily(id: string): readonly string[] {
+  const via = getProtocol(id)?.via;
+  return via && via !== id ? [id, via] : [id];
 }
 
 export function protocolsFor(environment: ArcEnvironment): ProtocolDescriptor[] {
@@ -121,7 +136,10 @@ export interface RegistryCoverage {
   readonly protocols: number;
   /** Contracts verified on chain (routable + read-only). */
   readonly verified: number;
+  /** Distinct protocols Lykia executes through. Entries reached through another venue (`via`) are not counted again. */
   readonly routable: number;
+  /** Routable entries reached through another venue, e.g. curators whose vaults are Morpho vaults. */
+  readonly routableVia: number;
   readonly readOnly: number;
   readonly mapped: number;
 }
@@ -130,10 +148,14 @@ export interface RegistryCoverage {
 export function registryCoverage(environment: ArcEnvironment, executable: ReadonlySet<string>): RegistryCoverage {
   const rows = protocolsFor(environment);
   const by = (c: ProtocolCoverage) => rows.filter((p) => coverageOf(p, environment, executable) === c).length;
-  return { protocols: rows.length, verified: rows.filter((p) => isLive(p, environment)).length, routable: by("routable"), readOnly: by("read-only"), mapped: by("mapped") };
+  const routableRows = rows.filter((p) => coverageOf(p, environment, executable) === "routable");
+  const routableVia = routableRows.filter((p) => p.via !== undefined && p.via !== p.id).length;
+  return { protocols: rows.length, verified: rows.filter((p) => isLive(p, environment)).length, routable: routableRows.length - routableVia, routableVia, readOnly: by("read-only"), mapped: by("mapped") };
 }
 
-/** "9 venues Lykia can route through today · 94 protocols mapped on Arc". */
-export function coverageLine(counts: Pick<RegistryCoverage, "routable" | "protocols">): string {
-  return `${counts.routable} venue${counts.routable === 1 ? "" : "s"} Lykia can route through today · ${counts.protocols} protocol${counts.protocols === 1 ? "" : "s"} mapped on Arc`;
+/** "13 protocols Lykia can route through today, plus 5 curators' vaults via Morpho · 94 protocols mapped on Arc". */
+export function coverageLine(counts: Pick<RegistryCoverage, "routable" | "protocols"> & { readonly routableVia?: number }): string {
+  const via = counts.routableVia ?? 0;
+  const extra = via > 0 ? `, plus ${via} curator${via === 1 ? "'s" : "s'"} vaults via Morpho` : "";
+  return `${counts.routable} protocol${counts.routable === 1 ? "" : "s"} Lykia can route through today${extra} · ${counts.protocols} protocol${counts.protocols === 1 ? "" : "s"} mapped on Arc`;
 }

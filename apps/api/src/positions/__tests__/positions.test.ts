@@ -5,7 +5,7 @@
  * Aave interest-from-history rule, the summary, and the service's handling
  * of unavailable and owner-only venues with mocked readers.
  */
-import { classifyPosition, positionDoing, summarizePositions, type Position, type PositionVenueInfo, type VenueRead } from "@lykia/core";
+import { classifyPosition, POSITION_VENUES, positionDoing, summarizePositions, type Position, type PositionVenueInfo, type VenueRead } from "@lykia/core";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createContext } from "../../context.js";
@@ -308,8 +308,8 @@ describe("the position service", () => {
     const readers = Object.fromEntries(["wallet", "aave-v4", "morpho-vaults", "morpho-blue", "uniswap-v3", "uniswap-v4", "aerodrome-slipstream", "usyc", "gateway"].map((id) => [id, slow]));
     const owner = "0x00000000000000000000000000000000000000bb" as const;
     const res = await readPositions(ctx, "mainnet", owner, { personal: false, readers });
-    assert.equal(res.venues.length, 12);
-    assert.equal(res.venues.filter((v) => v.status === "private").length, 3);
+    assert.equal(res.venues.length, POSITION_VENUES.mainnet.length);
+    assert.equal(res.venues.filter((v) => v.status === "private").length, POSITION_VENUES.mainnet.filter((v) => v.personal).length);
     assert.equal(res.block, "5");
     assert.equal(calls, 9);
     await readPositions(ctx, "mainnet", owner, { personal: false, readers });
@@ -392,8 +392,10 @@ describe("readers on mocked RPC answers", () => {
     });
     const { readMorphoVaults } = await import("../vaults.js");
     const r = { ...(await readContext(ctx, "mainnet", owner, false)), rates: async () => null, prices: async (symbols: readonly string[]) => Object.fromEntries(symbols.map((s) => [s, { symbol: s, usd: "1", source: "test", updatedAt: null }])) };
-    const out = await readMorphoVaults(r, { id: "morpho-vaults", name: "Morpho Vaults", kind: "vault", personal: false });
+    // Galaxy's vault is read under its curator's venue, never twice.
+    const out = await readMorphoVaults(r, { id: "galaxy-curation", name: "Galaxy (Morpho vaults)", kind: "vault", personal: false });
     assert.equal(out.positions.length, 1);
+    assert.equal((await readMorphoVaults(r, { id: "morpho-vaults", name: "Morpho Vaults", kind: "vault", personal: false })).positions.length, 0);
     assert.equal(out.positions[0]!.amount, "500.039278");
     assert.equal(out.positions[0]!.apy, undefined);
     assert.equal(out.positions[0]!.state, "idle");

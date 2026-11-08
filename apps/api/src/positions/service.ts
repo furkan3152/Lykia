@@ -19,7 +19,8 @@ import { readGateway, readInFlight } from "./circle.js";
 import { VenueUnavailable, type ReadContext, type Reader, type ReaderOutput } from "./context.js";
 import { readOrders, readPayments } from "./herding.js";
 import { readAave, readMorphoBlue } from "./lending.js";
-import { readSlipstream, readUniswapV3, readUniswapV4 } from "./lp.js";
+import { readArchery, readSlipstream, readSushiswap, readUniswapV3, readUniswapV4, readUnitflow } from "./lp.js";
+import { readRelay, readZeroX } from "./bridges.js";
 import { readMorphoVaults, readPractice } from "./vaults.js";
 import { readUsyc, readWallet } from "./wallet.js";
 
@@ -30,6 +31,17 @@ export const READERS: Readonly<Record<string, Reader>> = {
   wallet: readWallet,
   "aave-v4": readAave,
   "morpho-vaults": readMorphoVaults,
+  // Curators' Morpho vaults: the same reader, each venue reading only its own vaults.
+  "galaxy-curation": readMorphoVaults,
+  keyrock: readMorphoVaults,
+  "steakhouse-financial": readMorphoVaults,
+  gauntlet: readMorphoVaults,
+  bitwise: readMorphoVaults,
+  archery: readArchery,
+  "unitflow-finance-v3": readUnitflow,
+  sushiswap: readSushiswap,
+  relay: readRelay,
+  zerox: readZeroX,
   "morpho-blue": readMorphoBlue,
   "uniswap-v3": readUniswapV3,
   "uniswap-v4": readUniswapV4,

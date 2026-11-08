@@ -37,7 +37,7 @@ function read(venue: string, name: string, contract: string, abi: string, purpos
 
 const LYKIA_FEE = "Lykia's fee (1% by default) is a separate token transfer in the same batch; the venue itself charges nothing.";
 
-export const KNOWLEDGE_ROWS: readonly VenueKnowledge[] = [
+const KNOWLEDGE_ROWS_BASE: readonly VenueKnowledge[] = [
   {
     venue: "arc-transfer",
     purpose: "Moves any registry token to an address, with an Arc Memo that ties the payment to its intent, step, Fence verdict and the payer's note (invoice, payroll line).",
@@ -99,7 +99,7 @@ export const KNOWLEDGE_ROWS: readonly VenueKnowledge[] = [
       fn("multicall3from", "aggregate3", {
         contract: "multicall3From",
         abi: "function aggregate3((address target, bool allowFailure, bytes callData)[] calls) returns ((bool success, bytes returnData)[] returnData)",
-        adapters: ["transfer", "bridge", "gateway", "vault-deposit", "vault-withdraw", "swap", "swap-path", "swap-v4", "swap-aerodrome", "aave-supply", "aave-withdraw", "aave-borrow", "aave-repay", "morpho-borrow", "morpho-repay", "router-split"],
+        adapters: ["transfer", "bridge", "bridge-relay", "gateway", "vault-deposit", "vault-withdraw", "swap", "swap-path", "swap-v4", "swap-aerodrome", "swap-archery", "swap-unitflow", "swap-sushi", "swap-zerox", "aave-supply", "aave-withdraw", "aave-borrow", "aave-repay", "morpho-borrow", "morpho-repay", "router-split"],
         verb: "infra",
         purpose: "One signature for a whole step; Lykia also uses it to self-check a full route with one eth_call.",
         inputs: [],
@@ -771,6 +771,206 @@ export const KNOWLEDGE_ROWS: readonly VenueKnowledge[] = [
     evidence: "docs.arc.io contract-addresses; eth_getCode 2026-11-01",
   },
 ];
+
+
+/* ---- Venues added 2026-11-08. Gas figures from the eth_call simulations of that day, rounded up. ---- */
+
+const SIM_1108 = "eth_call simulation through Multicall3From on Arc mainnet, 2026-11-08";
+
+/** A Morpho Vault V2 curator: the morpho-vaults functions, named for the curator's vaults. */
+function curatorRow(venue: string, name: string, vaults: string): VenueKnowledge {
+  const base = KNOWLEDGE_ROWS_BASE.find((r) => r.venue === "morpho-vaults")!;
+  return {
+    venue,
+    purpose: `${name}'s Morpho Vault V2 vaults on Arc (${vaults}): ERC-4626 deposits that lend into Morpho Blue markets the curator picks. Routed through the Morpho vault adapter.`,
+    executable: true,
+    contracts: [{ key: "any:vault", role: `Each ${name} vault listed in the registry row.` }],
+    functions: base.functions.map((f) => ({ ...f, id: f.id.replace(/^morpho-vaults\./u, `${venue}.`), inputs: f.inputs.map((i) => i.replace("@morpho-vaults", `@${venue}`)), outputs: f.outputs.map((o) => o.replace("@morpho-vaults", `@${venue}`)), evidence: `${f.evidence}; curator vaults ${SIM_1108}` })),
+    reads: base.reads.map((r) => ({ ...r, id: r.id.replace(/^morpho-vaults\./u, `${venue}.`) })),
+    risk: { ...base.risk, curator: `${name} (on-chain curator() matches ${name}'s addresses in api.morpho.org).`, notes: [...base.risk.notes, "Same contracts and adapter as morpho-vaults; the curator decides which markets the vault lends to."] },
+    capabilities: [
+      cap(venue, "deposit", "vault-deposit", "USDC", `USDC@${venue}`, 320_000),
+      cap(venue, "deposit", "vault-deposit", "EURC", `EURC@${venue}`, 320_000),
+      cap(venue, "withdraw", "vault-withdraw", `USDC@${venue}`, "USDC", 350_000),
+      cap(venue, "withdraw", "vault-withdraw", `EURC@${venue}`, "EURC", 350_000),
+    ].filter((c) => !(venue === "keyrock" || venue === "bitwise") || (!c.from.startsWith("EURC") && !c.to.startsWith("EURC"))),
+    docs: "https://docs.morpho.org",
+    evidence: "api.morpho.org vaultV2s(chainId 5042) curators; curator() on chain; " + SIM_1108,
+  };
+}
+
+const ADDED_ROWS: readonly VenueKnowledge[] = [
+  curatorRow("galaxy-curation", "Galaxy", "Galaxy USDC, Galaxy EURC"),
+  curatorRow("keyrock", "Keyrock", "Keyrock Prime USDC"),
+  curatorRow("steakhouse-financial", "Steakhouse Financial", "Prime USDC, High Yield USDC, Prime EURC"),
+  curatorRow("gauntlet", "Gauntlet", "USDC Balanced, USDC Prime, EURC Prime"),
+  curatorRow("bitwise", "Bitwise", "Premium RWA USDC"),
+  {
+    venue: "archery",
+    purpose: "Arc-native ve(3,3) DEX with Slipstream-style concentrated pools (USDC/EURC, USDC/cirBTC, USDC/WETH), quoted with Archery's QuoterV2 and executed through its SwapRouter.",
+    executable: true,
+    contracts: [
+      { key: "v3SwapRouter", role: "exactInputSingle by tick spacing." },
+      { key: "v3QuoterV2", role: "Exact-in quotes per pool." },
+      { key: "poolUsdcEurcTs1", role: "USDC/EURC, tick spacing 1." },
+    ],
+    functions: [
+      fn("archery", "exactInputSingle", {
+        contract: "v3SwapRouter",
+        abi: "function exactInputSingle((address tokenIn, address tokenOut, int24 tickSpacing, address recipient, uint256 deadline, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96) params) payable returns (uint256 amountOut)",
+        adapters: ["swap-archery"],
+        verb: "swap",
+        purpose: "Swap exactly amountIn through one Archery pool, reverting below amountOutMinimum.",
+        inputs: ["USDC", "EURC", "cirBTC", "WETH"],
+        outputs: ["USDC", "EURC", "cirBTC", "WETH"],
+        units: "Base units.",
+        recipient: "recipient = the account.",
+        approvals: ["tokenIn to the SwapRouter for amountIn."],
+        preconditions: ["The pool for the tick spacing exists and has liquidity.", "Deadline not passed."],
+        failures: [{ reason: "Too little received", meaning: "The price moved past the slippage limit." }, { reason: "Transaction too old", meaning: "The deadline passed." }, ...ERC20_FAIL.slice(0, 2)],
+        gas: 170_000,
+        feeModel: "Pool fee inside the quote. " + LYKIA_FEE,
+        settlement: "instant",
+        evidence: "Archery address book (archery.wtf/docs/security); router.factory() = v3Factory; " + SIM_1108,
+      }),
+    ],
+    reads: [read("archery", "quoteExactInputSingle", "v3QuoterV2", "function quoteExactInputSingle((address tokenIn, address tokenOut, uint256 amountIn, int24 tickSpacing, uint160 sqrtPriceLimitX96) params) returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)", "Exact output for an Archery pool.", "Archery QuoterV2 (factory() = v3Factory)")],
+    risk: { tier: "low", oracle: "none (pool price).", admin: "Archery governance (ve(3,3) voter, fee modules).", upgradeable: "unknown", tvlSource: "Pool balances", audits: [], notes: ["The SwapRouter source is not verified on Etherscan; its address comes from Archery's own address book and is tied to the factory on chain.", "No public audit linked from Archery's docs."] },
+    capabilities: [...pair("archery", "swap-archery", "USDC", "EURC", 170_000, "Tick spacing 1."), ...pair("archery", "swap-archery", "USDC", "cirBTC", 170_000, "Tick spacing 50."), ...pair("archery", "swap-archery", "USDC", "WETH", 170_000, "Tick spacing 50.")],
+    docs: "https://www.archery.wtf/docs",
+    evidence: "Archery address book; factory relationships read 2026-11-08",
+  },
+  {
+    venue: "unitflow-finance-v3",
+    purpose: "Arc-native Uniswap v3-style DEX with thin pools, quoted with its Quoter and executed through its V3 router; picked only when it nets more than every other venue.",
+    executable: true,
+    contracts: [
+      { key: "v3Router", role: "exactInputSingle (SwapRouter v1, deadline in the struct)." },
+      { key: "quoter", role: "Quoter v1." },
+      { key: "poolUsdcEurc001", role: "USDC/EURC 0.01%." },
+    ],
+    functions: [
+      fn("unitflow-finance-v3", "exactInputSingle", {
+        contract: "v3Router",
+        abi: "function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 deadline, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96) params) payable returns (uint256 amountOut)",
+        adapters: ["swap-unitflow"],
+        verb: "swap",
+        purpose: "Swap exactly amountIn through one Unitflow pool, reverting below amountOutMinimum.",
+        inputs: ["USDC", "EURC", "cirBTC", "WETH"],
+        outputs: ["USDC", "EURC", "cirBTC", "WETH"],
+        units: "Base units.",
+        recipient: "recipient = the account.",
+        approvals: ["tokenIn to the V3 router for amountIn."],
+        preconditions: ["The pool for the fee tier has liquidity.", "Deadline not passed."],
+        failures: [{ reason: "Too little received", meaning: "The price moved past the slippage limit." }, { reason: "Transaction too old", meaning: "The deadline passed." }, ...ERC20_FAIL.slice(0, 2)],
+        gas: 150_000,
+        feeModel: "Pool fee inside the quote. " + LYKIA_FEE,
+        settlement: "instant",
+        evidence: "docs.unitflow.finance/docs/dev/contracts; router.factory() = v3Factory; " + SIM_1108,
+      }),
+    ],
+    reads: [read("unitflow-finance-v3", "quoteExactInputSingle", "quoter", "function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) returns (uint256 amountOut)", "Exact output for a Unitflow pool.", "Unitflow Quoter (factory() = v3Factory)")],
+    risk: { tier: "medium", oracle: "none (pool price).", admin: "Unitflow team (factory owner).", upgradeable: "no", tvlSource: "Pool balances (about $4k)", audits: [], notes: ["Thin liquidity: route search compares it on output after gas and never prefers it when another venue nets more.", "No public audit linked from Unitflow's docs."] },
+    capabilities: [...pair("unitflow-finance-v3", "swap-unitflow", "USDC", "EURC", 150_000, "0.01% pool, about $4k deep.")],
+    docs: "https://docs.unitflow.finance",
+    evidence: "Unitflow contract page; Swap events with the router as sender (2026-11-08)",
+  },
+  {
+    venue: "sushiswap",
+    purpose: "Sushi's swap API routes the trade over the Arc pools it indexes; RedSnwapper settles it and enforces Lykia's minimum on the account's balance.",
+    executable: true,
+    contracts: [{ key: "redSnwapper", role: "snwap: pulls tokenIn, runs Sushi's executor, checks the recipient received at least amountOutMin." }],
+    functions: [
+      fn("sushiswap", "snwap", {
+        contract: "redSnwapper",
+        abi: "function snwap(address tokenIn, uint256 amountIn, address recipient, address tokenOut, uint256 amountOutMin, address executor, bytes executorData) payable returns (uint256 amountOut)",
+        adapters: ["swap-sushi"],
+        verb: "swap",
+        purpose: "Swap along Sushi's route; Lykia re-encodes amountOutMin with its own minimum.",
+        inputs: ["USDC", "EURC", "cirBTC", "WETH"],
+        outputs: ["USDC", "EURC", "cirBTC", "WETH"],
+        units: "Base units.",
+        recipient: "recipient = the account (checked in the API calldata before signing).",
+        approvals: ["tokenIn to RedSnwapper for amountIn."],
+        preconditions: ["api.sushi.com answers with a snwap to the registry's RedSnwapper for the same tokens, amount and recipient."],
+        failures: [{ reason: "MinimalOutputBalanceViolation", meaning: "The account received less than the minimum: the whole step reverts." }, ...ERC20_FAIL.slice(0, 2)],
+        gas: 300_000,
+        feeModel: "Pool fees inside the quote; Sushi charges no extra fee on this route. " + LYKIA_FEE,
+        settlement: "instant",
+        evidence: "RedSnwapper verified on Etherscan (chain 5042); npm sushi red-snwapper config (ARC); " + SIM_1108,
+      }),
+    ],
+    reads: [read("sushiswap", "quote", "redSnwapper", "function snwap(address tokenIn, uint256 amountIn, address recipient, address tokenOut, uint256 amountOutMin, address executor, bytes executorData) payable returns (uint256 amountOut)", "Quotes come from api.sushi.com/swap/v7/5042 (assumedAmountOut); the snwap call is the only on-chain call.", "Sushi swap API")],
+    risk: { tier: "medium", oracle: "none (pool prices along Sushi's route).", admin: "Sushi (executor contract).", upgradeable: "no", tvlSource: "n/a (routes over other pools)", audits: [], notes: ["The executor runs Sushi's route; RedSnwapper's balance check is the safety net, and Lykia sets its floor."] },
+    capabilities: [...pair("sushiswap", "swap-sushi", "USDC", "EURC", 300_000, "Sushi's route over the pools it indexes."), ...pair("sushiswap", "swap-sushi", "USDC", "cirBTC", 300_000, "Sushi's route."), ...pair("sushiswap", "swap-sushi", "USDC", "WETH", 300_000, "Sushi's route.")],
+    docs: "https://docs.sushi.com",
+    evidence: "npm sushi 7.6.1 config; RedSnwapper verified source",
+  },
+  {
+    venue: "relay",
+    purpose: "Bridges USDC out of Arc: a deposit into Relay's depository that a Relay solver fills on the destination chain. Cross-chain: the money arrives on the other chain.",
+    executable: true,
+    contracts: [{ key: "depository", role: "RelayDepository: holds the deposit, credited to the depositor for Relay's request id." }],
+    functions: [
+      fn("relay", "depositErc20", {
+        contract: "depository",
+        abi: "function depositErc20(address depositor, address token, uint256 amount, bytes32 id)",
+        adapters: ["bridge-relay"],
+        verb: "bridge",
+        purpose: "Deposit USDC for Relay's quote; the solver delivers on the destination chain.",
+        inputs: ["USDC"],
+        outputs: ["USDC@relay"],
+        units: "USDC, 6 decimals.",
+        recipient: "The quote's recipient on the destination chain (the owner by default); Lykia checks it in the quote.",
+        approvals: ["USDC to the depository for amount."],
+        preconditions: ["api.relay.link quotes the route with the deposit to the registry's depository, depositor = the account and the same amount.", "The destination amount still covers the planned minimum at build time."],
+        failures: [{ reason: "refund", meaning: "No solver filled the request: Relay refunds the USDC on Arc." }, ...ERC20_FAIL.slice(0, 2)],
+        gas: 90_000,
+        feeModel: "Relay's relayer and service fee are inside the delivered amount (api.relay.link fees); plus Lykia's fee.",
+        settlement: "async",
+        evidence: "api.relay.link/chains (5042 depository); RelayDepository verified on Etherscan for Base at the same address; " + SIM_1108,
+      }),
+    ],
+    reads: [read("relay", "quote", "depository", "function depositErc20(address depositor, address token, uint256 amount, bytes32 id)", "Quotes and status come from api.relay.link (/quote, /intents/status/v3); the deposit is the only Arc call.", "Relay API")],
+    risk: { tier: "medium", oracle: "Relay solvers and allocator.", admin: "Relay (allocator signs withdrawals from the depository).", upgradeable: "no", tvlSource: "n/a (deposits are filled within seconds)", audits: [], notes: ["RelayDepository source is verified on Etherscan (Base); no audit link checked here.", "Delivery depends on Relay's solver; unfilled deposits are refunded on Arc.", "CCTP stays the default for USDC; Relay wins only by delivering more."] },
+    capabilities: [cap("relay", "bridge", "bridge-relay", "USDC", "USDC@relay", 90_000, { settlement: "async", delaySeconds: 10, note: "Delivered on the destination chain by a Relay solver." })],
+    docs: "https://docs.relay.link",
+    evidence: "api.relay.link/chains; RelayErc20Deposit events on Arc (2026-11-08)",
+  },
+  {
+    venue: "zerox",
+    purpose: "The 0x Swap API (AllowanceHolder). Routable only when the owner sets ZEROX_API_KEY; the build refuses unless 0x's own minimum covers Lykia's.",
+    executable: false,
+    contracts: [{ key: "allowanceHolder", role: "exec: holds the allowance for one call into 0x's settler." }],
+    functions: [
+      fn("zerox", "exec", {
+        contract: "allowanceHolder",
+        abi: "function exec(address operator, address token, uint256 amount, address target, bytes data) payable returns (bytes result)",
+        adapters: ["swap-zerox"],
+        verb: "swap",
+        purpose: "Run 0x's settler with the sell token's allowance for exactly this call.",
+        inputs: ["USDC", "EURC", "cirBTC", "WETH"],
+        outputs: ["USDC", "EURC", "cirBTC", "WETH"],
+        units: "Base units.",
+        recipient: "The taker (the account), as 0x's settler data says.",
+        approvals: ["tokenIn to AllowanceHolder for amountIn."],
+        preconditions: ["ZEROX_API_KEY is set.", "The quote's transaction targets the registry's AllowanceHolder with the same token and amount.", "minBuyAmount covers Lykia's minimum."],
+        failures: [{ reason: "settler revert", meaning: "The price moved past 0x's minimum." }, ...ERC20_FAIL.slice(0, 2)],
+        gas: 300_000,
+        feeModel: "0x's fees are inside its quote. " + LYKIA_FEE,
+        settlement: "instant",
+        evidence: "0x AllowanceHolder canonical address (bytecode identical to Ethereum and Base); keyed API, not simulated without a key",
+      }),
+    ],
+    reads: [read("zerox", "quote", "allowanceHolder", "function exec(address operator, address token, uint256 amount, address target, bytes data) payable returns (bytes result)", "Quotes come from api.0x.org/swap/allowance-holder/quote with the owner's key.", "0x Swap API v2")],
+    risk: { tier: "medium", oracle: "none (aggregated pool prices).", admin: "0x (settler deployments).", upgradeable: "no", tvlSource: "n/a", audits: ["https://github.com/0xProject/0x-settler"], notes: ["Off until the owner adds ZEROX_API_KEY."] },
+    capabilities: [...pair("zerox", "swap-zerox", "USDC", "EURC", 300_000, "Only with ZEROX_API_KEY.")],
+    docs: "https://0x.org/docs/api",
+    evidence: "eth_getCode at the canonical AllowanceHolder address 2026-11-01",
+  },
+];
+
+export const KNOWLEDGE_ROWS: readonly VenueKnowledge[] = [...KNOWLEDGE_ROWS_BASE, ...ADDED_ROWS];
 
 /* Load-time check: rows are well formed and every named contract exists in the venue's registry row. */
 const KNOWLEDGE_ISSUES = validateKnowledge(KNOWLEDGE_ROWS, {

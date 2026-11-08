@@ -16350,9 +16350,9 @@
             "schema": {
               "type": "string",
               "maxLength": 400,
-              "description": "Comma-separated venue ids to read (default all): wallet, aave-v4, morpho-vaults, morpho-blue, uniswap-v3, uniswap-v4, aerodrome-slipstream, usyc, gateway, cctp, lykia-orders, arc-transfer, lykia-practice"
+              "description": "Comma-separated venue ids to read (default all): wallet, aave-v4, morpho-vaults, galaxy-curation, keyrock, steakhouse-financial, gauntlet, bitwise, morpho-blue, uniswap-v3, uniswap-v4, aerodrome-slipstream, archery, unitflow-finance-v3, sushiswap, usyc, gateway, cctp, relay, lykia-orders, arc-transfer, lykia-practice"
             },
-            "description": "Comma-separated venue ids to read (default all): wallet, aave-v4, morpho-vaults, morpho-blue, uniswap-v3, uniswap-v4, aerodrome-slipstream, usyc, gateway, cctp, lykia-orders, arc-transfer, lykia-practice"
+            "description": "Comma-separated venue ids to read (default all): wallet, aave-v4, morpho-vaults, galaxy-curation, keyrock, steakhouse-financial, gauntlet, bitwise, morpho-blue, uniswap-v3, uniswap-v4, aerodrome-slipstream, archery, unitflow-finance-v3, sushiswap, usyc, gateway, cctp, relay, lykia-orders, arc-transfer, lykia-practice"
           },
           {
             "$ref": "#/components/parameters/LykiaVersion"

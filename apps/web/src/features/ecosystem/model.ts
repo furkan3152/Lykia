@@ -22,7 +22,7 @@ export interface EcosystemView {
   readonly directory?: { readonly url: string; readonly note: string };
   readonly protocols: readonly EcosystemProtocolView[];
   /** protocols = every registry entry mapped on Arc; routable = venues with an executable adapter. */
-  readonly totals: { readonly protocols: number; readonly verified: number; readonly routable: number; readonly readOnly?: number; readonly mapped?: number; readonly summary?: string; readonly tvlUsd: number | null; readonly routed: { readonly intents: number; readonly steps: number; readonly usd: string; readonly window: string } };
+  readonly totals: { readonly protocols: number; readonly verified: number; readonly routable: number; readonly routableVia?: number; readonly readOnly?: number; readonly mapped?: number; readonly summary?: string; readonly tvlUsd: number | null; readonly routed: { readonly intents: number; readonly steps: number; readonly usd: string; readonly window: string } };
   readonly circle: readonly { readonly id: string; readonly name: string; readonly state: string; readonly lykia: string; readonly docs: string }[];
   readonly pulse: { readonly block: number; readonly blockTimeMs: number | null; readonly tps: number | null; readonly transferCostUsd: string | null } | null;
   readonly builders: { readonly freeTier: { readonly perMinute: number; readonly perDay: number }; readonly x402: { readonly mode: string; readonly note: string } };
@@ -31,7 +31,7 @@ export interface EcosystemView {
 
 export const POSITIONING = "Built on Arc Network and Circle's products: every Arc protocol mapped, the ones with an executable adapter routable on Lykia, and every agent inside its Fence.";
 
-/** "9 venues Lykia can route through today · 94 protocols mapped on Arc", computed from the API's registry counts. */
+/** The coverage line, computed from the API's registry counts. */
 export function coverageSummary(totals: EcosystemView["totals"] | undefined): string | null {
   return totals ? coverageLine(totals) : null;
 }

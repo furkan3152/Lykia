@@ -77,10 +77,17 @@ ranks the answers.
   output after gas: gas is priced in USDC at the live gas price, plus the
   Memo/Multicall3From overhead. When the two best options sit in different
   pools, the router re-quotes a 50/50 split and takes it if it wins by at
-  least 5 bps. Aerodrome Slipstream holds the deepest USDC/EURC pool on Arc,
-  but Lykia cannot execute its Metarouter yet. Its pool mid price is shown as
-  a read-only estimate so the reason can say so.
-- **Earn.** The router compares Morpho Vault V2 (net APY from the Morpho API)
+  least 5 bps. Aerodrome Slipstream (Metarouter), Archery (its own
+  QuoterV2 and SwapRouter), Unitflow V3 (thin pools) and Sushi's swap API
+  (RedSnwapper) are quoted the same way; 0x joins when `ZEROX_API_KEY` is
+  set. A venue wins only by output after gas.
+- **Bridge.** CCTP is the default for USDC. Relay is quoted beside it on
+  mainnet and wins only when it delivers more on the destination chain (or
+  the owner names it). Relay is cross-chain: the money arrives on the other
+  chain, filled by Relay's solver.
+- **Earn.** The router compares Morpho Vault V2 (net APY from the Morpho API;
+  each vault is named under its curator: Galaxy, Keyrock, Steakhouse,
+  Gauntlet, Bitwise)
   with the Aave V4 Main Spoke (supply APY from the Aave API), and the Lykia
   practice vault on testnet. Risk tiers come from TVL: low at $10M or more,
   medium at $1M or more, high below that. The default ceiling is medium;
@@ -116,11 +123,17 @@ and the Fence judges it.
 | `transfer` | ERC-20 transfer with an Arc Memo | both |
 | `bridge` | CCTP V2 `depositForBurn` (attestation tracked; inbound mints via `POST /v1/cctp/inbound`) | both |
 | `gateway` | Circle Gateway deposit | both |
-| `vault-deposit` / `vault-withdraw` | Morpho Vault V2 (ERC-4626) | mainnet |
+| `vault-deposit` / `vault-withdraw` | Morpho Vault V2 (ERC-4626); the step names the curator (Galaxy, Keyrock, Steakhouse, Gauntlet, Bitwise) | mainnet |
 | `aave-supply` / `aave-withdraw` / `aave-borrow` / `aave-repay` | Aave V4 Spokes | mainnet |
 | `morpho-borrow` / `morpho-repay` | Morpho Blue (repay all by shares) | mainnet |
 | `swap` / `swap-path` | Uniswap v3 single pool / two hops | mainnet |
 | `swap-v4` | Uniswap v4 through UniversalRouter + Permit2 | mainnet |
+| `swap-aerodrome` | Aerodrome Slipstream through its Metarouter | mainnet |
+| `swap-archery` | Archery SwapRouter (Slipstream-style pools, by tick spacing) | mainnet |
+| `swap-unitflow` | Unitflow Finance V3 router (thin pools) | mainnet |
+| `swap-sushi` | Sushi swap API, settled by RedSnwapper with Lykia's minimum | mainnet |
+| `swap-zerox` | 0x Swap API through AllowanceHolder, only with `ZEROX_API_KEY` | mainnet |
+| `bridge-relay` | Relay depository deposit, filled on the destination chain | mainnet |
 | `practice-*` | Lykia practice vault, swap, lending | testnet, once deployed |
 
 Calls are shaped by `calls.ts`. An EOA signs one Multicall3From transaction

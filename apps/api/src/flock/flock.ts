@@ -6,7 +6,7 @@
  * Unpriced holdings stay null and make the total null: Lykia never shows a
  * total that silently leaves something out.
  */
-import { fromBaseUnits, getProtocol, nativeUsdcToErc20, TOKENS, tokenAddress, type Address, type ArcEnvironment } from "@lykia/core";
+import { fromBaseUnits, getProtocol, nativeUsdcToErc20, PROTOCOLS, TOKENS, tokenAddress, type Address, type ArcEnvironment } from "@lykia/core";
 import type { FlockHolding, FlockSnapshot } from "@lykia/core/api/flock";
 import { erc20Abi, parseAbi } from "viem";
 import type { ArcChains } from "../chains/arc.js";
@@ -43,13 +43,32 @@ export interface VaultInfo {
   readonly id: string;
   readonly address: Address;
   readonly asset: "USDC" | "EURC";
+  /** The curator's registry entry when the vault is listed under one (routed through morpho-vaults). */
+  readonly curator?: { readonly id: string; readonly name: string };
 }
 
-/** Morpho V2 vaults from the registry, with the asset they hold (from the row key). */
+/** Registry entries that route through the Morpho vaults (`via: "morpho-vaults"`), per vault address. */
+function curatorOf(environment: ArcEnvironment, address: Address): { id: string; name: string } | undefined {
+  for (const p of PROTOCOLS) {
+    if (p.via !== "morpho-vaults") continue;
+    if (Object.values(p.deployments[environment]?.contracts ?? {}).some((a) => a.toLowerCase() === address.toLowerCase())) return { id: p.id, name: p.name };
+  }
+  return undefined;
+}
+
+/** Morpho V2 vaults from the registry, with the asset they hold (from the row key) and their curator entry. */
 export function morphoVaults(environment: ArcEnvironment): VaultInfo[] {
   const row = getProtocol("morpho-vaults")?.deployments[environment];
   if (!row) return [];
-  return Object.entries(row.contracts).map(([id, address]) => ({ id, address, asset: /eurc/iu.test(id) ? "EURC" : "USDC" }));
+  return Object.entries(row.contracts).map(([id, address]) => {
+    const curator = curatorOf(environment, address);
+    return { id, address, asset: /eurc/iu.test(id) ? "EURC" : "USDC", ...(curator ? { curator } : {}) };
+  });
+}
+
+/** The venue a Morpho vault answers to: its curator's entry when listed, else morpho-vaults. */
+export function vaultVenue(vault: VaultInfo): string {
+  return vault.curator?.id ?? "morpho-vaults";
 }
 
 export class FlockService {

@@ -163,7 +163,7 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
   }),
   spec({
     name: "positions",
-    description: "Read where the owner's money is and what it is doing, in every venue Lykia supports on Arc: wallet tokens, Aave V4 supplies and borrows with health factors, Morpho vaults and Morpho Blue markets, Uniswap v3/v4 and Aerodrome Slipstream LP positions with range and fees, USYC, the Circle Gateway balance and, for the proven owner, CCTP transfers in flight, open orders and scheduled payments. Each position has a state (earning, idle, borrowing, at-risk, out-of-range, pending, escrowed, committed), a value, an APY where known and one plain line of what it is doing. Venues that could not be read are named, never zeroed. Use it to answer 'where is my money and what is it doing?', then call show_card with card 'positions'.",
+    description: "Read where the owner's money is and what it is doing, in every venue Lykia supports on Arc: wallet tokens, Aave V4 supplies and borrows with health factors, Morpho vaults (named by curator: Galaxy, Keyrock, Steakhouse, Gauntlet, Bitwise) and Morpho Blue markets, Uniswap v3/v4, Aerodrome Slipstream, Archery, Unitflow V3 and SushiSwap V3 LP positions with range and fees, USYC, the Circle Gateway balance and, for the proven owner, CCTP and Relay transfers in flight, open orders and scheduled payments. Each position has a state (earning, idle, borrowing, at-risk, out-of-range, pending, escrowed, committed), a value, an APY where known and one plain line of what it is doing. Venues that could not be read are named, never zeroed. Use it to answer 'where is my money and what is it doing?', then call show_card with card 'positions'.",
     capability: "read",
     schema: z.object({}).strict(),
     json: obj({}),

@@ -409,6 +409,22 @@ export const EVAL_CASES: readonly EvalCase[] = [
     expect: { refusals: ["impossible"] },
   },
   {
+    id: "curated-vault",
+    category: "savings",
+    mode: "both",
+    state: "treasury",
+    text: "Put 500 USDC into the Gauntlet vault.",
+    expect: { status: ["ready"], elements: [{ kind: "earn", match: { token: "USDC", venue: "gauntlet" } }], nowVerbs: ["earn"], nowAmounts: [{ verb: "earn", token: "USDC", exact: "500" }], noQuestion: true },
+  },
+  {
+    id: "curator-avoided",
+    category: "savings",
+    mode: "both",
+    state: "treasury",
+    text: "Put 800 USDC to work at low risk, but never using Keyrock.",
+    expect: { status: ["ready"], prefs: { venues: { deny: ["keyrock"] } }, nowVerbs: ["earn"], noQuestion: true },
+  },
+  {
     id: "compound",
     category: "impossible",
     mode: "both",

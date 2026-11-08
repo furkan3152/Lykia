@@ -21,10 +21,14 @@ import {
   type RiskTier,
   type RouteChoice,
   type VenueOption,
+  venueFamily,
 } from "@lykia/core";
 import type { ArcChains } from "../chains/arc.js";
 import type { PriceService } from "../arc/prices.js";
-import { ERC4626_ABI, morphoVaults } from "../flock/flock.js";
+import { ERC4626_ABI, morphoVaults, vaultVenue } from "../flock/flock.js";
+import type { FetchLike } from "../health/dependencies.js";
+import { quoteArchery, quoteUnitflow } from "./venues/forks.js";
+import { quoteSushi, quoteZeroX, zeroXKey } from "./venues/aggregators.js";
 import { AAVE_SPOKE_ABI, CL_POOL_ABI, PRACTICE_LENDING_ABI, PRACTICE_SWAP_ABI } from "./abis.js";
 import { aaveCollateralNeededMicros, aaveReserve, aaveSpokes, liveCollateralFactorBps, projectAaveHealth, readAaveAccount, wadToRatio } from "./venues/aave.js";
 import { morphoCollateralNeeded, morphoMarketFor, projectMorphoHealth, readMorphoPosition } from "./venues/morphoBlue.js";
@@ -43,6 +47,10 @@ export type RoutedAdapter =
   | "swap-path"
   | "swap-v4"
   | "swap-aerodrome"
+  | "swap-archery"
+  | "swap-unitflow"
+  | "swap-sushi"
+  | "swap-zerox"
   | "practice-swap"
   | "aave-borrow"
   | "morpho-borrow"
@@ -64,7 +72,8 @@ const FAVORITE_APY_POINTS = 0.5;
 
 function allowed<T extends { option: { venue: string } }>(list: readonly T[], prefs?: VenuePrefs): T[] {
   const blocked = prefs?.blocked ?? [];
-  return list.filter((c) => !blocked.includes(c.option.venue));
+  // A curator's vault answers to the curator and to morpho-vaults: blocking either blocks it.
+  return list.filter((c) => !venueFamily(c.option.venue).some((v) => blocked.includes(v)));
 }
 
 export interface Candidate {
@@ -85,7 +94,7 @@ export interface BorrowCandidate extends Candidate {
 }
 
 /** Gas used when a quoter does not report one, plus the Memo/Multicall3From overhead. */
-const GAS_DEFAULTS = { v3: 130_000n, path: 210_000n, v4: 180_000n, aerodrome: 260_000n, practice: 90_000n, overhead: 60_000n } as const;
+const GAS_DEFAULTS = { v3: 130_000n, path: 210_000n, v4: 180_000n, aerodrome: 260_000n, archery: 170_000n, unitflow: 150_000n, aggregator: 300_000n, practice: 90_000n, overhead: 60_000n } as const;
 const SPLIT_MIN_GAIN_BPS = 5;
 const MIN_TVL_USD = 50_000;
 const Q192 = 2n ** 192n;
@@ -98,7 +107,7 @@ const QUOTE_CACHE_MS = 15_000;
 export class VenueRouter {
   private readonly cache = new Map<string, { at: number; value: Promise<unknown> }>();
 
-  constructor(private readonly deps: { readonly chains: ArcChains; readonly prices: PriceService; readonly yields: YieldService; readonly now?: () => number; readonly adapters?: (environment: ArcEnvironment) => Promise<readonly AdapterManifest[]> }) {}
+  constructor(private readonly deps: { readonly chains: ArcChains; readonly prices: PriceService; readonly yields: YieldService; readonly fetch?: FetchLike; readonly now?: () => number; readonly adapters?: (environment: ArcEnvironment) => Promise<readonly AdapterManifest[]> }) {}
 
   /** Routable adapter manifests (integrations/registry.ts); none when the router has no registry. */
   async adapterManifests(environment: ArcEnvironment): Promise<readonly AdapterManifest[]> {
@@ -191,11 +200,12 @@ export class VenueRouter {
         const tvlNumber = tvl === null ? null : Number(tvl);
         const label = `Morpho ${rate?.name || v.id}`;
         const notes = [rates.sources.morpho === "live" ? "APY net of vault fees (Morpho API)." : "Morpho API unavailable: APY unknown, ranked by size."];
+        if (v.curator) notes.push(`Curated by ${v.curator.name} (Morpho Vault V2).`);
         if (tvlNumber !== null && tvlNumber < MIN_TVL_USD) notes.push("Small vault: below Lykia's $50k floor for automatic picks.");
         out.push({
-          option: { venue: "morpho-vaults", label, apy: rate?.apy ?? null, apySource: rate?.apy ? "Morpho API" : undefined, tvlUsd: tvl, risk: riskFromTvl(tvlNumber), executable: tvlNumber === null || tvlNumber >= MIN_TVL_USD, notes } as VenueOption,
+          option: { venue: vaultVenue(v), label, apy: rate?.apy ?? null, apySource: rate?.apy ? "Morpho API" : undefined, tvlUsd: tvl, risk: riskFromTvl(tvlNumber), executable: tvlNumber === null || tvlNumber >= MIN_TVL_USD, notes } as VenueOption,
           adapter: "vault-deposit",
-          params: { vault: v.address, vaultName: label, token: address, symbol: token.symbol, decimals: String(token.decimals) },
+          params: { vault: v.address, vaultName: label, token: address, symbol: token.symbol, decimals: String(token.decimals), ...(v.curator ? { venue: v.curator.id } : {}) },
         });
       });
     }
@@ -239,7 +249,7 @@ export class VenueRouter {
     let pool = candidates;
     if (venue) {
       const [id, name] = venue.split(":");
-      const named = candidates.filter((c) => c.option.venue === id && (!name || c.params.vault?.toLowerCase() === name.toLowerCase() || c.option.label.toLowerCase().replace(/\s+/gu, "").includes(name.toLowerCase().replace(/usdc|eurc/gu, ""))));
+      const named = candidates.filter((c) => venueFamily(c.option.venue).includes(id!) && (!name || c.params.vault?.toLowerCase() === name.toLowerCase() || c.option.label.toLowerCase().replace(/\s+/gu, "").includes(name.toLowerCase().replace(/usdc|eurc/gu, ""))));
       if (named.length > 0) pool = named;
     }
     const route = chooseYield(pool.map((c) => c.option), maxRisk);
@@ -305,6 +315,29 @@ export class VenueRouter {
         amountOut: q.amountOut,
         netOut: n,
       });
+    }
+
+    // Uniswap v3 forks with their own periphery (Archery, Unitflow V3): exact quotes from each fork's quoter.
+    const [archery, unitflow] = await Promise.all([quoteArchery(this.deps.chains, environment, tokenIn, tokenOut, amountIn), quoteUnitflow(this.deps.chains, environment, tokenIn, tokenOut, amountIn)]);
+    for (const q of archery) {
+      const n = await net(q.amountOut, q.gasEstimate > 0n ? q.gasEstimate + 40_000n : GAS_DEFAULTS.archery);
+      candidates.push({ option: { venue: "archery", label: `Archery ${from.symbol}/${to.symbol} tick spacing ${q.key}`, amountOut: q.amountOut.toString(), netAmountOut: n.toString(), risk: "low", executable: true, notes: [`Quote ${fmt(q.amountOut)} (Archery QuoterV2).`] }, adapter: "swap-archery", params: { ...base, tickSpacing: String(q.key), pool: q.pool }, amountOut: q.amountOut, netOut: n });
+    }
+    for (const q of unitflow) {
+      const n = await net(q.amountOut, GAS_DEFAULTS.unitflow);
+      candidates.push({ option: { venue: "unitflow-finance-v3", label: `Unitflow V3 ${q.key / 10_000}% pool`, amountOut: q.amountOut.toString(), netAmountOut: n.toString(), risk: "medium", executable: true, notes: [`Quote ${fmt(q.amountOut)} (Unitflow Quoter).`, "Thin pools (about $4k): picked only when it nets more than every other venue."] }, adapter: "swap-unitflow", params: { ...base, fee: String(q.key), pool: q.pool }, amountOut: q.amountOut, netOut: n });
+    }
+    // Aggregators with official APIs (Sushi always; 0x only with the owner's key). Their calldata is re-checked at build time.
+    if (this.deps.fetch) {
+      const [sushi, zerox] = await Promise.all([quoteSushi(this.deps.fetch, environment, tokenIn, tokenOut, amountIn), quoteZeroX(this.deps.fetch, zeroXKey(), environment, tokenIn, tokenOut, amountIn)]);
+      if (sushi) {
+        const n = await net(sushi.amountOut, sushi.gas > 0n ? sushi.gas + 120_000n : GAS_DEFAULTS.aggregator);
+        candidates.push({ option: { venue: "sushiswap", label: "Sushi (RedSnwapper)", amountOut: sushi.amountOut.toString(), netAmountOut: n.toString(), risk: "medium", executable: true, notes: [`Quote ${fmt(sushi.amountOut)} (api.sushi.com); Lykia re-encodes the call with its own minimum.`] }, adapter: "swap-sushi", params: { ...base }, amountOut: sushi.amountOut, netOut: n });
+      }
+      if (zerox) {
+        const n = await net(zerox.amountOut, zerox.gas > 0n ? zerox.gas : GAS_DEFAULTS.aggregator);
+        candidates.push({ option: { venue: "zerox", label: "0x (AllowanceHolder)", amountOut: zerox.amountOut.toString(), netAmountOut: n.toString(), risk: "medium", executable: true, notes: [`Quote ${fmt(zerox.amountOut)} (api.0x.org); the build refuses if 0x's own minimum is below Lykia's.`] }, adapter: "swap-zerox", params: { ...base }, amountOut: zerox.amountOut, netOut: n });
+      }
     }
 
     const practice = await practiceVenues(environment);

@@ -97,11 +97,13 @@ export interface EcosystemResponse {
     /** Every registry entry on the network: what Lykia has mapped on Arc. */
     readonly protocols: number;
     readonly verified: number;
-    /** Venues with an executable adapter: what Lykia can route through today. */
+    /** Distinct protocols with an executable adapter: what Lykia can route through today. */
     readonly routable: number;
+    /** Routable entries reached through another venue (curators' vaults through Morpho), not counted in `routable`. */
+    readonly routableVia: number;
     readonly readOnly: number;
     readonly mapped: number;
-    /** "9 venues Lykia can route through today · 94 protocols mapped on Arc", from the counts above. */
+    /** "13 protocols Lykia can route through today, plus 5 curators' vaults via Morpho · 94 protocols mapped on Arc". */
     readonly summary: string;
     readonly tvlUsd: number | null;
     readonly routed: { readonly intents: number; readonly steps: number; readonly usd: string; readonly window: string };

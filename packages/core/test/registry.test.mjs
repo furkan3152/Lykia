@@ -57,15 +57,19 @@ test("coverage: routable, read-only and mapped are counted from the registry", a
   const executable = new Set(["arc-transfer", "cctp", "gateway", "morpho-vaults", "morpho-blue", "aave-v4", "uniswap-v3", "uniswap-v4", "aerodrome-slipstream", "lykia-router"]);
   const c = registryCoverage("mainnet", executable);
   assert.equal(c.protocols, protocolsFor("mainnet").length);
-  assert.equal(c.routable + c.readOnly + c.mapped, c.protocols);
-  assert.equal(c.routable + c.readOnly, c.verified);
+  assert.equal(c.routable + c.routableVia + c.readOnly + c.mapped, c.protocols);
+  assert.equal(c.routable + c.routableVia + c.readOnly, c.verified);
   // lykia-router is an engine venue, not a registry entry: it never inflates the count.
-  assert.equal(c.routable, protocolsFor("mainnet").filter((p) => executable.has(p.id)).length);
+  // Curators reached through Morpho vaults are counted apart, never as extra protocols.
+  const routableRows = protocolsFor("mainnet").filter((p) => coverageOf(p, "mainnet", executable) === "routable");
+  assert.equal(c.routable, routableRows.filter((p) => !p.via || p.via === p.id).length);
+  assert.equal(c.routableVia, routableRows.filter((p) => p.via && p.via !== p.id).length);
   assert.equal(coverageOf(getProtocol("aave-v4"), "mainnet", executable), "routable");
   assert.equal(coverageOf(getProtocol("synthra"), "mainnet", executable), "read-only");
   assert.equal(coverageOf(getProtocol("beefy"), "mainnet", executable), "mapped");
-  assert.equal(coverageLine({ routable: 9, protocols: 94 }), "9 venues Lykia can route through today · 94 protocols mapped on Arc");
-  assert.equal(coverageLine({ routable: 1, protocols: 1 }), "1 venue Lykia can route through today · 1 protocol mapped on Arc");
+  assert.equal(coverageLine({ routable: 9, protocols: 94 }), "9 protocols Lykia can route through today · 94 protocols mapped on Arc");
+  assert.equal(coverageLine({ routable: 13, routableVia: 5, protocols: 94 }), "13 protocols Lykia can route through today, plus 5 curators' vaults via Morpho · 94 protocols mapped on Arc");
+  assert.equal(coverageLine({ routable: 1, protocols: 1 }), "1 protocol Lykia can route through today · 1 protocol mapped on Arc");
 });
 
 test("a yield choice names every venue it compared, best first", async () => {

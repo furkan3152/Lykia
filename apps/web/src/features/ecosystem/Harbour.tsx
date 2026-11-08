@@ -66,7 +66,7 @@ export function EcosystemStats({ data }: { readonly data: EcosystemView | undefi
   const readOnly = t ? (t.readOnly ?? t.verified - t.routable) : null;
   return (
     <div className="m-grid-4 eco-stats">
-      <Stat label="ROUTABLE TODAY" value={t ? String(t.routable) : "…"} hint="venues Lykia can route through" />
+      <Stat label="ROUTABLE TODAY" value={t ? String(t.routable) : "…"} hint={t && (t.routableVia ?? 0) > 0 ? `protocols Lykia can route through, plus ${t.routableVia} curators via Morpho` : "protocols Lykia can route through"} />
       <Stat label="MAPPED ON ARC" value={t ? String(t.protocols) : "…"} hint={t ? `${readOnly} read-only · ${t.mapped ?? t.protocols - t.verified} mapped only` : undefined} />
       <Stat label="TVL ON ARC" value={t ? usdShort(t.tvlUsd) : "…"} hint={data?.sources.tvl ?? "DefiLlama"} />
       <Stat label="VALUE ROUTED" value={t ? `$${Number(t.routed.usd).toLocaleString("en-US")}` : "…"} hint={t ? `${t.routed.steps} settled steps` : undefined} />

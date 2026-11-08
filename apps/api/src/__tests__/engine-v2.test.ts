@@ -94,7 +94,7 @@ describe("planner v2: shares, reserves, rebalancing, routing", () => {
       ],
     });
     assert.deepEqual(graph.steps.map((s) => s.inputs[0]?.amount), ["320000000", "160000000", "320000000"]);
-    assert.equal(graph.steps[0]?.venue, "morpho-vaults");
+    assert.equal(graph.steps[0]?.venue, "galaxy-curation");
     assert.ok(graph.steps[0]?.route?.reason.includes("Morpho"));
     assert.ok((graph.steps[0]?.route?.alternatives.length ?? 0) > 0);
     assert.ok(graph.warnings.some((w) => w.startsWith("Keeping 200 USDC liquid (payroll)")));

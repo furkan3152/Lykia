@@ -80,10 +80,10 @@ export interface PositionMap {
  */
 /** Venues read together: fast chain reads, LP enumeration, event-scanned venues, and the owner's own records. Four requests stream the map in without crowding the API's rate limit. */
 export const POSITION_GROUPS: readonly (readonly string[])[] = [
-  ["wallet", "aave-v4", "morpho-vaults", "usyc", "gateway", "lykia-practice"],
-  ["uniswap-v3", "aerodrome-slipstream"],
+  ["wallet", "aave-v4", "morpho-vaults", "galaxy-curation", "keyrock", "steakhouse-financial", "gauntlet", "bitwise", "usyc", "gateway", "lykia-practice"],
+  ["uniswap-v3", "aerodrome-slipstream", "archery", "unitflow-finance-v3", "sushiswap"],
   ["uniswap-v4", "morpho-blue"],
-  ["cctp", "lykia-orders", "arc-transfer"],
+  ["cctp", "relay", "lykia-orders", "arc-transfer"],
 ];
 
 export function usePositions(o: FoldOwner): PositionMap {

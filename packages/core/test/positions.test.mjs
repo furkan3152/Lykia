@@ -4,8 +4,8 @@ import { classifyPosition, fmtPercent, POSITION_VENUES, positionDoing, summarize
 
 test("every routable mainnet venue has a position reader listed", () => {
   const ids = POSITION_VENUES.mainnet.map((v) => v.id);
-  for (const id of ["wallet", "aave-v4", "morpho-vaults", "morpho-blue", "uniswap-v3", "uniswap-v4", "aerodrome-slipstream", "gateway", "cctp", "arc-transfer"]) assert.ok(ids.includes(id), id);
-  assert.ok(POSITION_VENUES.mainnet.filter((v) => v.personal).every((v) => ["cctp", "lykia-orders", "arc-transfer"].includes(v.id)));
+  for (const id of ["wallet", "aave-v4", "morpho-vaults", "morpho-blue", "uniswap-v3", "uniswap-v4", "aerodrome-slipstream", "gateway", "cctp", "arc-transfer", "galaxy-curation", "keyrock", "steakhouse-financial", "gauntlet", "bitwise", "archery", "unitflow-finance-v3", "sushiswap", "relay"]) assert.ok(ids.includes(id), id);
+  assert.ok(POSITION_VENUES.mainnet.filter((v) => v.personal).every((v) => ["cctp", "relay", "lykia-orders", "arc-transfer"].includes(v.id)));
 });
 
 test("states, lines and an empty summary", () => {

@@ -79,8 +79,8 @@ describe("profile, memory and contacts", () => {
     await new Promise((r) => setTimeout(r, 50));
     memory = await call("GET", "/v1/memory");
     assert.equal((memory.body.recent as { outcome: string }[])[0]?.outcome, "settled");
-    assert.equal((memory.body.learned as { venues: Record<string, string> }).venues.deposit, "morpho-vaults", JSON.stringify(memory.body).slice(0, 1500));
-    assert.match(memory.body.summary as string, /preferred_venues=deposit:morpho-vaults/u);
+    assert.equal((memory.body.learned as { venues: Record<string, string> }).venues.deposit, "galaxy-curation", JSON.stringify(memory.body).slice(0, 1500));
+    assert.match(memory.body.summary as string, /preferred_venues=deposit:galaxy-curation/u);
 
     const again = await call("POST", "/v1/language/parse", { text: "again" });
     assert.equal((again.body.memory as { kind: string }).kind, "repeat");
@@ -89,7 +89,7 @@ describe("profile, memory and contacts", () => {
     assert.equal((undo.body.memory as { kind: string }).kind, "undo");
     assert.equal((undo.body.actions as { verb: string }[])[0]?.verb, "withdraw");
     const usual = await call("POST", "/v1/language/parse", { text: "put 20 USDC in my usual vault" });
-    assert.equal((usual.body.actions as { venue?: string }[])[0]?.venue, "morpho-vaults");
+    assert.equal((usual.body.actions as { venue?: string }[])[0]?.venue, "galaxy-curation");
 
     const exported = await call("GET", "/v1/memory/export");
     assert.equal(exported.body.schema, "lykia.memory/v1");

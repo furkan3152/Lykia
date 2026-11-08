@@ -30,6 +30,7 @@ import {
   RISK_ORDER,
   tokenRoutes,
   usdMicros,
+  venueFamily,
   venueKnowledge,
   type ActionAmount,
   type Address,
@@ -154,8 +155,9 @@ function riskAllowed(risk: RiskTier, ceiling: RiskTier): boolean {
 }
 
 function venueAllowedByFence(fence: Fence, venue: string): string | null {
-  if (fence.venues?.deny?.includes(venue)) return `the Fence denies ${venue}`;
-  if (fence.venues?.allow && fence.venues.allow.length > 0 && !fence.venues.allow.includes(venue)) return `${venue} is not on the Fence's venue list`;
+  const family = venueFamily(venue);
+  if (family.some((v) => fence.venues?.deny?.includes(v))) return `the Fence denies ${venue}`;
+  if (fence.venues?.allow && fence.venues.allow.length > 0 && !family.some((v) => fence.venues!.allow!.includes(v))) return `${venue} is not on the Fence's venue list`;
   return null;
 }
 

@@ -13,13 +13,20 @@
  *   swap / swap-path         Uniswap v3 single pool and two-hop paths              mainnet
  *   swap-v4                  Uniswap v4 through UniversalRouter + Permit2          mainnet
  *   swap-aerodrome           Aerodrome Slipstream through its Metarouter           mainnet
+ *   swap-archery             Archery (Slipstream-style) through its SwapRouter     mainnet
+ *   swap-unitflow            Unitflow Finance V3 through its V3 router             mainnet
+ *   swap-sushi               Sushi swap API, settled by RedSnwapper                mainnet
+ *   swap-zerox               0x Swap API, AllowanceHolder (needs ZEROX_API_KEY)    mainnet
+ *   bridge-relay             Relay depository deposit, filled on the destination   mainnet
+ *   vault-deposit/withdraw   also serve the curators' Morpho vaults (params.venue = the curator)
  *   practice-*               Lykia practice vault, swap and lending                testnet (once deployed)
  * Listed, not executable: StableFX RFQ (Circle credentials and a taker
  * signature flow), Synthra and SushiSwap V3 (exact quotes, no verified router),
- * USYC Teller (unverified source).
+ * USYC Teller (unverified source). Each registry entry's notes say why.
  */
 import {
   contractAddress,
+  getProtocol,
   CCTP_DESTINATIONS,
   findCctpDestination,
   fromBaseUnits,
@@ -40,6 +47,9 @@ import { aaveCalls } from "./venues/aave.js";
 import { MORPHO_BLUE, morphoCalls, morphoMarkets, readMorphoPosition } from "./venues/morphoBlue.js";
 import { quoteV3Single, quoteV4, uniswapCalls, v3Contracts, v4Contracts } from "./venues/uniswap.js";
 import { aerodromeCalls, quoteCl } from "./venues/aerodrome.js";
+import { archeryContracts, forkCalls, quoteArchery, quoteUnitflow, unitflowContracts } from "./venues/forks.js";
+import { quoteZeroX, sushiCall, zeroXConfigured, zeroXKey } from "./venues/aggregators.js";
+import { quoteRelay, relayCalls } from "./venues/relay.js";
 import { approveCall, feeCall, type RawCall } from "./calls.js";
 import { lykiaRouterAddress, routerRunCall, type RouterLeg } from "./lykiaRouter.js";
 import { encodeManifestStep } from "../integrations/runtime.js";
@@ -54,6 +64,11 @@ export type AdapterId =
   | "swap-path"
   | "swap-v4"
   | "swap-aerodrome"
+  | "swap-archery"
+  | "swap-unitflow"
+  | "swap-sushi"
+  | "swap-zerox"
+  | "bridge-relay"
   | "aave-supply"
   | "aave-withdraw"
   | "aave-borrow"
@@ -71,7 +86,30 @@ export type AdapterId =
 
 /** Venues the engine executes per environment (practice venues once deployed, see venues/practice.ts). */
 export const EXECUTABLE_VENUES: Readonly<Record<ArcEnvironment, ReadonlySet<string>>> = {
-  mainnet: new Set(["arc-transfer", "cctp", "gateway", "morpho-vaults", "morpho-blue", "aave-v4", "uniswap-v3", "uniswap-v4", "aerodrome-slipstream", "lykia-router"]),
+  mainnet: new Set([
+    "arc-transfer",
+    "cctp",
+    "gateway",
+    "morpho-vaults",
+    "morpho-blue",
+    "aave-v4",
+    "uniswap-v3",
+    "uniswap-v4",
+    "aerodrome-slipstream",
+    "lykia-router",
+    // Morpho Vault V2 curators: their vaults go through the vault-deposit / vault-withdraw adapters.
+    "galaxy-curation",
+    "keyrock",
+    "steakhouse-financial",
+    "gauntlet",
+    "bitwise",
+    "archery",
+    "unitflow-finance-v3",
+    "sushiswap",
+    "relay",
+    // 0x routes only with the owner's API key (ZEROX_API_KEY); without it the entry stays read-only.
+    ...(zeroXConfigured() ? ["zerox"] : []),
+  ]),
   testnet: new Set(["arc-transfer", "cctp", "gateway", "lykia-practice"]),
 };
 
@@ -108,6 +146,8 @@ export interface BuildContext {
   readonly environment: ArcEnvironment;
   readonly chains: ArcChains;
   readonly account: Address;
+  /** For venues whose calldata comes from their API (Sushi, 0x, Relay); defaults to the global fetch. */
+  readonly fetch?: FetchLike;
 }
 
 export interface BuiltCalls {
@@ -245,6 +285,44 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
         calls: [aerodromeCalls.swapExactIn(p.router as Address, p.pool as Address, p.tokenIn as Address, amountIn, big("minOut"), ctx.account, deadline, `Swap ${p.display} on Aerodrome Slipstream`)],
       };
     }
+    case "swap-archery":
+    case "swap-unitflow": {
+      const archery = plan.adapter === "swap-archery";
+      const c = archery ? archeryContracts(ctx.environment) : unitflowContracts(ctx.environment);
+      if (!c) throw noRoute(`${archery ? "Archery" : "Unitflow"} is not deployed on this environment.`);
+      const amountIn = big("amountIn");
+      const key = Number(archery ? p.tickSpacing : p.fee);
+      const quote = archery ? quoteArchery : quoteUnitflow;
+      await freshMinimum(async () => (await quote(ctx.chains, ctx.environment, p.tokenIn as Address, p.tokenOut as Address, amountIn)).find((q) => q.key === key)?.amountOut ?? null);
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + PERMIT2_EXPIRY_SECONDS);
+      const name = archery ? "Archery" : "Unitflow V3";
+      const call = archery
+        ? forkCalls.archerySingle(c.router, p.tokenIn as Address, p.tokenOut as Address, key, ctx.account, deadline, amountIn, big("minOut"), `Swap ${p.display} on Archery`)
+        : forkCalls.unitflowSingle(c.router, p.tokenIn as Address, p.tokenOut as Address, key, ctx.account, deadline, amountIn, big("minOut"), `Swap ${p.display} on Unitflow V3`);
+      return { approvals: await needApproval(p.tokenIn as Address, c.router, amountIn, p.symbolIn as string, name), calls: [call] };
+    }
+    case "swap-sushi": {
+      const amountIn = big("amountIn");
+      const built = await sushiCall(ctx.fetch ?? fetch, ctx.environment, p.tokenIn as Address, p.tokenOut as Address, amountIn, ctx.account, big("minOut"), `Swap ${p.display} through Sushi (RedSnwapper)`);
+      if (!built || built.quoted < big("minOut")) throw new LykiaHttpError("NO_ROUTE", 422, "Sushi's route moved past the planned minimum or did not answer; plan again.");
+      return { approvals: await needApproval(p.tokenIn as Address, built.call.to, amountIn, p.symbolIn as string, "Sushi RedSnwapper"), calls: [built.call] };
+    }
+    case "swap-zerox": {
+      const amountIn = big("amountIn");
+      const quote = await quoteZeroX(ctx.fetch ?? fetch, zeroXKey(), ctx.environment, p.tokenIn as Address, p.tokenOut as Address, amountIn, ctx.account, Number(p.slippageBps ?? 50));
+      // 0x's settler data carries its own floor: refuse unless that floor is at least Lykia's.
+      if (!quote || quote.minOut < big("minOut")) throw new LykiaHttpError("NO_ROUTE", 422, "0x's route moved past the planned minimum, did not answer, or no key is set; plan again.");
+      return { approvals: await needApproval(p.tokenIn as Address, quote.to, amountIn, p.symbolIn as string, "0x AllowanceHolder"), calls: [{ to: quote.to, data: quote.data, label: `Swap ${p.display} through 0x` }] };
+    }
+    case "bridge-relay": {
+      const amount = big("amount");
+      const quote = await quoteRelay(ctx.fetch ?? fetch, ctx.environment, { user: ctx.account, recipient: p.recipient as Address, usdc: p.token as Address, amount, destinationChainId: Number(p.chainId) });
+      if (!quote || quote.amountOut < big("minOut")) throw new LykiaHttpError("NO_ROUTE", 422, "Relay's quote moved past the planned minimum or did not answer; plan again.");
+      return {
+        approvals: await needApproval(p.token as Address, quote.depository, amount, "USDC", "Relay"),
+        calls: [relayCalls.deposit(quote.depository, ctx.account, p.token as Address, amount, quote.depositId, `Bridge ${p.display} to ${p.destinationName} over Relay (filled on ${p.destinationName})`)],
+      };
+    }
     case "router-split": {
       const router = lykiaRouterAddress(ctx.environment);
       if (!router) throw noRoute("LykiaRouter is not deployed on this environment.");
@@ -365,6 +443,11 @@ export const ADAPTER_VENUE: Readonly<Record<AdapterId, string>> = {
   "swap-path": "uniswap-v3",
   "swap-v4": "uniswap-v4",
   "swap-aerodrome": "aerodrome-slipstream",
+  "swap-archery": "archery",
+  "swap-unitflow": "unitflow-finance-v3",
+  "swap-sushi": "sushiswap",
+  "swap-zerox": "zerox",
+  "bridge-relay": "relay",
   "aave-supply": "aave-v4",
   "aave-withdraw": "aave-v4",
   "aave-borrow": "aave-v4",
@@ -381,6 +464,17 @@ export const ADAPTER_VENUE: Readonly<Record<AdapterId, string>> = {
   manifest: "lykia-adapter",
 };
 
+/**
+ * The registry venue a step runs at: a manifest's protocol, a curator named
+ * in the params (vault steps into a curator's Morpho vault), else the
+ * adapter's own venue.
+ */
+export function stepVenue(adapter: AdapterId, params: Readonly<Record<string, string>>): string {
+  if (adapter === "manifest") return params.protocol ?? "lykia-adapter";
+  if ((adapter === "vault-deposit" || adapter === "vault-withdraw") && params.venue && getProtocol(params.venue)?.via === ADAPTER_VENUE[adapter]) return params.venue;
+  return ADAPTER_VENUE[adapter];
+}
+
 /** The venue and step kind of a manifest step come from its params, not the adapter id. */
 export function manifestStep(params: Readonly<Record<string, string>>, fx: boolean): { readonly venue: string; readonly kind: StepKind } {
   const verb = params.verb === "fx" || params.verb === "swap" ? (fx ? "fx" : "swap") : (params.verb as StepKind);
@@ -392,6 +486,7 @@ export function stepKindOf(adapter: AdapterId, fx: boolean): StepKind {
     case "transfer":
       return "transfer";
     case "bridge":
+    case "bridge-relay":
       return "bridge";
     case "gateway":
       return "gateway-deposit";
@@ -408,6 +503,10 @@ export function stepKindOf(adapter: AdapterId, fx: boolean): StepKind {
     case "swap-path":
     case "swap-v4":
     case "swap-aerodrome":
+    case "swap-archery":
+    case "swap-unitflow":
+    case "swap-sushi":
+    case "swap-zerox":
     case "practice-swap":
     case "router-split":
     case "manifest":

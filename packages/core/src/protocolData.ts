@@ -9,6 +9,37 @@ import type { ProtocolDescriptor } from "./protocols.js";
 const C = ARC_CONTRACTS;
 const CHECKED = "eth_getCode non-empty on Arc public RPC, 2026-11-01; docs.arc.io contract-addresses";
 
+
+/**
+ * A Morpho vault curator: its Vault V2 vaults on Arc, routed through the
+ * morpho-vaults adapter. Evidence per vault: asset(), totalAssets(),
+ * previewDeposit and convertToAssets read on chain; the on-chain curator()
+ * is one of the curator's addresses in api.morpho.org; deposit and redeem
+ * simulated through Multicall3From (see CURATOR_SIMULATION).
+ */
+const CURATOR_SIMULATION = "the vault-deposit then vault-withdraw (redeem) adapter batch, approve + Memo(deposit 100 USDC or EURC) + Memo(redeem the previewDeposit shares) through Multicall3From from a state-override-funded account, eth_call on rpc.mainnet.arc.io at block 30,133,957 (2026-11-08): passed for every vault, previewRedeem of the minted shares 99.999999 to 100.000000";
+function curator(id: string, name: string, website: string, vaults: Record<string, `0x${string}`>, curatorAddress: string, sizes: string): ProtocolDescriptor {
+  return {
+    id,
+    name,
+    category: "vault",
+    summary: `Morpho Vault V2 curator on Arc. Lykia deposits into and withdraws from ${name}'s vaults (${Object.keys(vaults).length}) through the Morpho vault adapter and ranks them by live net APY.`,
+    website,
+    docs: "https://docs.morpho.org",
+    deployments: {
+      mainnet: {
+        status: "live",
+        contracts: vaults,
+        evidence: `api.morpho.org vaultV2s(chainId 5042) lists the vaults under ${name}; on-chain curator() = ${curatorAddress}, one of ${name}'s addresses in the Morpho API; asset() is USDC or EURC; ${sizes}; ${CURATOR_SIMULATION}`,
+      },
+    },
+    verbs: ["deposit", "withdraw", "approve"],
+    via: "morpho-vaults",
+    tags: ["erc4626", "earn", "curator"],
+    notes: ["Same contracts and adapter as morpho-vaults: the curator is the venue Lykia names, the vault is a Morpho Vault V2.", "Vaults under Lykia's $50k floor stay listed but are never picked automatically."],
+  };
+}
+
 export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
   {
     id: "arc-transfer",
@@ -61,6 +92,7 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     },
     verbs: ["fx", "approve"],
     tags: ["fx", "rfq", "eurc"],
+    notes: ["Not routable as an engine route: StableFX settles an RFQ quote the taker signs off chain (Permit2 witness typed data) and Circle submits the trade, so there is no approve + act call the owner sends through Multicall3From and nothing to eth_call-simulate from the wallet. The RFQ itself is served separately at /v1/circle/stablefx/* when the Circle key has StableFX access. USDC/EURC conversions route on chain (Uniswap, Aerodrome, Archery) and are checked against Chainlink EURC/USD."],
   },
   {
     id: "erc8004",
@@ -129,6 +161,12 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     verbs: ["deposit", "withdraw", "approve"],
     tags: ["erc4626", "earn", "usdc", "eurc"],
   },
+  /* ---- Curators: Morpho Vault V2 vaults on Arc, routed through the morpho-vaults adapter (deposit / withdraw / redeem). ---- */
+  curator("galaxy-curation", "Galaxy Curation", "https://www.galaxy.com/", { galaxyUsdc: "0x8E357432CC12ff425c36432F312968aEb16112AF", galaxyEurc: "0x389abDf4355e0cF4f19298179991705a98f21c18" }, "0xec1a7a08b538C685f5D188D81e3545D69f1B4178", "Galaxy USDC $79.99M, Galaxy EURC €503k (totalAssets at block 30,132,289)"),
+  curator("keyrock", "Keyrock", "https://keyrock.com/", { keyrockPrimeUsdc: "0x5bEfAb92a5A3D60F578Cb51EEb4e4FD50a1e3123" }, "0x26a17b96e9CA28D84C4E78f22B83a1ccEa28Ad21", "Keyrock Prime USDC $75.20M (totalAssets at block 30,132,289)"),
+  curator("steakhouse-financial", "Steakhouse Financial", "https://www.steakhouse.financial/", { steakhousePrimeUsdc: "0xbeef0016cb2Fd5C352ea7CA08a9f54739DFa7298", steakhouseHighYieldUsdc: "0xbeeff419ECc98763045E0A26490b62aDfb9103C1", steakhousePrimeEurc: "0xbeef00be37BdE921BAE06fad223125BAB16c41D1" }, "0x827e86072B06674a077f592A531dcE4590aDeCdB", "Steakhouse Prime USDC $5.29M; High Yield USDC $54.2k; Prime EURC €8.9k (below the $50k floor: listed, never picked automatically)"),
+  curator("gauntlet", "Gauntlet", "https://www.gauntlet.xyz", { gauntletUsdcBalanced: "0x10AF7238C6355Aa8dDB5eD60E2e9b55a72827B51", gauntletUsdcPrime: "0xdECcd53BE5453215821184824B519E04C7e00bC7", gauntletEurcPrime: "0x05863F54B05e96092069eF30c9Ca6060336e50B9" }, "0x9E33faAE38ff641094fa68c65c2cE600b3410585", "Gauntlet USDC Balanced $245k; USDC Prime $95.5k; EURC Prime €8.9k (below the $50k floor: listed, never picked automatically)"),
+  curator("bitwise", "Bitwise", "https://app.morpho.org/curator/bitwise", { bitwisePremiumRwaUsdc: "0x7610094B846657dCF166D59e42973db52c7015F9" }, "0x42aFEE002Ca3B06f3697028d00B4FC4A94A70aaC", "Bitwise Premium RWA USDC $80.5k (totalAssets at block 30,132,289)"),
   {
     id: "morpho-blue",
     name: "Morpho Blue",
@@ -238,13 +276,14 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     id: "uniswap-v2",
     name: "Uniswap v2",
     category: "dex",
-    summary: "Constant-product pools. Listed for discovery.",
+    summary: "Constant-product pools. Read-only: no pool between registry tokens holds usable liquidity.",
     website: "https://uniswap.org",
     deployments: {
-      mainnet: { status: "live", contracts: { factory: "0x89e5db8b5aa49aa85ac63f691524311aeb649eba", router02: "0x1f7d7550b1b028f7571e69a784071f0205fd2efa" }, evidence: "Uniswap/sdks sdk-core addresses.ts (ARC); eth_getCode non-empty 2026-11-01" },
+      mainnet: { status: "live", contracts: { factory: "0x89e5db8b5aa49aa85ac63f691524311aeb649eba", router02: "0x1f7d7550b1b028f7571e69a784071f0205fd2efa" }, evidence: "Uniswap/sdks sdk-core addresses.ts (ARC); eth_getCode non-empty 2026-11-01; router02.factory() = factory (read 2026-11-08)" },
     },
     verbs: [],
     tags: ["amm"],
+    notes: ["Not routable: liquidity under the floor. getPair over every registry token pair (2026-11-08) finds only USDC/EURC 0xfb77…1Fb7 with 0.20 USDC + 0.18 EURC; the ~$140k DefiLlama counts sits in pairs of tokens outside Lykia's registry."],
   },
   {
     id: "aerodrome-slipstream",
@@ -291,17 +330,35 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     },
     verbs: [],
     tags: ["read-only"],
+    notes: ["Not routable: no verified router. Synthra publishes no Arc router or quoter address, and its registry-token pools hold under $700 (USDC/EURC 0.3%: 78.7 USDC + 230 EURC; 1%: 174 USDC + 181 EURC, balances read 2026-11-08): liquidity under the floor."],
   },
   {
     id: "archery",
     name: "Archery",
     category: "dex",
-    summary: "Arc-native ve(3,3)-style DEX. Listed for discovery.",
+    summary: "Arc-native ve(3,3) DEX with Slipstream-style concentrated pools. Lykia quotes its USDC/EURC, USDC/cirBTC and USDC/WETH pools with Archery's QuoterV2 and swaps through its SwapRouter.",
+    website: "https://archery.wtf",
+    docs: "https://www.archery.wtf/docs/security#contract-addresses",
     deployments: {
-      mainnet: { status: "live", contracts: { v2Factory: "0x0769d7d58e064d3dd4c2bb17274506f4824a9657", v3Factory: "0xc481038c013fe96f38ce7a2dc417b2b1b78b16a4" }, evidence: "DefiLlama adapter projects/archery; eth_getCode non-empty 2026-11-01" },
+      mainnet: {
+        status: "live",
+        contracts: {
+          v2Factory: "0x0769d7d58e064d3dd4c2bb17274506f4824a9657",
+          v2Router: "0xc59a63612535879e71eb055336f4519cd20d5eb9",
+          v3Factory: "0xc481038c013fe96f38ce7a2dc417b2b1b78b16a4",
+          v3SwapRouter: "0x3b37e67c973683f7fe8a0f304dedfaf475fec138",
+          v3QuoterV2: "0xc6b5c6056c4be2de1c014695a7ccb75087a1c574",
+          v3PositionManager: "0x3547c1543f5f61dc17094916d0bd0cbb0a837e51",
+          poolUsdcEurcTs1: "0xb88C08E31C1bC7d41f2cFc4FbAfAD5B3B0a5eAe9",
+          poolUsdcCirbtcTs50: "0x948523143F6610A64Ee8f17667818Fe1d8C9F562",
+          poolUsdcWethTs50: "0x072Ca55AcB3Cc90F96b7f7807cf8dE2250AF4dC7",
+        },
+        evidence: "Archery contract address book (archery.wtf/docs/security, Arc Mainnet column); DefiLlama adapter projects/archery (factories); SwapRouter.factory(), QuoterV2.factory(), PositionManager.factory() and each pool's factory() all = v3Factory, PositionManager name() 'Archery Slipstream Positions' (read 2026-11-08); 7 Swap events in the USDC/EURC pool in the last 9,000 blocks; pool balances at block 30,132,289: USDC/EURC 44,921 USDC + 136,061 EURC, USDC/cirBTC 30,868 USDC + 2.44 cirBTC, USDC/WETH 8,070 USDC + 78.9 WETH; QuoterV2 1000 USDC -> 897.59 EURC; approve + Memo(SwapRouter.exactInputSingle) through Multicall3From simulated (1000 USDC -> EURC tick spacing 1, quote 897.632131, min 893.143970: passed at block 30,133,957; the same swap with a minimum 1 EURC above the quote reverted with Too little received)",
+      },
     },
-    verbs: [],
-    tags: ["read-only"],
+    verbs: ["swap", "fx", "approve"],
+    tags: ["concentrated-liquidity", "ve33"],
+    notes: ["The SwapRouter source is not verified on Etherscan; its address comes from Archery's own address book and its factory() and the pools' Swap events tie it to the Archery factory. Swaps are bounded by amountOutMinimum like every other venue."],
   },
   {
     id: "sushiswap-v3",
@@ -314,6 +371,7 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     },
     verbs: [],
     tags: ["read-only"],
+    notes: ["Not routable as a pool venue: Sushi's own config (npm sushi 7.6.1, sushiswap-v3 feature) lists the Arc factory, position manager and quoter but no SwapRouter; Sushi trades on Arc go through Sushi's swap API and RedSnwapper (the sushiswap entry). Its USDC/EURC pools hold about $5k."],
   },
   {
     id: "pancakeswap-infinity",
@@ -326,6 +384,7 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     },
     verbs: [],
     tags: ["read-only"],
+    notes: ["Not routable: liquidity under the floor (DefiLlama about $2.4k on Arc, 2026-11-08). The Universal Router address is in @pancakeswap/universal-router-sdk, but no Infinity CL pool between registry tokens is deep enough to quote a realistic amount."],
   },
   {
     id: "kaleido",
@@ -337,6 +396,7 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     },
     verbs: [],
     tags: ["read-only"],
+    notes: ["Not routable: no verified router (Kaleido documents no Arc router or quoter) and liquidity under the floor (USDC/EURC 0.05% pool 120 USDC + 113 EURC, read 2026-11-08)."],
   },
   {
     id: "curve-lite",
@@ -348,6 +408,7 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     },
     verbs: [],
     tags: ["empty"],
+    notes: ["Not routable: pool_count() = 0, nothing to swap in."],
   },
   {
     id: "argus",
@@ -457,6 +518,7 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     },
     verbs: [],
     tags: ["x402", "payments"],
+    notes: ["A payment rail, not a route: it settles pay-per-call USDC payments."],
   },
   {
     id: "gateway-nanopayments",
@@ -470,6 +532,7 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     },
     verbs: [],
     tags: ["x402", "nanopayments"],
+    notes: ["A payment rail, not a route: nanopayments pay for calls against the Gateway balance and move no owner value between venues."],
   },
   {
     id: "usyc-teller",
@@ -482,6 +545,7 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     },
     verbs: [],
     tags: ["restricted", "yield"],
+    notes: ["Not routable: the Teller proxy's implementation (0x7ff3\u2026b1e6) has no verified source on Etherscan (chain 5042, checked 2026-11-08), and minting needs an entitlement most Lykia owners do not hold."],
   },
   /* ---- Added 2026-11-01: canonical infrastructure and messaging on Arc mainnet. ---- */
   {
@@ -578,25 +642,33 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     id: "zerox",
     name: "0x Swap API (AllowanceHolder)",
     category: "dex",
-    summary: "The 0x aggregator's allowance contract; 0x routes settle through it on Arc.",
+    summary: "The 0x Swap API (AllowanceHolder). Lykia can quote and swap through it once the owner sets ZEROX_API_KEY; without the key it stays read-only.",
     website: "https://0x.org",
+    docs: "https://0x.org/docs/api",
     deployments: {
       mainnet: { status: "live", contracts: { allowanceHolder: "0x0000000000001fF3684f28c67538d4D072C22734" }, evidence: "eth_getCode non-empty on Arc mainnet 2026-11-01 at the canonical address; runtime bytecode identical to Ethereum and Base" },
     },
-    verbs: [],
-    tags: ["aggregator"],
+    verbs: ["swap", "fx", "approve"],
+    tags: ["aggregator", "keyed"],
+    notes: ["Needs an API key: api.0x.org answers 401 without one (2026-11-08), so Arc support could not be confirmed from here. The adapter is built behind ZEROX_API_KEY and counts as routable only when the key is set."],
   },
   {
     id: "relay",
     name: "Relay",
     category: "bridge",
-    summary: "Intent-based instant bridging and swaps; Relay's router is deployed on Arc.",
+    summary: "Intent-based bridging: USDC deposited into Relay's depository on Arc is delivered on the destination chain by a Relay solver. Cross-chain: the money arrives on the other chain, not on Arc.",
     website: "https://relay.link",
+    docs: "https://docs.relay.link",
     deployments: {
-      mainnet: { status: "live", contracts: { relayRouter: "0xF5042e6ffaC5a625D4E7848e0b01373D8eB9e222" }, evidence: "eth_getCode non-empty on Arc mainnet 2026-11-01 at the canonical address; runtime bytecode identical to Ethereum and Base" },
+      mainnet: {
+        status: "live",
+        contracts: { depository: "0x4cD00E387622C35bDDB9b4c962C136462338BC31", erc20Router: "0x0729e2a4716d9f7dd17858d5d504426d228697f7", approvalProxy: "0x5567954cd026cebfe486062cb75848e0f1c12e58", relayRouter: "0xF5042e6ffaC5a625D4E7848e0b01373D8eB9e222" },
+        evidence: "api.relay.link/chains (id 5042: protocol.v2.depository, contracts.erc20Router, approvalProxy; USDC 0x3600… supportsBridging); RelayDepository source verified on Etherscan for Base at the same address (depositErc20(address,address,uint256,bytes32)), Arc runtime code the same length (17,258 bytes; immutables differ); 47 RelayErc20Deposit events on Arc in the last 9,000 blocks (2026-11-08); erc20Router and relayRouter runtime bytecode identical to Ethereum and Base; quote from api.relay.link/quote, approve + Memo(depositErc20) through Multicall3From simulated (100 USDC to Base: Relay delivers 99.928763 USDC, fee 0.071237; passed at block 30,133,965)",
+      },
     },
-    verbs: [],
-    tags: ["intents"],
+    verbs: ["bridge", "approve"],
+    tags: ["intents", "crosschain"],
+    notes: ["Cross-chain: delivery happens on the destination chain, filled by Relay's solver; the Arc side is a deposit Lykia can check and simulate.", "CCTP stays the default for USDC; Relay is picked only when its delivered amount beats CCTP after fees, or when the owner names it."],
   },
   {
     id: "layerzero-v2",
@@ -610,6 +682,7 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     },
     verbs: [],
     tags: ["messaging"],
+    notes: ["Not routable: no USDC or EURC OFT (or Stargate pool) on Arc in LayerZero's metadata API (ofts/list?chainNames=arc is empty, 2026-11-08); USDC leaves Arc over CCTP."],
   },
   {
     id: "hyperlane",
@@ -622,6 +695,7 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     },
     verbs: [],
     tags: ["messaging"],
+    notes: ["Not routable: hyperlane-registry has no warp route for Arc (2026-11-08), so there is no USDC/EURC contract path to simulate."],
   },
   {
     id: "wormhole",
@@ -635,6 +709,7 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     },
     verbs: [],
     tags: ["messaging"],
+    notes: ["Not routable: only the core messaging contract is deployed on Arc; there is no token bridge or NTT path for USDC/EURC."],
   },
   {
     id: "partner-stablecoins",
@@ -650,5 +725,46 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     },
     verbs: ["transfer"],
     tags: ["stablecoins"],
+    notes: ["Tokens, not a venue: send works for all of them; a swap routes only where a pool between them exists."],
+  },
+  {
+    id: "unitflow-finance-v3",
+    name: "Unitflow Finance V3",
+    category: "dex",
+    summary: "Arc-native Uniswap v3-style DEX. Thin pools; Lykia quotes them with Unitflow's Quoter and swaps through its V3 router only when they give the better net outcome.",
+    docs: "https://docs.unitflow.finance/docs/dev/contracts",
+    deployments: {
+      mainnet: {
+        status: "live",
+        contracts: {
+          v3Factory: "0x5bfBCeb73d39F722B1cB83fD2F11736b28c1Be6d",
+          v3Router: "0x6fD8351b9596C1F0b2f2479BfA6A171cb3d0f410",
+          quoter: "0x5AF6E89F0960Ff375AF84d9911D8153ef6240E34",
+          positionManager: "0x300F5f2861eF0d9D3c6B812797C0A4c8b15C86a8",
+          poolUsdcEurc001: "0x99a0505D58cC5d7bf3513Cc75F2A605A23F0F79F",
+        },
+        evidence: "Unitflow Smart Contracts page (docs.unitflow.finance/docs/dev/contracts); V3Router.factory() and Quoter.factory() = v3Factory (read 2026-11-08); 323 Swap events in the USDC/EURC 0.01% pool over 180,000 blocks with the V3 router as sender; pool balances 2,162 USDC + 1,944 EURC (2026-11-08); Quoter (v1 interface) 100 USDC -> 85.89 EURC; approve + Memo(exactInputSingle) through Multicall3From simulated (100 USDC -> EURC 0.01%, quote 85.886387, min 0.5% below: passed at block 30,133,965)",
+      },
+    },
+    verbs: ["swap", "fx", "approve"],
+    tags: ["concentrated-liquidity", "thin"],
+    notes: ["About $4k of liquidity: routable, but route search picks it only when its output after gas beats every other venue."],
+  },
+  {
+    id: "sushiswap",
+    name: "SushiSwap",
+    category: "dex",
+    summary: "Sushi's swap API routes a trade across the Arc pools it indexes and settles it through RedSnwapper, which enforces the minimum output on the owner's balance.",
+    website: "https://sushi.com/",
+    deployments: {
+      mainnet: {
+        status: "live",
+        contracts: { redSnwapper: "0xE52abd50ad151ecDf56427effD715E703696a6B1", v2Factory: "0x0e867974275Cd31C25015C2753C9d75F9f355379", v2Router: "0x9Cb751cE2799bC90457B75A3975C1d5BD902697f", v3Factory: "0x7282249282902e1f99c2CB0A04230091bd30FE3A", v3PositionManager: "0x287c6A19395800cD53B16368df2121F1f336A7f3" },
+        evidence: "Sushi's config (npm sushi 7.6.1: red-snwapper and sushiswap-v2 features, EvmChainId.ARC); RedSnwapper source verified on Etherscan (chain 5042, snwap and MinimalOutputBalanceViolation); api.sushi.com/swap/v7/5042 returns snwap calldata to it; v3PositionManager.factory() = v3Factory, name() 'SushiSwap V3 Positions NFT-V1' (read 2026-11-08, the Fold reads Sushi V3 LP positions through it); approve + Memo(snwap) through Multicall3From simulated (1000 USDC -> EURC, quote 896.698527, min 0.5% below: passed at block 30,133,965; with a minimum 5 EURC above the quote RedSnwapper reverted, block 30,133,989)",
+      },
+    },
+    verbs: ["swap", "fx", "approve"],
+    tags: ["aggregator"],
+    notes: ["Lykia decodes Sushi's calldata, checks the function, tokens, amount and recipient, and re-encodes it with its own minimum output: the API never sets the floor.", "The path may use other DEXes' pools; the venue Lykia names is Sushi's router."],
   },
 ];

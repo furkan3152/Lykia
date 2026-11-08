@@ -192,7 +192,7 @@ describe("review view model", () => {
 
 describe("ecosystem coverage copy", () => {
   it("states both numbers from the API's counts and labels each status", () => {
-    assert.equal(coverageSummary({ protocols: 94, verified: 42, routable: 9, tvlUsd: null, routed: { intents: 0, steps: 0, usd: "0", window: "" } }), "9 venues Lykia can route through today · 94 protocols mapped on Arc");
+    assert.equal(coverageSummary({ protocols: 94, verified: 42, routable: 9, tvlUsd: null, routed: { intents: 0, steps: 0, usd: "0", window: "" } }), "9 protocols Lykia can route through today · 94 protocols mapped on Arc");
     assert.equal(coverageSummary(undefined), null);
     assert.deepEqual(Object.values(LYKIA_ROLE).map((r) => r.label), ["ROUTABLE", "READ-ONLY", "MAPPED"]);
   });

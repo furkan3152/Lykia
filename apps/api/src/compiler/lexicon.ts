@@ -41,7 +41,8 @@ const FEEDS: Readonly<Record<string, PriceFeed>> = { eurc: "EURC/USD", euro: "EU
 const TOKEN_WORDS: Readonly<Record<string, string>> = { euro: "EURC", euros: "EURC", eur: "EURC", dollars: "USDC", dollar: "USDC", usd: "USDC", bitcoin: "cirBTC", btc: "cirBTC", ether: "WETH", eth: "WETH" };
 /** Protocols people name that Lykia does not execute on Arc. */
 const UNKNOWN_VENUES = ["compound", "curve", "lido", "pendle", "yearn", "gmx", "maker", "makerdao", "spark", "ethena", "hyperliquid", "kamino", "convex", "beefy", "euler", "fluid", "venus", "jupiter", "rocket pool", "eigenlayer", "blast", "binance", "coinbase earn", "nexo", "celsius", "anchor"];
-const KNOWN_VENUES: Readonly<Record<string, string>> = { aave: "aave-v4", morpho: "morpho-vaults" };
+/** Venue words, most specific first (a curator's name wins over "morpho" in "Gauntlet's Morpho vault"). */
+const KNOWN_VENUES: Readonly<Record<string, string>> = { galaxy: "galaxy-curation", keyrock: "keyrock", steakhouse: "steakhouse-financial", gauntlet: "gauntlet", bitwise: "bitwise", aave: "aave-v4", morpho: "morpho-vaults" };
 const NOT_TICKERS = new Set(["USD", "EUR", "APY", "APR", "USDC", "EURC", "TVL", "CEO", "ETF", "OK", "AM", "PM", "UTC", "GMT", "CET", "EST", "PST", "NYC", "UK", "US", "EU", "ID", "DCA", "TWAP", "CCTP", "AI", "API", "FX", "IRL", "ETH", "BTC", "PAY", "HR", "DAO", "NFT", "KYC", "AML", "I"]);
 
 const ADDRESS = /0x[0-9a-fA-F]{40}(?![0-9a-fA-F])/gu;

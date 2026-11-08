@@ -151,3 +151,32 @@ export const PRACTICE_LENDING_ABI = parseAbi([
   "function borrow(uint256 amount, address to)",
   "function repay(uint256 amount, address onBehalf) returns (uint256 repaid)",
 ]);
+
+/* ---- Venues added 2026-11-08 (each fragment simulated through Multicall3From on Arc mainnet). ---- */
+
+/** Archery's Slipstream-style SwapRouter and QuoterV2: pools are keyed by tick spacing, not by fee. */
+export const SLIPSTREAM_ROUTER_ABI = parseAbi([
+  "function exactInputSingle((address tokenIn, address tokenOut, int24 tickSpacing, address recipient, uint256 deadline, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96) params) payable returns (uint256 amountOut)",
+]);
+export const SLIPSTREAM_QUOTER_ABI = parseAbi([
+  "function quoteExactInputSingle((address tokenIn, address tokenOut, uint256 amountIn, int24 tickSpacing, uint160 sqrtPriceLimitX96) params) returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)",
+]);
+export const SLIPSTREAM_FACTORY_ABI = parseAbi(["function getPool(address tokenA, address tokenB, int24 tickSpacing) view returns (address)"]);
+
+/** Unitflow V3: the original Uniswap v3 SwapRouter (deadline in the struct) and Quoter v1. */
+export const SWAP_ROUTER_V1_ABI = parseAbi([
+  "function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 deadline, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96) params) payable returns (uint256 amountOut)",
+]);
+export const QUOTER_V1_ABI = parseAbi(["function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) returns (uint256 amountOut)"]);
+export const V3_FACTORY_ABI = parseAbi(["function getPool(address tokenA, address tokenB, uint24 fee) view returns (address)"]);
+
+/** Relay's depository (verified source on Base at the same address). */
+export const RELAY_DEPOSITORY_ABI = parseAbi(["function depositErc20(address depositor, address token, uint256 amount, bytes32 id)"]);
+
+/** Sushi's RedSnwapper (verified on Arc): enforces amountOutMin on the recipient's balance. */
+export const RED_SNWAPPER_ABI = parseAbi([
+  "function snwap(address tokenIn, uint256 amountIn, address recipient, address tokenOut, uint256 amountOutMin, address executor, bytes executorData) payable returns (uint256 amountOut)",
+]);
+
+/** 0x AllowanceHolder: exec pulls `amount` of `token` for `target` within one call. */
+export const ALLOWANCE_HOLDER_ABI = parseAbi(["function exec(address operator, address token, uint256 amount, address target, bytes data) payable returns (bytes result)"]);

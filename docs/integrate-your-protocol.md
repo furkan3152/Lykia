@@ -113,6 +113,30 @@ candidate in `router.ts`, a unit test and a mainnet simulation. The engine adds
 approvals, Lykia's fee transfer and the Arc Memo around your calls and batches
 them into one transaction.
 
+### Venues routed this way on Arc mainnet
+
+Each row below went through the checklist: addresses from the protocol's own
+address book or deployment config, cross-checked on chain (code present,
+`factory()` relationships, recent events), and the real adapter batch
+simulated through Multicall3From with the Arc Memo. The block and the result
+are in the registry row's `evidence`; entries Lykia does not route carry
+`notes` saying why.
+
+| Venue | Adapter | How it is verified | Position reader |
+|---|---|---|---|
+| `galaxy-curation`, `keyrock`, `steakhouse-financial`, `gauntlet`, `bitwise` | `vault-deposit` / `vault-withdraw` (Morpho Vault V2, `via: "morpho-vaults"`) | Vaults listed under the curator in api.morpho.org; on-chain `curator()` is one of the curator's addresses; deposit 100 then redeem simulated per vault | `readMorphoVaults`, each venue reading only its curator's vaults |
+| `archery` | `swap-archery` (SwapRouter `exactInputSingle` by tick spacing, QuoterV2) | archery.wtf address book; router, quoter, position manager and pools share the factory | `readArchery` (Slipstream-style position NFTs) |
+| `unitflow-finance-v3` | `swap-unitflow` (SwapRouter v1, Quoter v1) | docs.unitflow.finance contract page; Swap events with the router as sender | `readUnitflow` |
+| `sushiswap` | `swap-sushi` (api.sushi.com route, RedSnwapper `snwap`) | npm `sushi` config for Arc; RedSnwapper verified on Etherscan; Lykia re-encodes the minimum | `readSushiswap` (SushiSwap V3 positions) |
+| `relay` | `bridge-relay` (RelayDepository `depositErc20`) | api.relay.link chain list; depository source verified on Base at the same address; Relay deposit events on Arc. Cross-chain: delivered on the destination | `readRelay` (owner's Relay transfers in flight) |
+| `zerox` | `swap-zerox` (AllowanceHolder `exec`) | Canonical AllowanceHolder; keyed API. Routable only when `ZEROX_API_KEY` is set | `readZeroX` (holds nothing) |
+
+Thin venues stay routable but are compared on output after gas like every
+other venue, so route search never prefers one that nets less. API routes
+(Sushi, 0x, Relay) are re-fetched and decoded at build time: the target must
+be the registry contract, and the tokens, amount and recipient must match the
+step before anything is signed.
+
 ## Testing your integration
 
 ```bash

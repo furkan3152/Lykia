@@ -10,10 +10,10 @@
  * only when priced), a lifetime budget, the payee allowlist, an expiry and
  * the Fence hash. The server only builds the unsigned call.
  */
-import { contractAddress, getToken, lykiaContracts, tokenAddress, usdMicros, type Address, type ArcEnvironment, type PackAgent } from "@lykia/core";
+import { contractAddress, getToken, lykiaContracts, tokenAddress, usdMicros, venueFamily, type Address, type ArcEnvironment, type PackAgent } from "@lykia/core";
 import type { UnsignedTransaction } from "@lykia/core";
 import { encodeFunctionData, keccak256, toBytes, toFunctionSelector, zeroAddress, type Hex } from "viem";
-import { morphoVaults } from "../flock/flock.js";
+import { morphoVaults, vaultVenue } from "../flock/flock.js";
 import { aaveSpokes } from "../engine/venues/aave.js";
 import { v3Contracts } from "../engine/venues/uniswap.js";
 import type { AppContext } from "../context.js";
@@ -122,13 +122,14 @@ export function callRulesFor(agent: Pick<PackAgent, "fence">, environment: ArcEn
     if (!target) return;
     rules.push({ target: target as Address, selector: toFunctionSelector(signature) as Hex, receiverWords: words.reduce((m, w) => m | (1 << w), 0), homeward });
   };
-  if (allowVenue("morpho-vaults")) {
-    for (const v of morphoVaults(environment)) {
-      if (kinds.has("deposit")) add(v.address, "deposit(uint256,address)", [1]);
-      if (kinds.has("withdraw")) {
-        add(v.address, "withdraw(uint256,address,address)", [1, 2], true);
-        add(v.address, "redeem(uint256,address,address)", [1, 2], true);
-      }
+  // A curator's vault answers to the curator and to morpho-vaults: a deny on either drops it, an allow on either keeps it.
+  const allowFamily = (ids: readonly string[]) => !ids.some((id) => (agent.fence.venues?.deny ?? []).includes(id)) && (agent.fence.venues?.allow ? ids.some((id) => agent.fence.venues!.allow!.includes(id)) : true);
+  for (const v of morphoVaults(environment)) {
+    if (!allowFamily(venueFamily(vaultVenue(v)))) continue;
+    if (kinds.has("deposit")) add(v.address, "deposit(uint256,address)", [1]);
+    if (kinds.has("withdraw")) {
+      add(v.address, "withdraw(uint256,address,address)", [1, 2], true);
+      add(v.address, "redeem(uint256,address,address)", [1, 2], true);
     }
   }
   if (allowVenue("aave-v4")) {

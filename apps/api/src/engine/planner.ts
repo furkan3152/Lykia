@@ -22,6 +22,7 @@ import {
   toBaseUnitsBig,
   tokenAddress,
   tokensFor,
+  venueFamily,
   usdMicrosOf,
   type ActionAmount,
   type Address,
@@ -53,7 +54,8 @@ import { LykiaHttpError } from "../http/errors.js";
 import { usdValue, type PriceService } from "../arc/prices.js";
 import { systemClock } from "../clock.js";
 import { ERC4626_ABI, morphoVaults } from "../flock/flock.js";
-import { ADAPTER_VENUE, cctpFeeBps, manifestStep, noRoute, stepKindOf, type AdapterId, type StepPlan } from "./adapters.js";
+import { cctpFeeBps, manifestStep, noRoute, stepKindOf, stepVenue, type AdapterId, type StepPlan } from "./adapters.js";
+import { quoteRelay } from "./venues/relay.js";
 import { PRACTICE_LENDING_ABI } from "./abis.js";
 import { forwardedRouteFee } from "../circle/cctp.js";
 import { VenueRouter, type Candidate, type VenuePrefs } from "./router.js";
@@ -246,7 +248,7 @@ export class Planner {
   readonly router: VenueRouter;
 
   constructor(private readonly deps: PlannerDeps) {
-    this.router = deps.router ?? new VenueRouter({ chains: deps.chains, prices: deps.prices, yields: new YieldService({ fetch: deps.fetch, clock: systemClock }) });
+    this.router = deps.router ?? new VenueRouter({ chains: deps.chains, prices: deps.prices, fetch: deps.fetch, yields: new YieldService({ fetch: deps.fetch, clock: systemClock }) });
   }
 
   async plan(input: PlanInput): Promise<PlanResult> {
@@ -298,7 +300,7 @@ export class Planner {
       return {
         id,
         kind: d.adapter === "manifest" ? manifestStep(d.params, d.fx).kind : stepKindOf(d.adapter, d.fx),
-        venue: d.adapter === "manifest" ? manifestStep(d.params, d.fx).venue : ADAPTER_VENUE[d.adapter],
+        venue: d.adapter === "manifest" ? manifestStep(d.params, d.fx).venue : stepVenue(d.adapter, d.params),
         summary: d.summary,
         signer: input.signer,
         account,
@@ -396,9 +398,36 @@ export class Planner {
         if (!forwarded) warnings.push(`Circle's forwarding fee could not be read, so the mint on ${dest.name} is not forwarded: after attestation, call receiveMessage on ${dest.name} (GET /v1/intents/:id/steps/:sid/attestation).`);
         if (!forwarded && feeBps === null) warnings.push("The CCTP fee could not be read; the burn allows no fee (standard transfer).");
         const maxFee = forwarded ? forwarded.maxFee : feeBps ? (units * BigInt(Math.ceil(feeBps * 100)) + 999_999n) / 1_000_000n : 0n;
-        if (maxFee >= units) throw noRoute(`Bridging ${book.display("USDC", units)} costs at least ${book.display("USDC", maxFee)} in CCTP fees; send more.`);
         const amount = book.amount("USDC", units);
         const display = book.display("USDC", units);
+        // Relay (intent bridge, mainnet) is quoted beside CCTP: it wins only by delivering more, or when named.
+        const named = action.venue?.split(":")[0];
+        const chainId = dest.chainIds[env];
+        const relay = env === "mainnet" && chainId !== null && named !== "cctp" && units > 0n ? await quoteRelay(this.deps.fetch, env, { user: book.l.account, recipient: recipient as Address, usdc: amount.token as Address, amount: units, destinationChainId: chainId }) : null;
+        if (named === "relay" && !relay) throw noRoute(`Relay did not quote ${display} to ${dest.name}.`);
+        const cctpOk = maxFee < units;
+        const cctpOption = { venue: "cctp", label: `CCTP to ${dest.name}`, amountOut: (cctpOk ? units - maxFee : 0n).toString(), netAmountOut: (cctpOk ? units - maxFee : 0n).toString(), risk: "low" as const, executable: cctpOk, notes: [forwarded ? "Burn and mint; Circle forwards the mint." : "Burn and mint after Circle's attestation."] };
+        const relayOption = relay ? { venue: "relay", label: `Relay to ${dest.name}`, amountOut: relay.amountOut.toString(), netAmountOut: relay.amountOut.toString(), risk: "medium" as const, executable: true, notes: ["Cross-chain: a Relay solver delivers on the destination chain; unfilled deposits are refunded on Arc.", `Relay's fee ${book.display("USDC", relay.feeUnits)}.`] } : null;
+        const useRelay = relay !== null && (named === "relay" || !cctpOk || relay.amountOut > units - maxFee);
+        if (!useRelay && !cctpOk) throw noRoute(`Bridging ${display} costs at least ${book.display("USDC", maxFee)} in CCTP fees; send more.`);
+        if (useRelay && relay && relayOption) {
+          const minOut = (relay.amountOut * BigInt(10_000 - DEFAULT_SLIPPAGE_BPS)) / 10_000n;
+          const reason = named === "relay" ? `You named Relay; it delivers ${book.display("USDC", relay.amountOut)} on ${dest.name}.` : `Relay delivers ${book.display("USDC", relay.amountOut)} on ${dest.name}, more than CCTP's ${cctpOk ? book.display("USDC", units - maxFee) : "nothing (fee above the amount)"}.`;
+          return [{
+            adapter: "bridge-relay",
+            fx: false,
+            summary: `Bridge ${display} to ${dest.name} over Relay (cross-chain: delivered on ${dest.name}, min ${fromBaseUnits(minOut, 6)} USDC)`,
+            params: { token: amount.token, amount: units.toString(), recipient, chainId: String(chainId), minOut: minOut.toString(), destinationName: dest.name, destination: dest.key, display, decimals: "6", ...feeParams(fee) },
+            inputs: [book.amount("USDC", gross)],
+            outputs: [{ ...book.amount("USDC", relay.amountOut, minOut), symbol: `USDC@${dest.key}` }],
+            fee,
+            fact: { usd: book.amount("USDC", gross).usd, tokens: [book.fact("USDC", false)], recipient, destination: dest.key, ...feeFact(fee) },
+            settlement: { kind: "receipt" },
+            warnings: [`Cross-chain: Relay's solver delivers on ${dest.name}${relay.timeEstimateSeconds !== null ? ` in about ${relay.timeEstimateSeconds} s` : ""}; if it does not fill, Relay refunds the USDC on Arc.`],
+            route: { chosen: relayOption, alternatives: [cctpOption], reason },
+          }];
+        }
+        const route = relayOption ? { chosen: cctpOption, alternatives: [relayOption], reason: `CCTP delivers ${book.display("USDC", units - maxFee)} on ${dest.name}, at least as much as Relay's ${book.display("USDC", BigInt(relayOption.amountOut))}; CCTP stays the default for USDC.` } : undefined;
         return [{
           adapter: "bridge",
           fx: false,
@@ -410,6 +439,7 @@ export class Planner {
           fact: { usd: book.amount("USDC", gross).usd, tokens: [book.fact("USDC", false)], recipient, destination: dest.key, ...feeFact(fee) },
           settlement: { kind: "cctp", destination: dest.key, expectedSeconds: 30 },
           warnings,
+          ...(route ? { route } : {}),
         }];
       }
       case "unify": {
@@ -517,7 +547,8 @@ export class Planner {
       const reads = await client.multicall({ contracts: vaultList.map((v) => ({ address: v.address, abi: ERC4626_ABI, functionName: "maxWithdraw", args: [account] }) as const), allowFailure: true });
       vaultList.forEach((v, i) => {
         const max = reads[i]?.status === "success" ? (reads[i].result as bigint) : 0n;
-        if (max > 0n) held.push({ venue: v.practice ? "lykia-practice" : "morpho-vaults", label: v.practice ? v.id : `Morpho ${v.id}`, max, adapter: v.practice ? "practice-vault-withdraw" : "vault-withdraw", params: { vault: v.address, vaultName: v.practice ? v.id : `Morpho ${v.id}` } });
+        const curator = "curator" in v ? v.curator : undefined;
+        if (max > 0n) held.push({ venue: v.practice ? "lykia-practice" : (curator?.id ?? "morpho-vaults"), label: v.practice ? v.id : `Morpho ${v.id}`, max, adapter: v.practice ? "practice-vault-withdraw" : "vault-withdraw", params: { vault: v.address, vaultName: v.practice ? v.id : `Morpho ${v.id}`, ...(curator ? { venue: curator.id } : {}) } });
       });
     }
     try {
@@ -547,7 +578,7 @@ export class Planner {
     for (const m of await this.router.adapterPositions(env, token.symbol, account)) held.push({ venue: m.venue, label: m.label, max: m.max, adapter: "manifest", params: m.params });
     if (held.length === 0) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `No ${token.symbol} position to withdraw from on Arc ${env}.`);
     const [venueId, name] = (action.venue ?? "").split(":");
-    const named = action.venue ? held.find((h) => h.venue === venueId && (!name || h.label.toLowerCase().replace(/\s+/gu, "").includes(name.toLowerCase().replace(/usdc|eurc/gu, "")))) : undefined;
+    const named = action.venue ? held.find((h) => venueFamily(h.venue).includes(venueId!) && (!name || h.label.toLowerCase().replace(/\s+/gu, "").includes(name.toLowerCase().replace(/usdc|eurc/gu, "")))) : undefined;
     const pick = named ?? [...held].sort((a, b) => (b.max > a.max ? 1 : -1))[0]!;
     const all = "all" in action.amount;
     const units = all ? pick.max : "percent" in action.amount ? portionOf(pick.max, action.amount.percent * 100) : toBaseUnitsBig((action.amount as { exact: string }).exact, token.decimals);
@@ -738,7 +769,7 @@ export class Planner {
         adapter: leg.candidate.adapter as AdapterId,
         fx: isFx,
         summary: `${isFx ? "Convert" : "Swap"} ${display} on ${leg.candidate.option.label} (min ${fromBaseUnits(minOut, to.decimals)})`,
-        params: { ...leg.candidate.params, amountIn: legIn.toString(), minOut: minOut.toString(), display, ...feeParams(legFee) },
+        params: { ...leg.candidate.params, amountIn: legIn.toString(), minOut: minOut.toString(), display, ...(leg.candidate.adapter === "swap-zerox" ? { slippageBps: String(slippageBps) } : {}), ...feeParams(legFee) },
         inputs: [input],
         outputs: [book.amount(to.symbol, out, minOut)],
         ...(legFee ? { fee: legFee } : {}),

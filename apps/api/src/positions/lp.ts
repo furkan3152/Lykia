@@ -147,21 +147,24 @@ export function lpPosition(f: LpFacts): Position {
 /* ------------------------------------------------------- v3 and Slipstream */
 
 interface NfpmFlavour {
-  readonly protocol: "uniswap-v3" | "aerodrome-slipstream";
+  /** Registry id whose row holds the position manager and the factory. */
+  readonly protocol: string;
   readonly factoryKey: string;
+  /** Contract key of the NonfungiblePositionManager (default "positionManager"). */
+  readonly managerKey?: string;
   readonly nfpmAbi: typeof V3_NFPM_ABI | typeof SLIPSTREAM_NFPM_ABI;
   readonly slipstream: boolean;
 }
 
 async function readEnumerable(r: ReadContext, venue: { id: string; name: string }, flavour: NfpmFlavour) {
   const contracts = getProtocol(flavour.protocol)?.deployments[r.environment]?.contracts;
-  const nfpm = contracts?.positionManager as Address | undefined;
+  const nfpm = contracts?.[flavour.managerKey ?? "positionManager"] as Address | undefined;
   const factory = contracts?.[flavour.factoryKey] as Address | undefined;
   if (!nfpm || !factory) throw new VenueUnavailable(`${venue.name} has no position manager on this network.`);
   const client = r.ctx.chains.client(r.environment);
   const [count, head] = await Promise.all([client.readContract({ address: nfpm, abi: ERC721_ENUM_ABI, functionName: "balanceOf", args: [r.owner] }), client.getBlockNumber()]);
   const block = head.toString();
-  const method = `${flavour.slipstream ? "Slipstream" : "Uniswap v3"} NonfungiblePositionManager balanceOf and tokenOfOwnerByIndex; amounts from liquidity and slot0; fees by a static collect() as the owner.`;
+  const method = `${flavour.protocol === "uniswap-v3" || flavour.protocol === "aerodrome-slipstream" ? (flavour.slipstream ? "Slipstream" : "Uniswap v3") : `${venue.name} (${flavour.slipstream ? "Slipstream" : "Uniswap v3"}-style)`} NonfungiblePositionManager balanceOf and tokenOfOwnerByIndex; amounts from liquidity and slot0; fees by a static collect() as the owner.`;
   const n = Number(count > BigInt(MAX_POSITIONS) ? BigInt(MAX_POSITIONS) : count);
   if (n === 0) return { positions: [], block, method, source: "chain" as const };
   const ids = await client.multicall({ contracts: Array.from({ length: n }, (_, i) => ({ address: nfpm, abi: ERC721_ENUM_ABI, functionName: "tokenOfOwnerByIndex", args: [r.owner, BigInt(i)] }) as const), allowFailure: true });
@@ -230,6 +233,12 @@ async function readEnumerable(r: ReadContext, venue: { id: string; name: string 
 
 export const readUniswapV3: Reader = (r, venue) => readEnumerable(r, venue, { protocol: "uniswap-v3", factoryKey: "factory", nfpmAbi: V3_NFPM_ABI, slipstream: false });
 export const readSlipstream: Reader = (r, venue) => readEnumerable(r, venue, { protocol: "aerodrome-slipstream", factoryKey: "clFactory", nfpmAbi: SLIPSTREAM_NFPM_ABI, slipstream: true });
+/** Archery's Slipstream-style position manager ("Archery Slipstream Positions", factory() = v3Factory). Gauge-staked positions are held by the gauge and not listed. */
+export const readArchery: Reader = (r, venue) => readEnumerable(r, venue, { protocol: "archery", factoryKey: "v3Factory", managerKey: "v3PositionManager", nfpmAbi: SLIPSTREAM_NFPM_ABI, slipstream: true });
+/** Unitflow V3's position manager ("UnitFlow V3 Position", factory() = v3Factory): the Uniswap v3 interface. */
+export const readUnitflow: Reader = (r, venue) => readEnumerable(r, venue, { protocol: "unitflow-finance-v3", factoryKey: "v3Factory", nfpmAbi: V3_NFPM_ABI, slipstream: false });
+/** SushiSwap V3 LP positions ("SushiSwap V3 Positions NFT-V1", factory() = v3Factory). Swaps through Sushi's API settle in the wallet. */
+export const readSushiswap: Reader = (r, venue) => readEnumerable(r, venue, { protocol: "sushiswap", factoryKey: "v3Factory", managerKey: "v3PositionManager", nfpmAbi: V3_NFPM_ABI, slipstream: false });
 
 /* ----------------------------------------------------------------- v4 */
 

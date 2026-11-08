@@ -48,7 +48,7 @@ export type PlanAction =
       readonly minHealth?: string;
     }
   | { readonly verb: "repay"; readonly token: string; readonly amount: ActionAmount; readonly venue?: string }
-  | { readonly verb: "bridge"; readonly token: string; readonly amount: ActionAmount; readonly destination: string; readonly recipient?: string }
+  | { readonly verb: "bridge"; readonly token: string; readonly amount: ActionAmount; readonly destination: string; readonly recipient?: string; readonly venue?: string }
   | { readonly verb: "unify"; readonly amount: ActionAmount }
   /** Keep `amount` of `token` liquid in the wallet: later shares and "all" never touch it. */
   | { readonly verb: "reserve"; readonly token: string; readonly amount: ActionAmount; readonly reason?: string }

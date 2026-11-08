@@ -42,6 +42,7 @@ All variables are optional; see [`.env.example`](./.env.example).
 | `CIRCLE_ENTITY_SECRET`, `CIRCLE_WALLET_SET_ID` | (none) | entity secret (32 bytes hex, registered with Circle) for developer-controlled wallets; an existing wallet set to reuse |
 | `LYKIA_CIRCLE_SERVER_WALLETS` | (off) | `true` opts this server in to creating Circle developer-controlled wallets for signed-in users and executing payouts from them with the entity secret above. Each wallet is bound to the address that created it. Off: those routes answer 403 |
 | `STABLEFX_API_KEY` | (none) | a separate StableFX key, if StableFX access sits on its own key |
+| `ZEROX_API_KEY` | (none) | 0x Swap API key. Set: 0x (AllowanceHolder) joins swap routing and counts as routable. Unset: 0x stays read-only |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` | (none) | the Lyko bot: `/start <code>` links a chat to a signed-in address and alerts arrive there; the token is never logged. Point the bot at the API once with `POST /v1/telegram/setup` (admin) |
 | `LYKIA_KEEPER_PRIVATE_KEY` | (none) | optional keeper wallet that executes due conditional orders (it earns the tip and holds only gas). Without it anyone can run orders via `/v1/orders/:hash/execute-tx` |
 | `CRON_SECRET` | (none) | Bearer secret for `/cron/standing`, `/cron/orders` and `/cron/alerts` (Vercel Cron, daily each) and for `POST /v1/reconcile/tick` (one full background pass, for an external pinger when schedules must hold more often than daily), the keeper and the alert-check routes; compared in constant time |
