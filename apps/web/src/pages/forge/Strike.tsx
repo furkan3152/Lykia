@@ -1,6 +1,6 @@
 /**
  * Strike: the builder's first run, as five stones. Connect and sign in,
- * take the developer role, name your city (the press strikes its coin),
+ * take the developer role, name your city (the hammer strikes its coin),
  * shape it in the Workshop, then ask for a place in the League.
  */
 import type { Project } from "@lykia/core";
@@ -9,7 +9,7 @@ import { useState } from "react";
 
 import { navigate } from "../../app/routes/history";
 import { Coin } from "../../features/league/Coin";
-import { MintPress } from "../../features/league/MintPress";
+import { ForgeStrike } from "../../features/league/ForgeStrike";
 import { useSiwe } from "../../features/session/useSiwe";
 import { apiGet, apiPost, describeError } from "../../lib/api";
 import { useSession } from "../../lib/session";
@@ -19,9 +19,9 @@ type StepState = "done" | "now" | "later";
 
 function Stone({ n, title, state, children }: { readonly n: number; readonly title: string; readonly state: StepState; readonly children?: React.ReactNode }) {
   return (
-    <li className={cx("mint-stone", `mint-stone--${state}`)} aria-current={state === "now" ? "step" : undefined}>
-      <span className="mint-stone__n" aria-hidden="true">{state === "done" ? "✓" : n}</span>
-      <div className="mint-stone__body">
+    <li className={cx("forge-stone", `forge-stone--${state}`)} aria-current={state === "now" ? "step" : undefined}>
+      <span className="forge-stone__n" aria-hidden="true">{state === "done" ? "✓" : n}</span>
+      <div className="forge-stone__body">
         <b>{title}</b>
         {children}
       </div>
@@ -69,7 +69,7 @@ export function Strike({ onPreview }: { readonly onPreview: (p: Project) => void
   return (
     <div className="m-grid-2 m-grid-2--l" style={{ alignItems: "start" }}>
       <Card title="Strike a city" kicker="FIVE STONES · ABOUT FIVE MINUTES">
-        <ol className="mint-stones">
+        <ol className="forge-stones">
           <Stone n={1} title="Connect and sign in on Arc" state={s1}>
             <p className="m-small m-muted">{"One signed message (SIWE), no transaction. Your wallet owns your cities."}</p>
             {s1 === "now" ? <Button size="sm" onClick={() => void siwe.signIn()} disabled={siwe.busy}>{siwe.address ? "SIGN IN" : "CONNECT A WALLET FIRST"}</Button> : <Tag tone="ok">{`SIGNED IN · ${siwe.session?.address.slice(0, 6)}…`}</Tag>}
@@ -81,7 +81,7 @@ export function Strike({ onPreview }: { readonly onPreview: (p: Project) => void
           <Stone n={3} title="Name your city" state={s3}>
             <p className="m-small m-muted">{"A city is a project: your brand, your site's origin, the modules you turn on, Fence caps that only ever tighten a user's rules, and your app fee."}</p>
             {developer ? (
-              <div className="mint-form">
+              <div className="forge-form">
                 <Field label="Name"><Input value={name} maxLength={64} placeholder="Acme Pay" onChange={(e) => setName(e.target.value)} /></Field>
                 <Field label="Your site (optional)" hint="An exact origin. http://localhost needs no proof."><Input value={origin} placeholder="https://app.example.com" onChange={(e) => setOrigin(e.target.value.trim())} /></Field>
                 <Button onClick={() => create.mutate()} disabled={!name.trim() || create.isPending}>{create.isPending ? "STRIKING…" : "STRIKE THE COIN"}</Button>
@@ -94,17 +94,17 @@ export function Strike({ onPreview }: { readonly onPreview: (p: Project) => void
           </Stone>
           <Stone n={5} title="Ask for a place in the League" state={s5}>
             <p className="m-small m-muted">{"A one-line pitch, a category and an emblem. The Lykia team reviews every community city before it is listed."}</p>
-            {city ? <Button size="sm" tone="ghost" onClick={() => navigate("/mint/cities")}>{"REQUEST A LISTING"}</Button> : null}
+            {city ? <Button size="sm" tone="ghost" onClick={() => navigate("/forge/cities")}>{"REQUEST A LISTING"}</Button> : null}
           </Stone>
         </ol>
       </Card>
-      <div className="mint-pressbox" style={{ minWidth: 0 }}>
-        <div className="m-frame m-frame--night mint-press__frame">
-          <MintPress strikeKey={struck?.id ?? "idle"} label={struck ? `The press struck ${struck.name}'s coin` : "The Mint's press, waiting for a blank"} />
+      <div className="forge-anvilbox" style={{ minWidth: 0 }}>
+        <div className="m-frame m-frame--night forge-anvil__frame">
+          <ForgeStrike strikeKey={struck?.id ?? "idle"} label={struck ? `The hammer struck ${struck.name}'s coin` : "The Forge's anvil, a hot blank waiting"} />
         </div>
-        <div className="mint-pressbox__coin">
+        <div className="forge-anvilbox__coin">
           {struck ? <Coin key={struck.id} state="live" emblem="triskeles" codename={null} name={struck.name} size={112} delay={600} /> : <Coin state="coming" emblem="triskeles" codename={null} name="Your city" size={112} />}
-          {struck ? null : <p className="m-small m-muted m-center" style={{ maxWidth: 360 }}>{"A blank, waiting. Name a city and the press strikes it in gold: the League's shared face on one side, your emblem on the other."}</p>}
+          {struck ? null : <p className="m-small m-muted m-center" style={{ maxWidth: 360 }}>{"A blank, waiting. Name a city and the hammer strikes it in gold: the League's shared face on one side, your emblem on the other."}</p>}
           {struck ? <p className="m-small m-center"><b>{struck.name}</b>{" · "}<span className="num">{struck.id}</span></p> : null}
         </div>
       </div>

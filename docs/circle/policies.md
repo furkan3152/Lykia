@@ -1,6 +1,6 @@
-# Fence -> Circle wallet policy (the default agent setup)
+# Fence -> Circle wallet policy
 
-**Default path:** run an agent on a Circle wallet and let Lykia's Fence
+**One agent setup:** run an agent on a Circle wallet and let Lykia's Fence
 check every step before it reaches the wallet. Circle enforces the rules it
 supports natively; Lykia's preflight enforces the rest. A Lykia smart
 account (`LykiaAccount`) is optional, for owners who also want every Fence
@@ -8,7 +8,7 @@ rule enforced on chain.
 
 | Mode | Signer | Who enforces what |
 |---|---|---|
-| Circle wallet + Fence preflight (default) | Circle Agent Wallet or developer-controlled SCA wallet | Circle: caps, recipient and contract allow/block lists, sanctions screening. Lykia: everything else, before signing. |
+| Circle wallet + Fence preflight | Circle Agent Wallet or developer-controlled SCA wallet | Circle: caps, recipient and contract allow/block lists, sanctions screening. Lykia: everything else, before signing. |
 | Lykia smart account (optional) | A `LykiaAccount` session key | On chain: caps per token, recipients, call rules, sub-sessions, the Whistle. Lykia: the rest before signing. |
 
 ## Compile

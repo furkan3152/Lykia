@@ -27,7 +27,7 @@ const PAGE_WORDS: ReadonlyArray<readonly [Destination, readonly string[]]> = [
   ["orders", ["orders", "herding", "automate", "automations", "alerts", "activity"]],
   ["settings", ["settings", "preferences", "you"]],
   ["tag", ["tag", "tags", "licence", "license", "agent id", "erc-8004", "erc8004"]],
-  ["build", ["build", "mint", "the mint", "developers", "api", "mcp", "x402", "docs", "keys"]],
+  ["build", ["build", "forge", "the forge", "developers", "api", "mcp", "x402", "docs", "keys"]],
   ["league", ["league", "the league", "cities", "city"]],
   ["landing", ["valley", "about"]],
 ];

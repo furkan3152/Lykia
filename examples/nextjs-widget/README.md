@@ -11,7 +11,7 @@ typechecks and renders with plain React too.
 npm install @lykia/widget
 ```
 
-1. Strike a project in The Mint (`/mint`), add your origin and prove it
+1. Strike a project in The Forge (`/forge`), add your origin and prove it
    (DNS TXT or `/.well-known/lykia-verify.txt`), then issue a browser key.
 2. Put the project id and key in `.env.local`:
 
@@ -23,7 +23,7 @@ npm install @lykia/widget
 3. Copy `components/LykiaWallet.tsx` and render it from a page.
 
 The widget reads the project's brand, modules and assistant name, so a
-change in The Mint shows up without a deploy. Pass `wagmiConfig`,
+change in The Forge shows up without a deploy. Pass `wagmiConfig`,
 `walletClient` or `provider` to `LykiaProvider` to sign with the wallet your
 app already has; without one, the widget finds an injected wallet.
 

@@ -149,7 +149,7 @@ export const PROJECT_LIMITS = Object.freeze({
 export const CITY_SLUG = /^[a-z][a-z0-9-]{1,22}[a-z0-9]$/u;
 
 /** Words a city may not take: they would shadow Lykia's own hosts and pages, or read as official. */
-export const RESERVED_SLUGS: ReadonlySet<string> = new Set(["www", "api", "app", "admin", "letoon", "mint", "league", "lykia", "official", "council", "embed", "static", "assets", "cdn", "docs", "mail", "status", "new", "owner", "build", "developers", "help", "support", "root", "test"]);
+export const RESERVED_SLUGS: ReadonlySet<string> = new Set(["www", "api", "app", "admin", "letoon", "forge", "mint", "league", "lykia", "official", "council", "embed", "static", "assets", "cdn", "docs", "mail", "status", "new", "owner", "build", "developers", "help", "support", "root", "test"]);
 
 export function isCitySlug(slug: string): boolean {
   return CITY_SLUG.test(slug) && !RESERVED_SLUGS.has(slug);
@@ -202,7 +202,7 @@ export function validateProjectInput(input: ProjectInput): ProjectIssue[] {
   const issues: ProjectIssue[] = [];
   const add = (path: string, message: string) => issues.push({ path, message });
   if (typeof input.name !== "string" || input.name.trim().length === 0 || input.name.length > PROJECT_LIMITS.name || !controlFree(input.name)) add("name", `A name of 1 to ${PROJECT_LIMITS.name} plain characters.`);
-  if (input.slug !== undefined && !isCitySlug(input.slug)) add("slug", "3 to 24 lowercase letters, digits and dashes, starting with a letter (www, api, app, admin, letoon, mint and other reserved words are refused).");
+  if (input.slug !== undefined && !isCitySlug(input.slug)) add("slug", "3 to 24 lowercase letters, digits and dashes, starting with a letter (www, api, app, admin, letoon, forge and other reserved words are refused).");
   const b = input.brand ?? {};
   if (b.logoUrl !== undefined && !httpsUrl(b.logoUrl)) add("brand.logoUrl", "An https URL.");
   for (const [k, v] of Object.entries(b.colors ?? {})) if (v !== undefined && !HEX.test(v)) add(`brand.colors.${k}`, "A colour like #1f6feb.");

@@ -8,7 +8,7 @@
  * - `coast`: the Lycian coast with each city as a harbour whose lamp is lit
  *   while the city is live.
  * - `templeDoor`: the Letoon's door, opening stone by stone.
- * - `mintPress`: the press that strikes a new city's coin in The Mint.
+ * - `forgeStrike`: the hammer and anvil that strike a new city's coin in The Forge.
  */
 import type { LeagueEmblem, LeagueState } from "@lykia/core";
 
@@ -392,35 +392,47 @@ export function templeDoor(open: number, t = 0, watch = true): Buffer {
   return b;
 }
 
-/* ------------------------------------------------------------ The Mint's press */
+/* ------------------------------------------------------------ The Forge's anvil */
 
-export const PRESS_W = 64;
-export const PRESS_H = 48;
+export const FORGE_W = 64;
+export const FORGE_H = 48;
+const ANVIL = "#56677D";
+const ANVIL_LIGHT = "#8E9CAE";
+const ANVIL_DARK = "#3D4B5E";
 
-/** The press: the die comes down (progress 0 to 0.5), strikes, and lifts off a new coin (0.5 to 1). */
-export function mintPress(progress: number, state: LeagueState = "live"): Buffer {
-  const b = buffer(PRESS_W, PRESS_H);
+/** The forge: the hammer comes down on a hot blank (progress 0 to 0.5), strikes, and lifts off a new coin (0.5 to 1). */
+export function forgeStrike(progress: number, state: LeagueState = "live"): Buffer {
+  const b = buffer(FORGE_W, FORGE_H);
   const m = METALS[state];
-  b.px("#1D3150", 0, 0, PRESS_W, PRESS_H);
-  for (let x = 0; x < PRESS_W; x += 4) b.px("#22385A", x, 0, 2, PRESS_H);
-  // Frame and anvil.
-  b.px(C.stoneDark, 10, 4, 4, 40);
-  b.px(C.stoneDark, 50, 4, 4, 40);
-  b.px(C.stoneMid, 8, 2, 48, 3);
-  b.px(C.stoneMid, 18, 38, 28, 4);
-  b.px(C.stoneDark, 14, 42, 36, 3);
-  // The die.
+  b.px("#1D3150", 0, 0, FORGE_W, FORGE_H);
+  for (let x = 0; x < FORGE_W; x += 4) b.px("#22385A", x, 0, 2, FORGE_H);
   const p = Math.max(0, Math.min(1, progress));
-  const down = p < 0.5 ? p / 0.5 : 1 - (p - 0.5) / 0.5;
-  const dieY = 6 + Math.round(down * 22);
-  b.px(C.wood, 30, 5, 4, dieY - 5);
-  b.px(C.navy, 24, dieY, 16, 4);
-  b.px(m.dark, 26, dieY + 4, 12, 2);
-  // The blank, then the struck coin, with a flash at the strike.
+  // The hearth on the left, its coals glowing.
+  b.px(C.stoneDark, 2, 30, 9, 16);
+  b.px(C.stoneMid, 2, 29, 9, 2);
+  for (let i = 0; i < 7; i++) b.px(hash(i, 7) > 0.5 ? C.terra : C.ochre, 3 + i, 31 + (i % 2), 1, 2);
+  for (let i = 0; i < 3; i++) b.px(C.lamp, 4 + i * 3, 27 - (i % 2) * 2, 1, 1);
+  // The anvil: horn, face, waist, foot, on a wooden block.
+  b.px(ANVIL, 17, 31, 4, 2);
+  b.px(ANVIL, 14, 31, 3, 1);
+  b.px(ANVIL, 21, 30, 26, 4);
+  b.px(ANVIL_LIGHT, 21, 30, 26, 1);
+  b.px(ANVIL_DARK, 28, 34, 12, 5);
+  b.px(ANVIL, 24, 39, 20, 2);
+  b.px(C.wood, 22, 41, 24, 5);
+  b.px(C.woodLight, 22, 41, 24, 1);
+  // The blank: hot before the strike, the city's metal after it.
   const struck = p >= 0.5;
-  b.px(struck ? m.light : m.mid, 24, 35, 16, 3);
-  b.px(struck ? m.field : m.dark, 26, 34, 12, 1);
-  if (struck) b.px(m.dark, 30, 36, 4, 1);
-  if (p > 0.45 && p < 0.65) for (const [dx, dy] of [[-8, -3], [8, -3], [-11, 0], [11, 0], [-6, -6], [6, -6]] as const) b.px(C.lamp, 32 + dx, 35 + dy, 2, 1);
+  b.px(struck ? m.light : C.terra, 28, 28, 12, 2);
+  b.px(struck ? m.field : C.ochre, 30, 27, 8, 1);
+  if (struck) b.px(m.dark, 32, 29, 4, 1);
+  // The hammer: head and handle, coming down and lifting away.
+  const down = p < 0.5 ? p / 0.5 : 1 - (p - 0.5) / 0.5;
+  const headY = 4 + Math.round(down * 18);
+  b.px(C.woodLight, 38, headY + 2, 20, 2);
+  b.px(C.stoneDark, 28, headY, 10, 6);
+  b.px(C.stoneMid, 28, headY, 10, 1);
+  // Sparks at the strike.
+  if (p > 0.45 && p < 0.65) for (const [dx, dy] of [[-9, -3], [9, -3], [-12, 0], [12, 0], [-6, -6], [6, -6], [0, -8]] as const) b.px(C.lamp, 33 + dx, 28 + dy, 2, 1);
   return b;
 }

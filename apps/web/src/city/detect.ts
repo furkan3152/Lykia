@@ -17,7 +17,7 @@ export type CityTarget =
 
 const CITY_SLUG = /^[a-z][a-z0-9-]{1,22}[a-z0-9]$/u;
 /** Labels that are Lykia's own hosts, never a city (kept in step with core's RESERVED_SLUGS). */
-const OWN_LABELS: ReadonlySet<string> = new Set(["www", "api", "app", "admin", "letoon", "mint", "league", "lykia", "static", "assets", "cdn", "docs", "mail", "status"]);
+const OWN_LABELS: ReadonlySet<string> = new Set(["www", "api", "app", "admin", "letoon", "forge", "mint", "league", "lykia", "static", "assets", "cdn", "docs", "mail", "status"]);
 
 export interface PageAddress {
   readonly hostname: string;

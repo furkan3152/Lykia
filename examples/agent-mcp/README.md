@@ -20,4 +20,4 @@ To use Lykia from any MCP client (an IDE assistant, a desktop chat app or an age
 ```
 
 Add `"headers": { "Lykia-Key": "lk_sk_…" }` with a free developer key from
-`/mint/keys` for higher limits.
+`/forge/keys` for higher limits.

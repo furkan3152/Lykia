@@ -27,8 +27,8 @@ The product language is English. The interface leads with metaphors from the
 shepherd's valley and pairs each with a short plain word, so a newcomer reads
 the product and a returning user reads the story ("Flock · holdings"). Page
 titles, tabs and menus show the pair. The three top-level tiles (Ask Lyko,
-The Fold, The Mint) show only the name and a small hand-drawn pixel icon (Lyko's
-head, a sheepfold, a struck coin); their plain word rides in the tooltip and the
+The Fold, The Forge) show only the name and a small hand-drawn pixel icon (Lyko's
+head, a sheepfold, an anvil); their plain word rides in the tooltip and the
 accessible name. The navigation lives in `apps/web/src/shell/nav.ts` (see
 [product.md](product.md#information-architecture)).
 
@@ -53,7 +53,7 @@ most three facts with numbers; then one next step. No greeting, no filler.
 | Trails | The timeline of everything that happened (a tab of the Fold). | Trails · activity |
 | Rounds, Barks | Automations and alerts, as Herding labels them. | Rounds · automations, Barks · alerts |
 | Outrun | The path of a plan, drawn as an arc. | Outrun · plan |
-| The Mint | The developer portal, where builders strike projects. | The Mint · build |
+| The Forge | The developer portal, where builders strike projects. | The Forge · build |
 | League | Lykia's products and approved community apps, shown together. | The League · Lykia's cities |
 | City | One product of the League: a real project with its own brand, modules and Fence caps. | "city" |
 | Coin | A city's card: the League's shared face (Lyko) and the city's emblem on the reverse. Gold is live, silver is coming, bronze is paused. | the coin |
@@ -69,7 +69,7 @@ deterministic reader reads English and common Turkish phrasings.
 
 ## The League
 
-Each city of the League is a real project built in The Mint, with a Lycian
+Each city of the League is a real project built in The Forge, with a Lycian
 city as a small codename on its coin, never in place of the product name.
 
 | City | Codename | Emblem | Why |

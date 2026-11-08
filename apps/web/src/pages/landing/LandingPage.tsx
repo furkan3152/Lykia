@@ -1,8 +1,8 @@
 /**
- * The landing, written for builders and for the Arc and Circle teams:
- * the story in one sentence, the problem, how it works, live proof from
- * mainnet, the Circle products underneath, developer entry points and an
- * honest beta note. The composer in the bay scene hands a sentence to Ask
+ * The landing, written for first-time visitors, builders and the Arc and
+ * Circle teams: what Lykia is in one line and the three ways in, where USDC
+ * and Circle sit in a Lykia step, the problem, how it works, live proof from
+ * mainnet, developer entry points and an honest beta note. The composer in the bay scene hands a sentence to Ask
  * (shared composer + scene in a View Transition).
  */
 import { useQuery } from "@tanstack/react-query";
@@ -25,6 +25,9 @@ import { handleLine } from "../../shell/palette";
 import { apiGet } from "../../lib/api";
 import { usePulse } from "../../lib/pulseStore";
 import { Card, MeanderBand, Medallion, Stat, Tag } from "../../mosaic";
+import { NavIcon } from "../../mosaic/PixelArt";
+import { UsdcPath } from "../../features/circle/UsdcPath";
+import { AREAS } from "../../shell/nav";
 import { bay, BAY_H, BAY_W } from "../../mosaic/scenes";
 
 const REPO = "https://github.com/furkan3152/Lykia";
@@ -34,35 +37,24 @@ const CHIPS = ["Put half my USDC to work", "Keep 5000 USDC for payroll, put the 
 
 /** Why a policy layer: what goes wrong without one. */
 const PROBLEM: readonly (readonly [string, string])[] = [
-  ["Too many paths", "Arc already has exchanges, lending markets, vaults and Circle's own rails. Picking the best route by hand, every time, is slow and easy to get wrong."],
-  ["Wallets sign anything", "A wallet or an agent key signs whatever it is handed. Spending caps alone do not know a health factor, a slippage limit or a look-alike token."],
-  ["No record of the rules", "After an agent moves money, nobody can show which rules it was held to, or that the check happened before the signature."],
+  ["Too many paths", "Arc has exchanges, lending markets, vaults and Circle's rails. Picking the best route by hand is slow and easy to get wrong."],
+  ["Wallets sign anything", "An agent key signs whatever it is handed. A spending cap does not know a health factor, a slippage limit or a look-alike token."],
+  ["No record of the rules", "After an agent moves money, nobody can show which rules held it, or that the check came before the signature."],
 ];
 
 /** How it works: one sentence in, one checked transaction out. */
 const STEPS: readonly (readonly [string, string, string])[] = [
-  ["1", "Say the outcome", "\"Keep 5,000 USDC for payroll, put the rest in the best vault and hedge 20% into EURC.\" A sentence in the app, or one API call."],
-  ["2", "Lykia compiles a route", "Every protocol Lykia can route through on Arc, and Circle's CCTP and Gateway, is compared on the net result after fees, gas and slippage. The winner is simulated on Arc before you see it."],
-  ["3", "The Fence decides, you sign once", "Your rules (caps, recipients, tokens, health factor, FX band) return allow, confirm or deny with reasons. Approve, act and an Arc Memo with the verdict go out as one transaction."],
+  ["1", "Say the outcome", "\"Keep 5,000 USDC for payroll and put the rest in the best vault.\" A sentence in the app, or one API call."],
+  ["2", "Lykia compiles a route", "Arc protocols and Circle's CCTP and Gateway are compared on what you end up with. The winner is simulated on Arc."],
+  ["3", "The Fence decides, you sign once", "Your rules return allow, confirm or deny, with reasons. Then one transaction, one signature."],
 ];
 
-/** The three pillars, each pointing at the area of the app that carries it. */
-const PILLARS: readonly { title: string; kicker: string; line: string; links: readonly (readonly [string, string])[] }[] = [
-  { title: "Outcomes, not transactions", kicker: "ASK LYKO · FLOCK · HERDING", line: "Send, swap, earn, borrow and bridge by saying what you want, or with plain forms. Orders and automations re-plan under the same rules while you are away.", links: [["/app", "ASK LYKO"], ["/app/fold/flock", "FLOCK"], ["/app/fold/herding", "HERDING"]] },
-  { title: "Rules that hold", kicker: "FENCE · PACK · TAG", line: "The Fence is checked off chain before signing and on chain by Lykia's smart account. Sub-agents get a Fence inside yours, and a Tag (an ERC-8004 identity) pins the hash of the Fence an agent obeys.", links: [["/app/fold/fence", "FENCE"], ["/app/pack", "PACK"], ["/app/tag", "TAG"]] },
-  { title: "One engine for every builder", kicker: "REST · MCP · SDK · x402", line: "The planner, the router and the Fence behind this app are a public API, an MCP server, TypeScript and Python SDKs and drop-in components. Your brand, your fee.", links: [["/mint", "THE MINT"], ["/league", "THE LEAGUE"]] },
-];
-
-/** Which Circle product each Lykia feature uses (docs/circle/README.md). */
-const TOGETHER: readonly (readonly [string, string, string])[] = [
-  ["Agent wallets", "Circle Wallets", "An optional agent signer a deployment can switch on, bound to the address that created it; gas can be sponsored by Gas Station."],
-  ["Fence caps and allow lists", "Agent Wallet policies", "Your Fence compiles into the wallet's Circle spending policy; Lykia checks the rest."],
-  ["Bridging", "CCTP V2 · Gateway", "Burn and mint USDC across chains, or spend one unified balance."],
-  ["FX quotes", "StableFX", "Reference RFQ quotes for USDC and EURC beside the on-chain route, which is checked against the Chainlink reference."],
-  ["Recipient checks", "Compliance Engine", "A screened-out address becomes a Fence deny."],
-  ["Paid agent services", "x402 · Agent Marketplace", "Agents find services and pay them in USDC, inside their caps."],
-  ["Every plan", "USDC · EURC", "USDC is Arc's gas and Lykia's unit of account."],
-];
+/** The three ways in, one line each (the nav blurbs are written for menus). */
+const DOOR_LINE: Readonly<Record<(typeof AREAS)[number]["id"], string>> = {
+  ask: "Say what you want done with your USDC.",
+  fold: "See what you hold and what is in motion.",
+  forge: "Build on the same engine: API, SDK, MCP.",
+};
 
 /** Mainnet flow proofs in docs/flows.md (all three tables): simulated with eth_call, nothing signed. */
 const FLOWS = { passed: 35, refused: 8 } as const;
@@ -93,19 +85,30 @@ export default function LandingPage() {
       <header className="m-head m-wrap">
         <Medallion size={104} spin />
         <div style={{ marginTop: 14 }}>
-          <span className="m-kick">{"BUILT ON ARC NETWORK · POWERED BY CIRCLE · MAINNET BETA"}</span>
+          <span className="m-kick">{"BUILT ON ARC NETWORK · USDC NATIVE · MAINNET BETA"}</span>
         </div>
         <h1 className="m-title">
           Say the outcome. <em>Keep the rules.</em>
         </h1>
-        <p className="m-sub">
-          {"Lykia is the policy layer for money that agents and apps move on Arc. It compiles what you want into a route across Arc protocols and Circle rails, checks every step against your Fence, and hands it to your wallet or your agent to sign. The same engine is an API for every builder."}
+        <p className="m-sub lp-oneline">
+          {"Lykia turns a sentence into a checked USDC transaction on Arc: it finds the route, your rules approve it, you sign once."}
         </p>
-        <div className="lp-cta">
-          <Link to="/app" className="m-btn">{"OPEN THE APP"}</Link>
-          <Link to="/mint" className="m-btn m-btn--sea">{"BUILD IN THE MINT"}</Link>
-          <a href="#proof" className="m-btn m-btn--ghost">{"SEE THE PROOF"}</a>
-        </div>
+        <nav className="lp-doors" aria-label="Start here">
+          {AREAS.map((area) => (
+            <Link key={area.id} to={area.href} className={`lp-door lp-door--${area.id}`} onFocus={() => void warmRoute(area.href)} onMouseEnter={() => void warmRoute(area.href)}>
+              <span className="lp-door__plate" aria-hidden="true"><NavIcon name={area.id} size={30} /></span>
+              <span className="lp-door__text">
+                <b className="lp-door__name">{area.label}</b>
+                <span className="lp-door__sub">{DOOR_LINE[area.id]}</span>
+              </span>
+            </Link>
+          ))}
+        </nav>
+        <p className="m-small lp-hero-links">
+          <a href="#usdc-circle">{"Where USDC and Circle sit"}</a>
+          <span aria-hidden="true">{" · "}</span>
+          <a href="#proof">{"Proof on mainnet"}</a>
+        </p>
       </header>
 
       <section className="m-wrap" style={{ marginTop: 28 }} aria-label="Try it">
@@ -144,6 +147,10 @@ export default function LandingPage() {
         </p>
       </section>
 
+      <div style={{ marginTop: 44 }}>
+        <UsdcPath />
+      </div>
+
       <MeanderBand className="mt-12" />
 
       <section className="m-wrap" style={{ marginTop: 40 }} aria-labelledby="lp-problem">
@@ -178,22 +185,11 @@ export default function LandingPage() {
         <p className="m-small m-muted m-center" style={{ marginTop: 12 }}>{"The server never holds your keys; plans come back unsigned for your wallet. A deny comes back with its reasons; nothing is sent."}</p>
       </section>
 
-      <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="lp-pillars">
-        <h2 id="lp-pillars" className="sr-only">{"What Lykia does"}</h2>
-        <div className="m-grid-3">
-          {PILLARS.map((p) => (
-            <Card key={p.title} title={p.title} kicker={p.kicker} footer={<div className="lp-links">{p.links.map(([href, label]) => <Link key={href} to={href} className="m-btn m-btn--sm m-btn--navy">{label}</Link>)}</div>}>
-              <p className="m-small">{p.line}</p>
-            </Card>
-          ))}
-        </div>
-      </section>
-
       <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="lp-league">
         <div className="m-center">
           <span className="m-kick">{"THE LEAGUE"}</span>
           <h2 id="lp-league" className="m-h2" style={{ marginTop: 8 }}>{"One engine, a league of cities"}</h2>
-          <p className="m-sub" style={{ marginTop: 8 }}>{"The Lycian League struck one coinage for many cities. Lykia's products are its cities: each is a project built in The Mint, with its own brand, modules and Fence caps, on the same engine you can call."}</p>
+          <p className="m-sub" style={{ marginTop: 8 }}>{"The Lycian League struck one coinage for many cities. Lykia's products are its cities: each is a project built in The Forge, with its own brand, modules and Fence caps, on the same engine you can call."}</p>
         </div>
         <ul className="lp-coins" aria-label="Cities of the League">
           {(league.data?.cities ?? []).slice(0, 3).map((c, i) => (
@@ -210,7 +206,7 @@ export default function LandingPage() {
         {league.data && league.data.cities.length === 0 ? <p className="m-small m-muted m-center">{"The first cities are being struck."}</p> : null}
         <div className="lp-cta" style={{ marginTop: 18 }}>
           <Link to="/league" className="m-btn m-btn--navy">{"ENTER THE LEAGUE"}</Link>
-          <Link to="/mint/strike" className="m-btn m-btn--ghost">{"STRIKE YOUR OWN CITY"}</Link>
+          <Link to="/forge/strike" className="m-btn m-btn--ghost">{"STRIKE YOUR OWN CITY"}</Link>
         </div>
       </section>
 
@@ -245,26 +241,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="better-together">
-        <div className="m-center">
-          <span className="m-kick">{"POWERED BY CIRCLE"}</span>
-          <h2 id="better-together" className="m-h2" style={{ marginTop: 8 }}>{"Better together with Circle"}</h2>
-          <p className="m-sub" style={{ marginTop: 8 }}>{"Wherever Circle already runs something, Lykia uses it instead of rebuilding it, and adds what an agent still needs on top: routing across the Arc venues it has executable adapters for, and a Fence that understands DeFi."}</p>
-        </div>
-        <ul className="together" aria-label="Which Circle product each Lykia feature uses">
-          {TOGETHER.map(([feature, product, line]) => (
-            <li key={feature} className="m-frame m-frame--thin together__row">
-              <b>{feature}</b>
-              <Tag tone="sea">{product}</Tag>
-              <p className="m-small m-muted">{line}</p>
-            </li>
-          ))}
-        </ul>
-        <p className="m-center" style={{ marginTop: 14 }}>
-          <Link to="/app/circle" className="m-btn m-btn--sm m-btn--sea">{"LIVE STATUS OF EACH CIRCLE PRODUCT"}</Link>
-        </p>
-      </section>
-
       <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="lp-build">
         <div className="m-center">
           <span className="m-kick">{"FOR BUILDERS"}</span>
@@ -283,7 +259,7 @@ export default function LandingPage() {
           <Card title={"Entry points"} kicker={"PICK ONE"}>
             <ul className="lp-entry">
               <li><a href={API_REFERENCE} target="_blank" rel="noreferrer"><b>{"API reference"}</b></a><span className="m-small m-muted">{"OpenAPI 3.1, test and live keys, signed webhooks"}</span></li>
-              <li><Link to="/mint/reference#mcp"><b>{"MCP server and agent tools"}</b></Link><span className="m-small m-muted">{"Plan and check moves from any agent framework"}</span></li>
+              <li><Link to="/forge/reference#mcp"><b>{"MCP server and agent tools"}</b></Link><span className="m-small m-muted">{"Plan and check moves from any agent framework"}</span></li>
               <li><a href={`${REPO}/tree/main/packages/sdk`} target="_blank" rel="noreferrer"><b>{"SDKs"}</b></a><span className="m-small m-muted">{"TypeScript and Python, plus a CLI"}</span></li>
               <li><a href={`${REPO}/tree/main/packages/widget`} target="_blank" rel="noreferrer"><b>{"Widget and embed"}</b></a><span className="m-small m-muted">{"React components, or one script tag"}</span></li>
               <li><a href={`${REPO}/blob/main/docs/integrate-your-protocol.md`} target="_blank" rel="noreferrer"><b>{"Integrate your protocol"}</b></a><span className="m-small m-muted">{"One typed adapter makes it routable"}</span></li>

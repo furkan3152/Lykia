@@ -124,7 +124,7 @@ describe("the League", () => {
     const b = (await (await call("/v1/projects", { headers: h, body: { name: "Shop Front" } })).json()) as { slug: string };
     assert.equal(a.slug, "shop-front");
     assert.equal(b.slug, "shop-front-2", "a second project with the same name gets the next free slug");
-    for (const slug of ["www", "api", "app", "admin", "letoon", "mint", "ab", "Bad", "x".repeat(25)]) assert.equal((await call("/v1/projects", { headers: h, body: { name: "Reserved", slug } })).status, 400, slug);
+    for (const slug of ["www", "api", "app", "admin", "letoon", "forge", "mint", "ab", "Bad", "x".repeat(25)]) assert.equal((await call("/v1/projects", { headers: h, body: { name: "Reserved", slug } })).status, 400, slug);
     assert.equal((await call("/v1/projects", { headers: h, body: { name: "Copy", slug: "pay" } })).status, 409, "an official city's slug is taken");
     assert.equal((await call(`/v1/projects/${a.id}`, { method: "PATCH", headers: h, body: { slug: "agents" } })).status, 409);
 

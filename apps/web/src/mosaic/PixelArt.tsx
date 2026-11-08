@@ -69,20 +69,20 @@ const FOLD_ART = [
   "gggggggggggg",
 ];
 
-/** The Mint: a struck coin with the League's lambda. */
-const MINT_ART = [
-  "...dddddd...",
-  ".ddyyyyyydd.",
-  ".dhhyyyyyyd.",
-  "dhhyyeeyyyyd",
-  "dhyyyeeyyyyd",
-  "dyyyeyyeyyyd",
-  "dyyyeyyeyyyd",
-  "dyyeyyyyeyyd",
-  "dyyeyyyyeyyd",
-  ".dyyyyyyyyd.",
-  ".ddyyyyyydd.",
-  "...dddddd...",
+/** The Forge: an anvil on its block, a hot bar on the face and sparks off the strike. */
+const FORGE_ART = [
+  "..h....h....",
+  "....h.h..h..",
+  "...h........",
+  "...otttto...",
+  "kkkkkkkkkkkk",
+  ".kkkkkkkkkkk",
+  "...kkkkkkkk.",
+  ".....kkkk...",
+  ".....kkkk...",
+  "...kkkkkkkk.",
+  "..bbbbbbbbbb",
+  "..bebbbbebbb",
 ];
 
 const NAV_PALETTE: PixelPalette = {
@@ -100,8 +100,8 @@ const NAV_PALETTE: PixelPalette = {
   e: "#7d5410",
 };
 
-export type NavArt = "ask" | "fold" | "mint";
-const NAV_ARTS: Readonly<Record<NavArt, readonly string[]>> = { ask: ASK_ART, fold: FOLD_ART, mint: MINT_ART };
+export type NavArt = "ask" | "fold" | "forge";
+const NAV_ARTS: Readonly<Record<NavArt, readonly string[]>> = { ask: ASK_ART, fold: FOLD_ART, forge: FORGE_ART };
 
 export function NavIcon({ name, size = 24 }: { readonly name: NavArt; readonly size?: number }) {
   return <PixelArt art={NAV_ARTS[name]} palette={NAV_PALETTE} size={size} grout />;

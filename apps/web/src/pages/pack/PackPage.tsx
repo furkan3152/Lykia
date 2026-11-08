@@ -187,7 +187,7 @@ export default function PackPage() {
                     <dt>{"Session"}</dt><dd>{selected.session ? `${selected.session.account.slice(0, 8)}… · ${selected.session.sessionId.slice(0, 10)}…` : "not on chain"}</dd>
                   </dl>
                   {selected.mission ? <p className="m-note">{selected.mission}</p> : null}
-                  <p className="m-small m-muted">{"Default setup: a Circle wallet signs, and Lykia's Fence checks every step before it gets there. Circle enforces the caps and allow lists natively; Lykia covers venues, slippage, health factor, Scent and hours. Powered by Circle."}</p>
+                  <p className="m-small m-muted">{"The agent signs from its own wallet or a Lykia session, and the Fence checks every step first. If you run it on a Circle Agent Wallet instead, export this Fence as its spending policy below: Circle enforces the amounts and addresses, Lykia still covers venues, slippage, health factor, Scent and hours."}</p>
                   {siwe.signedIn && selected.status !== "revoked" ? (
                     <div className="flex gap-2 flex-wrap justify-center">
                       {selected.capabilities.includes("spawn") || selected.depth < 3 ? <Button tone="sea" size="sm" onClick={() => setWizard({ parent: selected })}>{"SPAWN A PUP"}</Button> : null}
@@ -222,7 +222,7 @@ export default function PackPage() {
               ))}
             </ul>
             {policy.warnings.map((w) => <p key={w} className="m-note">{w}</p>)}
-            <p className="m-kick">{"POWERED BY CIRCLE"}</p>
+            <p className="m-kick">{"CIRCLE AGENT WALLET POLICY"}</p>
           </div>
         ) : null}
       </Modal>

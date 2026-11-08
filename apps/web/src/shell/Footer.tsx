@@ -35,7 +35,7 @@ export function Footer() {
           <Link to="/legal/privacy">{"PRIVACY"}</Link>
         </div>
       </div>
-      <p className="m-wrap m-footer__note">{"LYKIA · BUILT ON ARC NETWORK · POWERED BY CIRCLE · INDEPENDENT, NOT AFFILIATED WITH OR ENDORSED BY CIRCLE OR ARC · BETA"}</p>
+      <p className="m-wrap m-footer__note">{"LYKIA · BUILT ON ARC NETWORK · INDEPENDENT, NOT AFFILIATED WITH OR ENDORSED BY CIRCLE OR ARC · BETA"}</p>
     </footer>
   );
 }

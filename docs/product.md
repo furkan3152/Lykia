@@ -24,7 +24,7 @@ which rules an agent was held to.
 |---|---|---|
 | **Outcomes, not transactions** | A sentence (or a form, or one API call) becomes a route across the protocols Lykia can route through on Arc and Circle's CCTP and Gateway. The route is scored on the net result, simulated on Arc, and sent as one transaction with an Arc Memo. Orders and automations re-plan under the same rules while the owner is away. | Ask Lyko, Flock, Herding |
 | **Rules that hold** | The Fence is a typed policy (caps, recipients, protocols, tokens, slippage, health factor, FX band, an emergency stop). It is checked off chain before signing and enforced on chain by the Lykia smart account; it can also be exported as a Circle Agent Wallet spending policy that the owner applies with the Circle CLI. Sub-agents get a Fence inside their parent's. A Tag (ERC-8004 identity) pins the hash of the Fence an agent obeys. | Fence |
-| **One engine for every builder** | The planner, router and Fence behind the app are a public REST and SSE API, an MCP server, TypeScript and Python SDKs, a CLI and drop-in components. A protocol becomes routable with one typed adapter. An app built on it can be listed as a city of the League. | The Mint, the League |
+| **One engine for every builder** | The planner, router and Fence behind the app are a public REST and SSE API, an MCP server, TypeScript and Python SDKs, a CLI and drop-in components. A protocol becomes routable with one typed adapter. An app built on it can be listed as a city of the League. | The Forge, the League |
 
 The server never holds user keys, and plans come back unsigned. Two optional
 server roles sign, each off unless the operator configures it: a gas-only
@@ -80,7 +80,7 @@ ASK LYKO · your agent        /app                 every action: send, convert, 
 THE FOLD · everything you own and everything in motion
                              /app/fold/:tab       Flock · holdings, Trails · activity, Herding · instructions,
                                                   Pack · agents, Fence · rules, and Lyko on watch docked beside them
-THE MINT · build             /mint/:section       The Mint · The League · Harbour · Circle · Ledger
+THE FORGE · build             /forge/:section       The Forge · The League · Harbour · Circle · Ledger
 
 Avatar menu   Your Lyko (preferences, voice and look, memory) │ More: Perps markets · New pools · Notice and risks │ Team: Letoon (admins only)
 Inside areas  an agent (/app/pack/:id), a Tag, a token check, the watch and the yields, reached from the Fold
@@ -88,7 +88,7 @@ Redirected    /app/move/:tab → /app?intent=… │ /app/flock → Fold · Floc
               /app/activity → Fold · Trails │ /app/whatif → Fold · Flock (what-if open) │ /app/fence → Fold · Fence │ /app/memory → Your Lyko
               A ?draft= or ?edit= link still opens the old form: it is the "edit the details" step of something Lyko drafted.
 Unlisted      /pay/:id (payment links), /kit, /lykaion, 404
-Aliases       /build and /developers → /mint, /owner → /letoon
+Aliases       /build, /developers and /mint/* → /forge/*, /owner → /letoon
 City mode     <slug>.<root domain>, /c/<slug>, ?city=<slug> or a verified custom domain: the city's own shell
 ```
 
@@ -143,12 +143,12 @@ and bar cards, shown, hidden and ordered). Each setting says what it changes.
 They live on the server (`GET/PUT /v1/me/preferences`); the risk profile is
 written through to the profile, so the default Fence follows it everywhere.
 
-The phone shows the three areas as a bottom bar (Ask · Fold · Mint, with
+The phone shows the three areas as a bottom bar (Ask · Fold · Forge, with
 Lyko's badge on the Fold). In the Fold the bar condenses into one card, the
 tabs become a chip row, Lyko becomes a tab of its own, drafts open as bottom
 sheets and an "Ask Lyko" bar stays within thumb reach. Targets are 44 px or more.
 
-### The League, The Mint and Letoon
+### The League, The Forge and Letoon
 
 - **The League** (`/league`, `/league/:city`). Lykia's products are the cities
   of a league, each a real project (`project.league`, `GET /v1/league`). A
@@ -168,9 +168,9 @@ sheets and an "Ask Lyko" bar stays within thumb reach. Targets are 44 px or more
   Lyko), Agents shows the owner's agents with budget meters, Tags, a New
   agent flow, decisions and the Whistle, and Perps is a coming landing. See
   [platform/city-domains.md](platform/city-domains.md).
-- **The Mint** (`/mint/:section`). The developer portal as a journey of seven
-  stones: Strike (create a city in five steps; the press strikes its coin),
-  Workshop (playground), Your cities (projects, League listing, origins,
+- **The Forge** (`/forge/:section`). The developer portal as a journey of seven
+  stones: Strike (create a city in five steps; the hammer strikes its coin
+  on the anvil), Workshop (playground), Your cities (projects, League listing, origins,
   keys, usage), Keys (and the fee), Usage & logs, Webhooks, Reference (API,
   SDK, MCP, parser, protocol integration, Circle, Arc tools).
 - **Letoon** (`/letoon/:section`). The team console, for addresses in
@@ -183,22 +183,24 @@ sheets and an "Ask Lyko" bar stays within thumb reach. Targets are 44 px or more
 
 ### The landing, top to bottom
 
-1. **Hero.** The sentence above, three calls to action (open the app, build
-   with the API, see the proof) and the live composer in the bay scene.
-2. **The problem.** Too many paths, wallets sign anything, no record of the rules.
-3. **How it works.** Three steps: say the outcome, Lykia compiles a route, the
+1. **Hero.** What Lykia is in one line and the three ways in, one click
+   each: Ask Lyko, The Fold and The Forge. Below them, the live composer in
+   the bay scene.
+2. **Where USDC and Circle sit in Lykia.** One USDC through a Lykia step,
+   each stone tagged with the Circle, Arc or Lykia primitive it uses, then
+   the Circle and Arc integrations beside the router, with links to the live
+   status page and the code map (`docs/circle/README.md`).
+3. **The problem.** Too many paths, wallets sign anything, no record of the rules.
+4. **How it works.** Three steps: say the outcome, Lykia compiles a route, the
    Fence decides and you sign once.
-4. **The three pillars.** Each one links to the area that carries it.
-5. **Proof, not promises.** The flow matrix count (`docs/flows.md`), the
+5. **The League.** The cities as coins, with a way in to The Forge.
+6. **Proof, not promises.** The flow matrix count (`docs/flows.md`), the
    number of Circle products used, live Arc block time and transfer cost,
    Lykia's three mainnet contracts with explorer links, and the ecosystem
    totals.
-6. **Better together with Circle.** Which Circle product each feature uses,
-   with a link to the live status page.
-7. **The League.** The cities as coins, with a way in to The Mint.
-8. **For builders.** A quote-and-build call, five entry points (API
+7. **For builders.** A quote-and-build call, five entry points (API
    reference, MCP, SDKs, widget and embed, protocol adapters) and the fee.
-9. **Beta note.** No paid audit yet, caps for everyone, one developer, MIT,
+8. **Beta note.** No paid audit yet, caps for everyone, one developer, MIT,
    not affiliated with Circle or Arc.
 
 ## What was merged, demoted or renamed, and why
@@ -209,7 +211,7 @@ sheets and an "Ask Lyko" bar stays within thumb reach. Targets are 44 px or more
 | Flock, Activity, What-if, Fence and the standing instructions → tabs of **The Fold** (Flock, Trails, Herding, Pack, Fence; the what-if slider sits in Flock) | One place for what the owner holds, what happened and what is in motion. |
 | **Perps markets** and **New pools** → More | Read-only market data. Useful, but neither moves money under a Fence. Perps trade on Extended, not on Arc. |
 | You + Memory → **Your Lyko**, in the avatar menu | One account page instead of two unrelated ones. |
-| Build, Circle, Ecosystem and Stats → **The Mint** area, beside the League | This is where a builder or a reviewer looks for integrations and numbers. |
+| Build, Circle, Ecosystem and Stats → **The Forge** area, beside the League | This is where a builder or a reviewer looks for integrations and numbers. |
 | Owner console → **Letoon**, in the avatar menu for admins only | Only the team uses it; the server checks the role on every call. |
 | `DeskTabs` removed; the shell renders the area tabs | One tab component for every area. Pages no longer repeat the navigation. |
 | Page headers | The kicker names the area and section. The titles say what the page does ("Check a token before you touch it", not "Let Lyko sniff it"). The medallion is smaller and hidden on phones. |

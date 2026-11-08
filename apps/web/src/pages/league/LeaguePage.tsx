@@ -1,7 +1,7 @@
 /**
  * The League · Lykia's cities. The Lycian League was a union of cities that
  * minted one coinage; Lykia's sub-products are its cities. Each is a real
- * project built in The Mint, listed by the Lykia team or approved by it.
+ * project built in The Forge, listed by the Lykia team or approved by it.
  */
 import { useMemo, useRef, useState } from "react";
 
@@ -25,7 +25,7 @@ export default function LeaguePage() {
   const dataKey = `${cities.map((c) => c.league.state).join(",")}|${lit}`;
   return (
     <div>
-      <PageHead kicker="THE MINT · LEAGUE" title={<>The League · <em>Lykia's cities.</em></>} sub="The Lycian League was a union of coastal cities that struck one shared coinage. The League hosts cities: each one is a real project built in The Mint, with its own brand, modules and Fence caps, running on the same engine. Official cities are being launched. Lykia never holds users' keys in any of them." mood="proud" />
+      <PageHead kicker="THE FORGE · LEAGUE" title={<>The League · <em>Lykia's cities.</em></>} sub="The Lycian League was a union of coastal cities that struck one shared coinage. The League hosts cities: each one is a real project built in The Forge, with its own brand, modules and Fence caps, running on the same engine. Official cities are being launched. Lykia never holds users' keys in any of them." mood="proud" />
 
       <section className="m-wrap" style={{ marginTop: 26 }} aria-label="The coast of the League">
         <SceneFrame build={(t) => coast(cities.map((c) => ({ state: c.league.state })), t)} width={COAST_W} height={COAST_H} dataKey={dataKey} assembleKey={cities.length} labels={labels} label={`The Lycian coast with ${cities.length} harbours, one per city. ${live} lighthouses are lit: those cities are live.`} />
@@ -59,12 +59,12 @@ export default function LeaguePage() {
         <div className="m-frame m-card lg-found">
           <div>
             <span className="m-kick">{"FOUND A CITY"}</span>
-            <h2 id="lg-found" className="m-h2" style={{ marginTop: 6, fontSize: 26 }}>{"Strike your own coin in The Mint"}</h2>
+            <h2 id="lg-found" className="m-h2" style={{ marginTop: 6, fontSize: 26 }}>{"Strike your own coin in The Forge"}</h2>
             <p className="m-small" style={{ marginTop: 6 }}>{"Create a project, give it your brand, modules and Fence caps, prove your site, then ask for a League listing. The Lykia team reviews every community city before it appears here."}</p>
           </div>
           <div className="lg-found__acts">
-            <Link to="/mint/strike" className="m-btn">{"STRIKE A CITY"}</Link>
-            <Link to="/mint/cities" className="m-btn m-btn--ghost">{"YOUR CITIES"}</Link>
+            <Link to="/forge/strike" className="m-btn">{"STRIKE A CITY"}</Link>
+            <Link to="/forge/cities" className="m-btn m-btn--ghost">{"YOUR CITIES"}</Link>
           </div>
         </div>
         <p className="m-small m-muted m-center" style={{ marginTop: 12 }}>{`States: ${Object.values(STATE_LABEL).join(", ").toLowerCase()}. Usage counts are real requests made with each city's own keys.`}</p>

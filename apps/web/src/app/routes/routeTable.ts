@@ -28,6 +28,7 @@ export type RouteId =
   | "tag"
   | "outrun"
   | "build"
+  | "forge"
   | "mint"
   | "league"
   | "city"
@@ -74,7 +75,7 @@ export interface RouteDefinition {
 
 const BRAND_TITLE = "Lykia — the policy layer for money that agents and apps move";
 const BRAND_DESCRIPTION =
-  "Say the outcome; Lykia compiles it into a route across Arc protocols and Circle rails, the Fence checks every step against your rules, and you or your agent sign it. The same engine is an API for every builder. Built on Arc Network, powered by Circle.";
+  "Say the outcome; Lykia compiles it into a route across Arc protocols and Circle rails, the Fence checks every step against your rules, and you or your agent sign it. The same engine is an API for every builder. Built on Arc Network, with USDC and Circle's rails.";
 const PRIVATE_ROBOTS = "noindex,nofollow";
 
 /** Pages whose work Ask Lyko or the Fold does now: they redirect, or open the form for a `?draft=` / `?edit=` link. */
@@ -106,8 +107,9 @@ export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze(
   whatif: page("whatif", "/app/whatif", "app", "What-if · stress test", "Shock cirBTC and EURC and see your portfolio's value and health factors move, with the PnL explained.", LEGACY, { robots: PRIVATE_ROBOTS }),
   pay: page("pay", "/pay/:id", "app", "Pay", "Pay an invoice or payment link on Arc: the amount, the line items and Lykia's fee shown before your wallet signs.", () => import("../../pages/pay/PayPage"), { robots: PRIVATE_ROBOTS }),
   security: page("security", "/app/security", "app", "Watch · security", "Six checks between a plan and your wallet: pre-sign simulation, address protection, approval hygiene, agent monitors, circuit breakers and the audit log.", () => import("../../pages/security/SecurityPage"), { robots: PRIVATE_ROBOTS }),
-  build: page("build", "/build", "site", "The Mint · build", "The developer portal moved to The Mint.", () => import("../../pages/redirect/RedirectPage"), { robots: PRIVATE_ROBOTS }),
-  mint: page("mint", "/mint/:section?", "app", "The Mint · developer portal", "Build on Lykia's engine: strike a project (a city) in steps, try it in the workshop, manage keys, usage, logs and webhooks, and read the API reference, SDKs and MCP.", () => import("../../pages/mint/MintPage")),
+  build: page("build", "/build", "site", "The Forge · build", "The developer portal moved to The Forge.", () => import("../../pages/redirect/RedirectPage"), { robots: PRIVATE_ROBOTS }),
+  forge: page("forge", "/forge/:section?", "app", "The Forge · developer portal", "Build on Lykia's engine: strike a project (a city) in steps, try it in the workshop, manage keys, usage, logs and webhooks, and read the API reference, SDKs and MCP.", () => import("../../pages/forge/ForgePage")),
+  mint: page("mint", "/mint/:section?", "site", "The Forge · build", "The developer portal is The Forge now.", () => import("../../pages/redirect/RedirectPage"), { robots: PRIVATE_ROBOTS }),
   league: page("league", "/league", "site", "The League · Lykia's cities", "The League hosts cities: projects built on Lykia, each with its own brand, modules and Fence caps. Official cities (Lykia Pay, Lykia Agents) are being launched.", () => import("../../pages/league/LeaguePage")),
   city: page("city", "/league/:city", "site", "City of the League", "One city of the League: what it does, how it uses Lykia, whether it is live, and the city itself, running on Lykia.", () => import("../../pages/league/CityPage")),
   letoon: page("letoon", "/letoon/:section?", "app", "Letoon · team console", "The Lykia team's console: the League council, contracts and deployments, flags and the Whistle, Circle setup, the audit log and platform usage. Admins only.", () => import("../../pages/letoon/LetoonPage"), { robots: PRIVATE_ROBOTS }),
@@ -119,13 +121,13 @@ export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze(
   chatKit: page("chatKit", "/app/kit/chat", "app", "Chat kit · sample", "Every Ask Lyko card and thinking state with sample data (development only; nothing here moves money).", () => import("../../pages/kit/ChatKitPage"), { robots: PRIVATE_ROBOTS, devOnly: true }),
   reviewKit: page("reviewKit", "/app/kit/review", "app", "Review kit · sample", "Every state of the review-and-sign modal with sample data (development only; nothing here moves money).", () => import("../../pages/kit/ReviewKitPage"), { robots: PRIVATE_ROBOTS, devOnly: true }),
   lykaion: page("lykaion", "/lykaion", "site", "Lykaion", "Mount Lykaion, Arcadia, at night.", () => import("../../pages/lykaion/LykaionPage"), { robots: PRIVATE_ROBOTS }),
-  developers: page("developers", "/developers", "site", "The Mint · build", BRAND_DESCRIPTION, () => import("../../pages/redirect/RedirectPage"), { robots: PRIVATE_ROBOTS }),
+  developers: page("developers", "/developers", "site", "The Forge · build", BRAND_DESCRIPTION, () => import("../../pages/redirect/RedirectPage"), { robots: PRIVATE_ROBOTS }),
   appNotFound: page("appNotFound", "/app/*", "site", "Page not found", BRAND_DESCRIPTION, () => import("../../pages/notFound/NotFoundPage"), { robots: "noindex,follow" }),
   notFound: page("notFound", "/*", "site", "Page not found", BRAND_DESCRIPTION, () => import("../../pages/notFound/NotFoundPage"), { robots: "noindex,follow" }),
 });
 
 /** Matching order: specific routes first, the catch-alls last. `/app` itself is Ask. */
-const ORDER: readonly RouteId[] = ["landing", "ask", "fold", "move", "flock", "pastures", "pack", "fence", "scent", "tag", "outrun", "you", "memory", "circle", "orders", "markets", "discover", "alerts", "automations", "activity", "whatif", "security", "pay", "build", "mint", "league", "city", "letoon", "ecosystem", "stats", "legal", "owner", "kit", "chatKit", "reviewKit", "lykaion", "developers", "appNotFound", "notFound"];
+const ORDER: readonly RouteId[] = ["landing", "ask", "fold", "move", "flock", "pastures", "pack", "fence", "scent", "tag", "outrun", "you", "memory", "circle", "orders", "markets", "discover", "alerts", "automations", "activity", "whatif", "security", "pay", "build", "forge", "mint", "league", "city", "letoon", "ecosystem", "stats", "legal", "owner", "kit", "chatKit", "reviewKit", "lykaion", "developers", "appNotFound", "notFound"];
 
 let compiled: ReadonlyArray<readonly [RouteDefinition, CompiledPattern]> | null = null;
 

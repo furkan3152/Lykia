@@ -19,7 +19,7 @@ webhooks.
 
 ## A small app: a test key and a plan
 
-1. Sign in on The Mint (`/mint`) with your wallet and press **Become a developer**.
+1. Sign in on The Forge (`/forge`) with your wallet and press **Become a developer**.
 2. On the **Keys** tab create a **test** key (`lk_test_…`). It only reaches
    Arc testnet and is never billed.
 3. Plan something:

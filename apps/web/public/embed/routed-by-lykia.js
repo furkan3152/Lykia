@@ -52,7 +52,7 @@
       list.appendChild(li);
     });
     box.appendChild(list);
-    var foot = el("a", "display:block;text-align:right;font-size:10px;letter-spacing:.12em;color:#1f3a5f;text-decoration:none;", "ROUTED BY LYKIA · BUILT ON ARC NETWORK · POWERED BY CIRCLE");
+    var foot = el("a", "display:block;text-align:right;font-size:10px;letter-spacing:.12em;color:#1f3a5f;text-decoration:none;", "ROUTED BY LYKIA · BUILT ON ARC NETWORK");
     foot.setAttribute("href", site + "/ecosystem");
     foot.setAttribute("target", "_blank");
     foot.setAttribute("rel", "noopener");

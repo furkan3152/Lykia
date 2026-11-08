@@ -104,7 +104,7 @@ export default function CityPage() {
         <div className="m-center">
           <span className="m-kick">{"THE CITY ITSELF"}</span>
           <h2 id="lg-instance" className="m-h2" style={{ marginTop: 8 }}>{league.state === "live" ? `${project.name}, running on Lykia` : league.state === "paused" ? "Paused by the Lykia team" : "Not open yet"}</h2>
-          <p className="m-small m-muted" style={{ marginTop: 6 }}>{"Rendered from its project in The Mint: its brand, its modules and its Fence caps. Your wallet signs; Lykia never does."}</p>
+          <p className="m-small m-muted" style={{ marginTop: 6 }}>{"Rendered from its project in The Forge: its brand, its modules and its Fence caps. Your wallet signs; Lykia never does."}</p>
         </div>
         <div className="m-grid-2 m-grid-2--l" style={{ marginTop: 18, alignItems: "start" }}>
           <div className="m-frame m-card lg-instance" style={{ minWidth: 0 }}>
@@ -133,10 +133,10 @@ export default function CityPage() {
                 <a className="m-btn m-btn--sm m-btn--ghost" href={apiUrl(`/v1/projects/${project.id}/fence`)} target="_blank" rel="noreferrer">{"ITS FENCE"}</a>
               </div>
             </Card>
-            <Card title="Built in The Mint" kicker="EVERY CITY IS A PROJECT">
+            <Card title="Built in The Forge" kicker="EVERY CITY IS A PROJECT">
               <p className="m-small">{"The same project editor any builder uses: brand, origins, modules, Fence caps and an app fee. Strike your own and ask for a listing."}</p>
               <div className="flex flex-wrap gap-2" style={{ marginTop: 10 }}>
-                <Link to="/mint/strike" className="m-btn m-btn--sm">{"STRIKE A CITY"}</Link>
+                <Link to="/forge/strike" className="m-btn m-btn--sm">{"STRIKE A CITY"}</Link>
                 <Link to="/league" className="m-btn m-btn--sm m-btn--ghost">{"ALL CITIES"}</Link>
               </div>
             </Card>

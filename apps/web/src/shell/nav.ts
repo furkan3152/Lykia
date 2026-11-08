@@ -9,7 +9,7 @@
  *
  *   ASK LYKO   your agent                                   every action happens here
  *   THE FOLD   everything you own and everything in motion  holdings, activity, instructions, agents, rules + Lyko on watch
- *   THE MINT   build                                        the developer portal, the League, the harbour, Circle, the ledger
+ *   THE FORGE  build                                        the developer portal, the League, the harbour, Circle, the ledger
  *
  * If the agent can do something, there is no separate manual page for it:
  * the old Move, Orders, Alerts, Automations, Activity, What-if, Fence and
@@ -27,7 +27,7 @@
  */
 import type { RouteId } from "../app/routes/routeTable";
 
-export type AreaId = "ask" | "fold" | "mint";
+export type AreaId = "ask" | "fold" | "forge";
 
 export interface NavSection {
   readonly id: RouteId;
@@ -48,7 +48,7 @@ export interface NavArea {
   readonly sub: string;
   /** A short subtitle for narrow headers. */
   readonly short: string;
-  /** One word for the phone's bottom bar ("Ask", "Fold", "Mint"). */
+  /** One word for the phone's bottom bar ("Ask", "Fold", "Forge"). */
   readonly tab: string;
   readonly href: string;
   /** One line: what the area is for. Used in the footer and as the link title. */
@@ -85,15 +85,15 @@ export const AREAS: readonly NavArea[] = [
     sections: [{ id: "fold", href: "/app/fold", label: "The Fold", sub: "everything you own and everything in motion", also: ["pack", "tag", "scent", "security", "pastures"] }],
   },
   {
-    id: "mint",
-    label: "The Mint",
+    id: "forge",
+    label: "The Forge",
     sub: "build",
     short: "build",
-    tab: "Mint",
-    href: "/mint",
+    tab: "Forge",
+    href: "/forge",
     blurb: "Build on the same engine, and the League of cities built with it.",
     sections: [
-      { id: "mint", href: "/mint", label: "The Mint", sub: "developer portal", also: ["build", "developers"] },
+      { id: "forge", href: "/forge", label: "The Forge", sub: "developer portal", also: ["build", "developers", "mint"] },
       { id: "league", href: "/league", label: "The League", sub: "Lykia's cities", also: ["city"] },
       { id: "ecosystem", href: "/ecosystem", label: "Harbour", sub: "ecosystem" },
       { id: "circle", href: "/app/circle", label: "Circle", sub: "rails" },
@@ -102,7 +102,7 @@ export const AREAS: readonly NavArea[] = [
   },
 ];
 
-/** "The Mint · build": the metaphor and its plain meaning, as page titles and menus show them. */
+/** "The Forge · build": the metaphor and its plain meaning, as page titles and menus show them. */
 export function titleOf(item: { readonly label: string; readonly sub: string }): string {
   return item.label.toLowerCase() === item.sub.toLowerCase() ? item.label : `${item.label} · ${item.sub}`;
 }

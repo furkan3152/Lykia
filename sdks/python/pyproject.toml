@@ -17,7 +17,7 @@ classifiers = ["Programming Language :: Python :: 3", "License :: OSI Approved :
 test = ["pytest>=7"]
 
 [project.urls]
-Homepage = "https://lykiaai.com/mint"
+Homepage = "https://lykiaai.com/forge"
 Repository = "https://github.com/furkan3152/Lykia"
 
 [tool.hatch.build.targets.wheel]

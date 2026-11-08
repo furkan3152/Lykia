@@ -1,5 +1,5 @@
 /**
- * The Mint · developer portal. A builder's journey in seven stones:
+ * The Forge · developer portal. A builder's journey in seven stones:
  *
  *   Strike         create a project (a city) in steps, plus the quickstarts
  *   Workshop       the live playground: brand, modules, preview and code
@@ -9,14 +9,15 @@
  *   Webhooks       endpoints, deliveries and replays
  *   Reference      API reference, SDKs, MCP, the sentence parser, Circle, Arc tools, protocol integration
  *
- * Each stone has its own URL (/mint/:section). The old /build tabs and
+ * Each stone has its own URL (/forge/:section). The old /build tabs and
  * hashes still land in the right place (app/routes/aliases.ts).
  */
 import { coverageLine, type Project } from "@lykia/core";
 import { useEffect, useState } from "react";
 
 import { navigate } from "../../app/routes/history";
-import { mintSectionFor } from "../../app/routes/aliases";
+import { Link } from "../../app/routes/Link";
+import { forgeSectionFor } from "../../app/routes/aliases";
 import { useRoute } from "../../app/routes/useRoute";
 import { CircleMarket } from "../../features/circle/Circle";
 import { DevToolsCard } from "../../features/desk/DevTools";
@@ -36,9 +37,9 @@ import { Usage } from "./Usage";
 import { Webhooks } from "./Webhooks";
 import type { StudioConfig } from "./snippets";
 
-export type MintSection = "strike" | "workshop" | "cities" | "keys" | "usage" | "webhooks" | "reference";
+export type ForgeSection = "strike" | "workshop" | "cities" | "keys" | "usage" | "webhooks" | "reference";
 
-const MINT_SECTIONS: readonly { readonly id: MintSection; readonly label: string; readonly sub: string }[] = [
+const FORGE_SECTIONS: readonly { readonly id: ForgeSection; readonly label: string; readonly sub: string }[] = [
   { id: "strike", label: "Strike", sub: "quickstart" },
   { id: "workshop", label: "Workshop", sub: "playground" },
   { id: "cities", label: "Your cities", sub: "projects" },
@@ -64,66 +65,72 @@ for (const step of plan.intent.steps) {
 
 type RefTab = "api" | "sdk" | "mcp" | "parser" | "integrate" | "circle" | "arc";
 
-function isSection(value: string | undefined): value is MintSection {
-  return MINT_SECTIONS.some((s) => s.id === value);
+function isSection(value: string | undefined): value is ForgeSection {
+  return FORGE_SECTIONS.some((s) => s.id === value);
 }
 
-export default function MintPage() {
+export default function ForgePage() {
   const { params, location } = useRoute();
   const raw = params.section;
-  const section: MintSection = isSection(raw) ? raw : "strike";
+  const section: ForgeSection = isSection(raw) ? raw : "strike";
   const siwe = useSiwe();
   const enabled = siwe.signedIn;
   const [studio, setStudio] = useState<Partial<StudioConfig> | undefined>(undefined);
 
-  // Old tab names and hashes (/mint/projects, /mint#keys) land on their stone.
+  // Old tab names and hashes (/forge/projects, /forge#keys) land on their stone.
   useEffect(() => {
     if (raw && !isSection(raw)) {
-      const to = mintSectionFor(raw);
-      navigate(`/mint/${to ?? "strike"}${location.hash}`, { replace: true });
+      const to = forgeSectionFor(raw);
+      navigate(`/forge/${to ?? "strike"}${location.hash}`, { replace: true });
     } else if (!raw && location.hash) {
-      const to = mintSectionFor(location.hash);
-      if (to) navigate(`/mint/${to}${to === location.hash.slice(1) ? "" : location.hash}`, { replace: true });
+      const to = forgeSectionFor(location.hash);
+      if (to) navigate(`/forge/${to}${to === location.hash.slice(1) ? "" : location.hash}`, { replace: true });
     }
   }, [raw, location.hash]);
 
   const preview = (p: Project) => {
     setStudio({ projectId: p.id, assistantName: p.brand.assistant?.name ?? "Lyko", modules: p.modules, ...(p.brand.colors?.primary ? { primary: p.brand.colors.primary } : {}), ...(p.brand.colors?.accent ? { accent: p.brand.colors.accent } : {}), ...(p.brand.scheme ? { scheme: p.brand.scheme } : {}), ...(p.brand.radius !== undefined ? { radius: p.brand.radius } : {}), mosaic: p.brand.mosaic ?? true });
-    navigate("/mint/workshop");
+    navigate("/forge/workshop");
   };
-  const index = MINT_SECTIONS.findIndex((s) => s.id === section);
+  const index = FORGE_SECTIONS.findIndex((s) => s.id === section);
 
   return (
     <div>
-      <PageHead kicker="THE MINT · DEVELOPER PORTAL" title={<>Strike a city. <em>Ship it anywhere.</em></>} sub="The routing, the Fence checks and the assistant behind Lykia, as a REST API, an MCP server, SDKs and drop-in components. Every app you build is a city: your brand, your modules, your Fence caps, your fee. Plans come back unsigned for the owner's wallet." mood="happy">
+      <PageHead kicker="THE FORGE · DEVELOPER PORTAL" title={<>Strike a city. <em>Ship it anywhere.</em></>} sub="Lykia's routing, Fence checks and assistant as a REST API, an MCP server, SDKs and drop-in components. Every app you build is a city: your brand, your modules, your Fence caps, your fee." mood="happy">
         <div className="flex justify-center gap-2 flex-wrap" style={{ marginTop: 18 }}>
           {siwe.signedIn ? <Tag tone="ok">SIGNED IN · {siwe.session?.roles.join(", ").toUpperCase()}</Tag> : <Button onClick={() => void siwe.signIn()} disabled={siwe.busy}>{"SIGN IN ON ARC (SIWE)"}</Button>}
         </div>
       </PageHead>
 
-      <nav className="m-wrap mint-rail" aria-label="The Mint">
+      <section className="m-wrap forge-rails" aria-labelledby="forge-rails">
+        <h2 id="forge-rails" className="m-kick">{"ON TOP OF CIRCLE'S RAILS"}</h2>
+        <p className="m-small">{"Circle gives your app USDC, CCTP, Gateway and wallets. The Forge adds what sits between a sentence and a signature: a route across the Arc venues Lykia can execute, scored on what your user ends up with and simulated on Arc; a Fence that checks every step in USD before the wallet signs; one transaction carrying an Arc Memo of the verdict, with gas in USDC; and the keys, usage, webhooks and OpenAPI document to ship it. Plans come back unsigned for your user's wallet."}</p>
+        <Link to="/#usdc-circle" className="m-small forge-rails__link">{"Where USDC and Circle sit in each step"}</Link>
+      </section>
+
+      <nav className="m-wrap forge-rail" aria-label="The Forge">
         <ol>
-          {MINT_SECTIONS.map((s, i) => (
+          {FORGE_SECTIONS.map((s, i) => (
             <li key={s.id}>
               <a
-                href={`/mint/${s.id}`}
-                className={cx("mint-rail__stone", i < index && "is-past")}
+                href={`/forge/${s.id}`}
+                className={cx("forge-rail__stone", i < index && "is-past")}
                 aria-current={s.id === section ? "page" : undefined}
                 onClick={(e) => {
                   e.preventDefault();
-                  navigate(`/mint/${s.id}`);
+                  navigate(`/forge/${s.id}`);
                 }}
               >
-                <span className="mint-rail__n" aria-hidden="true">{i + 1}</span>
-                <span className="mint-rail__l">{s.label}</span>
-                <span className="mint-rail__s">{s.sub}</span>
+                <span className="forge-rail__n" aria-hidden="true">{i + 1}</span>
+                <span className="forge-rail__l">{s.label}</span>
+                <span className="forge-rail__s">{s.sub}</span>
               </a>
             </li>
           ))}
         </ol>
       </nav>
 
-      <section className="m-wrap mint-section" key={section} style={{ marginTop: 22 }} aria-label={MINT_SECTIONS[index]?.label}>
+      <section className="m-wrap forge-section" key={section} style={{ marginTop: 22 }} aria-label={FORGE_SECTIONS[index]?.label}>
         {section === "strike" ? (
           <div style={{ display: "grid", gap: 24, gridTemplateColumns: "minmax(0, 1fr)" }}>
             <Strike onPreview={preview} />
@@ -215,7 +222,7 @@ function Reference({ hash }: { readonly hash: string }) {
       ) : tab === "circle" ? (
         <div style={{ display: "grid", gap: 16, gridTemplateColumns: "minmax(0, 1fr)" }}>
           <div className="m-frame m-card">
-            <span className="m-kick">{"BUILT ON ARC NETWORK · POWERED BY CIRCLE"}</span>
+            <span className="m-kick">{"BUILT ON ARC NETWORK · ON CIRCLE'S RAILS"}</span>
             <p className="m-small" style={{ marginTop: 6 }}>{"Circle moves the value: USDC, CCTP, Gateway and the agent stack. Lykia maps the protocols on Arc, routes through the ones it has an executable adapter for, checks each move against a DeFi-aware Fence and files every verdict as an ERC-8354 policy attestation in the ERC-8004 Validation Registry."}</p>
           </div>
           <CircleMarket compact />

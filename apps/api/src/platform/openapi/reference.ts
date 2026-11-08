@@ -2,7 +2,7 @@
  * A rendered API reference (GET /v1/reference): plain HTML built on the
  * server from the OpenAPI document, no scripts, inline styles only, so it
  * works under the API's strict Content-Security-Policy. The developer portal
- * (The Mint, /mint/reference) renders the same document with a try-it panel.
+ * (The Forge, /forge/reference) renders the same document with a try-it panel.
  */
 import type { JsonSchema } from "./zodSchema.js";
 

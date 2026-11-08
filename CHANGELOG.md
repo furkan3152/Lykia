@@ -3,6 +3,29 @@
 All notable changes to this project are documented here. The API has its
 own dated version history in [docs/platform/changelog.md](docs/platform/changelog.md).
 
+## Unreleased
+
+### Changed
+
+- The developer portal is now **The Forge** (it was The Mint, which read
+  as minting an NFT). It lives at `/forge/:section`; every `/mint` path
+  redirects to its `/forge` twin with its query and hash (a 308 from
+  `vercel.json`, then the app's own redirect). The nav icon is an anvil and
+  the Strike animation is a hammer on an anvil. `forge` joins the reserved
+  city slugs; `mint` stays reserved.
+- The landing page leads with what Lykia is in one line and the three ways
+  in (Ask Lyko, The Fold, The Forge), followed by "Where USDC and Circle sit
+  in Lykia": one USDC through a Lykia step, each stop tagged with the
+  Circle, Arc or Lykia primitive it uses, and the integrations beside the
+  router. The pillars and "Better together" sections are folded into it.
+- The README and `docs/circle/README.md` carry the same primitive table,
+  with the file or endpoint for each row; a web test keeps them in step
+  with the landing. Circle Wallets are described as what they are:
+  optional and off by default.
+- Contrast and tap targets: sea tags and the network toggle use the darker
+  sea, footer headings and notes meet WCAG AA, small buttons and footer
+  links are 44 px tall on phones, and a link to `/#section` scrolls to it.
+
 ## 0.1.0 (2026-11)
 
 First public release on Arc mainnet.
@@ -15,7 +38,7 @@ First public release on Arc mainnet.
   cities (Lykia Pay, Lykia Agents, later Lykia Perps), which are being
   launched and are not listed yet. Cities run on their own subdomain
   (`LYKIA_ROOT_DOMAIN`, `/c/<slug>`) with task-first city shells.
-- The Mint (the developer portal as seven steps) and Letoon (the team
+- The developer portal as seven steps (now The Forge) and Letoon (the team
   console, admins only, enforced on the server).
 - Ask Lyko (every action from one sentence) and The Fold (Flock, Trails,
   Herding, Pack and Fence tabs, with Lyko on watch), including a position

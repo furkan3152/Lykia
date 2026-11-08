@@ -7,15 +7,16 @@ typed data for the owner's or the agent's wallet. The one exception is
 opt-in: with `LYKIA_CIRCLE_SERVER_WALLETS=true` the server signs for Circle
 developer-controlled wallets with the operator's entity secret (each wallet
 is bound to the address that created it, and every payout from it passes the
-Fence and the beta cap first). The map of which Lykia feature uses which
-Circle product is [circle/README.md](circle/README.md); this page is the
+Fence and the beta cap first). The map of where USDC and each Circle product
+sit in Lykia is [circle/README.md](circle/README.md); this page is the
 per-product reference.
 
 ## Agent Stack, providers, Marketplace, mandates
 
-See [docs/circle/README.md](circle/README.md): which Circle product each
-Lykia feature uses, the Fence -> Circle Agent Wallet policy compiler (the
-default agent setup is a Circle wallet plus Lykia's Fence preflight), the
+See [docs/circle/README.md](circle/README.md): where USDC and each Circle
+product sit in Lykia, the Fence -> Circle Agent Wallet policy compiler (one
+agent setup is a Circle wallet plus Lykia's Fence preflight; the server's
+own Circle wallets are off by default), the
 Circle execution providers registered with the aggregator, the Agent
 Marketplace listing and consumer flow, Arc mandate drafts, and Circle MCP
 next to Lykia MCP.

@@ -44,7 +44,7 @@ export default function EcosystemPage() {
   return (
     <div>
       <header className="m-head m-wrap">
-        <span className="m-kick">{"THE MINT · HARBOUR · ECOSYSTEM"}</span>
+        <span className="m-kick">{"THE FORGE · HARBOUR · ECOSYSTEM"}</span>
         <h1 className="m-title">
           The protocols on Arc, mapped, <em>the routable ones one route away.</em>
         </h1>
@@ -92,7 +92,7 @@ export default function EcosystemPage() {
 
       <section className="m-wrap" style={{ marginTop: 48 }}>
         <div className="m-grid-2">
-          <Card title={"Your protocol here"} kicker={"INTEGRATE IN AN AFTERNOON"} footer={<Link to="/mint/reference#integrate" className="m-btn m-btn--sea">{"INTEGRATE YOUR PROTOCOL"}</Link>}>
+          <Card title={"Your protocol here"} kicker={"INTEGRATE IN AN AFTERNOON"} footer={<Link to="/forge/reference#integrate" className="m-btn m-btn--sea">{"INTEGRATE YOUR PROTOCOL"}</Link>}>
             <p className="m-small">{"Send the addresses and the evidence, add one typed adapter, and every Lykia user and agent can reach you, inside their Fence. Free developer keys for Arc builders."}</p>
           </Card>
           <Card title={"Routed by Lykia"} kicker={"EMBED THE DIRECTORY"}>

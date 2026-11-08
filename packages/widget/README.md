@@ -21,7 +21,7 @@ import { LykiaProvider, LykiaChat, Swap } from "@lykia/widget";
 
 ## Setup
 
-1. Strike a project in Lykia's Mint (`/mint`), add your origin and prove it
+1. Strike a project in Lykia's Forge (`/forge`), add your origin and prove it
    (DNS TXT or `/.well-known/lykia-verify.txt`).
 2. Issue a browser key (`lk_pk_…`). It only works from the project's
    verified origins and only plans and reads; it never moves money.

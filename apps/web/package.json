@@ -2,7 +2,7 @@
   "name": "@lykia/web",
   "private": true,
   "version": "0.1.0",
-  "description": "The Lykia web app: Ask Lyko, The Fold, The Mint and the League, on the Mosaic design system.",
+  "description": "The Lykia web app: Ask Lyko, The Fold, The Forge and the League, on the Mosaic design system.",
   "license": "MIT",
   "type": "module",
   "scripts": {

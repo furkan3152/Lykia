@@ -1,11 +1,13 @@
 /**
  * Where old addresses go. The developer portal used to be /build with its
- * tabs in component state (and /developers before that); it is The Mint at
- * /mint/:section now. The owner console moved to Letoon. Pure.
+ * tabs in component state (and /developers before that), then /mint; it is
+ * The Forge at /forge/:section now, and every /mint path lands on its /forge
+ * twin (vercel.json answers them with a 308 first). The owner console moved
+ * to Letoon. Pure.
  */
 
-/** Old /build tab ids (and hashes) mapped to The Mint's sections. */
-const MINT_ALIASES: Readonly<Record<string, string>> = {
+/** Old /build tab ids (and hashes) mapped to The Forge's sections. */
+const FORGE_ALIASES: Readonly<Record<string, string>> = {
   start: "strike",
   quickstart: "strike",
   strike: "strike",
@@ -31,18 +33,21 @@ const MINT_ALIASES: Readonly<Record<string, string>> = {
 /** Hashes that open a tab inside a section rather than naming the section. */
 const ANCHORS: ReadonlySet<string> = new Set(["integrate", "mcp", "sdk", "parser", "circle", "arc"]);
 
-/** The Mint section for an old tab id or hash ("#keys", "logs"), or null. */
-export function mintSectionFor(alias: string): string | null {
-  return MINT_ALIASES[alias.replace(/^#/u, "").toLowerCase()] ?? null;
+/** The Forge section for an old tab id or hash ("#keys", "logs"), or null. */
+export function forgeSectionFor(alias: string): string | null {
+  return FORGE_ALIASES[alias.replace(/^#/u, "").toLowerCase()] ?? null;
 }
 
 export function aliasTarget(pathname: string, hash = "", search = ""): string {
   if (pathname === "/owner") return `/letoon${search}`;
-  const section = hash ? mintSectionFor(hash) : null;
-  if (!section) return `/mint${search}${hash}`;
+  // The developer portal was called The Mint: /mint/keys is /forge/keys, with its query and hash.
+  const old = /^\/mint(?:\/(.*))?$/u.exec(pathname);
+  if (old) return `/forge${old[1] ? `/${old[1]}` : ""}${search}${hash}`;
+  const section = hash ? forgeSectionFor(hash) : null;
+  if (!section) return `/forge${search}${hash}`;
   // Anchors inside a section (#integrate, #mcp) stay as hashes so the section can open on them.
   const keep = ANCHORS.has(hash.replace(/^#/u, "").toLowerCase()) ? hash : "";
-  return `/mint/${section}${search}${keep}`;
+  return `/forge/${section}${search}${keep}`;
 }
 
 /* ------------------------------------------------------------- the Fold */

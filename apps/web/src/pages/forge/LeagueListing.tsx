@@ -29,7 +29,7 @@ export function LeagueListing({ project }: { readonly project: Project }) {
   const canAsk = !league || (league.status === "community" && (league.review === "rejected" || league.review === "delisted"));
   return (
     <Card title="The League" kicker={league ? `${league.status.toUpperCase()} · ${REVIEW[league.review] ?? league.review.toUpperCase()}` : "NOT LISTED"}>
-      <div className="mint-listing">
+      <div className="forge-listing">
         <Coin state={league?.state ?? "coming"} emblem={emblem} codename={league?.codename ?? null} name={project.name} size={88} interactive={false} />
         <div style={{ minWidth: 0 }}>
           {league ? (
@@ -44,7 +44,7 @@ export function LeagueListing({ project }: { readonly project: Project }) {
         </div>
       </div>
       {canAsk ? (
-        <div className="mint-form" style={{ marginTop: 12 }}>
+        <div className="forge-form" style={{ marginTop: 12 }}>
           <Field label="One line" hint="8 to 90 characters: what the city does."><Input value={tagline} maxLength={90} onChange={(e) => setTagline(e.target.value)} placeholder="Invoices that pay themselves" /></Field>
           <div className="m-grid-2" style={{ gap: 10 }}>
             <Field label="Category"><Select value={category} onChange={(e) => setCategory(e.target.value as LeagueCategory)}>{LEAGUE_CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}</Select></Field>

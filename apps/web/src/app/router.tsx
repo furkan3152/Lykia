@@ -62,6 +62,21 @@ function stateFor(location: RouteLocation, pending = false): RouterState {
   if (initial.kind === "app") loadProviders().catch(() => undefined);
 }
 
+/** Scrolls to the element a hash names (#usdc-circle); false when there is none. */
+function scrollToHash(hash: string): boolean {
+  if (!hash || hash.length < 2) return false;
+  let id = hash.slice(1);
+  try {
+    id = decodeURIComponent(id);
+  } catch {
+    return false;
+  }
+  const el = document.getElementById(id);
+  if (!el) return false;
+  el.scrollIntoView({ block: "start" });
+  return true;
+}
+
 export function AppRouter() {
   const [state, setState] = useState<RouterState>(() => stateFor(getLocation()));
 
@@ -71,8 +86,8 @@ export function AppRouter() {
         const target = stateFor(next);
         const commit = () => {
           flushSync(() => setState(target));
-          if (next.action !== "pop" || next.restoreScrollY === null) window.scrollTo({ top: 0 });
-          else window.scrollTo({ top: next.restoreScrollY });
+          if (next.action === "pop" && next.restoreScrollY !== null) window.scrollTo({ top: next.restoreScrollY });
+          else if (!scrollToHash(next.hash)) window.scrollTo({ top: 0 });
         };
         setState((s) => ({ ...s, pending: true }));
         warmRoute(next.pathname).then(() => void runViewTransition("route", commit));
@@ -85,6 +100,17 @@ export function AppRouter() {
     setMeta("description", state.route.description);
     setMeta("robots", robotsFor(state.route));
   }, [state.route]);
+
+  useEffect(() => {
+    // A first visit to /#section: the page renders after the browser looked for the anchor, so look again.
+    const { hash } = getLocation();
+    if (!hash) return undefined;
+    const timers = [120, 600, 1500].map((ms) => window.setTimeout(() => void scrollToHash(hash), ms));
+    const stop = () => timers.forEach((t) => window.clearTimeout(t));
+    window.addEventListener("wheel", stop, { once: true, passive: true });
+    window.addEventListener("touchstart", stop, { once: true, passive: true });
+    return stop;
+  }, []);
 
   useEffect(() => {
     // Warm the wallet stack and Ask Lyko once the first page is idle.

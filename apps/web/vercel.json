@@ -4,6 +4,18 @@
   "installCommand": "cd ../.. && npm ci",
   "buildCommand": "cd ../.. && npm run build:web",
   "outputDirectory": "dist",
+  "redirects": [
+    {
+      "source": "/mint",
+      "destination": "/forge",
+      "permanent": true
+    },
+    {
+      "source": "/mint/:path*",
+      "destination": "/forge/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!assets/|favicon|.*\\.[a-z0-9]+$).*)",

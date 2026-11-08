@@ -240,7 +240,7 @@ export async function ecosystem(ctx: AppContext, environment: ArcEnvironment): P
     },
     circle: circleStatus(ctx.config, now).products.map((p) => ({ id: p.id, name: p.name, state: p.state, lykia: p.lykia, docs: p.docs })),
     pulse: pulse ? { block: pulse.block, blockTimeMs: pulse.blockTimeMs, tps: pulse.tps, transferCostUsd: pulse.transferCostUsd, finality: pulse.finality } : null,
-    builders: { freeTier: { perMinute: DEFAULT_PER_MINUTE, perDay: DEFAULT_PER_DAY }, x402: { mode: x402.mode, note: x402.note }, guide: "/mint/reference#integrate" },
+    builders: { freeTier: { perMinute: DEFAULT_PER_MINUTE, perDay: DEFAULT_PER_DAY }, x402: { mode: x402.mode, note: x402.note }, guide: "/forge/reference#integrate" },
     sources: { tvl: "DefiLlama (chainTvls.Arc)", tvlAt: tvl ? new Date(tvl.at).toISOString() : null, routedAt: new Date(volume.at).toISOString() },
     at: new Date(now).toISOString(),
   };

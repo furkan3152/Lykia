@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { aliasTarget, askWith, legacyDecision, mintSectionFor } from "../../app/routes/aliases";
+import { aliasTarget, askWith, legacyDecision, forgeSectionFor } from "../../app/routes/aliases";
 import { documentTitle, matchRoute, ROUTES, type RouteId } from "../../app/routes/routeTable";
 import { ACCOUNT, ADMIN, AREAS, MORE, REDIRECTED, UNLISTED, areaOf, sectionIsCurrent, tabsFor, titleOf } from "../nav";
 
@@ -15,11 +15,11 @@ const placed = (): RouteId[] => [
 ];
 
 describe("navigation structure", () => {
-  it("has exactly three primary areas: the agent, the Fold and the Mint", () => {
+  it("has exactly three primary areas: the agent, the Fold and the Forge", () => {
     assert.equal(AREAS.length, 3);
-    assert.deepEqual(AREAS.map((a) => a.id), ["ask", "fold", "mint"]);
-    assert.deepEqual(AREAS.map((a) => a.href), ["/app", "/app/fold", "/mint"]);
-    assert.deepEqual(AREAS.map((a) => a.tab), ["Ask", "Fold", "Mint"], "the phone bar reads Ask · Fold · Mint");
+    assert.deepEqual(AREAS.map((a) => a.id), ["ask", "fold", "forge"]);
+    assert.deepEqual(AREAS.map((a) => a.href), ["/app", "/app/fold", "/forge"]);
+    assert.deepEqual(AREAS.map((a) => a.tab), ["Ask", "Fold", "Forge"], "the phone bar reads Ask · Fold · Forge");
   });
 
   it("places every route exactly once: an area, Your Lyko, More, the team console, redirected or deliberately unlisted", () => {
@@ -52,7 +52,7 @@ describe("navigation structure", () => {
   });
 
   it("leads with metaphors and pairs each with a plain subtitle", () => {
-    assert.deepEqual(AREAS.map(titleOf), ["Ask Lyko · your agent", "The Fold · everything you own and everything in motion", "The Mint · build"]);
+    assert.deepEqual(AREAS.map(titleOf), ["Ask Lyko · your agent", "The Fold · everything you own and everything in motion", "The Forge · build"]);
     for (const area of AREAS) {
       assert.ok(area.label.length <= 10, area.label);
       assert.ok(area.short.length > 0 && area.short.length <= 12, `${area.id}: the narrow header has a short subtitle`);
@@ -73,25 +73,36 @@ describe("navigation structure", () => {
     assert.equal(areaOf("fold")?.id, "fold");
     assert.equal(areaOf("pack")?.id, "fold", "an agent's own page lives in the Fold");
     assert.equal(areaOf("scent")?.id, "fold");
-    assert.equal(areaOf("city")?.id, "mint");
+    assert.equal(areaOf("city")?.id, "forge");
     assert.equal(areaOf("letoon"), null);
     assert.equal(areaOf("move"), null);
     assert.equal(tabsFor("ask"), null, "Ask is one page: no tab row");
     assert.equal(tabsFor("fold"), null, "the Fold has its own tabs inside the page");
-    assert.deepEqual(tabsFor("league")?.map((s) => s.id), ["mint", "league", "ecosystem", "circle", "stats"]);
-    const mint = AREAS.find((a) => a.id === "mint")!.sections[0]!;
-    assert.ok(sectionIsCurrent(mint, "developers") && sectionIsCurrent(mint, "build"));
+    assert.deepEqual(tabsFor("league")?.map((s) => s.id), ["forge", "league", "ecosystem", "circle", "stats"]);
+    const forge = AREAS.find((a) => a.id === "forge")!.sections[0]!;
+    assert.ok(sectionIsCurrent(forge, "developers") && sectionIsCurrent(forge, "build") && sectionIsCurrent(forge, "mint"));
   });
 });
 
 describe("old addresses", () => {
   it("sends /build, its tabs and hashes, /developers and /owner to their new homes", () => {
-    assert.equal(aliasTarget("/build"), "/mint");
-    assert.equal(aliasTarget("/developers"), "/mint");
-    assert.equal(aliasTarget("/build", "#keys"), "/mint/keys");
-    assert.equal(aliasTarget("/build", "#integrate"), "/mint/reference#integrate");
+    assert.equal(aliasTarget("/build"), "/forge");
+    assert.equal(aliasTarget("/developers"), "/forge");
+    assert.equal(aliasTarget("/build", "#keys"), "/forge/keys");
+    assert.equal(aliasTarget("/build", "#integrate"), "/forge/reference#integrate");
     assert.equal(aliasTarget("/owner"), "/letoon");
-    assert.equal(mintSectionFor("nowhere"), null);
+    assert.equal(forgeSectionFor("nowhere"), null);
+  });
+
+  it("redirects every /mint path to its /forge twin, with the query and hash", () => {
+    assert.equal(matchRoute("/mint").route.id, "mint");
+    assert.equal(matchRoute("/mint/keys").route.id, "mint");
+    assert.equal(aliasTarget("/mint"), "/forge");
+    assert.equal(aliasTarget("/mint/keys"), "/forge/keys");
+    assert.equal(aliasTarget("/mint/reference", "#integrate"), "/forge/reference#integrate");
+    assert.equal(aliasTarget("/mint/workshop", "", "?project=p_1"), "/forge/workshop?project=p_1");
+    assert.equal(aliasTarget("/mint", "#keys"), "/forge#keys");
+    assert.equal(ROUTES.mint.robots, "noindex,nofollow");
   });
 
   it("sends manual pages to Ask Lyko with the intent filled in, or to the matching Fold tab", () => {

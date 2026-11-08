@@ -454,7 +454,7 @@ html[data-night="on"] .yl-head p { color: #c9d3e6; }
 @media (max-width: 1199px) { .m-starters--quick { grid-template-columns: repeat(2, minmax(0, 1fr)); } .m-starters--quick > *, .m-starters--quick > :nth-child(4) { grid-column: auto; } .m-starters--quick > :nth-child(5) { grid-column: 1 / -1; } }
 @media (max-width: 560px) { .m-starters--quick { grid-template-columns: minmax(0, 1fr); } .m-starters--quick > :nth-child(5) { grid-column: auto; } }
 
-/* Tap targets on phones: chips under the landing composer, module tabs on city pages, Mint quickstart tabs. */
+/* Tap targets on phones: chips under the landing composer, module tabs on city pages, Forge quickstart tabs. */
 @media (max-width: 640px) {
   .m-tabs button { min-height: 44px; padding-inline: 12px; }
   .m-chips .m-chip, .m-memchips .m-chip { min-height: 44px; display: inline-flex; align-items: center; }
@@ -556,7 +556,7 @@ html[data-night="on"] .yl-head p { color: #c9d3e6; }
 .ps-row--flash { animation: ps-flash 1.6s var(--ease-out); }
 @keyframes ps-flash { 0%, 30% { background: rgba(217, 164, 65, 0.32); } }
 
-.ps-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px 3px 5px; font-family: Silkscreen, monospace; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; color: var(--sc); background: color-mix(in srgb, var(--sc) 12%, #fffdf7); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--sc) 55%, transparent); }
+.ps-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px 3px 5px; font-family: Silkscreen, monospace; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; color: color-mix(in srgb, var(--sc) 50%, #13233a); background: color-mix(in srgb, var(--sc) 12%, #fffdf7); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--sc) 55%, transparent); }
 .ps-badge--sm { font-size: 9px; padding: 2px 6px 2px 4px; gap: 4px; }
 .ps-badge[data-state="at-risk"] { color: #fff; background: #c0392b; box-shadow: inset 0 -2px 0 #8f2a1b; }
 
@@ -651,3 +651,13 @@ html[data-night="on"] .ps-summary__states li, html[data-night="on"] .ps-health, 
 .m-poslist__main b { font-size: 13.5px; overflow-wrap: anywhere; }
 .m-poslist__main small { font-size: 12.5px; color: var(--ink-2); }
 .m-poslist__usd { font-size: 13.5px; white-space: nowrap; }
+/* Tap targets on phones: small buttons, the logo, footer and landing links get a 44 px row. */
+@media (max-width: 640px) {
+  .m-btn--sm { min-height: 44px; }
+  .m-logo { min-height: 44px; }
+  .m-footer__grid > div { gap: 0; }
+  .m-footer__grid a { display: flex; align-items: center; min-height: 44px; }
+  .lp-entry a, .lp-contracts a { display: inline-flex; align-items: center; min-height: 44px; }
+  .lp-hero-links a { padding-block: 13px; }
+  .forge-rails__link { display: inline-flex; align-items: center; min-height: 44px; padding: 0; }
+}

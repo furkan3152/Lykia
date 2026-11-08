@@ -2,7 +2,7 @@
  * The League (`lykia.league/v1`): Lykia's sub-products, shown as the cities
  * of a federation. The historical Lycian League was a union of cities that
  * minted a shared coinage; here every city is a real white-label Project
- * (see project.ts) built in The Mint, listed in the League and struck as a
+ * (see project.ts) built in The Forge, listed in the League and struck as a
  * coin.
  *
  * - "official" cities are created and listed by the Lykia team (admin only).

@@ -4,7 +4,7 @@ import { useFoldBadge } from "../features/fold/badge";
 import { AREAS, areaOf, navTileText } from "./nav";
 import { NavTileBody } from "./NavTile";
 
-/** The three areas as a bottom bar of stone tiles on small screens (Ask · Fold · Mint), with Lyko's badge on the Fold. */
+/** The three areas as a bottom bar of stone tiles on small screens (Ask · Fold · Forge), with Lyko's badge on the Fold. */
 export function MobileTabs({ routeId }: { readonly routeId: RouteId }) {
   const current = areaOf(routeId)?.id;
   const badge = useFoldBadge((s) => s.count);

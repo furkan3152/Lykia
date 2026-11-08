@@ -10,7 +10,7 @@ describe("city mode", () => {
     assert.deepEqual(detectCity(at("pay.lykiaai.com"), "lykiaai.com"), { kind: "slug", slug: "pay", via: "subdomain" });
     assert.deepEqual(detectCity(at("agents.lykiaai.com", "/anything"), "lykiaai.com"), { kind: "slug", slug: "agents", via: "subdomain" });
     assert.equal(detectCity(at("lykiaai.com"), "lykiaai.com"), null, "the root is the full app");
-    for (const own of ["www", "api", "app", "admin", "letoon", "mint"]) assert.equal(detectCity(at(`${own}.lykiaai.com`), "lykiaai.com"), null, own);
+    for (const own of ["www", "api", "app", "admin", "letoon", "forge", "mint"]) assert.equal(detectCity(at(`${own}.lykiaai.com`), "lykiaai.com"), null, own);
     assert.equal(detectCity(at("a.b.lykiaai.com"), "lykiaai.com"), null);
     assert.equal(detectCity(at("pay.lykiaai.com"), null), null, "no root domain configured");
   });

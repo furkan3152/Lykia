@@ -80,7 +80,7 @@
 
 /* Address and transaction chips. */
 .m-hash { display: inline-flex; align-items: stretch; vertical-align: 1px; margin: 0 2px; height: 26px; background: var(--navy); color: #fff6de; box-shadow: inset 0 -3px 0 #0b1626; white-space: nowrap; line-height: 1; }
-.m-hash__k { display: grid; place-items: center; padding: 0 6px; background: var(--sea); color: #fff; font-family: Silkscreen, monospace; font-size: 9px; letter-spacing: 0.06em; }
+.m-hash__k { display: grid; place-items: center; padding: 0 6px; background: var(--sea-2); color: #fff; font-family: Silkscreen, monospace; font-size: 9px; letter-spacing: 0.06em; }
 .m-hash[data-kind="tx"] .m-hash__k { background: var(--terra); }
 .m-hash__v { display: inline-flex; align-items: center; gap: 6px; padding: 0 8px 2px; color: inherit; text-decoration: none; font-family: "JetBrains Mono Variable", monospace; font-size: 12.5px; font-weight: 600; }
 .m-hash__v:hover { background: #22385a; }

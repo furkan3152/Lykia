@@ -28,7 +28,7 @@ export default function StatsPage() {
   return (
     <div>
       <header className="m-head m-wrap">
-        <span className="m-kick">{"THE MINT · LEDGER · STATS"}</span>
+        <span className="m-kick">{"THE FORGE · LEDGER · STATS"}</span>
         <h1 className="m-title">
           Lykia, in <em>numbers.</em>
         </h1>
@@ -65,7 +65,7 @@ export default function StatsPage() {
               ))}
             </ul>
           </Card>
-          <Card title={"Circle products integrated"} kicker={"POWERED BY CIRCLE"}>
+          <Card title={"Circle products integrated"} kicker={"CIRCLE'S RAILS"}>
             <div className="flex flex-wrap gap-2">
               {(s?.circle.integrated ?? []).map((p) => <Tag key={p} tone="sea">{p}</Tag>)}
             </div>

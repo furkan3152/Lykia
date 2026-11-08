@@ -58,18 +58,18 @@ The navigation lives in `src/shell/nav.ts` (tested in `src/shell/__tests__/nav.t
 |---|---|
 | **Ask Lyko** · your agent | Every action: send, convert, earn, borrow, bridge, orders and automations (`/app`, `/app/ask/:threadId`); a full plan opens at `/app/outrun/:id`. |
 | **The Fold** · everything you own and everything in motion | Flock · holdings (with the what-if slider), Trails · activity, Herding · instructions, Pack · agents and Fence · rules (`/app/fold/:tab`), with Lyko on watch docked beside them. Detail pages reached from it: an agent (`/app/pack/:id`), a Tag (`/app/tag/:id`), a token check (`/app/scent/:token`), Watch · security (`/app/security`) and Pastures · yields (`/app/pastures`). |
-| **The Mint** · build | The Mint (`/mint/:section`: strike, workshop, cities, keys, usage, webhooks, reference), The League (`/league`, `/league/:city`), Harbour · ecosystem (`/ecosystem`), Circle (`/app/circle`), Ledger · stats (`/stats`). |
+| **The Forge** · build | The Forge (`/forge/:section`: strike, workshop, cities, keys, usage, webhooks, reference), The League (`/league`, `/league/:city`), Harbour · ecosystem (`/ecosystem`), Circle (`/app/circle`), Ledger · stats (`/stats`). |
 
-Account: Your Lyko (`/app/you`: preferences, voice and look, memory). More: Perps markets, New pools, Notice and risks. Team: Letoon (`/letoon/:section`, admins only, the server decides). Old addresses redirect (`src/app/routes/aliases.ts`): `/app/move` to Ask Lyko with the intent filled in, `/app/flock` and `/app/whatif` to Flock, `/app/orders`, `/app/alerts` and `/app/automations` to Herding, `/app/activity` to Trails, `/app/fence` to Fence, `/app/memory` to Your Lyko, `/build` (with its old tab names as hashes) and `/developers` to `/mint`, and `/owner` to `/letoon`. Unlisted on purpose: payment links (`/pay/:id`), the design kit (`/kit`), the night scene (`/lykaion`) and the 404.
+Account: Your Lyko (`/app/you`: preferences, voice and look, memory). More: Perps markets, New pools, Notice and risks. Team: Letoon (`/letoon/:section`, admins only, the server decides). Old addresses redirect (`src/app/routes/aliases.ts`): `/app/move` to Ask Lyko with the intent filled in, `/app/flock` and `/app/whatif` to Flock, `/app/orders`, `/app/alerts` and `/app/automations` to Herding, `/app/activity` to Trails, `/app/fence` to Fence, `/app/memory` to Your Lyko, `/build` (with its old tab names as hashes) and `/developers` to `/forge`, every `/mint` path to its `/forge` twin (the old name of the developer portal; `vercel.json` answers with a 308), and `/owner` to `/letoon`. Unlisted on purpose: payment links (`/pay/:id`), the design kit (`/kit`), the night scene (`/lykaion`) and the 404.
 
-### The League, The Mint and Letoon
+### The League, The Forge and Letoon
 
 | Path | What it holds |
 |---|---|
-| `src/features/league/art.ts` | Pure buffers: the struck coin (obverse: Lyko as the League's shared face; reverse: the city's emblem; gold, silver or bronze by state), the Lycian coast with a lit harbour per live city, the Letoon's temple door and The Mint's press. |
+| `src/features/league/art.ts` | Pure buffers: the struck coin (obverse: Lyko as the League's shared face; reverse: the city's emblem; gold, silver or bronze by state), the Lycian coast with a lit harbour per live city, the Letoon's temple door and The Forge's anvil and hammer. |
 | `src/features/league/Coin.tsx` | A coin struck stone by stone that turns over (CSS 3D) to its emblem; hover, focus or tap turns it back. Reduced motion shows the emblem at once. |
 | `src/pages/league/` | The League (coast scene, coins, a swipeable carousel on phones) and a city page (what it does, how it uses Lykia, live status, the city rendered from its project, embed code). |
-| `src/pages/mint/` | The Mint: seven sections, the five-step Strike with the press, the League listing card on each project. |
+| `src/pages/forge/` | The Forge: seven sections, the five-step Strike with the anvil, the League listing card on each project. |
 | `src/pages/letoon/`, `src/features/letoon/` | Letoon: the door, the League council, contracts, flags and the Whistle, Circle setup, audit log, usage. |
 
 ### City mode

@@ -17,7 +17,7 @@
   <a href="https://api.lykiaai.com/v1/reference">API reference</a> ·
   <a href="docs/platform/README.md">Developer docs</a> ·
   <a href="https://lykiaai.com/league">The League</a> ·
-  <a href="https://lykiaai.com/mint">The Mint</a> ·
+  <a href="https://lykiaai.com/forge">The Forge</a> ·
   <a href="https://lykiaai.com/stats">Stats</a>
 </p>
 
@@ -46,10 +46,10 @@ it, and every payout from it passes the Fence and the beta cap first).
 | One engine for every builder | REST and SSE, MCP, TypeScript and Python SDKs, a CLI and components, all on the engine the app uses. |
 
 The League hosts cities: Lykia's own products, each a real project built in
-**The Mint**. The official cities (Lykia Pay for invoices, payment links and
+**The Forge**. The official cities (Lykia Pay for invoices, payment links and
 payouts; Lykia Agents for budgeted agents with Fences and Tags; later Lykia
 Perps) are being launched; until they are, `GET /v1/league` lists none. Each
-city is a project built in The Mint, the developer portal any builder uses, and can run on its own
+city is a project built in The Forge, the developer portal any builder uses, and can run on its own
 subdomain with its own task-first shell ([docs/platform/city-domains.md](docs/platform/city-domains.md)).
 The Lykia team runs the League and the platform from **Letoon**, a console
 that only admin addresses can open.
@@ -58,8 +58,41 @@ The product story, the app's structure and open decisions are in
 [docs/product.md](docs/product.md). The money flows are simulated on Arc
 mainnet in [docs/flows.md](docs/flows.md).
 
+## USDC and Circle in Lykia
+
+USDC is what Lykia moves, the unit it works in and what every step pays gas
+with on Arc. Circle's rails carry it; Lykia adds the route and the rules.
+One USDC through a Lykia step: USDC in the wallet, the Fence checks it in
+USD, the route is simulated, approve, act and an Arc Memo go out as one
+transaction with gas paid in USDC, it settles with deterministic finality,
+and it can leave through CCTP or Gateway. The landing page draws the same
+path, and [docs/circle/README.md](docs/circle/README.md) is the
+authoritative version of this table.
+
+| Primitive | From | Where Lykia uses it | File or endpoint |
+|---|---|---|---|
+| USDC | Circle | The token Lykia moves and the unit it works in: amounts, quotes and Fence caps are in USD, and routes are scored on what the owner ends up with. | `packages/core/src/assets.ts`, `apps/api/src/engine/search.ts` |
+| USD caps | Lykia | The Fence checks every step in USD before signing. The mainnet beta cap is $1,000 per step and $5,000 per day, above any Fence. | `packages/core/src/fence.ts`, `LYKIA_BETA_CAP_USD` in `apps/api/src/config.ts` |
+| eth_call | Arc | The winning route runs as one `eth_call` on Arc before it is offered. | `apps/api/src/engine/simulate.ts` |
+| Multicall3From | Arc | From a wallet, approve, act and the Memo go out as one transaction with one signature. Lykia's smart account runs the same calls after its on-chain Fence check. | `apps/api/src/engine/calls.ts` |
+| Arc Memo | Arc | From a wallet, the value-moving call of every step carries its intent id and the Fence verdict digest. | `apps/api/src/engine/calls.ts`, `packages/core/src/memo.ts` |
+| Gas in USDC | Arc | Arc's gas token is USDC, so every Lykia step pays gas in USDC. Lykia's 1% fee is a transfer in the same transaction, in the token the step spends (a borrow pays in the borrowed token). | `packages/core/src/networks.ts`, `apps/api/src/engine/planner.ts`, `GET /v1/fees` |
+| Deterministic finality | Arc | A step is final when its block is included; Lykia waits for no confirmations. | `packages/core/src/networks.ts` |
+| CCTP V2 | Circle | Bridge steps burn USDC on Arc; after Circle's attestation it is minted on the destination, and Circle's Forwarding Service can submit that mint. | `apps/api/src/circle/cctp.ts`, `POST /v1/circle/cctp/forward` |
+| Gateway | Circle | Gateway deposits and transfers: one unified USDC balance across chains. | `apps/api/src/circle/gateway.ts`, `GET /v1/circle/gateway/balance` |
+| EURC | Circle | Circle's euro stablecoin. USDC to EURC conversions route on Arc and are checked against the Fence's FX band. | `packages/core/src/assets.ts`, `packages/core/src/fence.ts` |
+| Compliance Engine | Circle | With `CIRCLE_API_KEY`, a send recipient it denies becomes a Fence deny. An unscreened recipient is reported, never treated as approved. | `apps/api/src/circle/compliance.ts`, `POST /v1/circle/screen` |
+| Circle Wallets | Circle | Optional, off by default (`LYKIA_CIRCLE_SERVER_WALLETS=true`): developer-controlled SCA wallets on Arc, each bound to the address that created it. | `apps/api/src/circle/walletRegistry.ts`, `POST /v1/circle/wallets/agent` |
+| Agent Wallet policy | Circle | A Fence exports as a Circle Agent Wallet spending policy. Lykia never applies it: the owner runs the returned Circle CLI commands. | `apps/api/src/circle/policy.ts`, `POST /v1/circle/policies/compile` |
+| StableFX | Circle | RFQ endpoints (quote, trade, funding) for USDC and EURC, with Circle StableFX access. A reference quote beside the engine's, not a route. | `apps/api/src/circle/stablefx.ts`, `POST /v1/circle/stablefx/quote` |
+| USYC Teller | Circle | Subscribe and redeem for wallets Circle has entitled; Lykia reads the entitlement first and refuses otherwise. | `apps/api/src/circle/usyc.ts`, `POST /v1/circle/usyc/prepare` |
+| x402 facilitator | Circle | Settles Lykia's paid API routes in USDC; Circle's facilitator is the default. | `apps/api/src/x402/x402.ts`, `GET /.well-known/x402` |
+| Agent Marketplace | Circle | Agents discover x402 services and pay them in USDC, inside their Fence caps. | `apps/api/src/circle/discovery.ts`, `POST /v1/circle/x402/prepare` |
+| ERC-8004 | Arc | Agent identities (Tags) in the ERC-8004 registries on Arc, each pinning the hash of its Fence. | `apps/api/src/tag/tag.ts`, `packages/core/src/contracts.ts` |
+
 ## Contents
 
+- [USDC and Circle in Lykia](#usdc-and-circle-in-lykia)
 - [Features](#features)
 - [How it works](#how-it-works)
 - [Quick start](#quick-start)
@@ -90,7 +123,7 @@ mainnet in [docs/flows.md](docs/flows.md).
 
 **For developers**
 
-- **The Mint.** A builder's journey in seven steps at `/mint`: strike a
+- **The Forge.** A builder's journey in seven steps at `/forge`: strike a
   project (a city), shape it in the Workshop, manage keys, usage, logs and
   webhooks, read the reference, and ask for a listing in the League
   (`POST /v1/projects/:id/league/request`; public listing at `GET /v1/league`).
@@ -110,12 +143,11 @@ mainnet in [docs/flows.md](docs/flows.md).
 
 **Built on Circle's products**
 
-USDC, CCTP V2 and Gateway are routes in the engine. Circle Wallets, the
-Compliance Engine, the x402 facilitator, StableFX (RFQ taker endpoints) and
-the USYC Teller (entitled wallets) are integrated beside it. A Fence can also be
-exported as a Circle Agent Wallet spending policy: Lykia prints the Circle
-CLI commands and the owner applies them; Lykia never applies it on their
-behalf. See [docs/circle](docs/circle/README.md).
+USDC is the token every step moves and pays gas with, and CCTP V2 and
+Gateway are routes in the engine. Circle Wallets (optional, off by default),
+the Compliance Engine, the Agent Wallet policy export, StableFX, the USYC
+Teller, the x402 facilitator and the Agent Marketplace sit beside it. Where
+each one lives in the code: [USDC and Circle in Lykia](#usdc-and-circle-in-lykia).
 
 ## How it works
 

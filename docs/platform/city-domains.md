@@ -13,11 +13,11 @@ Nothing below is needed for those two to work.
 
 - Each project has a unique **slug** (3 to 24 lowercase letters, digits
   and dashes). Official cities are `pay`, `agents` and `perps`. Words such
-  as `www`, `api`, `app`, `admin`, `letoon` and `mint` are refused.
+  as `www`, `api`, `app`, `admin`, `letoon` and `forge` are refused.
 - The web app reads the host. On `<slug>.<root domain>` it boots in
   **city mode**: it loads `GET /v1/league/by-slug/:slug` and shows the
   city's own app, not the full Lykia app.
-- A project's **verified custom domain** (proved in The Mint) maps to its
+- A project's **verified custom domain** (proved in The Forge) maps to its
   city the same way, through `GET /v1/league/by-host?host=`.
 - The API allows CORS from `https://<slug>.<root domain>` only for
   **listed** cities. Sign-in (SIWE) on a city names the city's own host.
@@ -89,7 +89,7 @@ is listed in the League:
 
 A developer can run their city on their own domain too:
 
-1. In The Mint, add the domain as an origin of the project and prove it
+1. In The Forge, add the domain as an origin of the project and prove it
    (DNS TXT or a `/.well-known` file).
 2. Point the domain at the Lykia web project (a CNAME to
    `cname.vercel-dns.com`), and add it under the web project's Domains.
