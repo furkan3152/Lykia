@@ -8,13 +8,15 @@
  * scrolls to its row. Venues fill in as they answer; one that cannot be read
  * says so calmly, with a retry, and is never drawn as zero.
  */
-import type { Position, PositionAction, PositionState } from "@lykia/core";
+import { actionPreview, apyMeaning, healthMeaning, ltvMeaning, MEANINGS, positionKindInfo, rangeMeaning, STATE_MEANINGS, type Position, type PositionAction, type PositionState } from "@lykia/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button, cx } from "../../../mosaic";
 import type { PositionMap as PositionMapData, VenueSlot } from "../data";
 import { ago, amountText, compactMoney, healthGauge, money, orderPens, penOf, positionPasture, rangeBar, rowDomId, STATE_COLOR, stateLabel, SUMMARY_STATES, type Pen } from "../positionsModel";
 import { AssetStone, StateIcon, VenueTile } from "./art";
+import { PositionBlocks } from "./Blocks";
+import { Hint } from "../../help/Help";
 
 export interface PositionMapProps {
   readonly map: PositionMapData;
@@ -32,7 +34,7 @@ function reducedMotion(): boolean {
 
 export function StateBadge({ state, small }: { readonly state: PositionState; readonly small?: boolean }) {
   return (
-    <span className={cx("ps-badge", small && "ps-badge--sm")} data-state={state} style={{ ["--sc" as string]: STATE_COLOR[state] }}>
+    <span className={cx("ps-badge", small && "ps-badge--sm")} data-state={state} style={{ ["--sc" as string]: STATE_COLOR[state] }} title={STATE_MEANINGS[state]}>
       <StateIcon state={state} size={small ? 9 : 11} color="currentColor" />
       {stateLabel(state)}
     </span>
@@ -60,10 +62,10 @@ function Summary({ map }: { readonly map: PositionMapData }) {
         </span>
       </div>
       <ul className="ps-summary__states">
-        {SUMMARY_STATES.map((k) => {
+        {SUMMARY_STATES.filter((k) => Number(s.byState[k]) > 0).map((k) => {
           const v = Number(s.byState[k]);
           return (
-            <li key={k} data-zero={v === 0} style={{ ["--sc" as string]: STATE_COLOR[k] }}>
+            <li key={k} data-zero={v === 0} style={{ ["--sc" as string]: STATE_COLOR[k] }} title={STATE_MEANINGS[k]}>
               <StateIcon state={k} size={11} />
               <span>{stateLabel(k)}</span>
               <b className="num">{v === 0 ? "—" : compactMoney(v)}</b>
@@ -73,16 +75,16 @@ function Summary({ map }: { readonly map: PositionMapData }) {
       </ul>
       <dl className="ps-summary__facts">
         <div>
-          <dt>{"Weighted APY"}</dt>
+          <dt>{"Average yearly return"}<Hint text={`${MEANINGS.apy} This is the average over everything that earns, weighted by size.`} /></dt>
           <dd className="num">{s.weightedApyPercent === null ? "—" : `${s.weightedApyPercent}%`}</dd>
         </div>
         <div>
-          <dt>{"Est. yearly yield"}</dt>
+          <dt>{"Earned in a year, at today's rates"}<Hint text="What everything that earns would make in a year at today's rates, minus what your loans cost. An estimate: rates move every day." /></dt>
           <dd className="num" data-tone={s.yearlyYieldUsd !== null && Number(s.yearlyYieldUsd) < 0 ? "bad" : undefined}>{s.yearlyYieldUsd === null ? "—" : money(Number(s.yearlyYieldUsd))}</dd>
         </div>
         <div>
-          <dt>{"Lowest health"}</dt>
-          <dd className="num" data-tone={hf !== null && hf < Math.max(1.1, floor) ? "bad" : undefined}>{hf === null ? "no debt" : hf.toFixed(2)}</dd>
+          <dt>{"Safest loan margin"}<Hint text={MEANINGS.healthFactor} /></dt>
+          <dd className="num" data-tone={hf !== null && hf < Math.max(1.1, floor) ? "bad" : undefined}>{hf === null ? "no loans" : `health ${hf.toFixed(2)}`}</dd>
         </div>
       </dl>
       {s.unavailable.length > 0 ? <p className="ps-summary__miss">{`Not read right now: ${s.unavailable.join(", ")}. Their money is not in these totals.`}</p> : null}
@@ -114,13 +116,14 @@ function Pasture({ map, onPick }: { readonly map: PositionMapData; readonly onPi
   );
 }
 
-function Legend() {
+function Legend({ map }: { readonly map: PositionMapData }) {
+  const present = new Set(map.slots.flatMap((x) => (x.read?.positions ?? []).map((p) => p.state)));
   return (
-    <ul className="ps-legend" aria-label="States">
-      {(["earning", "idle", "borrowing", "at-risk", "out-of-range", "pending", "escrowed", "committed"] as const).map((k) => (
-        <li key={k}>
+    <ul className="ps-legend" aria-label="What the colours mean">
+      {(["earning", "idle", "borrowing", "at-risk", "out-of-range", "pending", "escrowed", "committed", "watching"] as const).filter((k) => present.has(k)).map((k) => (
+        <li key={k} title={STATE_MEANINGS[k]}>
           <StateIcon state={k} size={9} />
-          {stateLabel(k)}
+          {STATE_MEANINGS[k]}
         </li>
       ))}
     </ul>
@@ -136,7 +139,7 @@ function HealthGauge({ factor, floor, liquidationAt, ltv }: { readonly factor: n
   return (
     <div className="ps-health" data-tone={g.tone}>
       <div className="ps-health__top">
-        <span className="m-kick">{"HEALTH FACTOR"}</span>
+        <span className="m-kick">{"LOAN HEALTH"}<Hint text={MEANINGS.healthFactor} /></span>
         <b className="num">{factor.toFixed(2)}</b>
       </div>
       <div className="ps-health__row" style={{ ["--floor" as string]: `${g.floorAt * 100}%` }}>
@@ -150,7 +153,8 @@ function HealthGauge({ factor, floor, liquidationAt, ltv }: { readonly factor: n
         <span>{`your floor ${floor}`}</span>
         <span>{"3.00+"}</span>
       </div>
-      {liquidationAt || ltv ? <p className="m-small m-muted">{[ltv ? `Borrowed ${ltv}% of collateral value` : null, liquidationAt ? `liquidation starts when it reaches ${liquidationAt}%` : null].filter(Boolean).join("; ")}.</p> : null}
+      <p className="ps-health__mean">{healthMeaning(factor, floor)}</p>
+      {ltv ? <p className="m-small m-muted">{ltvMeaning(Number(ltv), liquidationAt ? Number(liquidationAt) : null)}</p> : null}
     </div>
   );
 }
@@ -160,8 +164,8 @@ function RangeBar({ p }: { readonly p: NonNullable<Position["range"]> }) {
   return (
     <div className="ps-range" data-in={p.inRange}>
       <div className="ps-range__top">
-        <span className="m-kick">{`RANGE · ${p.quote.toUpperCase()}`}</span>
-        <b>{p.inRange ? "in range" : "out of range"}</b>
+        <span className="m-kick">{`PRICE BAND · ${p.quote.toUpperCase()}`}<Hint text={MEANINGS.range} /></span>
+        <b>{p.inRange ? "in range: earning" : "out of range: earning nothing"}</b>
       </div>
       <div className="ps-range__bar">
         <span className="ps-range__band" style={{ left: `${r.left}%`, width: `${Math.max(1.5, r.width)}%` }} />
@@ -172,6 +176,7 @@ function RangeBar({ p }: { readonly p: NonNullable<Position["range"]> }) {
         <span>{`now ${p.price}`}</span>
         <span>{p.upper}</span>
       </div>
+      <p className="m-small m-muted">{rangeMeaning(p.inRange, p.lower, p.upper, p.quote)}</p>
     </div>
   );
 }
@@ -183,6 +188,7 @@ function Detail({ p, floor, now, onAction, busy }: { readonly p: Position; reado
       <div className="ps-detail__viz">
         {hf !== null ? <HealthGauge factor={hf} floor={Number(p.health?.floor ?? floor)} liquidationAt={p.health?.liquidationAtPercent ?? null} ltv={p.health?.ltvPercent ?? null} /> : null}
         {p.range ? <RangeBar p={p.range} /> : null}
+        {p.blocks && p.blocks.length > 0 ? <PositionBlocks blocks={p.blocks} now={now} /> : null}
         {p.fees ? (
           <div className="ps-fees">
             <span className="m-kick">{"FEES TO COLLECT"}</span>
@@ -215,7 +221,7 @@ function Detail({ p, floor, now, onAction, busy }: { readonly p: Position; reado
       <dl className="ps-facts">
         {p.apy ? (
           <div>
-            <dt>{p.apy.kind === "borrow" ? "Borrow APY" : p.apy.kind === "nav" ? "Yield (NAV)" : "APY"}</dt>
+            <dt>{p.apy.kind === "borrow" ? "Borrowing costs" : p.apy.kind === "nav" ? "Fund growth" : "Yearly return"}<Hint text={apyMeaning(Number(p.apy.percent), p.apy.kind, p.valueUsd === null ? null : Number(p.valueUsd))} /></dt>
             <dd className="num">{`${Number(p.apy.percent) < 0.01 && Number(p.apy.percent) > 0 ? Number(Number(p.apy.percent).toPrecision(1)) : Number(p.apy.percent).toFixed(2)}%`} <small>{p.apy.source}</small></dd>
           </div>
         ) : null}
@@ -227,8 +233,8 @@ function Detail({ p, floor, now, onAction, busy }: { readonly p: Position; reado
         ) : null}
         {p.collateral !== undefined ? (
           <div>
-            <dt>{"Collateral"}</dt>
-            <dd>{p.collateral ? "yes, backs your loans" : "no"}</dd>
+            <dt>{"Backs a loan"}<Hint text="Collateral is what you put up so you can borrow. If the loan gets too risky, part of it can be sold to repay." /></dt>
+            <dd>{p.collateral ? "yes, it is collateral" : "no"}</dd>
           </div>
         ) : null}
         {(p.facts ?? []).filter((f) => f.label !== "Stage").map((f) => (
@@ -255,14 +261,17 @@ function Detail({ p, floor, now, onAction, busy }: { readonly p: Position; reado
       </dl>
       {p.actions.length > 0 ? (
         <div className="ps-actions">
-          <span className="m-kick">{"LYKO CAN"}</span>
-          <div>
+          <span className="m-kick">{"WHAT LYKO CAN DO"}</span>
+          <ul className="ps-actions__list">
             {p.actions.map((a, i) => (
-              <Button key={a.kind + a.label} size="sm" tone={i === 0 ? "terra" : "ghost"} disabled={busy} onClick={() => onAction(p, a)} title={a.mode === "draft" ? "Lyko drafts it; nothing moves until you sign." : "Opens Ask Lyko with this question."}>
-                {a.mode === "ask" ? `${a.label} · ask` : a.label}
-              </Button>
+              <li key={a.kind + a.label}>
+                <Button size="sm" tone={i === 0 ? "terra" : "ghost"} disabled={busy} onClick={() => onAction(p, a)}>
+                  {a.mode === "ask" ? `${a.label} · ask Lyko` : a.label}
+                </Button>
+                <span className="m-small">{actionPreview(a)}</span>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       ) : null}
     </div>
@@ -282,7 +291,9 @@ function Row({ p, open, flash, floor, now, onToggle, onAction, busy }: { readonl
             <AssetStone key={s} symbol={s} />
           ))}
         </span>
-        <span className="ps-row__label">{p.label}</span>
+        <span className="ps-row__label">
+          {p.label}
+        </span>
         <span className="ps-row__nums">
           <b className="num" data-tone={value !== null && value < 0 ? "bad" : undefined}>{value === null ? "unpriced" : money(value)}</b>
           <small className="num">{p.venueKind === "lp" ? p.assets.map((a) => a.symbol).join(" + ") : amountText(p.amount, p.symbol)}</small>
@@ -291,6 +302,7 @@ function Row({ p, open, flash, floor, now, onToggle, onAction, busy }: { readonl
           <StateBadge state={p.state} small />
           <span>{p.doing}</span>
         </span>
+        {!open && p.actions[0] ? <span className="ps-row__next">{`Next: ${p.actions[0].label.toLowerCase()}${p.actions[0].mode === "ask" ? " (ask Lyko)" : ""}`}</span> : null}
         <span className="ps-row__chev" aria-hidden="true">{open ? "−" : "+"}</span>
       </button>
       {open ? <Detail p={p} floor={floor} now={now} onAction={onAction} busy={busy} /> : null}
@@ -350,10 +362,12 @@ function PenCard({ pen, slot, open, flash, floor, now, signedIn, onSignIn, onTog
         <VenueTile venue={pen.venue} kind={pen.kind} name={pen.name} />
         <div className="ps-pen__title">
           <h3 id={`pen-${pen.venue}`}>{pen.name}</h3>
-          <span className="m-small m-muted">{`${pen.positions.length} position${pen.positions.length === 1 ? "" : "s"}${read.coverage ? " · still scanning" : ""}`}</span>
+          <span className="m-small m-muted">{`${positionKindInfo(pen.kind).plain} · ${pen.positions.length} position${pen.positions.length === 1 ? "" : "s"}${read.coverage ? " · still scanning" : ""}`}</span>
         </div>
         <div className="ps-pen__total">
-          {pen.overlayUsd > 0 && pen.positions.every((p) => p.counts === "overlay") ? (
+          {pen.positions.length > 0 && pen.positions.every((p) => p.counts === "overlay") && pen.overlayUsd === 0 ? (
+            <small>{"no money at stake"}</small>
+          ) : pen.overlayUsd > 0 && pen.positions.every((p) => p.counts === "overlay") ? (
             <>
               <b className="num">{money(pen.overlayUsd)}</b>
               <small>{"spoken for, still in the wallet"}</small>
@@ -422,11 +436,12 @@ export function PositionMap({ map, signedIn, onSignIn, onAction, busy }: Positio
         <Summary map={map} />
         <section className="ps-map m-frame m-frame--thin" aria-labelledby="ps-map-h">
           <header className="fd-card__head fd-card__head--row">
-            <h3 id="ps-map-h">{"The pasture"}</h3>
+            <h3 id="ps-map-h">{"Your money at a glance"}</h3>
             <span className="m-kick">{map.sample ? "SAMPLE · " : ""}{map.block ? `READ AT BLOCK ${Number(map.block).toLocaleString("en-US")}` : "READING…"}</span>
           </header>
+          <p className="m-small m-muted ps-map__mean">{"Each stone is a position, sized by what it is worth and coloured by what it is doing. Tap one to see its row."}</p>
           <Pasture map={map} onPick={pick} />
-          <Legend />
+          <Legend map={map} />
         </section>
         <div className="ps-pens">
           {full.map((pen, i) => (

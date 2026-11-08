@@ -38,7 +38,7 @@ const SAMPLE_FEED = [
 const TABS: readonly CityTab<Tab>[] = [
   { id: "agents", label: "Agents", icon: "agents" },
   { id: "activity", label: "Activity", icon: "list" },
-  { id: "whistle", label: "Whistle", icon: "whistle" },
+  { id: "whistle", label: "Stop all", icon: "whistle" },
 ];
 
 function Meter({ used, label }: { readonly used: number; readonly label: string }) {
@@ -121,7 +121,7 @@ export function AgentsShell({ city, home }: { readonly city: LeagueCity; readonl
         <div className="ctd-ag__main">
         {!owner ? (
           <>
-            <EmptyState mood="happy" title="Connect a wallet to meet your agents">{"Each agent gets a budget carved from yours and a Fence inside your Fence."}</EmptyState>
+            <EmptyState mood="happy" title="Connect a wallet to meet your agents">{"Each agent gets a budget carved from yours and its own spending rules (a Fence), which can only be stricter than yours."}</EmptyState>
             <div className="ct-desk-only">
               <div className="ctd-samplehead ctd-samplehead--row"><Tag tone="ochre">{"SAMPLE"}</Tag><span className="m-small m-muted">{"What your agents look like here once you have some."}</span></div>
               <ul className="ct-agents">{SAMPLE_AGENTS.map((a) => <AgentCard key={a.id} agent={a} />)}</ul>
@@ -135,8 +135,8 @@ export function AgentsShell({ city, home }: { readonly city: LeagueCity; readonl
             <Button className="ct-wide-only" onClick={() => setCreating(true)}>{"CREATE YOUR FIRST AGENT"}</Button>
             <ol className="ct-steps" aria-label="How an agent is held">
               <li><PixelIcon name="spark" size={22} /><div><b>{"A budget carved from yours"}</b><span className="m-small m-muted">{`Daily caps up to $${city.project.fence.caps.dailyUsd ?? "250"} in this city.`}</span></div></li>
-              <li><PixelIcon name="shield" size={22} /><div><b>{"A Fence inside your Fence"}</b><span className="m-small m-muted">{"It can only be tighter than your own rules."}</span></div></li>
-              <li><PixelIcon name="agents" size={22} /><div><b>{"A Tag on chain"}</b><span className="m-small m-muted">{"An ERC-8004 identity that pins the Fence it obeys."}</span></div></li>
+              <li><PixelIcon name="shield" size={22} /><div><b>{"Its own spending rules"}</b><span className="m-small m-muted">{"It can only be tighter than your own rules."}</span></div></li>
+              <li><PixelIcon name="agents" size={22} /><div><b>{"A public ID card (Tag)"}</b><span className="m-small m-muted">{"An on-chain identity (ERC-8004) that names the rules it follows."}</span></div></li>
             </ol>
           </div>
         ) : (

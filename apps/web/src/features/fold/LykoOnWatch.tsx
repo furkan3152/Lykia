@@ -13,6 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
 import { navigate } from "../../app/routes/history";
+import { HowItWorks } from "../help/Help";
 import { Composer } from "../ask/Composer";
 import { AssistantMessage, UserMessage } from "../ask/Answer";
 import { ChatActionsContext, type ChatActions } from "../ask/actions";
@@ -205,8 +206,9 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
         <LykoFace mood={open.some((i) => i.severity === "act") ? "alert" : open.length > 0 ? "watching" : "resting"} scale={2} />
         <div>
           <h2>{"Lyko on watch"}</h2>
-          <span className="m-kick">{"PROPOSES · YOU SIGN"}</span>
-          <p className="m-small m-muted">{`Watching ${short} on Arc ${owner.environment}`}</p>
+          <span className="m-kick">{"SUGGESTS · YOU SIGN"}</span>
+          <p className="m-small m-muted">{`Reads everything in your Fold (${short}, Arc ${owner.environment}) and tells you what needs you.`}</p>
+          <HowItWorks area="lyko" className="fd-lyko__how" />
         </div>
       </header>
 

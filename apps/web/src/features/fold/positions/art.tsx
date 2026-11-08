@@ -25,13 +25,18 @@ const STATE_ART: Readonly<Record<PositionState, readonly string[]>> = {
   escrowed: ["...kkk...", "..k...k..", "..k...k..", ".kkkkkkk.", ".kkk.kkk.", ".kkk.kkk.", ".kkkkkkk.", ".kkkkkkk.", "........."],
   // A calendar page.
   committed: [".k.....k.", "kkkkkkkkk", "k.......k", "kkkkkkkkk", "k.k.k.k.k", "k.......k", "k.k.k.k.k", "k.......k", "kkkkkkkkk"],
+  // An eye: Lyko on watch.
+  watching: [".........", ".........", "..kkkkk..", ".k.....k.", "k..kkk..k", ".k.....k.", "..kkkkk..", ".........", "........."],
 };
 
 export function StateIcon({ state, size = 11, color }: { readonly state: PositionState; readonly size?: number; readonly color?: string }) {
   return <PixelArt art={STATE_ART[state]} palette={{ k: color ?? STATE_COLOR[state] }} size={size} />;
 }
 
-const KIND_ART: Readonly<Record<PositionVenueKind, readonly string[]>> = {
+/** Every kind falls back to this mark: a new kind needs no art of its own. */
+const GENERIC_ART: readonly string[] = ["wwwwwwwwww", "w........w", "w.wwwwww.w", "w.w....w.w", "w.w.ww.w.w", "w.w.ww.w.w", "w.w....w.w", "w.wwwwww.w", "w........w", "wwwwwwwwww"];
+
+const KIND_ART: Readonly<Partial<Record<PositionVenueKind, readonly string[]>>> = {
   // A purse with a clasp.
   wallet: ["...wwww...", "..w....w..", "wwwwwwwwww", "w........w", "w.....wwww", "w.....w.ww", "w.....wwww", "w........w", "wwwwwwwwww", ".........."],
   // A temple: lending pools.
@@ -85,7 +90,7 @@ function venueTone(venue: string): string {
 }
 
 /** The venue's tile: its colour, the kind's pixel mark and a two-letter monogram. */
-export function VenueTile({ venue, kind, name, size = 40 }: { readonly venue: string; readonly kind: PositionVenueKind; readonly name: string; readonly size?: number }) {
+export function VenueTile({ venue, kind, name, size = 40 }: { readonly venue: string; readonly kind: PositionVenueKind | string; readonly name: string; readonly size?: number }) {
   const mono = name
     .replace(/[^A-Za-z0-9 ]/gu, "")
     .split(/\s+/u)
@@ -96,7 +101,7 @@ export function VenueTile({ venue, kind, name, size = 40 }: { readonly venue: st
     .toUpperCase();
   return (
     <span className="ps-vtile" style={{ width: size, height: size, ["--vt" as string]: venueTone(venue) }} aria-hidden="true">
-      <PixelArt art={KIND_ART[kind]} palette={{ w: "#fff6de", "~": "rgba(255,246,222,0.55)" }} size={Math.round(size * 0.5)} />
+      <PixelArt art={(KIND_ART as Readonly<Record<string, readonly string[]>>)[kind] ?? GENERIC_ART} palette={{ w: "#fff6de", "~": "rgba(255,246,222,0.55)" }} size={Math.round(size * 0.5)} />
       <i>{mono}</i>
     </span>
   );

@@ -42,6 +42,8 @@ export function HerdingTab(props: {
   const locked = !props.signedIn && !props.sample;
   return (
     <div className="fd-stack">
+      {/* Calm: the inbox shows only when something waits (or to ask for a sign-in). */}
+      {locked || (props.waiting && props.waiting.length > 0) ? (
       <section className="fd-card m-frame m-frame--thin fd-inbox" aria-labelledby="inbox-h">
         <header className="fd-card__head">
           <h3 id="inbox-h">{"Waiting for your signature"}</h3>
@@ -73,17 +75,18 @@ export function HerdingTab(props: {
           </ul>
         )}
       </section>
+      ) : null}
 
       <section className="fd-card m-frame m-frame--thin" aria-labelledby="herd-h">
         <header className="fd-card__head fd-card__head--row">
           <div>
-            <h3 id="herd-h">{"Every standing instruction"}</h3>
-            <span className="m-kick">{props.sample ? "SAMPLE · " : ""}{"AUTOMATIONS · ORDERS · BARKS · RECURRING · STANDING"}</span>
+            <h3 id="herd-h">{"Everything that runs on its own"}</h3>
+            <span className="m-small m-muted">{`${props.sample ? "Sample. " : ""}Recurring payments, automations, orders, alerts and watches. ${props.waiting && props.waiting.length === 0 ? "Nothing waits for your signature." : ""}`}</span>
           </div>
           <Button size="sm" tone="sea" onClick={props.onNew}>{"+ NEW RULE"}</Button>
         </header>
         <div className="fd-chips" role="tablist" aria-label="Filter instructions">
-          {HERDING_FILTERS.map((f) => (
+          {HERDING_FILTERS.filter((f) => f.id === "all" || f.id === filter || !props.instructions || filterInstructions(props.instructions, f.id).length > 0).map((f) => (
             <button key={f.id} type="button" role="tab" aria-selected={filter === f.id} className="m-chip" onClick={() => setFilter(f.id)}>
               {f.label}
               {props.instructions ? <small className="num">{filterInstructions(props.instructions, f.id).length}</small> : null}
@@ -103,7 +106,7 @@ export function HerdingTab(props: {
               <span role="columnheader">{"Status"}</span>
               <span role="columnheader">{"Next run"}</span>
               <span role="columnheader">{"Last run"}</span>
-              <span role="columnheader">{"Next verdict"}</span>
+              <span role="columnheader">{"Would your rules allow it?"}</span>
               <span role="columnheader" className="r">{"Actions"}</span>
             </div>
             {list.map((i) => (
@@ -116,7 +119,7 @@ export function HerdingTab(props: {
                 <span role="cell" data-label="Status"><Tag tone={STATUS_TONE[i.status]}>{i.status}</Tag></span>
                 <span role="cell" data-label="Next run"><b className="num">{i.nextRunLabel}</b>{i.nextRunAt ? <small className="num">{when(i.nextRunAt)}</small> : null}</span>
                 <span role="cell" data-label="Last run"><span>{i.lastResult ?? "—"}</span>{i.lastRunAt ? <small className="num">{when(i.lastRunAt)}</small> : null}</span>
-                <span role="cell" data-label="Fence" className="fd-herd__verdict">
+                <span role="cell" data-label="Your rules" className="fd-herd__verdict">
                   {i.nextVerdict && i.nextVerdict.decision !== "unknown" ? <Seal decision={i.nextVerdict.decision} stamp={false} /> : <Tag tone="ghost">{"checked when it runs"}</Tag>}
                   {i.nextVerdict ? <small>{i.nextVerdict.reason}</small> : null}
                 </span>
@@ -127,7 +130,7 @@ export function HerdingTab(props: {
                   {i.source === "watch" && props.onRemove ? (
                     <Button size="sm" tone="ghost" disabled={props.busyId === i.id || props.sample} onClick={() => props.onRemove!(i)}>{"REMOVE"}</Button>
                   ) : (
-                    <Button size="sm" tone="ghost" onClick={() => props.onEdit(i)}>{"EDIT VIA LYKO"}</Button>
+                    <Button size="sm" tone="ghost" onClick={() => props.onEdit(i)}>{"CHANGE IT"}</Button>
                   )}
                 </span>
               </div>

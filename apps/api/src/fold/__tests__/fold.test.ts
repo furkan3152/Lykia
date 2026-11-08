@@ -185,7 +185,7 @@ describe("fold API", () => {
     assert.equal(view.status, 200);
     const bark = view.body.instructions.find((i) => i.source === "alert");
     assert.ok(bark);
-    assert.equal(bark.sourceLabel, "Barks");
+    assert.equal(bark.sourceLabel, "Alert");
     assert.equal(bark.nextVerdict?.decision, "allow");
     assert.match(bark.editSentence, /^Change my alert/u);
     assert.equal(view.body.counts.waitingSignature, view.body.waiting.length);

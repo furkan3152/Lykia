@@ -18,6 +18,7 @@ import { useSession } from "../../lib/session";
 import { useLykiaWallet } from "../wallet/useLykiaWallet";
 import { sampleInsights, samplePack, sampleSnapshot } from "./model";
 import { samplePositions } from "./positionsModel";
+import { genericPositionInsights } from "@lykia/core";
 
 export interface FoldOwner {
   /** The address the Fold reads: ?address=, else the connected wallet, else null (sample). */
@@ -83,12 +84,15 @@ export const POSITION_GROUPS: readonly (readonly string[])[] = [
   ["wallet", "aave-v4", "morpho-vaults", "galaxy-curation", "keyrock", "steakhouse-financial", "gauntlet", "bitwise", "usyc", "gateway", "lykia-practice"],
   ["uniswap-v3", "aerodrome-slipstream", "archery", "unitflow-finance-v3", "sushiswap"],
   ["uniswap-v4", "morpho-blue"],
-  ["cctp", "relay", "across", "lykia-orders", "arc-transfer"],
+  ["cctp", "relay", "across", "lykia-orders", "arc-transfer", "leashes", "plans", "watches"],
 ];
 
 export function usePositions(o: FoldOwner): PositionMap {
   const venues = POSITION_VENUES[o.environment];
-  const groups = POSITION_GROUPS.map((g) => g.filter((id) => venues.some((v) => v.id === id))).filter((g) => g.length > 0);
+  const grouped = POSITION_GROUPS.map((g) => g.filter((id) => venues.some((v) => v.id === id))).filter((g) => g.length > 0);
+  // A venue no group names yet (a new kind) rides with the last group, so it is read rather than left loading.
+  const loose = venues.filter((v) => !grouped.some((g) => g.includes(v.id))).map((v) => v.id);
+  const groups = loose.length > 0 ? [...grouped.slice(0, -1), [...(grouped[grouped.length - 1] ?? []), ...loose]] : grouped;
   const results = useQueries({
     queries: groups.map((g) => ({
       queryKey: ["fold-positions", o.address, o.environment, o.signedIn, g.join(",")],
@@ -101,7 +105,7 @@ export function usePositions(o: FoldOwner): PositionMap {
   const at = useMountedAt();
   const sample = useMemo(() => (o.sample ? samplePositions(at, o.environment) : null), [o.sample, at, o.environment]);
   if (sample) {
-    const slots = venues.map((info) => ({ info, read: sample.venues.find((r) => r.venue === info.id) ?? null, loading: false, refetch: () => undefined }));
+    const slots: VenueSlot[] = venues.map((info) => ({ info, read: sample.venues.find((r) => r.venue === info.id) ?? null, loading: false, refetch: () => undefined }));
     return { slots, summary: sample.summary, healthFloor: sample.healthFloor, at: sample.at, block: sample.block, sample: true, loading: false };
   }
   const slots: VenueSlot[] = venues.map((info) => {
@@ -125,7 +129,7 @@ export function useFoldInsights(o: FoldOwner) {
     queryFn: ({ signal }) => apiGet<FoldInsightsResponse>(`/v1/fold/insights/${o.address}`, { query: { environment: o.environment }, signal, timeoutMs: 20_000 }),
   });
   const at = useMountedAt();
-  const sample = useMemo<FoldInsightsResponse | undefined>(() => (o.sample ? { owner: "0x000000000000000000000000000000000000dEaD", environment: "mainnet", at: new Date(at).toISOString(), insights: sampleInsights(), brief: { since: null, lines: [] }, personal: false } : undefined), [o.sample, at]);
+  const sample = useMemo<FoldInsightsResponse | undefined>(() => (o.sample ? { owner: "0x000000000000000000000000000000000000dEaD", environment: "mainnet", at: new Date(at).toISOString(), insights: [...sampleInsights(), ...genericPositionInsights(samplePositions(at, o.environment).venues.flatMap((v) => v.positions), at).map((g) => ({ ...g, figures: [...g.figures], handled: false }))], brief: { since: null, lines: [] }, personal: false } : undefined), [o.sample, o.environment, at]);
   return { ...q, data: q.data ?? sample };
 }
 

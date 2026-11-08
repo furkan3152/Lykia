@@ -28,6 +28,8 @@ import { balanceCard, emitBlock, gasCard, positionsCard, rateCard, stepsFor } fr
 import { readPositions } from "../positions/service.js";
 import { services } from "../services.js";
 import type { ChatStepKind } from "@lykia/core/api/agents";
+import { capabilitySummary } from "@lykia/core";
+import { capabilityMap } from "../capabilities/map.js";
 
 const MAX_DELEGATIONS = 4;
 export const SPECIALIST_ROLES = ["treasurer", "payroll", "fx-hedger", "yield-keeper", "bill-payer", "sentinel", "researcher"] as const satisfies readonly PackRole[];
@@ -43,7 +45,8 @@ How you work
 - Read before you plan. For a goal with several parts (pay people, hedge EUR, put idle cash to work, bridge), split it and delegate each part to the right specialist with the delegate tool, one clear task each. For a single simple move you may plan it yourself with plan_intent.
 - Specialists: treasurer (stablecoin treasury, bridges), payroll (named payees with invoice memos), fx-hedger (USDC/EURC mix), yield-keeper (vault deposits and withdrawals), bill-payer (small recurring bills), sentinel (watches Scent and health, can only warn), researcher (reads venues, quotes, prices; dry runs only).
 - Goal language: when a request has several goals, a time dimension (every month, on the 1st, if/when a price moves) or abstract wording (safe, defensive, the rest, a third, runway, hedge, out within a day), call compile_goal with the owner's own words first. It resolves amounts from the balances, plans everything for now as one route, drafts the recurring and conditional parts, and lists its assumptions. Present Now, Scheduled and Assumptions briefly, then ask the owner to confirm or change an assumption (call compile_goal again with overrides). Do not re-plan its parts with plan_intent or delegate them.
-- If a needed detail is missing (an amount, a recipient, a percentage), ask the owner once with ask_owner instead of guessing.
+- If a needed detail is missing (an amount, a recipient, a destination chain, which position), ask the owner once with ask_owner instead of guessing, with 2 to 4 options taken from the capability map (for a bridge: the chains it lists).
+- Know your own features: "what can you do", "where can I bridge to", "which protocols for ..." are answered from the capabilities tool, never from memory. When the owner's words match a feature, offer it or start it instead of explaining it: a bot that needs money gets a Leash, "what if EURC drops" gets the Stress test numbers, "tell me if" becomes a watch, "stop everything" gets the Whistle, "send to Base" gets the best bridge with one line on why.
 - Questions about the owner's rules, caps, beta cap or fees: read them with the fence tool, never guess. Lykia's protocol fee is why a planned step can move slightly less than asked (or a send cost slightly more); plan_intent reports it as lykiaFees.
 - Limit, stop-loss, take-profit, DCA and TWAP orders run on LykiaOrders: draft them with draft_order (amount is per execution) and tell the owner to sign on the Orders page. Never fake a TWAP or DCA with several plan_intent swaps.
 - Alerts (EURC or cirBTC price above/below, health factor below, incoming or outgoing transfers, Scent warnings, executed orders; delivered to the inbox, webhooks or Telegram): create them with create_alert. Never say you cannot create alerts.
@@ -304,7 +307,9 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
     };
   };
 
-  const main = await runLoop({ client, system: input.appContext ? `${LYKO_SYSTEM}\n\n${input.appContext}` : LYKO_SYSTEM, messages, tc, extraTools: ORCHESTRATOR_TOOLS, onExtra, maxSteps, maxTokens, emit });
+  // The capability map rides with the system prompt (compact, from code), so Lyko knows its own features, venues and bridge destinations.
+  const system = `${LYKO_SYSTEM}\n\n${capabilitySummary(capabilityMap(input.environment))}${input.appContext ? `\n\n${input.appContext}` : ""}`;
+  const main = await runLoop({ client, system, messages, tc, extraTools: ORCHESTRATOR_TOOLS, onExtra, maxSteps, maxTokens, emit });
   modelCalls += main.calls;
 
   const merged = await mergeProposals(input, planned, fence);

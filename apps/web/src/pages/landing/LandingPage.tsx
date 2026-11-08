@@ -46,7 +46,7 @@ const PROBLEM: readonly (readonly [string, string])[] = [
 const STEPS: readonly (readonly [string, string, string])[] = [
   ["1", "Say the outcome", "\"Keep 5,000 USDC for payroll and put the rest in the best vault.\" A sentence in the app, or one API call."],
   ["2", "Lykia compiles a route", "Arc protocols and Circle's CCTP and Gateway are compared on what you end up with. The winner is simulated on Arc."],
-  ["3", "The Fence decides, you sign once", "Your rules return allow, confirm or deny, with reasons. Then one transaction, one signature."],
+  ["3", "Your rules decide, you sign once", "Your Fence (your spending rules) answers allow, ask you first, or refuse, with reasons. Then one transaction, one signature."],
 ];
 
 /** The three ways in, one line each (the nav blurbs are written for menus). */

@@ -7,7 +7,7 @@
  * always one click away. "New leash" opens the three-step sheet; a draft
  * from Ask Lyko (`?leash=`) opens it prefilled.
  */
-import { decodeDraft, LEASH_TEMPLATES } from "@lykia/core";
+import { decodeDraft, LEASH_TEMPLATES, LYKIA_TERMS } from "@lykia/core";
 import type { LeashView, RevokeLeashResponse } from "@lykia/core/api/leash";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -53,18 +53,18 @@ export function LeashCard({ l, now, busy, onRevoke, offer }: { readonly l: Leash
         </Button>
         <span className="m-kick fd-leash__kick">{`${LEASH_TEMPLATES[l.template].title} · ${statusLabel(l)}`}</span>
       </header>
-      <Bar m={meterOf(l.usage.day)} label="TODAY" />
-      <Bar m={meterOf(l.usage.total)} label="WHOLE LEASH" />
+      <Bar m={meterOf(l.usage.day)} label="SPENT TODAY" />
+      <Bar m={meterOf(l.usage.total)} label="SPENT IN TOTAL" />
       {close && live ? <p className="fd-leash__warn">{`Near its cap: ${usdText(stepLeft(l))} left for the next step.`}</p> : null}
       <p className="fd-leash__from">
         <Tag tone={l.spendFrom === "gateway" ? "sea" : "ghost"}>{spendFromLabel(l).toUpperCase()}</Tag>
         {paysOn ? <span className="m-small">{`Pays on ${paysOn}`}</span> : null}
       </p>
       <dl className="fd-agent__facts">
-        <div><dt>{"Time left"}</dt><dd className="num">{live ? timeLeft(l.expiresAt, now) : "ended"}</dd></div>
-        <div><dt>{"Per step"}</dt><dd className="num">{usdText(l.budget.perStepUsd)}</dd></div>
-        <div><dt>{l.template === "pay-invoices" ? "Pays" : "Venues"}</dt><dd>{venueLabel(l)}</dd></div>
-        <div><dt>{"Limits read"}</dt><dd>{l.usage.source === "chain" ? "on chain" : "Lykia's record"}</dd></div>
+        <div><dt>{"Key stops in"}</dt><dd className="num">{live ? timeLeft(l.expiresAt, now) : "ended"}</dd></div>
+        <div><dt>{"Most in one go"}</dt><dd className="num">{usdText(l.budget.perStepUsd)}</dd></div>
+        <div><dt>{l.template === "pay-invoices" ? "May pay" : "May use"}</dt><dd>{venueLabel(l)}</dd></div>
+        <div><dt>{"Limits read from"}</dt><dd>{l.usage.source === "chain" ? "the chain" : "Lykia's record"}</dd></div>
       </dl>
       {l.recent.length > 0 ? (
         <ul className="fd-leash__recent" aria-label="Last actions">
@@ -131,8 +131,8 @@ export function LeashSection({ owner, onSignIn }: { readonly owner: FoldOwner; r
       <header className="fd-leashes__head">
         <span className="fd-leashes__mark" aria-hidden="true"><LeashMark scale={3} /></span>
         <div>
-          <h3 id="fd-leashes-h">{"Leashes"}</h3>
-          <p className="m-small">{"A budget an outside agent cannot exceed: per step, per day and in total, until a date, only where you allow. It spends from your Arc wallet or your Gateway balance; the caps sit on chain either way, and Revoke cuts the key at once."}</p>
+          <h3 id="fd-leashes-h">{"Leashes"} <span className="p-h-sub">{`· ${LYKIA_TERMS.leash.plain}`}</span></h3>
+          <p className="m-small">{"Give an outside bot a budget it cannot go past: per step, per day and in total, until a date, only to who you allow. The limits sit on chain, and Revoke stops its key at once."}</p>
         </div>
         <Button tone="sea" onClick={() => (owner.sample || owner.signedIn ? setOpen(true) : onSignIn())}>{owner.signedIn || owner.sample ? "+ NEW LEASH" : "SIGN IN TO LEASH"}</Button>
       </header>

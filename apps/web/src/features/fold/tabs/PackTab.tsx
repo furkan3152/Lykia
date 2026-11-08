@@ -47,15 +47,15 @@ export function PackTab({ agents, sample, busyId, onWhistle, onNew, onAsk }: { r
             </header>
             <Meter {...m} />
             <dl className="fd-agent__facts">
-              <div><dt>{"Tag"}</dt><dd>{a.agentId ? <Link to={`/app/tag/${a.agentId}`}>{`#${a.agentId}`}</Link> : <span className="m-muted">{"no Tag yet"}</span>}</dd></div>
-              <div><dt>{"May"}</dt><dd>{a.capabilities.slice(0, 3).join(", ")}{a.capabilities.length > 3 ? " …" : ""}</dd></div>
-              <div><dt>{"Session"}</dt><dd>{a.session ? "on chain" : "proposals only"}</dd></div>
+              <div><dt>{"ID card (Tag)"}</dt><dd>{a.agentId ? <Link to={`/app/tag/${a.agentId}`}>{`#${a.agentId}`}</Link> : <span className="m-muted">{"none yet"}</span>}</dd></div>
+              <div><dt>{"Allowed to"}</dt><dd>{a.capabilities.slice(0, 3).join(", ")}{a.capabilities.length > 3 ? " …" : ""}</dd></div>
+              <div><dt>{"Can it sign?"}</dt><dd>{a.session ? "yes, within its budget" : "no, it only suggests"}</dd></div>
               <div><dt>{"Since"}</dt><dd className="num">{new Date(a.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</dd></div>
             </dl>
             <footer className="fd-agent__acts">
               <Button size="sm" tone="ghost" onClick={() => onAsk(a)}>{"ASK ABOUT IT"}</Button>
               {sample ? null : <Link to={`/app/pack/${encodeURIComponent(a.id)}`} className="m-btn m-btn--ghost m-btn--sm">{"DETAILS"}</Link>}
-              <Button size="sm" tone={paused ? "ochre" : "navy"} disabled={sample || busyId === a.id || a.status === "revoked"} onClick={() => onWhistle(a)}>{paused ? "RELEASE" : "WHISTLE"}</Button>
+              <Button size="sm" tone={paused ? "ochre" : "navy"} disabled={sample || busyId === a.id || a.status === "revoked"} onClick={() => onWhistle(a)}>{paused ? "LET IT WORK" : "PAUSE IT"}</Button>
             </footer>
           </article>
         );

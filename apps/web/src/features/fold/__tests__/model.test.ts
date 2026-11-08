@@ -42,8 +42,9 @@ describe("the Fold bar", () => {
   });
 
   it("writes the counts line in words", () => {
-    assert.equal(countsLine({ rules: 3, ordersWaiting: 1, agentsWorking: 2 }), "3 rules running · 1 order waiting · 2 agents working");
-    assert.match(countsLine({ rules: 1, ordersWaiting: 0, agentsWorking: 1, proposalsWaiting: 2 }), /1 rule running · 0 orders waiting · 1 agent working · 2 drafts to sign/u);
+    assert.equal(countsLine({ rules: 3, ordersWaiting: 1, agentsWorking: 2 }), "3 rules run on their own · 1 order waits for its price · 2 agents work for you");
+    assert.equal(countsLine({ rules: 1, ordersWaiting: 0, agentsWorking: 1, proposalsWaiting: 2 }), "1 rule runs on its own · 1 agent works for you · 2 drafts wait for your signature", "zero counts are left out");
+    assert.equal(countsLine({ rules: 0, ordersWaiting: 0, agentsWorking: 0 }), "Nothing runs on its own yet.");
   });
 
   it("splits the allocation into whole tesserae that add up", () => {

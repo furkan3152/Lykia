@@ -58,6 +58,7 @@ OPERATIONS: Dict[str, Operation] = {
     "getBillingPlan": Operation("GET", "/v1/billing/plan", "Billing", "The account's plan, credits and limits", "read", False),
     "getBillingPlans": Operation("GET", "/v1/billing/plans", "Billing", "Every API plan", None, False),
     "getBillingUsage": Operation("GET", "/v1/billing/usage", "Billing", "Usage this month, per day and per endpoint", "read", False),
+    "getCapabilities": Operation("GET", "/v1/capabilities", "Knowledge", "What Lyko can do: every action with the venues it routes through, bridge destinations per route, what each token can do, and the features to reach for", None, False),
     "getCircleCctpFees": Operation("GET", "/v1/circle/cctp/fees", "Circle", "CCTP V2 fees", None, False),
     "getCircleCctpStatus": Operation("GET", "/v1/circle/cctp/status", "Circle", "A CCTP burn from Arc: attestation, forwarding state, destination mint", None, False),
     "getCircleComplianceByAddress": Operation("GET", "/v1/circle/compliance/{address}", "Circle", "Compliance screening of an address", None, False),

@@ -46,6 +46,8 @@ import {
   type WatchCondition,
 } from "@lykia/core";
 import type { Request } from "express";
+import { readAssist, type AssistReading } from "@lykia/core";
+import { capabilityMap } from "../capabilities/map.js";
 import type { AppContext } from "../context.js";
 import { agentServices } from "../agents/index.js";
 import type { LlmClient } from "../agents/llm.js";
@@ -128,6 +130,15 @@ export interface CompileResult {
   readonly pin: { readonly programHash: string; readonly resolutionHash: string; readonly fenceHash: string | null; readonly verdictDigest: string | null; readonly digest: string };
   /** Set when the words ask for a watch rather than a move: Ask Lyko hands it to Lyko on watch (core/agentInstructions). */
   readonly watch?: { readonly condition: WatchCondition; readonly label: string };
+  /** Set when the capability map reads the words: a capability question, a feature to offer, or the one question to ask (core/capabilities). */
+  readonly assist?: AssistReading;
+}
+
+/** What the capability map reads in the words, if anything (never for a watch, which has its own reader). */
+function assistOf(text: string, environment: ArcEnvironment): { assist?: AssistReading } {
+  if (readWatchRequest(text)) return {};
+  const a = readAssist(text, capabilityMap(environment));
+  return a ? { assist: a } : {};
 }
 
 /** The watch the words ask for, if any, in the compile result's shape. */
@@ -264,6 +275,7 @@ export function compileOffline(text: string, state: ProgramState, options: { rea
   return {
     schema: "lykia.compile-result/v1",
     ...watchOf(text),
+    ...assistOf(text, state.environment),
     status: compiled.status,
     source: options.program ? "llm" : "deterministic",
     note: null,
@@ -363,6 +375,7 @@ export async function compileIntent(ctx: AppContext, input: CompileInput, http: 
   return {
     schema: "lykia.compile-result/v1",
     ...watchOf(input.text),
+    ...assistOf(input.text, environment),
     status: compiled.status,
     source: read.source,
     note: read.note,

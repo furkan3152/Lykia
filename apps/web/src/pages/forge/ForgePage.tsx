@@ -12,6 +12,7 @@
  * Each stone has its own URL (/forge/:section). The old /build tabs and
  * hashes still land in the right place (app/routes/aliases.ts).
  */
+import { HowItWorks } from "../../features/help/Help";
 import { coverageLine, type Project } from "@lykia/core";
 import { useEffect, useState } from "react";
 
@@ -69,6 +70,16 @@ function isSection(value: string | undefined): value is ForgeSection {
   return FORGE_SECTIONS.some((s) => s.id === value);
 }
 
+/** The Forge keeps its developer depth; each of its own words gets one plain line. */
+const FORGE_WORDS: readonly (readonly [string, string])[] = [
+  ["City", "Your project: your app's brand, its website, the features you turn on and your fee."],
+  ["Fence caps", "Spending limits for your users' moves. They can only make a user's own rules stricter."],
+  ["Key", "A secret your server sends with each API call. Test keys use Arc testnet; live keys move real money."],
+  ["Webhook", "A message Lykia sends to your server when something happens, such as a payment settling."],
+  ["MCP", "A standard way for AI tools to call Lykia's features."],
+  ["Leash", "A budget an outside bot cannot go past, enforced on chain."],
+];
+
 export default function ForgePage() {
   const { params, location } = useRoute();
   const raw = params.section;
@@ -98,9 +109,22 @@ export default function ForgePage() {
     <div>
       <PageHead kicker="THE FORGE · DEVELOPER PORTAL" title={<>Strike a city. <em>Ship it anywhere.</em></>} sub="Lykia's routing, Fence checks and assistant as a REST API, an MCP server, SDKs and drop-in components. Every app you build is a city: your brand, your modules, your Fence caps, your fee." mood="happy">
         <div className="flex justify-center gap-2 flex-wrap" style={{ marginTop: 18 }}>
-          {siwe.signedIn ? <Tag tone="ok">SIGNED IN · {siwe.session?.roles.join(", ").toUpperCase()}</Tag> : <Button onClick={() => void siwe.signIn()} disabled={siwe.busy}>{"SIGN IN ON ARC (SIWE)"}</Button>}
+          {siwe.signedIn ? <Tag tone="ok">SIGNED IN · {siwe.session?.roles.join(", ").toUpperCase()}</Tag> : <Button onClick={() => void siwe.signIn()} disabled={siwe.busy}>{"SIGN IN WITH YOUR WALLET"}</Button>}
         </div>
+        <p className="m-small m-muted m-center" style={{ marginTop: 8 }}>{"One signed message (SIWE), no transaction and no fee."}</p>
       </PageHead>
+
+      <section className="m-wrap forge-words" aria-labelledby="forge-words">
+        <div className="forge-words__head">
+          <h2 id="forge-words" className="m-kick">{"WORDS ON THIS PAGE"}</h2>
+          <HowItWorks area="forge" />
+        </div>
+        <dl>
+          {FORGE_WORDS.map(([w, m]) => (
+            <div key={w}><dt>{w}</dt><dd>{m}</dd></div>
+          ))}
+        </dl>
+      </section>
 
       <section className="m-wrap forge-rails" aria-labelledby="forge-rails">
         <h2 id="forge-rails" className="m-kick">{"ON TOP OF CIRCLE'S RAILS"}</h2>

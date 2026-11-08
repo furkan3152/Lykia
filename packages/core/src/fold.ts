@@ -44,6 +44,10 @@ export const FOLD_INSIGHT_KINDS = [
   "lp-out-of-range",
   "order-expiring",
   "watch-task",
+  "near-threshold",
+  "unclaimed",
+  "expiring",
+  "idle-position",
 ] as const;
 export type FoldInsightKind = (typeof FOLD_INSIGHT_KINDS)[number];
 
@@ -64,6 +68,10 @@ export const FOLD_INSIGHT_NAMES: Readonly<Record<FoldInsightKind, string>> = {
   "lp-out-of-range": "Liquidity out of range",
   "order-expiring": "Orders about to expire",
   "watch-task": "Watch tasks from Ask Lyko",
+  "near-threshold": "Close to a limit",
+  "unclaimed": "Something to claim",
+  "expiring": "Something about to expire",
+  "idle-position": "Money sitting idle",
 };
 
 export type FoldRisk = "careful" | "balanced" | "bold";

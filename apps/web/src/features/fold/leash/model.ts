@@ -119,6 +119,26 @@ export function budgetOf(form: Pick<LeashForm, "perDayUsd" | "perStepUsd" | "day
   return { ...draftBudget({ perDayUsd: day, perStepUsd: step, days }), perStepUsd: step };
 }
 
+/** One-tap limits for the sheet: each fills per day, per step and days. */
+export const LIMIT_PRESETS: readonly { readonly label: string; readonly line: string; readonly perDayUsd: string; readonly perStepUsd: string; readonly days: string }[] = [
+  { label: "Try it out", line: "$5 a day for 3 days", perDayUsd: "5", perStepUsd: "5", days: "3" },
+  { label: "Small bot", line: "$20 a day for 7 days", perDayUsd: "20", perStepUsd: "10", days: "7" },
+  { label: "Working bot", line: "$100 a day for 30 days", perDayUsd: "100", perStepUsd: "50", days: "30" },
+];
+
+const usdWord = (v: string | number) => `$${Number(v).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+
+/** The review in one sentence: "This bot can spend up to $20 a day for 7 days, only to these 2 payees. You can stop it anytime." */
+export function leashSentence(form: LeashForm, payees: number): string {
+  const days = Number(form.days);
+  const when = `for ${days} day${days === 1 ? "" : "s"}`;
+  const step = form.perStepUsd.trim() && form.perStepUsd.trim() !== form.perDayUsd.trim() ? `, at most ${usdWord(form.perStepUsd)} at a time` : "";
+  const t = LEASH_TEMPLATES[form.template];
+  const where = t.recipients === "allowlist" ? `only to ${payees === 1 ? "this payee" : `these ${payees} payees`}` : `only on ${form.venues.join(" and ") || "the venues you picked"}`;
+  const name = form.name.trim() || "This bot";
+  return `${name} can spend up to ${usdWord(form.perDayUsd || "0")} a day ${when}${step}, ${where}. You can stop it anytime.`;
+}
+
 export interface FormIssue {
   readonly field: keyof LeashForm | "budget";
   readonly message: string;

@@ -17,7 +17,7 @@
 import type { ElementKind, RefusalCode } from "@lykia/core";
 
 export type CaseMode = "both" | "llm";
-export type Category = "watch" | "treasury" | "payroll" | "savings" | "hedging" | "agents" | "exits" | "dca" | "sweeps" | "cross-chain" | "ambiguity" | "contradiction" | "impossible" | "injection" | "conditional" | "multilingual";
+export type Category = "capabilities" | "bridges" | "proactive" | "clarify" | "watch" | "treasury" | "payroll" | "savings" | "hedging" | "agents" | "exits" | "dca" | "sweeps" | "cross-chain" | "ambiguity" | "contradiction" | "impossible" | "injection" | "conditional" | "multilingual";
 
 export interface ElementExpect {
   readonly kind: ElementKind;
@@ -59,6 +59,8 @@ export interface Rubric {
   readonly roundTrip?: boolean;
   /** A watch for Lyko on watch (subset match on the condition), or false when the words must not read as one. */
   readonly watch?: Record<string, unknown> | false;
+  /** What the capability map reads (subset match on the reading), with its options matching a pattern; false when it must read nothing. */
+  readonly assist?: (Record<string, unknown> & { readonly optionsMatch?: RegExp }) | false;
 }
 
 export interface EvalCase {
@@ -81,6 +83,30 @@ const A8 = "0x8888888888888888888888888888888888888888";
 const A9 = "0x9999999999999999999999999999999999999999";
 
 export const EVAL_CASES: readonly EvalCase[] = [
+  /* ------------------------------------------------------------ Lyko knows its own capabilities (core/capabilities) */
+  { id: "cap-what-can-you-do", category: "capabilities", mode: "both", state: "treasury", text: "What can you do?", expect: { assist: { kind: "capabilities" } } },
+  { id: "cap-lend-where", category: "capabilities", mode: "both", state: "treasury", text: "Which protocols can I lend on?", expect: { assist: { kind: "venues-for", action: "earn" } } },
+  { id: "cap-swap-where", category: "capabilities", mode: "both", state: "treasury", text: "Where can I swap tokens?", expect: { assist: { kind: "venues-for", action: "swap" } } },
+  { id: "cap-borrow-can", category: "capabilities", mode: "both", state: "btc", text: "Can I borrow against my cirBTC?", expect: { assist: { kind: "venues-for", action: "borrow" } } },
+  { id: "cap-explain-leash", category: "capabilities", mode: "both", state: "treasury", text: "What is a Leash?", expect: { assist: { kind: "explain", term: "leash" } } },
+  { id: "cap-explain-fence", category: "capabilities", mode: "both", state: "treasury", text: "What's the Fence?", expect: { assist: { kind: "explain", term: "fence" } } },
+  { id: "bridge-where-usdc", category: "bridges", mode: "both", state: "treasury", text: "Where can I bridge USDC to?", expect: { assist: { kind: "bridge-destinations", token: "USDC" } } },
+  { id: "bridge-which-chains", category: "bridges", mode: "both", state: "treasury", text: "Which chains can I bridge to?", expect: { assist: { kind: "bridge-destinations", token: "USDC" } } },
+  { id: "bridge-eurc", category: "bridges", mode: "both", state: "treasury", text: "Can I bridge EURC?", expect: { assist: { kind: "bridge-destinations", token: "EURC" } } },
+  { id: "offer-leash-bot", category: "proactive", mode: "both", state: "treasury", text: "My bot needs money to pay its API bills", expect: { assist: { kind: "offer", feature: "leash", optionsMatch: /a day for \d+ days/u } } },
+  { id: "offer-leash-agent", category: "proactive", mode: "both", state: "treasury", text: "I want to give my AI agent an allowance", expect: { assist: { kind: "offer", feature: "leash" } } },
+  { id: "offer-stress-eurc", category: "proactive", mode: "both", state: "treasury", text: "What if EURC drops 5%?", expect: { assist: { kind: "offer", feature: "stress-test" } } },
+  { id: "offer-stress-btc", category: "proactive", mode: "both", state: "btc", text: "Am I safe if bitcoin falls 20%?", expect: { assist: { kind: "offer", feature: "stress-test" } } },
+  { id: "offer-whistle", category: "proactive", mode: "both", state: "treasury", text: "Stop everything, something is wrong", expect: { assist: { kind: "offer", feature: "whistle" } } },
+  { id: "offer-fence-careful", category: "proactive", mode: "both", state: "treasury", text: "Make my Fence more careful", expect: { assist: { kind: "offer", feature: "fence-presets", optionsMatch: /^Careful$/u } } },
+  { id: "offer-not-full-leash", category: "proactive", mode: "both", state: "treasury", text: "Give my bot $20 a day for a week to pay invoices.", expect: { assist: false, scheduled: [{ kind: "leash" }] } },
+  { id: "offer-not-pack-agent", category: "proactive", mode: "both", state: "treasury", text: "Create a payroll agent with a 500 USDC daily budget", expect: { assist: false } },
+  { id: "offer-not-watch", category: "proactive", mode: "both", state: "treasury", text: "Tell me if the Morpho rate falls below 4%", expect: { assist: false, watch: { kind: "apy-below" } } },
+  { id: "clarify-bridge-chain", category: "clarify", mode: "both", state: "treasury", text: "Bridge 100 USDC", expect: { assist: { kind: "clarify", missing: "destination", optionsMatch: /^Bridge 100 USDC to (Base|Arbitrum|Ethereum|OP Mainnet)$/u } } },
+  { id: "clarify-move-off-arc", category: "clarify", mode: "both", state: "treasury", text: "Move 200 USDC to another chain", expect: { assist: { kind: "clarify", missing: "destination", optionsMatch: /to Base$/u } } },
+  { id: "clarify-swap-amount", category: "clarify", mode: "both", state: "treasury", text: "Swap USDC to EURC", expect: { assist: { kind: "clarify", missing: "amount", optionsMatch: /^Swap \d+ USDC to EURC$/u } } },
+  { id: "clarify-not-named-chain", category: "clarify", mode: "both", state: "treasury", text: "Bridge 100 USDC to Base", expect: { assist: false, nowVerbs: ["bridge"] } },
+  { id: "clarify-not-full-swap", category: "clarify", mode: "both", state: "treasury", text: "Swap 100 USDC to EURC", expect: { assist: false } },
   /* ------------------------------------------------------------ watch tasks (Ask Lyko -> Lyko on watch) */
   { id: "watch-aave-health", category: "watch", mode: "both", state: "treasury", text: "Watch my Aave position and tell me if health drops below 1.5", expect: { watch: { kind: "health-below", threshold: "1.5", venue: "aave-v4" } } },
   { id: "watch-alert-health", category: "watch", mode: "both", state: "treasury", text: "Alert me if my health factor goes under 1.4", expect: { watch: { kind: "health-below", threshold: "1.4" } } },

@@ -33,6 +33,7 @@ import { handleLine } from "../../shell/palette";
 import { useSession } from "../../lib/session";
 import type { ThreadSummaryView } from "@lykia/core/api/fold";
 import { mergeThreads } from "../../features/fold/model";
+import { HowItWorks } from "../../features/help/Help";
 
 const SAMPLE_OWNER = "0x000000000000000000000000000000000000dEaD" as const;
 
@@ -40,10 +41,13 @@ const SAMPLE_OWNER = "0x000000000000000000000000000000000000dEaD" as const;
 const QUICK = [
   { en: "Pay someone", q: "Pay 250 USDC to ", kick: "ARC MEMO · ONE TX", hint: "Name, address or @contact, an amount, a note" },
   { en: "Put idle USDC to work", q: "Put my idle USDC to work at low risk", kick: "EARN · MORPHO · AAVE V4", hint: "Keeps your liquidity floor in the wallet" },
-  { en: "Hedge into EUR", q: "Convert 200 USDC to EURC", kick: "FX · STABLEFX · BAND", hint: "Inside your Fence's FX band" },
-  { en: "Set a rule", q: "Every Friday at 17:00, pay ", kick: "HERDING · ROUNDS · ORDERS", hint: "Schedules, price triggers, alerts" },
-  { en: "New agent", q: "Create a payroll agent with a 500 USDC daily budget", kick: "PACK · FENCE · TAG", hint: "A budget carved from yours" },
+  { en: "Hedge into EUR", q: "Convert 200 USDC to EURC", kick: "CONVERT · CHECKED RATE", hint: "Checked against the reference EUR rate" },
+  { en: "Set a rule", q: "Every Friday at 17:00, pay ", kick: "RUNS ON ITS OWN", hint: "Schedules, price triggers, alerts" },
+  { en: "Give a bot a budget", q: "Give my bot $20 a day for 7 days to pay invoices", kick: "LEASH · A BUDGET FOR A BOT", hint: "A limit it cannot go past; stop it anytime" },
 ] as const;
+
+/** Example requests, sent as they are with one tap. */
+const EXAMPLES = ["What can you do?", "Where can I bridge USDC to?", "What if EURC drops 5%?", "My bot needs a budget", "Tell me if my health factor drops below 1.5", "Where is my money and what is it doing?"] as const;
 
 export default function AskPage({ reviewId = null }: { readonly reviewId?: string | null } = {}) {
   const environment = useEnvironment();
@@ -205,7 +209,7 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
         <div style={{ padding: 14, borderTop: "2px dashed var(--grout)", display: "grid", gap: 6 }}>
           <span className="m-kick">{"FENCE"} · {fence.label?.toUpperCase() ?? "CUSTOM"} · {(fence.mode ?? "live").toUpperCase()}</span>
           <span className="m-kick">{environment === "mainnet" ? "ARC MAINNET 5042" : "ARC TESTNET 5042002"}</span>
-          {convo.mode ? <Tag tone={convo.mode === "llm" ? "ok" : "ghost"}>{convo.mode === "llm" ? "LYKO · AI ON" : "READER MODE · NO AI KEY"}</Tag> : null}
+          {convo.mode ? <Tag tone={convo.mode === "llm" ? "ok" : "ghost"}>{convo.mode === "llm" ? "LYKO · AI ON" : "READER MODE · SIMPLE SENTENCES"}</Tag> : null}
         </div>
       </aside>
 
@@ -227,6 +231,17 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
                 <LykoFace mood="happy" scale={3} className="mx-auto" />
                 <h1 className="m-title">{"What should your money do?"}</h1>
                 <p className="m-sub">{"Say the outcome in one sentence. Lykia plans it across Arc protocols and Circle rails, your Fence (your spending rules) checks every step, and you sign once."}</p>
+                <div className="p-examples" role="list" aria-label="Try asking">
+                  <span className="m-kick">{"TRY ASKING · ONE TAP SENDS IT"}</span>
+                  <div>
+                    {EXAMPLES.map((e) => (
+                      <button key={e} type="button" role="listitem" className="m-chip" onClick={() => ask(e)}>
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <span className="m-kick p-examples__or">{"OR START FROM ONE OF THESE · YOU FINISH THE SENTENCE"}</span>
                 <div className="m-starters m-starters--quick" role="list" aria-label="Quick actions">
                   {QUICK.map((s) => (
                     <button key={s.en} type="button" role="listitem" className="m-starter" onClick={() => setPrefill(s.q)}>
@@ -239,6 +254,7 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
                 <p className="m-small m-muted" style={{ marginTop: 14 }}>
                   {"Everything you own and everything in motion lives in "}<Link to="/app/fold">{"The Fold"}</Link>{"; Lyko on watch keeps an eye on it there."}
                 </p>
+                <HowItWorks area="ask" inAsk />
               </div>
             ) : null}
             {serverThread.data && convo.messages.length === 0

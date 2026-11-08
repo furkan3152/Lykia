@@ -7,6 +7,7 @@
  * Every tool result goes back to the model wrapped as untrusted data:
  * token names, memos and card text are written by strangers.
  */
+import { liveCapabilityMap } from "../capabilities/map.js";
 import {
   ALERT_CHANNELS,
   ALERT_KINDS,
@@ -167,7 +168,7 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
   }),
   spec({
     name: "positions",
-    description: "Read where the owner's money is and what it is doing, in every venue Lykia supports on Arc: wallet tokens, Aave V4 supplies and borrows with health factors, Morpho vaults (named by curator: Galaxy, Keyrock, Steakhouse, Gauntlet, Bitwise) and Morpho Blue markets, Uniswap v3/v4, Aerodrome Slipstream, Archery, Unitflow V3 and SushiSwap V3 LP positions with range and fees, USYC, the Circle Gateway balance and, for the proven owner, CCTP and Relay transfers in flight, open orders and scheduled payments. Each position has a state (earning, idle, borrowing, at-risk, out-of-range, pending, escrowed, committed), a value, an APY where known and one plain line of what it is doing. Venues that could not be read are named, never zeroed. Use it to answer 'where is my money and what is it doing?', then call show_card with card 'positions'.",
+    description: "Read where the owner's money is and what it is doing, in every venue Lykia supports on Arc: wallet tokens, Aave V4 supplies and borrows with health factors, Morpho vaults (named by curator: Galaxy, Keyrock, Steakhouse, Gauntlet, Bitwise) and Morpho Blue markets, Uniswap v3/v4, Aerodrome Slipstream, Archery, Unitflow V3 and SushiSwap V3 LP positions with range and fees, USYC, the Circle Gateway balance and, for the proven owner, CCTP and Relay transfers in flight, open orders, scheduled payments, leash budgets (what each bot may still spend, from the Arc wallet or a Gateway balance), step-by-step plans with steps still to sign, and watches. Any other kind (a new venue type) arrives with generic detail blocks: gauges with thresholds, ranges, timelines, facts, countdowns and PnL. Each position has a state (earning, idle, borrowing, at-risk, out-of-range, pending, escrowed, committed, watching), a value, an APY where known and one plain line of what it is doing. Venues that could not be read are named, never zeroed. Use it to answer 'where is my money and what is it doing?', then call show_card with card 'positions'.",
     capability: "read",
     schema: z.object({}).strict(),
     json: obj({}),
@@ -179,7 +180,7 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
         data: {
           summary: res.summary,
           healthFloor: res.healthFloor,
-          positions: all.map((p) => ({ venue: p.venue, label: p.label, state: p.state, amount: p.amount, symbol: p.symbol, valueUsd: p.valueUsd, doing: p.doing, apy: p.apy?.percent ?? null, health: p.health?.factor ?? null, inRange: p.range?.inRange ?? null, feesUsd: p.fees?.valueUsd ?? null, actions: p.actions.filter((a) => a.mode === "draft").map((a) => a.sentence) })),
+          positions: all.map((p) => ({ venue: p.venue, kind: p.venueKind, label: p.label, state: p.state, amount: p.amount, symbol: p.symbol, valueUsd: p.valueUsd, doing: p.doing, apy: p.apy?.percent ?? null, health: p.health?.factor ?? null, inRange: p.range?.inRange ?? null, feesUsd: p.fees?.valueUsd ?? null, ...(p.claimable ? { claimable: p.claimable } : {}), ...(p.blocks ? { blocks: p.blocks } : {}), actions: p.actions.filter((a) => a.mode === "draft").map((a) => a.sentence) })),
           venues: res.venues.map((v) => ({ venue: v.venue, status: v.status, ...(v.reason ? { reason: v.reason } : {}), ...(v.coverage ? { coverage: v.coverage } : {}) })),
         },
       };
@@ -220,6 +221,19 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
         .filter((p) => !input.category || p.category === input.category)
         .map((p) => ({ id: p.id, name: p.name, category: p.category, verbs: p.verbs, executable: EXECUTABLE_VENUES[tc.environment].has(p.id) }));
       return { summary: `${rows.length} venues`, data: rows };
+    },
+  }),
+  spec({
+    name: "capabilities",
+    description: "Read Lyko's own capability map, built from code: every action (send, convert, swap, earn, withdraw, borrow, repay, bridge, Gateway) with the venues it routes through on this network, each bridge route (CCTP, Across, Relay, Gateway) with its destination chains and when it is picked, what each token can do and where USDC can be bridged, and the features with when to use them (Fence presets, Stress test, Leash, watches, step-by-step plans, Whistle, orders, alerts, recurring rules, payouts). Use it for 'what can you do', 'where can I bridge to', 'which protocols for ...', and to build the options of a clarifying question.",
+    capability: "read",
+    schema: z.object({ section: z.enum(["all", "actions", "bridges", "tokens", "features"]).optional() }).strict(),
+    json: obj({ section: { type: "string", enum: ["all", "actions", "bridges", "tokens", "features"], description: "Optional: one part of the map" } }),
+    async run(input: { section?: "all" | "actions" | "bridges" | "tokens" | "features" }, tc) {
+      const map = await liveCapabilityMap(tc.ctx, tc.environment);
+      const section = input.section ?? "all";
+      const data = section === "all" ? map : { environment: map.environment, [section]: map[section] };
+      return { summary: `Capability map: ${map.actions.length} actions, ${map.bridges.length} bridge routes, ${map.features.length} features`, data };
     },
   }),
   spec({

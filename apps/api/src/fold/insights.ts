@@ -6,7 +6,7 @@
  * when there is a sensible move, a one-tap draft that goes through the
  * proposal system. Unpriced holdings are flagged, never counted as zero.
  */
-import { assessToken, currentMix, fenceForProfile, fromBaseUnits, riskTierOf, type Address, type ArcEnvironment, type FoldInsightKind, type FoldPreferences, type IntentGraph, type Position, type PositionsResponse } from "@lykia/core";
+import { assessToken, currentMix, genericPositionInsights, fenceForProfile, fromBaseUnits, riskTierOf, type Address, type ArcEnvironment, type FoldInsightKind, type FoldPreferences, type IntentGraph, type Position, type PositionsResponse } from "@lykia/core";
 import type { PackAgentView } from "@lykia/core/api/agents";
 import type { FlockSnapshot } from "@lykia/core/api/flock";
 import type { FoldFigure, FoldInsight, FoldInsightsResponse, FoldInstruction } from "@lykia/core/api/fold";
@@ -247,6 +247,9 @@ export function computeInsights(input: InsightInputs): Omit<FoldInsight, "handle
     const expires = p.facts.find((f) => f.label === "Expires")?.value ?? null;
     out.push({ id: `order-expiring-${p.id.slice(-12)}`, kind: "order-expiring", severity: "watch", title: `${p.label} expires within a day`, explain: "If it does not fill before its deadline, nothing happens and the reserved amount stays in your wallet. Sign a new order to keep it running.", figures: figures(["Reserved", `${p.amount} ${p.symbol}`], ...(expires ? ([["Expires", expires]] as [string, string][]) : [])), draft: null });
   }
+
+  // Every other kind, generically from its detail blocks: near a threshold, something to claim, about to end, sitting idle.
+  for (const g of genericPositionInsights((input.positions?.venues ?? []).flatMap((v) => v.positions), Date.parse(input.positions?.at ?? "") || Date.now())) out.push({ ...g, id: g.id.slice(0, 80), figures: [...g.figures] });
 
   const rank = { act: 0, watch: 1, info: 2 } as const;
   return out.sort((a, b) => rank[a.severity] - rank[b.severity]);

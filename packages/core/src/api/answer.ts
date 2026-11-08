@@ -63,7 +63,20 @@ export type AnswerBlock =
   /** A step that settled on chain. */
   | { readonly kind: "settled"; readonly summary: string; readonly tx: string }
   /** Where the owner's money is and what it is doing: the largest positions with their state, and the venues that could not be read. */
-  | { readonly kind: "positions"; readonly netUsd: string | null; readonly weightedApyPercent: string | null; readonly lowestHealth: string | null; readonly rows: readonly PositionsCardRow[]; readonly unavailable: readonly string[] };
+  | { readonly kind: "positions"; readonly netUsd: string | null; readonly weightedApyPercent: string | null; readonly lowestHealth: string | null; readonly rows: readonly PositionsCardRow[]; readonly unavailable: readonly string[] }
+  /** What Lyko can do, from the capability map: titled sections of items with a plain note each. */
+  | { readonly kind: "capabilities"; readonly title: string; readonly sections: readonly CapabilitySection[] }
+  /** A feature Lyko offers for the owner's words: what it is, why it fits, where it lives. */
+  | { readonly kind: "offer"; readonly feature: string; readonly title: string; readonly line: string; readonly href: string; readonly cta: string }
+  /** A Stress test answer: one scenario, the value before and after, and the closest liquidation. */
+  | { readonly kind: "stress"; readonly scenario: string; readonly sentence: string; readonly beforeUsd: string; readonly afterUsd: string; readonly closest: { readonly venue: string; readonly health: string; readonly roomPercent: string } | null };
+
+export interface CapabilitySection {
+  readonly label: string;
+  /** One plain line under the label. */
+  readonly note?: string | null;
+  readonly items: readonly { readonly name: string; readonly note: string | null }[];
+}
 
 export interface PositionsCardRow {
   readonly venue: string;
@@ -73,10 +86,10 @@ export interface PositionsCardRow {
   readonly doing: string;
 }
 
-const POSITION_CARD_STATES = ["earning", "idle", "borrowing", "at-risk", "out-of-range", "pending", "escrowed", "committed"] as const;
+const POSITION_CARD_STATES = ["earning", "idle", "borrowing", "at-risk", "out-of-range", "pending", "escrowed", "committed", "watching"] as const;
 
 export type AnswerBlockKind = AnswerBlock["kind"];
-export const ANSWER_BLOCK_KINDS: readonly AnswerBlockKind[] = ["gas", "fence", "balance", "rate", "herded", "settled", "positions"];
+export const ANSWER_BLOCK_KINDS: readonly AnswerBlockKind[] = ["gas", "fence", "balance", "rate", "herded", "settled", "positions", "capabilities", "offer", "stress"];
 
 /** At most this many blocks ride on one answer. */
 export const MAX_BLOCKS = 6;
@@ -189,6 +202,43 @@ export function parseAnswerBlock(raw: unknown): AnswerBlock | null {
       const unavailable = unavailableRaw.map((u) => str(u, 60));
       if (rows.some((r) => r === null) || unavailable.some((u) => u === null)) return null;
       return { kind: "positions", netUsd, weightedApyPercent, lowestHealth, rows: rows as PositionsCardRow[], unavailable: unavailable as string[] };
+    }
+    case "capabilities": {
+      const title = str(o.title, 120);
+      if (!title || !Array.isArray(o.sections) || o.sections.length === 0 || o.sections.length > 8) return null;
+      const sections = o.sections.map((sec) => {
+        const x = obj(sec);
+        const label = str(x?.label, 80);
+        const note = nullable(x?.note, (n) => str(n, 240));
+        if (!label || note === undefined || !Array.isArray(x?.items) || x.items.length === 0 || x.items.length > 16) return null;
+        const items = x.items.map((i) => {
+          const y = obj(i);
+          const name = str(y?.name, 80);
+          const note = nullable(y?.note, (n) => str(n, 200));
+          return name && note !== undefined ? { name, note } : null;
+        });
+        return items.some((i) => i === null) ? null : { label, ...(note ? { note } : {}), items: items as { name: string; note: string | null }[] };
+      });
+      if (sections.some((sec) => sec === null)) return null;
+      return { kind: "capabilities", title, sections: sections as CapabilitySection[] };
+    }
+    case "offer": {
+      const feature = str(o.feature, 40);
+      const title = str(o.title, 120);
+      const line = str(o.line, 300);
+      const cta = str(o.cta, 40);
+      const href = typeof o.href === "string" && o.href.length <= 200 && APP_HREF.test(o.href) ? o.href : null;
+      return feature && title && line && cta && href ? { kind: "offer", feature, title, line, href, cta } : null;
+    }
+    case "stress": {
+      const scenario = str(o.scenario, 80);
+      const sentence = str(o.sentence, 400);
+      const beforeUsd = decimal(o.beforeUsd);
+      const afterUsd = decimal(o.afterUsd);
+      const c = o.closest === null || o.closest === undefined ? null : obj(o.closest);
+      const closest = c ? { venue: str(c.venue, 60), health: decimal(c.health), roomPercent: decimal(c.roomPercent) } : null;
+      if (closest && (!closest.venue || !closest.health || !closest.roomPercent)) return null;
+      return scenario && sentence && beforeUsd && afterUsd ? { kind: "stress", scenario, sentence, beforeUsd, afterUsd, closest: closest as { venue: string; health: string; roomPercent: string } | null } : null;
     }
     case "settled": {
       const summary = str(o.summary, 200);

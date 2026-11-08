@@ -3,7 +3,7 @@
  * visitor sees. Node tests import this file directly, so it imports types
  * and @lykia/core only.
  */
-import { ALLOCATION_LABELS, allocationOf, FOLD_TABS, type AllocationBucket, type Fence, type FoldPreferences, type FoldTab } from "@lykia/core";
+import { ALLOCATION_LABELS, allocationOf, FOLD_TABS, LYKIA_TERMS, roomTodayLine, type AllocationBucket, type Fence, type FoldPreferences, type FoldTab } from "@lykia/core";
 import type { PackAgentView } from "@lykia/core/api/agents";
 import type { FlockHolding, FlockSnapshot } from "@lykia/core/api/flock";
 import type { FoldInsight, FoldInstruction, FoldProposal, FoldTrailEntry, ThreadSummaryView } from "@lykia/core/api/fold";
@@ -21,15 +21,15 @@ export interface FoldTabMeta {
 }
 
 export const FOLD_TAB_META: Readonly<Record<FoldTab, FoldTabMeta>> = {
-  flock: { id: "flock", label: "Flock", sub: "holdings", line: "Every position in every protocol Lykia supports: where it is, what it is worth, its state and what it is doing." },
-  trails: { id: "trails", label: "Trails", sub: "activity", line: "Everything that happened: settled steps with their memo and Fence verdict, plans, refusals and fees." },
-  herding: { id: "herding", label: "Herding", sub: "instructions", line: "Every standing instruction in one list, and what waits for your signature." },
-  pack: { id: "pack", label: "Pack", sub: "agents", line: "Your agents, their budgets, Tags and last moves, with a Whistle for each." },
-  fence: { id: "fence", label: "Fence", sub: "rules", line: "Your rules in plain words, today's headroom and why anything was refused." },
+  flock: { id: "flock", label: LYKIA_TERMS.flock.word, sub: LYKIA_TERMS.flock.plain, line: "Everything you own on Arc: what it is, what it is worth and what it is doing. Tap a row for details." },
+  trails: { id: "trails", label: LYKIA_TERMS.trails.word, sub: LYKIA_TERMS.trails.plain, line: "Everything that happened: payments, plans, refusals and fees, each with why." },
+  herding: { id: "herding", label: LYKIA_TERMS.herding.word, sub: LYKIA_TERMS.herding.plain, line: "Things that run on their own (recurring payments, orders, alerts, watches) and what waits for your signature." },
+  pack: { id: "pack", label: LYKIA_TERMS.pack.word, sub: LYKIA_TERMS.pack.plain, line: "Bots that work for you, with their budgets. Stop any of them with one tap." },
+  fence: { id: "fence", label: LYKIA_TERMS.fence.word, sub: LYKIA_TERMS.fence.plain, line: "The limits every move must pass, how much room is left today, and how to change them." },
 };
 
 /** The phone-only tab for the docked assistant. */
-export const LYKO_TAB = { id: "lyko", label: "Lyko", sub: "on watch" } as const;
+export const LYKO_TAB = { id: "lyko", label: "Lyko", sub: "your assistant" } as const;
 export type PhoneTab = FoldTab | "lyko";
 
 /** The tab from the URL (/app/fold/:tab), falling back to the first visible tab. */
@@ -115,6 +115,11 @@ export function headroom(spentDayUsd: string | number | null | undefined, fenceD
   return { spent, cap, capLabel: cap === null ? "No daily cap" : cap === betaCap && betaCap !== fenceCap ? "Beta daily cap" : "Fence daily cap", left: cap === null ? null : Math.max(0, cap - spent), share, tone: share >= 0.95 ? "bad" : share >= 0.8 ? "warn" : "ok", fenceCap, betaCap };
 }
 
+/** "Room left today: $3,760 of $5,000 (your daily limit)". */
+export function roomLine(h: Headroom): string {
+  return roomTodayLine(h.left, h.cap, h.capLabel === "Beta daily cap");
+}
+
 export interface FoldCounts {
   readonly rules: number;
   readonly ordersWaiting: number;
@@ -126,9 +131,14 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 
 /** "3 rules running · 1 order waiting · 2 agents working". */
 export function countsLine(c: FoldCounts): string {
-  const parts = [plural(c.rules, "rule running", "rules running"), plural(c.ordersWaiting, "order waiting", "orders waiting"), plural(c.agentsWorking, "agent working", "agents working")];
-  if (c.proposalsWaiting) parts.push(plural(c.proposalsWaiting, "draft to sign", "drafts to sign"));
-  return parts.join(" · ");
+  // Calm: only what is there. Zero counts are left out.
+  const parts = [
+    c.rules > 0 ? plural(c.rules, "rule runs on its own", "rules run on their own") : null,
+    c.ordersWaiting > 0 ? plural(c.ordersWaiting, "order waits for its price", "orders wait for their price") : null,
+    c.agentsWorking > 0 ? plural(c.agentsWorking, "agent works for you", "agents work for you") : null,
+    c.proposalsWaiting ? plural(c.proposalsWaiting, "draft waits for your signature", "drafts wait for your signature") : null,
+  ].filter((x): x is string => x !== null);
+  return parts.length === 0 ? "Nothing runs on its own yet." : parts.join(" · ");
 }
 
 export interface AllocationSlice {
@@ -277,9 +287,9 @@ export type HerdingFilter = "all" | "rounds" | "orders" | "alerts" | "recurring"
 
 export const HERDING_FILTERS: readonly { readonly id: HerdingFilter; readonly label: string }[] = [
   { id: "all", label: "All" },
-  { id: "rounds", label: "Rounds" },
+  { id: "rounds", label: "Automations" },
   { id: "orders", label: "Orders" },
-  { id: "alerts", label: "Barks" },
+  { id: "alerts", label: "Alerts" },
   { id: "recurring", label: "Recurring" },
   { id: "watch", label: "Watch tasks" },
   { id: "paused", label: "Paused" },
@@ -314,7 +324,7 @@ export const TRAIL_FILTERS: readonly { readonly id: TrailFilter; readonly label:
   { id: "settled", label: "Settled" },
   { id: "plans", label: "Plans" },
   { id: "refused", label: "Refused and failed" },
-  { id: "orders", label: "Orders and barks" },
+  { id: "orders", label: "Orders and alerts" },
 ];
 
 export function filterTrails(list: readonly FoldTrailEntry[], filter: TrailFilter): FoldTrailEntry[] {
@@ -389,7 +399,7 @@ export function sampleSnapshot(now: number): FlockSnapshot {
 export function sampleInsights(): FoldInsight[] {
   return [
     { id: "idle-usdc", kind: "idle-usdc", severity: "act", title: "$3,320 of USDC is resting above your floor", explain: "Your wallet keeps $500 liquid for gas and payments. The rest earns nothing while it sits; a medium-risk lending market or vault on Arc can hold it and you can withdraw any time.", figures: [{ label: "USDC in your wallet", value: "$3,820.40" }, { label: "Your liquidity floor", value: "$500" }, { label: "Idle above the floor", value: "$3,320.40" }], draft: { label: "Put it to work", sentence: "Put 3320 USDC to work at medium risk" }, handled: false },
-    { id: "health-aave-v4", kind: "health-factor", severity: "watch", title: "Health factor 1.38 on aave-v4", explain: "Your Fence floor is 1.5. A price move could push the position further under it, toward liquidation. Repaying part of the debt raises it.", figures: [{ label: "Health factor now", value: "1.38" }, { label: "Your Fence floor", value: "1.5" }, { label: "Repaying a quarter", value: "$150" }], draft: { label: "Repay a quarter", sentence: "Repay 150 USDC on aave-v4" }, handled: false },
+    { id: "health-aave-v4", kind: "health-factor", severity: "watch", title: "Your Aave V4 loan is under your safety floor", explain: "Its health is 1.38 and your floor is 1.5. At 1.00 part of your collateral can be sold to repay the loan. Repaying part of the debt raises it.", figures: [{ label: "Loan health now", value: "1.38" }, { label: "Your safety floor", value: "1.5" }, { label: "Repaying a quarter", value: "$150" }], draft: { label: "Repay a quarter", sentence: "Repay 150 USDC on aave-v4" }, handled: false },
     { id: "fx-drift", kind: "fx-drift", severity: "info", title: "EURC is 14% of the Flock; your target is 10%", explain: "Inside your band of 10 points, so nothing to do yet. Lyko keeps an eye on it.", figures: [{ label: "EURC share now", value: "14%" }, { label: "Your target", value: "10% ± 10" }], draft: null, handled: false },
   ];
 }
@@ -398,9 +408,9 @@ export function sampleInstructions(now: number): FoldInstruction[] {
   const base = { controllable: true, environment: "mainnet" as const };
   return [
     { ...base, id: "so_sample_rent", source: "recurring", sourceLabel: "Recurring", name: "Pay 1,200 USDC rent to @landlord on the 1st", status: "active", trigger: "monthly on day 1 at 09:00", nextRunAt: at(-60 * 24 * 9, now), nextRunLabel: "in 9 d", lastRunAt: at(60 * 24 * 21, now), lastResult: "Settled · 1 step", nextVerdict: { decision: "allow", reason: "Every rule passed last time." }, editSentence: "Change my rent payment: " },
-    { ...base, id: "atm_sample_sweep", source: "automation", sourceLabel: "Rounds", name: "Sweep USDC above $5,000 into the Galaxy vault", status: "active", trigger: "USDC balance above 5000", nextRunAt: null, nextRunLabel: "on balance", lastRunAt: at(60 * 30, now), lastResult: "Planned (allow)", nextVerdict: { decision: "unknown", reason: "Planned and checked by the Fence when it fires." }, editSentence: "Change my sweep: " },
-    { ...base, id: "0xsample", source: "order", sourceLabel: "Orders", name: "Buy EURC when EUR/USD ≤ 1.09", status: "waiting", trigger: "waiting for condition", nextRunAt: null, nextRunLabel: "on condition", lastRunAt: null, lastResult: "Not filled yet", nextVerdict: { decision: "allow", reason: "Signed once; LykiaOrders enforces the price, size and deadline on chain." }, controllable: false, editSentence: "Change my EURC order: " },
-    { ...base, id: "al_sample", source: "alert", sourceLabel: "Barks", name: "Health factor below 1.3 on Aave V4", status: "active", trigger: "health below", nextRunAt: null, nextRunLabel: "when it happens", lastRunAt: null, lastResult: "Quiet so far", nextVerdict: { decision: "allow", reason: "Alerts notify; they move nothing." }, editSentence: "Change my health alert: " },
+    { ...base, id: "atm_sample_sweep", source: "automation", sourceLabel: "Automation", name: "Sweep USDC above $5,000 into the Galaxy vault", status: "active", trigger: "USDC balance above 5000", nextRunAt: null, nextRunLabel: "on balance", lastRunAt: at(60 * 30, now), lastResult: "Planned (allow)", nextVerdict: { decision: "unknown", reason: "Planned and checked by the Fence when it fires." }, editSentence: "Change my sweep: " },
+    { ...base, id: "0xsample", source: "order", sourceLabel: "Order", name: "Buy EURC when EUR/USD ≤ 1.09", status: "waiting", trigger: "waiting for condition", nextRunAt: null, nextRunLabel: "on condition", lastRunAt: null, lastResult: "Not filled yet", nextVerdict: { decision: "allow", reason: "Signed once; LykiaOrders enforces the price, size and deadline on chain." }, controllable: false, editSentence: "Change my EURC order: " },
+    { ...base, id: "al_sample", source: "alert", sourceLabel: "Alert", name: "Health factor below 1.3 on Aave V4", status: "active", trigger: "health below", nextRunAt: null, nextRunLabel: "when it happens", lastRunAt: null, lastResult: "Quiet so far", nextVerdict: { decision: "allow", reason: "Alerts notify; they move nothing." }, editSentence: "Change my health alert: " },
   ];
 }
 

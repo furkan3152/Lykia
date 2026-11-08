@@ -576,6 +576,61 @@ function PositionsCard({ block }: { readonly block: Extract<AnswerBlock, { kind:
 }
 
 /** One block as its card. */
+/* -------------------------------------------------- capabilities, offers, stress */
+
+function CapabilitiesCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "capabilities" }> }) {
+  return (
+    <CardShell kind="capabilities" tone="sea" kick="FROM LYKO'S CAPABILITY MAP" title={block.title}>
+      <div className="m-capmap">
+        {block.sections.map((sec) => (
+          <div key={sec.label} className="m-capmap__sec">
+            <b className="m-capmap__label">{sec.label}</b>
+            {sec.note ? <p className="m-card2__note">{sec.note}</p> : null}
+            <ul className={cx("m-capmap__items", sec.items.every((i) => i.note === null) && "m-capmap__items--chips")}>
+              {sec.items.map((i) => (
+                <li key={i.name}>
+                  <span>{i.name}</span>
+                  {i.note ? <small>{i.note}</small> : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </CardShell>
+  );
+}
+
+function OfferCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "offer" }> }) {
+  return (
+    <CardShell kind="offer" tone="olive" kick="LYKO SUGGESTS" title={block.title}>
+      <p className="m-card2__note m-offer__line">{block.line}</p>
+      <div className="m-card2__acts">
+        <Link to={block.href} className="m-mini">{block.cta}</Link>
+      </div>
+    </CardShell>
+  );
+}
+
+function StressCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "stress" }> }) {
+  const before = Number(block.beforeUsd);
+  const after = Number(block.afterUsd);
+  const money = (v: number) => `$${Math.round(v).toLocaleString("en-US")}`;
+  return (
+    <CardShell kind="stress" tone={block.closest && Number(block.closest.health) < 1 ? "terra" : "navy"} kick="STRESS TEST · NOTHING MOVES" title={block.scenario}>
+      <p className="m-card2__note">{block.sentence}</p>
+      <dl className="m-stress">
+        <div><dt>{"Worth now"}</dt><dd className="num">{money(before)}</dd></div>
+        <div><dt>{"Worth after"}</dt><dd className="num" data-tone={after < before ? "bad" : undefined}>{money(after)}</dd></div>
+        <div><dt>{"Closest liquidation"}</dt><dd className="num">{block.closest ? `${Number(block.closest.roomPercent).toFixed(0)}% away · ${block.closest.venue}` : "none"}</dd></div>
+      </dl>
+      <div className="m-card2__acts">
+        <Link to="/app/fold/flock" className="m-mini">Open the Stress test</Link>
+      </div>
+    </CardShell>
+  );
+}
+
 export function BlockCard({ block }: { readonly block: AnswerBlock }) {
   switch (block.kind) {
     case "gas":
@@ -592,6 +647,12 @@ export function BlockCard({ block }: { readonly block: AnswerBlock }) {
       return <SettledSeal block={block} />;
     case "positions":
       return <PositionsCard block={block} />;
+    case "capabilities":
+      return <CapabilitiesCard block={block} />;
+    case "offer":
+      return <OfferCard block={block} />;
+    case "stress":
+      return <StressCard block={block} />;
     default:
       return null;
   }

@@ -8,7 +8,7 @@ export function decisionTone(decision: SecurityDecision): Tone {
 }
 
 export function decisionLabel(decision: SecurityDecision): string {
-  return decision === "block" ? "BLOCKED" : decision === "warn" ? "CHECK FIRST" : "CLEAN";
+  return decision === "block" ? "BLOCKED" : decision === "warn" ? "CHECK FIRST" : "LOOKS RIGHT";
 }
 
 export function severityTone(severity: FindingSeverity): Tone {

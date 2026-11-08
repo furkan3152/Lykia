@@ -13,6 +13,7 @@ import { navigate } from "../../app/routes/history";
 import { useSearchParam } from "../../app/routes/useRoute";
 import { usePreferences, useSavePreferences } from "../../features/fold/data";
 import { FOLD_TAB_META } from "../../features/fold/model";
+import { HowItWorks } from "../../features/help/Help";
 import { useSiwe } from "../../features/session/useSiwe";
 import { describeError } from "../../lib/api";
 import { Button, LykoFace, Tag, cx, toast } from "../../mosaic";
@@ -97,7 +98,7 @@ function Preferences() {
       ) : null}
       <div className="yl-grid">
         <section className="fd-card m-frame m-frame--thin yl-span2" aria-labelledby="risk-h">
-          <header className="fd-card__head"><h3 id="risk-h">{"Risk profile"}</h3><span className="m-kick">{"PICKS YOUR DEFAULT FENCE AND THE ROUTING CEILING"}</span></header>
+          <header className="fd-card__head"><h3 id="risk-h">{"How careful Lyko is"}</h3><span className="m-small m-muted">{"Sets your default spending rules and how risky a place Lyko may suggest."}</span></header>
           <div className="yl-risks" role="radiogroup" aria-label="Risk profile">
             {RISKS.map((r) => (
               <button key={r.id} type="button" role="radio" aria-checked={draft.risk === r.id} className={cx("yl-risk", draft.risk === r.id && "yl-risk--on")} onClick={() => set("risk", r.id)}>
@@ -111,21 +112,21 @@ function Preferences() {
         </section>
 
         <section className="fd-card m-frame m-frame--thin" aria-labelledby="floor-h">
-          <header className="fd-card__head"><h3 id="floor-h">{"Liquidity floor"}</h3><span className="m-kick">{"USDC THAT STAYS IN THE WALLET"}</span></header>
+          <header className="fd-card__head"><h3 id="floor-h">{"Cash to keep at hand"}</h3><span className="m-small m-muted">{"USDC that always stays in your wallet; Lyko never suggests moving it."}</span></header>
           <label className="yl-money"><span>$</span><input inputMode="decimal" value={draft.liquidityFloorUsd} onChange={(e) => set("liquidityFloorUsd", e.target.value.replace(/[^0-9.]/gu, "").slice(0, 12))} aria-label="Liquidity floor in USD" /></label>
           <div className="flex gap-2 flex-wrap">{["250", "500", "1200", "5000"].map((v) => <button key={v} type="button" className="m-chip yl-chip" onClick={() => set("liquidityFloorUsd", v)}>{`$${Number(v).toLocaleString("en-US")}`}</button>)}</div>
           <Effect text={effects.liquidityFloorUsd} />
         </section>
 
         <section className="fd-card m-frame m-frame--thin" aria-labelledby="gas-h">
-          <header className="fd-card__head"><h3 id="gas-h">{"Gas floor"}</h3><span className="m-kick">{"ARC PAYS GAS IN USDC"}</span></header>
+          <header className="fd-card__head"><h3 id="gas-h">{"Network fee reserve"}</h3><span className="m-small m-muted">{"Arc charges its small network fee in USDC; Lyko warns you below this."}</span></header>
           <label className="yl-money"><input inputMode="decimal" value={draft.gasFloorUsdc} onChange={(e) => set("gasFloorUsdc", e.target.value.replace(/[^0-9.]/gu, "").slice(0, 8))} aria-label="Gas floor in USDC" /><span>USDC</span></label>
           <div className="flex gap-2 flex-wrap">{["0.1", "0.5", "2"].map((v) => <button key={v} type="button" className="m-chip yl-chip" onClick={() => set("gasFloorUsdc", v)}>{`${v} USDC`}</button>)}</div>
           <Effect text={effects.gasFloorUsdc} />
         </section>
 
         <section className="fd-card m-frame m-frame--thin yl-span2" aria-labelledby="mix-h">
-          <header className="fd-card__head"><h3 id="mix-h">{"Target mix"}</h3><span className="m-kick">{"USDC · EURC · EARNING, WITH A BAND"}</span></header>
+          <header className="fd-card__head"><h3 id="mix-h">{"Target mix"}</h3><span className="m-small m-muted">{"How you would like your money split; Lyko tells you when it drifts past the band."}</span></header>
           <div className="yl-mixbar" role="img" aria-label={`USDC ${mix.usdcPct}%, EURC ${mix.eurcPct}%, earning ${mix.earningPct}%`}>
             <i style={{ flexGrow: mix.usdcPct, background: "var(--sea)" }}><span>{`USDC ${mix.usdcPct}%`}</span></i>
             <i style={{ flexGrow: mix.eurcPct, background: "var(--ochre)" }}><span>{`EURC ${mix.eurcPct}%`}</span></i>
@@ -142,7 +143,7 @@ function Preferences() {
 
         <section className="fd-card m-frame m-frame--thin yl-span2" aria-labelledby="ins-h">
           <header className="fd-card__head fd-card__head--row">
-            <div><h3 id="ins-h">{"What Lyko watches for"}</h3><span className="m-kick">{"INSIGHTS AND HOW YOU HEAR ABOUT THEM"}</span></div>
+            <div><h3 id="ins-h">{"What Lyko watches for"}</h3><span className="m-small m-muted">{"What Lyko tells you about, and how you hear about it."}</span></div>
             <div className="yl-seg" role="radiogroup" aria-label="Notify">
               {(["inbox", "webhook", "telegram"] as const).map((n) => <button key={n} type="button" role="radio" aria-checked={draft.insights.notify === n} onClick={() => set("insights", { ...draft.insights, notify: n })}>{n}</button>)}
             </div>
@@ -164,7 +165,7 @@ function Preferences() {
         </section>
 
         <section className="fd-card m-frame m-frame--thin yl-span3" aria-labelledby="layout-h">
-          <header className="fd-card__head"><h3 id="layout-h">{"Your Fold"}</h3><span className="m-kick">{"TABS AND BAR CARDS: SHOW, HIDE, ORDER"}</span></header>
+          <header className="fd-card__head"><h3 id="layout-h">{"Your Fold"}</h3><span className="m-small m-muted">{"Which tabs and cards show, and in what order."}</span></header>
           <div className="yl-orders">
           <ol className="yl-order">
             {allTabs.map((t) => {
@@ -214,6 +215,7 @@ export default function YourLykoPage() {
         <div>
           <span className="m-kick">{"YOUR LYKO"}</span>
           <h1>{"How Lyko decides, speaks and remembers for you"}</h1>
+          <HowItWorks area="you" />
           <p>{"Everything here is a preference: your Fence still has the last word, and a preference can only make it stricter."}</p>
         </div>
       </header>

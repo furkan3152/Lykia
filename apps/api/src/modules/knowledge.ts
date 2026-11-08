@@ -6,6 +6,7 @@
  *   GET  /knowledge/contracts/:address  which venue and contract an address is, and what Lykia may call on it
  *   GET  /knowledge/paths?from&to       ways to get from one asset to another over executable venues
  *   POST /routes/search                 the best route for a goal (sentence or actions), its alternatives, and the self-check
+ *   GET  /capabilities                  what Lyko can do: actions and their venues, bridge destinations, tokens, features
  */
 import { fenceForProfile, getProtocol, KNOWLEDGE_ROWS, protocolsAt, tokensFor, tokenAddress, venueBrief, venueKnowledge, earnableAssets, type Address } from "@lykia/core";
 import { toFunctionSelector } from "viem";
@@ -21,6 +22,7 @@ import { services } from "../services.js";
 import { adapterRows, liveAdapters } from "../integrations/registry.js";
 import { adapterKnowledge } from "../integrations/runtime.js";
 import { actionsFrom, environmentOf, environmentQuery, environmentSchema, fenceFrom } from "./common.js";
+import { liveCapabilityMap } from "../capabilities/map.js";
 
 function selector(abi: string): string | null {
   try {
@@ -65,6 +67,11 @@ export const knowledgeModule: ApiModule = {
         capabilities: KNOWLEDGE_ROWS.flatMap((r) => r.capabilities).length,
         notation: { token: "USDC", position: "USDC@morpho-vaults", debt: "debt:USDC@morpho-blue", remote: "USDC@cctp", gateway: "USDC@gateway", any: "*" },
       });
+    });
+
+    router.get("/capabilities", async (req, res) => {
+      const environment = environmentOf(ctx, parseQuery(req, environmentQuery).environment);
+      res.json(await liveCapabilityMap(ctx, environment));
     });
 
     router.get("/knowledge/venues/:venue", async (req, res) => {

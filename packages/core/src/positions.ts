@@ -12,7 +12,7 @@
 import type { Address } from "./contracts.js";
 import type { ArcEnvironment } from "./networks.js";
 
-export const POSITION_STATES = ["earning", "idle", "borrowing", "at-risk", "out-of-range", "pending", "escrowed", "committed"] as const;
+export const POSITION_STATES = ["earning", "idle", "borrowing", "at-risk", "out-of-range", "pending", "escrowed", "committed", "watching"] as const;
 export type PositionState = (typeof POSITION_STATES)[number];
 
 export const POSITION_STATE_LABELS: Readonly<Record<PositionState, string>> = {
@@ -24,9 +24,59 @@ export const POSITION_STATE_LABELS: Readonly<Record<PositionState, string>> = {
   pending: "Pending",
   escrowed: "Escrowed",
   committed: "Committed",
+  watching: "Watching",
 };
 
-export type PositionVenueKind = "wallet" | "lending" | "vault" | "market" | "lp" | "gateway" | "bridge" | "treasury" | "orders" | "payments";
+export type PositionVenueKind = "wallet" | "lending" | "vault" | "market" | "lp" | "gateway" | "bridge" | "treasury" | "orders" | "payments" | "leash" | "watch" | "plan";
+
+/**
+ * What each kind is, in plain words: the pen's subtitle in the Fold and the
+ * name Lyko uses. A new kind adds one line here and a reader; the Fold draws
+ * it from its generic detail blocks with no screen of its own.
+ */
+export const POSITION_KINDS: Readonly<Record<PositionVenueKind, { readonly label: string; readonly plain: string }>> = {
+  wallet: { label: "Wallet", plain: "money resting in your wallet" },
+  lending: { label: "Lending", plain: "money lent out, or borrowed against collateral" },
+  vault: { label: "Vault", plain: "a fund that lends your deposit for you" },
+  market: { label: "Lending market", plain: "a single lending market with its own collateral" },
+  lp: { label: "Liquidity", plain: "money that earns swap fees inside a price band" },
+  gateway: { label: "Gateway", plain: "one USDC balance usable on several chains" },
+  bridge: { label: "On its way", plain: "money moving to another chain" },
+  treasury: { label: "Treasury fund", plain: "a tokenized fund of short-term US Treasuries" },
+  orders: { label: "Orders", plain: "money set aside for an order waiting for its price" },
+  payments: { label: "Scheduled payments", plain: "money promised to a payment that runs on its own" },
+  leash: { label: "Leash budgets", plain: "budgets you gave to outside bots" },
+  watch: { label: "Watches", plain: "things Lyko on watch keeps an eye on for you" },
+  plan: { label: "Plans in progress", plain: "step-by-step plans with steps still to sign" },
+};
+
+/** The plain description of a kind, with a fallback for a kind this build does not know yet. */
+export function positionKindInfo(kind: string): { readonly label: string; readonly plain: string } {
+  return (POSITION_KINDS as Readonly<Record<string, { label: string; plain: string }>>)[kind] ?? { label: kind.replace(/-/gu, " ").replace(/\b\w/gu, (c) => c.toUpperCase()), plain: "a position Lykia reads for you" };
+}
+
+/* ------------------------------------------------------- generic detail blocks */
+
+/**
+ * The small set of detail blocks every kind is drawn with. A reader returns
+ * the blocks that fit its position; the Fold renders each block the same way
+ * for every kind, and Lyko on watch reads them for its generic insights.
+ */
+export type PositionBlock =
+  /** A value on a scale with a danger threshold: health factor, margin, budget used. */
+  | { readonly type: "gauge"; readonly label: string; readonly value: number; readonly min: number; readonly max: number; readonly display: string; readonly threshold?: { readonly at: number; readonly label: string; readonly danger: "below" | "above" }; readonly meaning?: string }
+  /** A value against a band: a price against the band it must stay in. */
+  | { readonly type: "range"; readonly label: string; readonly lower: number; readonly upper: number; readonly value: number; readonly lowerLabel: string; readonly upperLabel: string; readonly valueLabel: string; readonly meaning?: string }
+  /** Ordered stages: a transfer in flight, a plan's steps, a schedule. */
+  | { readonly type: "timeline"; readonly label: string; readonly steps: readonly { readonly label: string; readonly at: string | null; readonly done: boolean }[]; readonly meaning?: string }
+  /** Plain label and value pairs, each with an optional one-line meaning. */
+  | { readonly type: "facts"; readonly items: readonly { readonly label: string; readonly value: string; readonly meaning?: string }[] }
+  /** Time until something happens: an expiry, the next run of a payment. */
+  | { readonly type: "countdown"; readonly label: string; readonly until: string; readonly meaning?: string; /** The position or its budget ends then (Lyko on watch flags it when close). */ readonly ends?: boolean }
+  /** Profit or loss so far. */
+  | { readonly type: "pnl"; readonly label: string; readonly valueUsd: string; readonly percent: string | null; readonly basis: string };
+
+export const POSITION_BLOCK_TYPES = ["gauge", "range", "timeline", "facts", "countdown", "pnl"] as const;
 export type PositionSource = "chain" | "api" | "history";
 
 export type PositionAssetRole = "held" | "supplied" | "borrowed" | "collateral" | "liquidity" | "fees" | "escrowed" | "committed" | "in-flight";
@@ -115,6 +165,10 @@ export interface Position {
   readonly since?: string | null;
   /** Free facts for the detail view: label and value. */
   readonly facts?: readonly { readonly label: string; readonly value: string }[];
+  /** Kind-specific detail as generic blocks (any kind; required for kinds without a dedicated reader shape). */
+  readonly blocks?: readonly PositionBlock[];
+  /** Something the owner can collect now (rewards, fees): Lyko on watch flags it. */
+  readonly claimable?: { readonly amount: string; readonly symbol: string; readonly valueUsd: string | null };
   readonly actions: readonly PositionAction[];
   readonly source: PositionSource;
   readonly readAt: string;
@@ -209,6 +263,9 @@ export const POSITION_VENUES: Readonly<Record<ArcEnvironment, readonly PositionV
     { id: "across", name: "Across transfers", kind: "bridge", personal: true },
     { id: "lykia-orders", name: "LykiaOrders", kind: "orders", personal: true },
     { id: "arc-transfer", name: "Scheduled payments", kind: "payments", personal: true },
+    { id: "leashes", name: "Leash budgets", kind: "leash", personal: true },
+    { id: "plans", name: "Plans in progress", kind: "plan", personal: true },
+    { id: "watches", name: "Watches", kind: "watch", personal: true },
   ],
   testnet: [
     { id: "wallet", name: "Wallet", kind: "wallet", personal: false },
@@ -218,6 +275,9 @@ export const POSITION_VENUES: Readonly<Record<ArcEnvironment, readonly PositionV
     { id: "cctp", name: "CCTP transfers", kind: "bridge", personal: true },
     { id: "lykia-orders", name: "LykiaOrders", kind: "orders", personal: true },
     { id: "arc-transfer", name: "Scheduled payments", kind: "payments", personal: true },
+    { id: "leashes", name: "Leash budgets", kind: "leash", personal: true },
+    { id: "plans", name: "Plans in progress", kind: "plan", personal: true },
+    { id: "watches", name: "Watches", kind: "watch", personal: true },
   ],
 };
 
@@ -310,7 +370,28 @@ export function fmtPrice(p: string | number): string {
 }
 
 /** What the position is doing, in one plain line. */
-export function positionDoing(p: Pick<Position, "state" | "venueKind" | "amount" | "symbol" | "apy" | "earned" | "health" | "range" | "fees" | "assets" | "facts">): string {
+/** One line from generic blocks: the PnL, the tightest gauge and the nearest countdown. */
+export function blocksDoing(blocks: readonly PositionBlock[], now: number = Date.now()): string | null {
+  const parts: string[] = [];
+  const pnl = blocks.find((b): b is Extract<PositionBlock, { type: "pnl" }> => b.type === "pnl");
+  if (pnl) parts.push(`${Number(pnl.valueUsd) >= 0 ? "up" : "down"} ${fmtUsd(Math.abs(Number(pnl.valueUsd)), 2)}${pnl.percent ? ` (${Number(pnl.percent) >= 0 ? "+" : "−"}${Math.abs(Number(pnl.percent)).toFixed(1)}%)` : ""}`);
+  const gauge = blocks.find((b): b is Extract<PositionBlock, { type: "gauge" }> => b.type === "gauge");
+  if (gauge) parts.push(`${gauge.label.toLowerCase()} ${gauge.display}`);
+  const countdown = blocks.find((b): b is Extract<PositionBlock, { type: "countdown" }> => b.type === "countdown");
+  if (countdown) parts.push(`${countdown.label.toLowerCase()} ${untilText(countdown.until, now)}`);
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+/** "in 3 d", "in 5 h", "in 12 min", "now". */
+export function untilText(iso: string, now: number = Date.now()): string {
+  const s = Math.round((Date.parse(iso) - now) / 1000);
+  if (!Number.isFinite(s) || s <= 0) return "now";
+  if (s >= 86_400) return `in ${Math.round(s / 86_400)} d`;
+  if (s >= 3600) return `in ${Math.round(s / 3600)} h`;
+  return `in ${Math.max(1, Math.round(s / 60))} min`;
+}
+
+export function positionDoing(p: Pick<Position, "state" | "venueKind" | "amount" | "symbol" | "apy" | "earned" | "health" | "range" | "fees" | "assets" | "facts"> & { readonly blocks?: readonly PositionBlock[]; readonly claimable?: Position["claimable"] }): string {
   const apy = p.apy ? fmtPercent(p.apy.percent, Number(p.apy.percent) >= 10 ? 1 : 2) : null;
   const earned = p.earned && Number(p.earned.usd) > 0 ? ` · +${fmtUsd(Number(p.earned.usd), 2)} so far` : "";
   const hf = p.health?.factor ? Number(p.health.factor).toFixed(2) : null;
@@ -342,14 +423,22 @@ export function positionDoing(p: Pick<Position, "state" | "venueKind" | "amount"
       return fact("Stage") ?? "In flight, waiting to settle";
     case "escrowed":
       return fact("Waiting for") ? `Reserved for an order · ${fact("Waiting for")}` : "Reserved for an order";
-    case "committed":
-      return fact("Next run") ? `Committed to a scheduled payment · next ${fact("Next run")}` : "Committed to a scheduled payment";
+    case "committed": {
+      const generic = p.blocks ? blocksDoing(p.blocks) : null;
+      if (p.venueKind === "leash") return `Budget for a bot${generic ? ` · ${generic}` : ""}`;
+      if (p.venueKind === "plan") return `Plan in progress${generic ? ` · ${generic}` : ""}`;
+      return fact("Next run") ? `Committed to a scheduled payment · next ${fact("Next run")}` : generic ? `Committed · ${generic}` : "Committed to a scheduled payment";
+    }
+    case "watching": {
+      const generic = p.blocks ? blocksDoing(p.blocks) : null;
+      return generic ? `Watching · ${generic}` : "Lyko on watch keeps an eye on it";
+    }
   }
 }
 
 /* ---------------------------------------------------------------- summary */
 
-const ZERO_STATES = (): Record<PositionState, number> => ({ earning: 0, idle: 0, borrowing: 0, "at-risk": 0, "out-of-range": 0, pending: 0, escrowed: 0, committed: 0 });
+const ZERO_STATES = (): Record<PositionState, number> => ({ earning: 0, idle: 0, borrowing: 0, "at-risk": 0, "out-of-range": 0, pending: 0, escrowed: 0, committed: 0, watching: 0 });
 
 /** Totals by state, weighted APY, yearly yield and the lowest health factor over the venues that were read. */
 export function summarizePositions(venues: readonly VenueRead[]): PositionsSummary {

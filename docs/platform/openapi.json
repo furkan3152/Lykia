@@ -16960,7 +16960,11 @@
                               "yield-change",
                               "lp-out-of-range",
                               "order-expiring",
-                              "watch-task"
+                              "watch-task",
+                              "near-threshold",
+                              "unclaimed",
+                              "expiring",
+                              "idle-position"
                             ]
                           },
                           "severity": {
@@ -17382,9 +17386,9 @@
             "schema": {
               "type": "string",
               "maxLength": 400,
-              "description": "Comma-separated venue ids to read (default all): wallet, aave-v4, morpho-vaults, galaxy-curation, keyrock, steakhouse-financial, gauntlet, bitwise, morpho-blue, uniswap-v3, uniswap-v4, aerodrome-slipstream, archery, unitflow-finance-v3, sushiswap, usyc, gateway, cctp, relay, across, lykia-orders, arc-transfer, lykia-practice"
+              "description": "Comma-separated venue ids to read (default all): wallet, aave-v4, morpho-vaults, galaxy-curation, keyrock, steakhouse-financial, gauntlet, bitwise, morpho-blue, uniswap-v3, uniswap-v4, aerodrome-slipstream, archery, unitflow-finance-v3, sushiswap, usyc, gateway, cctp, relay, across, lykia-orders, arc-transfer, leashes, plans, watches, lykia-practice"
             },
-            "description": "Comma-separated venue ids to read (default all): wallet, aave-v4, morpho-vaults, galaxy-curation, keyrock, steakhouse-financial, gauntlet, bitwise, morpho-blue, uniswap-v3, uniswap-v4, aerodrome-slipstream, archery, unitflow-finance-v3, sushiswap, usyc, gateway, cctp, relay, across, lykia-orders, arc-transfer, lykia-practice"
+            "description": "Comma-separated venue ids to read (default all): wallet, aave-v4, morpho-vaults, galaxy-curation, keyrock, steakhouse-financial, gauntlet, bitwise, morpho-blue, uniswap-v3, uniswap-v4, aerodrome-slipstream, archery, unitflow-finance-v3, sushiswap, usyc, gateway, cctp, relay, across, lykia-orders, arc-transfer, leashes, plans, watches, lykia-practice"
           },
           {
             "$ref": "#/components/parameters/LykiaVersion"
@@ -17539,7 +17543,8 @@
                                     "out-of-range",
                                     "pending",
                                     "escrowed",
-                                    "committed"
+                                    "committed",
+                                    "watching"
                                   ]
                                 },
                                 "doing": {
@@ -23440,6 +23445,83 @@
             }
           }
         }
+      }
+    },
+    "/v1/capabilities": {
+      "get": {
+        "operationId": "getCapabilities",
+        "summary": "What Lyko can do: every action with the venues it routes through, bridge destinations per route, what each token can do, and the features to reach for",
+        "description": "Built from the engine's executable venues, the CCTP, Across, Relay and Gateway route tables and the routable adapter manifests, so it changes when an adapter or venue is added. Lyko reads the same map (its `capabilities` tool).",
+        "tags": [
+          "Knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mainnet",
+                "testnet"
+              ],
+              "description": "Arc network; defaults to the server's mode. Test keys are always testnet."
+            },
+            "description": "Arc network; defaults to the server's mode. Test keys are always testnet."
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "public",
+        "security": [
+          {},
+          {
+            "LykiaKey": []
+          }
+        ]
       }
     },
     "/v1/knowledge": {

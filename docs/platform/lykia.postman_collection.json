@@ -7761,6 +7761,40 @@
       "name": "Knowledge",
       "item": [
         {
+          "name": "What Lyko can do: every action with the venues it routes through, bridge destinations per route, what each token can do, and the features to reach for",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/capabilities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "capabilities"
+              ],
+              "query": [
+                {
+                  "key": "environment",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Built from the engine's executable venues, the CCTP, Across, Relay and Gateway route tables and the routable adapter manifests, so it changes when an adapter or venue is added. Lyko reads the same map (its `capabilities` tool).\n\nAuth: public."
+          }
+        },
+        {
           "name": "Lyko's knowledge of Arc venues, contracts and paths",
           "request": {
             "method": "GET",

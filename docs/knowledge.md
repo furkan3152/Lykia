@@ -178,3 +178,8 @@ account did not hold were funded with state overrides.
   (0.01% + 0.05%). The self-check passed.
 - **Runner-up:** the same conversion as two separate swaps. It pays the fee
   twice and loses by 4.16 USD.
+
+## The capability map
+
+`GET /v1/capabilities?environment=mainnet` returns what Lyko can do on a network, built from code: every action (send, convert, swap, earn, withdraw, borrow, repay, bridge, Gateway) with the venues it routes through, each bridge route (CCTP, Across, Relay, Gateway) with its destination chains and when it is picked, what each token can do and where USDC can be bridged, and the features with when to use them (Fence presets, Stress test, Leash, watches, step-by-step plans, Whistle, orders, alerts, recurring rules, payouts). It is assembled by `buildCapabilityMap` (`packages/core/src/capabilities.ts`) from the registry, the engine's executable venues, the bridge tables and routable adapter manifests, so a new adapter or venue appears in it without an edit. Lyko reads the same map: the model path through its `capabilities` tool and a compact summary in its instructions, the reader without a model through `readAssist`, which answers capability questions, offers the feature that fits the words and asks one question with options when something essential is missing.
+

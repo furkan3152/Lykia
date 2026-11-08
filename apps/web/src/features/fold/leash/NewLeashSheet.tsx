@@ -28,7 +28,8 @@ import { useLykiaWallet } from "../../wallet/useLykiaWallet";
 import { useWallet } from "../../wallet/store";
 import type { FoldOwner } from "../data";
 import { useGatewayBalance, useGatewayOffer } from "./data";
-import { budgetOf, chainName, SAMPLE_GATEWAY_BALANCE, emptyForm, formFromDraft, formIssues, GATEWAY_CEILINGS, gatewayOptionOf, LEASH_STEPS, recipientsOf, requestOf, SHEET_TEMPLATES, toggleDestination, usdText, withSpendFrom, withTemplate, type LeashForm, type LeashStep } from "./model";
+import { budgetOf, chainName, SAMPLE_GATEWAY_BALANCE, emptyForm, formFromDraft, formIssues, GATEWAY_CEILINGS, gatewayOptionOf, LEASH_STEPS, leashSentence, LIMIT_PRESETS, recipientsOf, requestOf, SHEET_TEMPLATES, toggleDestination, usdText, withSpendFrom, withTemplate, type LeashForm, type LeashStep } from "./model";
+import { LYKIA_TERMS } from "@lykia/core";
 
 type Phase = LeashStep | "keys";
 
@@ -179,6 +180,7 @@ export function NewLeashSheet({ open, owner, draft, onClose, onCreated }: { read
             </Field>
             <fieldset className="fd-newleash__templates">
               <legend className="m-kick">{"What it may do"}</legend>
+              <p className="m-small m-muted p-leash-what">{`${LYKIA_TERMS.leash.word} · ${LYKIA_TERMS.leash.plain}. ${LYKIA_TERMS.leash.line}`}</p>
               {SHEET_TEMPLATES.map((k) => (
                 <label key={k} className={cx("fd-tpl m-frame m-frame--thin", form.template === k && "is-on")}>
                   <input type="radio" name="leash-template" value={k} checked={form.template === k} onChange={() => setForm((f) => withTemplate(f, k))} />
@@ -261,14 +263,28 @@ export function NewLeashSheet({ open, owner, draft, onClose, onCreated }: { read
 
         {phase === "limits" ? (
           <div className="fd-newleash__body">
+            <div className="p-leash-presets" role="group" aria-label="Quick limits">
+              <span className="m-kick">{"PICK A SIZE · OR TYPE YOUR OWN BELOW"}</span>
+              <div>
+                {LIMIT_PRESETS.filter((x) => !onGateway || Number(x.perDayUsd) <= Number(GATEWAY_CEILINGS.perDayUsd)).map((x) => {
+                  const on = form.perDayUsd === x.perDayUsd && form.perStepUsd === x.perStepUsd && form.days === x.days;
+                  return (
+                    <button key={x.label} type="button" className={cx("p-preset", on && "is-on")} aria-pressed={on} onClick={() => set({ perDayUsd: x.perDayUsd, perStepUsd: x.perStepUsd, days: x.days })}>
+                      <b>{x.label}</b>
+                      <span>{x.line}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <div className="fd-newleash__money">
-              <Field label="Per day $" error={err("perDayUsd")} {...(onGateway ? { hint: `at most ${usdText(GATEWAY_CEILINGS.perDayUsd)}` } : {})}>
+              <Field label="Per day $" error={err("perDayUsd")} hint={onGateway ? `The most it can spend in one day (at most ${usdText(GATEWAY_CEILINGS.perDayUsd)} while unaudited).` : "The most it can spend in one day. Resets at midnight UTC."}>
                 <Input inputMode="decimal" value={form.perDayUsd} onChange={(e) => set({ perDayUsd: e.target.value })} />
               </Field>
-              <Field label="Per step $" error={err("perStepUsd")} hint="at most the daily cap">
+              <Field label="Per step $" error={err("perStepUsd")} hint="The most it can move in one go. No more than the daily amount.">
                 <Input inputMode="decimal" value={form.perStepUsd} onChange={(e) => set({ perStepUsd: e.target.value })} />
               </Field>
-              <Field label="Days" error={err("days")}>
+              <Field label="Days" error={err("days")} hint="After this many days its key stops working on its own.">
                 <Input inputMode="numeric" value={form.days} onChange={(e) => set({ days: e.target.value })} />
               </Field>
             </div>
@@ -276,7 +292,7 @@ export function NewLeashSheet({ open, owner, draft, onClose, onCreated }: { read
               {budget.totalUsd ? <>{"In total at most "}<b className="num">{usdText(budget.totalUsd)}</b>{` over ${form.days} day${form.days === "1" ? "" : "s"}. Lykia's 1% fee counts toward the caps.`}</> : "Fill in the daily cap and the days."}
             </p>
             {t.recipients === "allowlist" ? (
-              <Field label="Payees" error={err("recipients")} hint="one address per line; the agent can pay these and you, nobody else">
+              <Field label="Who it may pay" error={err("recipients")} hint="One address per line. It can pay these and you, nobody else.">
                 <textarea className="m-textarea" spellCheck={false} value={form.recipients} placeholder={"0x…\n0x…"} onChange={(e) => set({ recipients: e.target.value })} />
               </Field>
             ) : (
@@ -301,6 +317,7 @@ export function NewLeashSheet({ open, owner, draft, onClose, onCreated }: { read
 
         {phase === "review" ? (
           <div className="fd-newleash__body">
+            <p className="p-leash-sentence" data-testid="leash-sentence">{leashSentence(form, recipientsOf(form).length)}</p>
             <dl className="fd-newleash__summary">
               <div><dt>{"Agent"}</dt><dd>{form.name}</dd></div>
               <div><dt>{"May"}</dt><dd>{t.title}</dd></div>
@@ -311,6 +328,8 @@ export function NewLeashSheet({ open, owner, draft, onClose, onCreated }: { read
               <div><dt>{t.recipients === "allowlist" ? "Payees" : "Venues"}</dt><dd>{t.recipients === "allowlist" ? recipientsOf(form).map((r) => `${r.slice(0, 6)}…${r.slice(-4)}`).join(", ") : form.venues.join(", ")}</dd></div>
               <div><dt>{"Key"}</dt><dd>{form.keyMode === "generate" ? "made in this browser" : `${form.signer.slice(0, 8)}…`}</dd></div>
             </dl>
+            <details className="p-tech">
+            <summary className="m-small">{"Who enforces each limit"}</summary>
             <div className="fd-newleash__split">
               <div>
                 <span className="m-kick">{onGateway ? "YOUR LYKIASTILE HOLDS" : "YOUR LYKIAACCOUNT HOLDS"}</span>
@@ -321,6 +340,7 @@ export function NewLeashSheet({ open, owner, draft, onClose, onCreated }: { read
                 <ul>{api.map((e) => <li key={e.limit}><b>{e.limit}</b> <Tag tone="ochre">API</Tag></li>)}</ul>
               </div>
             </div>
+            </details>
             <p className="m-small m-muted">
               {onGateway
                 ? "Gateway checks every transfer by asking your LykiaStile, which answers only for transfers this leash reserved inside its caps. You sign up to three transactions once: create your LykiaStile (first time only), let it sign for your Gateway deposit (addDelegate), and the leash's session. Revoking reaches Gateway within about 5 minutes."

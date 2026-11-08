@@ -12,7 +12,7 @@
  */
 import type { AgentProposal } from "@lykia/core/api/agents";
 import type { SecurityReport } from "@lykia/core/security/index";
-import { networkFor, type ArcEnvironment } from "@lykia/core";
+import { MEANINGS, networkFor, type ArcEnvironment } from "@lykia/core";
 import React, { useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
 
 import { usePulse } from "../../lib/pulseStore";
@@ -20,6 +20,7 @@ import { Seal, Skeleton, Tag, cx } from "../../mosaic";
 import { Mark } from "../../mosaic/PixelArt";
 import { HashChip } from "../ask/Markdown";
 import { BetaRibbon } from "../ecosystem/BetaRibbon";
+import { Hint, HowItWorks } from "../help/Help";
 import { balanceLines, decisionLabel, decisionTone, severityTone, visibleFindings } from "../security/model";
 import { bpsLabel, reviewView, type ReviewView } from "./reviewModel";
 import type { TxFailure } from "./txErrors";
@@ -152,9 +153,13 @@ function primaryOf(p: ReviewDialogProps): { label: string; disabled: boolean; ac
 }
 
 function Figures({ title, list, tone }: { readonly title: string; readonly list: ReviewView["send"]; readonly tone: "send" | "get" }) {
+  const min = list.find((f) => f.minimum);
   return (
     <div className={cx("rv-fig", `rv-fig--${tone}`)}>
-      <span className="m-kick">{title}</span>
+      <span className="m-kick">
+        {title}
+        <Hint text={tone === "send" ? "What leaves your wallet in this step, at today's prices." : "What arrives. The amount can move a little with the price until you sign."} />
+      </span>
       {list.length === 0 ? <b className="rv-big">{"—"}</b> : null}
       {list.map((f) => (
         <div key={`${f.symbol}${f.where ?? ""}`} className="rv-fig__row">
@@ -166,6 +171,7 @@ function Figures({ title, list, tone }: { readonly title: string; readonly list:
           </span>
         </div>
       ))}
+      {min ? <span className="rv-mean">{`You get at least ${min.minimum} ${min.symbol}. ${MEANINGS.minReceived.replace("The least you can get. ", "")}`}</span> : null}
     </div>
   );
 }
@@ -188,7 +194,7 @@ function SecurityPanel({ report, phase }: { readonly report: SecurityReport | nu
       <div className="rv-sec__head">
         <Tag tone={decisionTone(report.decision)}>{decisionLabel(report.decision)}</Tag>
         <b>{"What you will sign"}</b>
-        <span className="m-small m-muted">{report.simulation === "unavailable" ? "decoded, not simulated" : `simulated (${report.simulation})`}</span>
+        <span className="m-small m-muted">{report.simulation === "unavailable" ? "read, not test-run" : "test-run on Arc before your wallet opens"}</span>
       </div>
       {leaves.length > 0 ? (
         <p className="rv-diff">
@@ -240,6 +246,7 @@ export function ReviewDialog(p: ReviewDialogProps) {
           <p id={`${uid}-d`} className="m-small m-muted">
             {"Check what leaves your wallet and what you get. Nothing moves until you confirm in your wallet."}
           </p>
+          <HowItWorks area="review" className="rv-how" />
           <button type="button" className="rv-x" aria-label="Close the review" onClick={p.onClose}>
             <Mark name="cross" size={12} />
           </button>
@@ -281,8 +288,8 @@ export function ReviewDialog(p: ReviewDialogProps) {
                           <Tag tone="sea">{s.venue}</Tag>
                           <Tag tone={s.status === "settled" ? "ok" : s.status === "failed" ? "bad" : "ghost"}>{s.status === "awaiting-signature" ? "ready to sign" : s.status === "blocked" ? "next" : s.failure ? "paused" : s.status}</Tag>
                         </div>
-                        <code className="rv-memo" title="The Arc Memo this step's value-moving call carries">
-                          <span className="m-kick">{"ARC MEMO"}</span> {s.memo}
+                        <code className="rv-memo" title={MEANINGS.arcMemo}>
+                          <span className="m-kick">{"REFERENCE"}</span> {s.memo}
                         </code>
                         {s.why ? (
                           <details className="rv-why">
@@ -304,22 +311,22 @@ export function ReviewDialog(p: ReviewDialogProps) {
                 <h3 id={`${uid}-fees`} className="rv-h">{"Fees"}</h3>
                 <dl className="rv-fees">
                   <div>
-                    <dt>{`Lykia fee${v?.feeBps !== null && v?.feeBps !== undefined ? ` · ${bpsLabel(v.feeBps)}` : ""}`}</dt>
+                    <dt>{`Lykia fee${v?.feeBps !== null && v?.feeBps !== undefined ? ` · ${bpsLabel(v.feeBps)}` : ""}`}<Hint text={MEANINGS.lykiaFee} /></dt>
                     <dd className="num">{v ? (v.fees.length > 0 ? v.fees.join(" + ") : "none on this plan") : "…"}</dd>
                   </div>
                   <div>
-                    <dt>{"Gas · paid in USDC"}</dt>
+                    <dt>{"Network fee · in USDC"}<Hint text={MEANINGS.gas} /></dt>
                     <dd>{`${gas}${p.txCount ? ` · ${p.txCount} transaction${p.txCount === 1 ? "" : "s"}` : ""}; your wallet shows the exact figure`}</dd>
                   </div>
                 </dl>
-                <p className="m-small m-muted">{"The Lykia fee is paid in the same transaction as the step. Repaying and withdrawing home are free."}</p>
+                <p className="m-small m-muted">{"The Lykia fee is paid in the same transaction as the step. Repaying and withdrawing home are free. The network fee goes to Arc, not to Lykia."}</p>
               </section>
 
               <section className="rv-card rv-fence rv-lay" style={{ "--k": 4 } as React.CSSProperties} aria-labelledby={`${uid}-fence`}>
-                <h3 id={`${uid}-fence`} className="rv-h">{"Fence verdict"}</h3>
+                <h3 id={`${uid}-fence`} className="rv-h">{"Your rules say"}<Hint text={MEANINGS.verdict} /></h3>
                 <div className="rv-fence__row">
                   {v ? <Seal decision={v.decision} /> : <Skeleton h={28} w={110} />}
-                  <span className="m-small">{v ? (v.decision === "allow" ? "Every step is inside your Fence." : v.decision === "confirm" ? "Inside your Fence, with a confirmation." : "Outside your Fence.") : ""}</span>
+                  <span className="m-small">{v ? (v.decision === "allow" ? "Allowed: every step is inside your Fence (your spending rules)." : v.decision === "confirm" ? "Allowed once you confirm below: a rule asks you first." : "Refused: a rule in your Fence says no, so nothing can be signed.") : ""}</span>
                 </div>
                 {v && v.reasons.length > 0 ? (
                   <ul className="rv-reasons m-small">
@@ -336,7 +343,7 @@ export function ReviewDialog(p: ReviewDialogProps) {
               </section>
 
               <section className="rv-card rv-lay" style={{ "--k": 5 } as React.CSSProperties} aria-labelledby={`${uid}-sec`}>
-                <h3 id={`${uid}-sec`} className="rv-h">{"Security checks"}</h3>
+                <h3 id={`${uid}-sec`} className="rv-h">{"Safety check"}<Hint text={MEANINGS.security} /></h3>
                 <SecurityPanel report={p.security} phase={p.phase} />
               </section>
             </div>

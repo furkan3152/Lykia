@@ -17,10 +17,11 @@ export const STATE_COLOR: Readonly<Record<PositionState, string>> = {
   pending: "var(--sea)",
   escrowed: "#6d5a8c",
   committed: "var(--navy-2)",
+  watching: "#2f6f8f",
 };
 
 /** Worst first: the pen's stone shows the most urgent state inside it. */
-export const STATE_PRIORITY: readonly PositionState[] = ["at-risk", "out-of-range", "borrowing", "pending", "escrowed", "committed", "earning", "idle"];
+export const STATE_PRIORITY: readonly PositionState[] = ["at-risk", "out-of-range", "borrowing", "pending", "escrowed", "committed", "watching", "earning", "idle"];
 
 export function stateLabel(s: PositionState): string {
   return POSITION_STATE_LABELS[s];
@@ -219,7 +220,7 @@ export function samplePositions(now: number, environment: ArcEnvironment = "main
   };
   const health = { factor: "1.38", liquidationAtPercent: "78.00", ltvPercent: "56.52", floor: "1.5" };
   const read = (venue: string, positions: Position[]): VenueRead => {
-    const info = POSITION_VENUES.mainnet.find((v) => v.id === venue)!;
+    const info = POSITION_VENUES.mainnet.find((v) => v.id === venue) ?? POSITION_VENUES[environment].find((v) => v.id === venue)!;
     return { venue, venueName: info.name, venueKind: info.kind, status: "ok", positions, source: positions[0]?.source ?? "chain", method: "Sample", readAt: at, block, ms: 0 };
   };
   const venues: VenueRead[] = [
@@ -243,5 +244,12 @@ export function samplePositions(now: number, environment: ArcEnvironment = "main
     read("lykia-orders", [p({ id: "s-order", venue: "lykia-orders", venueName: "LykiaOrders", venueKind: "orders", label: "Buy EURC when EUR/USD ≤ 1.09", assets: [{ symbol: "USDC", token: null, amount: "500", valueUsd: "500", role: "escrowed" }], amount: "500", symbol: "USDC", valueUsd: "500", counts: "overlay", state: "escrowed", source: "history", facts: [{ label: "Waiting for", value: "the price condition" }], actions: [] })]),
     read("arc-transfer", [p({ id: "s-rent", venue: "arc-transfer", venueName: "Scheduled payments", venueKind: "payments", label: "Pay 1,200 USDC rent to @landlord on the 1st", assets: [{ symbol: "USDC", token: null, amount: "1200", valueUsd: "1200", role: "committed" }], amount: "1200", symbol: "USDC", valueUsd: "1200", counts: "overlay", state: "committed", source: "history", facts: [{ label: "Next run", value: "in 9 days" }], actions: [] })]),
   ];
+  const ends = new Date(now + 5 * 86_400_000).toISOString();
+  venues.push(read("leashes", [p({ id: "s-leash", venue: "leashes", venueName: "Leash budgets", venueKind: "leash", label: "Invoice bot · Pay invoices", assets: [{ symbol: "USDC", token: null, amount: "112", valueUsd: "112", role: "committed" }], amount: "112", symbol: "USDC", valueUsd: "112", counts: "overlay", state: "committed", source: "history", blocks: [{ type: "gauge", label: "Used today", value: 8, min: 0, max: 20, display: "$8 of $20", threshold: { at: 20, label: "today's cap ($20)", danger: "above" }, meaning: "Invoice bot can spend $12 more today; past the cap the chain refuses." }, { type: "gauge", label: "Used in total", value: 28, min: 0, max: 140, display: "$28 of $140", threshold: { at: 140, label: "the whole budget ($140)", danger: "above" } }, { type: "facts", items: [{ label: "Per step", value: "$10", meaning: "The most it can move in one go." }, { label: "Pays", value: "2 approved payees" }] }, { type: "countdown", label: "Ends", until: ends, ends: true, meaning: "After this date the bot's key stops working on its own." }], actions: [{ kind: "cancel", label: "Revoke", sentence: "Revoke Invoice bot's leash", mode: "ask" }] })]));
+  venues.push(read("across", [p({ id: "s-across", venue: "across", venueName: "Across transfers", venueKind: "bridge", label: "Across · 120 USDC to Arbitrum", assets: [{ symbol: "USDC", token: null, amount: "120", valueUsd: "120", role: "in-flight" }], amount: "120", symbol: "USDC", valueUsd: "120", counts: "net", state: "pending", source: "history", facts: [{ label: "Stage", value: "Deposited on Arc, waiting for a relayer to pay on Arbitrum (usually under a minute)" }], blocks: [{ type: "timeline", label: "Transfer", steps: [{ label: "Deposited on Arc", at: new Date(now - 40_000).toISOString(), done: true }, { label: "Paid on Arbitrum by a relayer", at: null, done: false }], meaning: "If no relayer pays before the deadline, Across refunds the USDC on Arc." }], actions: [] })]));
+  venues.push(read("plans", [p({ id: "s-plan", venue: "plans", venueName: "Plans in progress", venueKind: "plan", label: "Swap 500 USDC to EURC, then deposit it into Morpho", assets: [], amount: "0", symbol: "", valueUsd: "500", counts: "overlay", state: "committed", source: "history", blocks: [{ type: "timeline", label: "Steps", steps: [{ label: "Swap 500 USDC to EURC on Uniswap v4", at: null, done: true }, { label: "Deposit the EURC into Morpho Galaxy EURC", at: null, done: false }], meaning: "The next step is rebuilt from what the swap delivered, and checked by your Fence again before you sign." }, { type: "facts", items: [{ label: "Done", value: "1 of 2 steps" }, { label: "Still to move", value: "448 EURC", meaning: "Still in your wallet until you sign the next step." }] }], actions: [{ kind: "cancel", label: "Continue or stop it", sentence: "Show me my plan to swap 500 USDC to EURC and deposit it into Morpho so I can sign the next step", mode: "ask" }] })]));
+  venues.push(read("watches", [p({ id: "s-watch", venue: "watches", venueName: "Watches", venueKind: "watch", label: "Health factor below 1.5 on Aave V4", assets: [], amount: "0", symbol: "", valueUsd: "0", counts: "overlay", state: "watching", source: "history", blocks: [{ type: "facts", items: [{ label: "Watching for", value: "loan health under 1.5", meaning: "When this happens, Lyko on watch tells you in the Fold, with a move ready if there is one." }, { label: "Last check", value: "1.38: under it, flagged" }, { label: "Status", value: "on" }] }], actions: [{ kind: "cancel", label: "Remove the watch", sentence: "Stop watching: Health factor below 1.5 on Aave V4", mode: "ask" }] })]));
+  // Every venue answers in the sample: the ones without a position are empty, never left "reading".
+  for (const info of POSITION_VENUES[environment]) if (!venues.some((v) => v.venue === info.id)) venues.push({ venue: info.id, venueName: info.name, venueKind: info.kind, status: "ok", positions: [], source: "chain", method: "Sample", readAt: at, block, ms: 0 });
   return { address: SAMPLE_OWNER, environment, at, block, venues, summary: summarizePositions(venues), personal: true, healthFloor: "1.5" };
 }

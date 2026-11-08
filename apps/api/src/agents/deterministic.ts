@@ -21,7 +21,9 @@ import { compileIntent } from "../compiler/service.js";
 import { deliver } from "../compiler/deliver.js";
 import { planActions } from "./engine.js";
 import { createWatch } from "./instructions.js";
-import { readWatchRequest } from "@lykia/core";
+import { readAssist, readWatchRequest } from "@lykia/core";
+import { capabilityMap } from "../capabilities/map.js";
+import { assistTurn } from "./assist.js";
 import { mergeProposals, specialistFor, type Emit, type SpecialistRole, type TurnResult } from "./orchestrator.js";
 
 function roleForAction(action: PlanAction): SpecialistRole {
@@ -220,6 +222,10 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
   // A watch request goes to Lyko on watch before anything is planned.
   const watch = readWatchRequest(input.message, input.fence.lending?.minHealthFactor ?? "1.5");
   if (watch) return watchTurn(input, watch);
+  // Lyko knows its own features: capability questions, feature offers and the one question to ask come from the map.
+  const map = capabilityMap(input.environment);
+  const assist = readAssist(input.message, map);
+  if (assist) return assistTurn(input, assist, map);
   const question = infoQuestion(input.message);
   if (question) return infoTurn(input, question);
   if (input.owner && isGoalLanguage(input.message)) return compiledTurn(input);
@@ -235,6 +241,8 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
   if (parsed.command || parsed.easterEgg || parsed.actions.length === 0) {
     reading.end(parsed.clarify.length > 0 ? "warn" : "ok", parsed.command ? "A sheepdog command" : parsed.easterEgg ? "A hidden word" : parsed.clarify.length > 0 ? "Needs one detail" : "Nothing to plan");
     if (parsed.clarify.length > 0) emit("clarify", { question: parsed.clarify[0], options: choices });
+    // Unsure what to ask: next steps from the capability map, one tap each.
+    else if (!parsed.command && !parsed.easterEgg) emit("clarify", { question: "Not sure where to start? Try one of these:", options: ["What can you do?", ...map.features.slice(0, 3).map((f) => f.say)] });
     return done(parsed.reply, [], parsed.clarify.length > 0 ? "clarify" : "end_turn");
   }
   if (parsed.clarify.length > 0) {

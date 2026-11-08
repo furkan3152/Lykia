@@ -23,6 +23,8 @@ import { readArchery, readSlipstream, readSushiswap, readUniswapV3, readUniswapV
 import { readAcross, readRelay, readZeroX } from "./bridges.js";
 import { readMorphoVaults, readPractice } from "./vaults.js";
 import { readUsyc, readWallet } from "./wallet.js";
+import { readLeashes } from "./leashes.js";
+import { readPlans, readWatches } from "./tracked.js";
 
 /** How long one venue's read is reused for the same address. */
 export const POSITIONS_CACHE_MS = 20_000;
@@ -53,6 +55,9 @@ export const READERS: Readonly<Record<string, Reader>> = {
   "lykia-orders": readOrders,
   "arc-transfer": readPayments,
   "lykia-practice": readPractice,
+  leashes: readLeashes,
+  plans: readPlans,
+  watches: readWatches,
 };
 
 /** Venues whose discovery scans events get more time (the scan has its own budget inside). */

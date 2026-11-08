@@ -94,6 +94,18 @@ export function scoreResult(c: EvalCase, result: unknown): CaseScore {
     if (e.watch === false) add("no watch", watch === null, `got ${JSON.stringify(watch)}`);
     else add(`watch ${JSON.stringify(e.watch)}`, watch !== null && matches(watch.condition, e.watch), `got ${JSON.stringify(watch)}`);
   }
+  if (e.assist !== undefined) {
+    const assist = (r.assist ?? null) as Json | null;
+    if (e.assist === false) add("no capability reading", assist === null, `got ${JSON.stringify(assist)}`);
+    else {
+      const { optionsMatch, ...want } = e.assist;
+      add(`assist ${JSON.stringify(want)}`, assist !== null && matches(assist, want), `got ${JSON.stringify(assist)}`);
+      if (optionsMatch) {
+        const options = (assist && Array.isArray(assist.options) ? assist.options : []) as string[];
+        add(`options ${optionsMatch}`, options.length >= 2 && options.length <= 4 && options.some((o) => optionsMatch.test(o)), `got ${JSON.stringify(options)}`);
+      }
+    }
+  }
   const passed = checks.every((x) => x.ok);
   return { id: c.id, category: c.category, passed, checks, score: checks.length === 0 ? 1 : checks.filter((x) => x.ok).length / checks.length };
 }

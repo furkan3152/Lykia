@@ -107,6 +107,7 @@ export const EXISTING_ROUTES: readonly DocumentedRoute[] = [
   r("get", "/knowledge/venues/:venue", "Knowledge", "What Lykia knows about a venue"),
   r("get", "/knowledge/contracts/:address", "Knowledge", "What Lykia knows about a contract"),
   r("get", "/knowledge/paths", "Knowledge", "Known paths between assets"),
+  r("get", "/capabilities", "Knowledge", "What Lyko can do: every action with the venues it routes through, bridge destinations per route, what each token can do, and the features to reach for", "public", { query: env, description: "Built from the engine's executable venues, the CCTP, Across, Relay and Gateway route tables and the routable adapter manifests, so it changes when an adapter or venue is added. Lyko reads the same map (its `capabilities` tool)." }),
   // Scent
   r("get", "/scent/:token", "Scent", "What can be proven about a token before anyone touches it", "public", { query: env }),
   // Tags

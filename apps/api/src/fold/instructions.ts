@@ -83,7 +83,7 @@ export async function instructionsFor(ctx: AppContext, owner: Address): Promise<
     out.push({
       id: a.id,
       source: "automation",
-      sourceLabel: "Rounds",
+      sourceLabel: "Automation",
       name: a.name,
       status: a.status,
       trigger: describeAutomationTrigger(a.trigger),
@@ -108,7 +108,7 @@ export async function instructionsFor(ctx: AppContext, owner: Address): Promise<
     out.push({
       id: r.id,
       source: "alert",
-      sourceLabel: "Barks",
+      sourceLabel: "Alert",
       name,
       status: r.paused ? "paused" : "active",
       trigger: r.kind.replace(/-/gu, " "),
@@ -129,7 +129,7 @@ export async function instructionsFor(ctx: AppContext, owner: Address): Promise<
     out.push({
       id: a.id,
       source: "agent",
-      sourceLabel: "Agent rounds",
+      sourceLabel: "Agent",
       name: a.sentence,
       status: a.enabled ? "active" : "paused",
       trigger: "insight" in a.when ? `on the ${a.when.insight} insight` : `every ${every} min`,
@@ -151,7 +151,7 @@ export async function instructionsFor(ctx: AppContext, owner: Address): Promise<
     out.push({
       id: o.hash,
       source: "order",
-      sourceLabel: "Orders",
+      sourceLabel: "Order",
       name: o.summary,
       status: o.status === "filled" ? "done" : o.status === "cancelled" || o.status === "expired" ? "cancelled" : o.status === "invalid" ? "failed" : o.status === "waiting" ? "waiting" : "active",
       trigger: o.waitingFor ? `waiting for ${o.waitingFor}` : interval ? `${o.executed} of ${o.order.executions} slices` : "ready",
