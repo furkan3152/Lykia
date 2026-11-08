@@ -61,4 +61,6 @@ Developer APIs for money flows: [payouts.md](payouts.md) (batch payouts
 with an Arc Memo per row), [invoices.md](invoices.md) (invoices and hosted
 payment links), [agents-api.md](agents-api.md) (configure and run agents,
 verify verdicts), [automations.md](automations.md) (one trigger API) and
-[leashes.md](leashes.md) (a budget an outside agent cannot exceed).
+[leashes.md](leashes.md) (a budget an outside agent cannot exceed). Lyko
+Autopilot, where Lyko signs the owner's own automations inside a leash with
+a Circle developer-controlled wallet, is in [../autopilot.md](../autopilot.md).

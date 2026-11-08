@@ -98,6 +98,7 @@ export const EVAL_CASES: readonly EvalCase[] = [
   { id: "offer-stress-eurc", category: "proactive", mode: "both", state: "treasury", text: "What if EURC drops 5%?", expect: { assist: { kind: "offer", feature: "stress-test" } } },
   { id: "offer-stress-btc", category: "proactive", mode: "both", state: "btc", text: "Am I safe if bitcoin falls 20%?", expect: { assist: { kind: "offer", feature: "stress-test" } } },
   { id: "offer-whistle", category: "proactive", mode: "both", state: "treasury", text: "Stop everything, something is wrong", expect: { assist: { kind: "offer", feature: "whistle" } } },
+  { id: "stop-autopilot", category: "proactive", mode: "both", state: "treasury", text: "Stop Autopilot now", expect: { assist: { kind: "offer", feature: "autopilot" } } },
   { id: "offer-fence-careful", category: "proactive", mode: "both", state: "treasury", text: "Make my Fence more careful", expect: { assist: { kind: "offer", feature: "fence-presets", optionsMatch: /^Careful$/u } } },
   { id: "offer-not-full-leash", category: "proactive", mode: "both", state: "treasury", text: "Give my bot $20 a day for a week to pay invoices.", expect: { assist: false, scheduled: [{ kind: "leash" }] } },
   { id: "offer-not-pack-agent", category: "proactive", mode: "both", state: "treasury", text: "Create a payroll agent with a 500 USDC daily budget", expect: { assist: false } },

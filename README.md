@@ -30,14 +30,25 @@ agent to sign. The same engine is an API, SDKs, an MCP server and
 embeddable components, so any team can add routing, policy checks and an
 assistant to its own product.
 
-Lykia never holds user keys. Plans come back unsigned for your wallet, your
-passkey account or an agent session you created. Two optional server roles
-do sign, each off unless the operator configures it: a gas-only keeper
-(`LYKIA_KEEPER_PRIVATE_KEY`) that executes due conditional orders already
-signed by their owners, and, opt-in with `LYKIA_CIRCLE_SERVER_WALLETS=true`,
-Circle developer-controlled wallets that the server signs for with the
-operator's entity secret (each wallet is bound to the address that created
-it, and every payout from it passes the Fence and the beta cap first).
+Lykia never holds user keys or funds. Plans come back unsigned for your
+wallet, your passkey account or an agent session you created.
+
+Who signs: you do, unless the operator turns on one of these server roles.
+Each is off by default.
+
+- **A gas-only keeper** (`LYKIA_KEEPER_PRIVATE_KEY`). It executes due
+  conditional orders that their owners already signed.
+- **Circle developer-controlled wallets**, opt-in with
+  `LYKIA_CIRCLE_SERVER_WALLETS=true`. The server signs for them with the
+  operator's entity secret. Each wallet is bound to the address that
+  created it, and every payout from it passes the Fence and the beta cap
+  first.
+- **Lyko Autopilot**, on the same opt-in and only for owners who turn it
+  on. A Circle wallet made for that owner signs agent calls on the owner's
+  own LykiaAccount, inside an on-chain session the owner signed once
+  (beta: $100 a step, $300 a day). Lykia asks Circle to sign only after the
+  Fence, the Autopilot ceilings and the anomaly guard pass. Stop, the
+  Whistle or `revokeSession` ends it. See [docs/autopilot.md](docs/autopilot.md).
 
 | Pillar | In one line |
 |---|---|
@@ -183,6 +194,21 @@ the chains it names, through the owner's own `LykiaStile` contract that
 Gateway checks over ERC-1271. Off until switched on; unaudited, so at most
 $100 per transfer and $300 a day: [docs/stile.md](docs/stile.md).
 
+**Lyko Autopilot.** The owner can put Lyko itself on a leash. Lyko then
+signs the owner's own repeats without asking each time: auto-repay, buying
+on a schedule, sweeping idle USDC into a vault, recurring invoices, or a
+watch that ends in an action. The session key is a Circle
+developer-controlled wallet made for that owner, so Lykia never holds the
+key or the funds. Autopilot is off by default, and turning it on needs:
+
+- the operator's `LYKIA_CIRCLE_SERVER_WALLETS=true`;
+- the owner's accepted acknowledgement;
+- one signature from the owner's wallet.
+
+While it is in beta, at most $100 a step and $300 a day. It pauses itself
+on repeated refusals or unusual speed, and Stop is one tap in the Fold and
+in Ask Lyko: [docs/autopilot.md](docs/autopilot.md).
+
 ## How it works
 
 ```mermaid
@@ -303,6 +329,7 @@ Fence. Moves that bring value home are never capped.
 | Fence specification | [docs/fence.md](docs/fence.md) |
 | Agents and sub-agents | [docs/pack.md](docs/pack.md) |
 | Leash: a budget an agent cannot exceed | [docs/leash.md](docs/leash.md) |
+| Lyko Autopilot: Lyko signs inside a leash with a Circle wallet | [docs/autopilot.md](docs/autopilot.md) |
 | Agent identity (Tag) | [docs/tag.md](docs/tag.md) |
 | Knowledge model and routing | [docs/knowledge.md](docs/knowledge.md) |
 | Integrating a protocol | [docs/integrate-your-protocol.md](docs/integrate-your-protocol.md) |

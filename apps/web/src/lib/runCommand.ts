@@ -1,13 +1,15 @@
 /**
  * Runs a sheepdog command from the whistle box or the deck. No command
  * moves value: they refresh, re-sniff, advance the deck's next step (which
- * still needs a wallet signature), or blow / release the Whistle.
+ * still needs a wallet signature), or blow / release the Whistle (blowing it
+ * also stops Autopilot).
  */
 import { LYKO_LINES, type CommandAction } from "@lykia/core";
 
 import { queryClient } from "../app/queryClient";
 import { navigate } from "../app/routes/history";
 import { toast } from "../mosaic/toast";
+import { apiPost } from "./api";
 import { useLykiaStore } from "./lykiaStore";
 
 export function runCommand(action: CommandAction): void {
@@ -29,6 +31,8 @@ export function runCommand(action: CommandAction): void {
     case "whistle":
       store.setWhistle(true);
       toast.warning("Lie down: the whistle is blown", { description: LYKO_LINES.resting, from: "LYKO", id: "cmd" });
+      // The Whistle stops Autopilot too (signed in only; without a session there is nothing to stop).
+      void Promise.allSettled((["mainnet", "testnet"] as const).map((environment) => apiPost("/v1/autopilot/stop", { environment, reason: "The Whistle was blown." }))).then(() => queryClient.invalidateQueries({ queryKey: ["autopilot"] }));
       break;
     case "release":
       store.setWhistle(false);

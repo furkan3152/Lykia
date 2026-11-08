@@ -53,12 +53,12 @@ async function ensureWalletSet(fetchImpl: FetchLike, creds: CircleCreds, now: nu
   return set.id;
 }
 
-export async function createAgentWallet(fetchImpl: FetchLike, creds: CircleCreds, input: { environment: ArcEnvironment; refId: string; name: string }, now: number): Promise<{ id: string; address: string; blockchain: string; accountType: string; walletSetId: string }> {
+export async function createAgentWallet(fetchImpl: FetchLike, creds: CircleCreds, input: { environment: ArcEnvironment; refId: string; name: string; accountType?: "SCA" | "EOA" }, now: number): Promise<{ id: string; address: string; blockchain: string; accountType: string; walletSetId: string }> {
   const walletSetId = await ensureWalletSet(fetchImpl, creds, now);
   const blockchain = input.environment === "mainnet" ? "ARC" : "ARC-TESTNET";
   const data = await request(fetchImpl, creds.apiKey, "/developer/wallets", {
     method: "POST",
-    body: { idempotencyKey: randomUUID(), entitySecretCiphertext: await entitySecretCiphertext(fetchImpl, creds, now), walletSetId, blockchains: [blockchain], count: 1, accountType: "SCA", metadata: [{ name: input.name.slice(0, 50), refId: input.refId.slice(0, 50) }] },
+    body: { idempotencyKey: randomUUID(), entitySecretCiphertext: await entitySecretCiphertext(fetchImpl, creds, now), walletSetId, blockchains: [blockchain], count: 1, accountType: input.accountType ?? "SCA", metadata: [{ name: input.name.slice(0, 50), refId: input.refId.slice(0, 50) }] },
   });
   const wallet = (data.wallets as { id: string; address: string; blockchain: string; accountType: string }[] | undefined)?.[0];
   if (!wallet) throw new LykiaHttpError("UPSTREAM_UNAVAILABLE", 502, "Circle created no wallet.");

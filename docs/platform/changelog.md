@@ -2,6 +2,17 @@
 
 ## Unreleased (additive, under `2026-11-01`)
 
+- Lyko Autopilot ([../autopilot.md](../autopilot.md)), for signed-in owners
+  only:
+  - Routes: `GET /v1/autopilot`, `POST /v1/autopilot/(enable|stop|pause|resume)`,
+    `POST /v1/autopilot/tasks`,
+    `POST /v1/autopilot/tasks/:id/(pause|resume|remove|run)`.
+  - Error codes: `AUTOPILOT_ACK_REQUIRED` and `INVALID_AUTOPILOT` (400),
+    `CIRCLE_SERVER_WALLETS_OFF` (403), `CIRCLE_NOT_CONFIGURED` (503).
+  - Webhook events: `autopilot.signed`, `autopilot.paused`,
+    `autopilot.stopped`.
+  - `POST /v1/pack/whistle` also stops Autopilot and answers `autopilot`.
+
 - Staged plans: `POST /v1/intents/:id/steps/:sid/prepare` takes `stage: true`
   (a stage's steps as one transaction, `stepIds`) and answers `replanned` when
   a step was rebuilt from what the step before delivered; steps carry

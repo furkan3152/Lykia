@@ -2713,6 +2713,303 @@
       ]
     },
     {
+      "name": "Autopilot",
+      "item": [
+        {
+          "name": "The owner's Autopilot",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/autopilot",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "autopilot"
+              ],
+              "query": [
+                {
+                  "key": "environment",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Whether this server can sign for Autopilot, its ceilings (at most the lower of $100 a step and $300 a day and the mainnet beta cap), the acknowledgement and its digest, who holds what, and the owner's Autopilot with its leash, today's spend and the last runs. Task kinds: repay, dca, sweep, pay, watch.\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Turn Autopilot on",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/autopilot/enable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "autopilot",
+                "enable"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ack\": \"\",\n  \"limits\": {\n    \"perStepUsd\": \"\",\n    \"perDayUsd\": \"\",\n    \"days\": 1\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Needs LYKIA_CIRCLE_SERVER_WALLETS=true on the server (403 otherwise), the acknowledgement digest (400 AUTOPILOT_ACK_REQUIRED otherwise) and limits under the ceilings. Makes (or reuses) the owner's Circle EOA wallet and a leash on the owner's LykiaAccount with that wallet as its session key; returns the transactions the owner signs once. Nothing is signed by the server before that session lands.\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Pause Autopilot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/autopilot/pause",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "autopilot",
+                "pause"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Nothing is signed until it is resumed; the session stays.\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Resume Autopilot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/autopilot/resume",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "autopilot",
+                "resume"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "After a pause by the owner or by the anomaly guard (repeated refusals, unusual spend velocity).\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Stop Autopilot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/autopilot/stop",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "autopilot",
+                "stop"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "The kill switch. Server signing stops at once, the leash and its Pack agent are revoked, and revokeSession comes back for the owner's wallet.\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Add an Autopilot task",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/autopilot/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "autopilot",
+                "tasks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"task\": {\n    \"kind\": \"repay\",\n    \"amountUsd\": \"\",\n    \"floor\": \"\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "repay (when the account's health factor drops below a floor), dca (convert on a schedule), sweep (idle USDC above an amount into a vault), pay (a payee named when Autopilot was turned on, on a schedule), watch (one of the owner's watches, then an action). Every run is planned under the Autopilot leash and checked again before Circle signs.\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Pause, resume, remove or run a task",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/autopilot/tasks/:id/:action",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "autopilot",
+                "tasks",
+                ":id",
+                ":action"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "action",
+                  "value": ""
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "run plans it now with the same checks as a scheduled run.\n\nAuth: session."
+          }
+        }
+      ]
+    },
+    {
       "name": "Billing",
       "item": [
         {

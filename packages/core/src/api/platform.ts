@@ -124,6 +124,9 @@ export type CatalogueWebhookEvent =
   | "leash.expiring"
   | "leash.revoked"
   | "leash.denied"
+  | "autopilot.signed"
+  | "autopilot.paused"
+  | "autopilot.stopped"
   | "test.ping";
 export type WebhookEvent = LegacyWebhookEvent | CatalogueWebhookEvent;
 
@@ -157,6 +160,9 @@ export const WEBHOOK_EVENT_CATALOGUE: readonly WebhookEventInfo[] = [
   { type: "leash.expiring", group: "agents", description: "A leash expires within 24 hours.", aliases: [] },
   { type: "leash.revoked", group: "agents", description: "A leash was revoked: its key stopped working at once.", aliases: [] },
   { type: "leash.denied", group: "agents", description: "A leashed agent asked for something outside its leash; the reasons and the remaining budget are included.", aliases: [] },
+  { type: "autopilot.signed", group: "agents", description: "Lyko signed a step under the owner's Autopilot leash; the verdict digest and the Circle transaction are included.", aliases: [] },
+  { type: "autopilot.paused", group: "agents", description: "Autopilot paused itself (repeated refusals or unusual spend velocity); nothing is signed until the owner resumes it.", aliases: [] },
+  { type: "autopilot.stopped", group: "agents", description: "Autopilot was stopped (the owner, Ask Lyko or the Whistle): server signing is off, revokeSession is included.", aliases: [] },
   { type: "key.rotated", group: "platform", description: "An API key was rotated.", aliases: [] },
   { type: "test.ping", group: "platform", description: "A test event sent from the portal, the CLI or the API.", aliases: [] },
 ];

@@ -42,6 +42,7 @@ export * from "./staged.js";
 export * from "./agentInstructions.js";
 export * from "./positions.js";
 export * from "./leash.js";
+export * from "./autopilot.js";
 export * from "./plain.js";
 export * from "./positionKinds.js";
 export * from "./capabilities.js";

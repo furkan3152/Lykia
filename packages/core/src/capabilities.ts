@@ -58,7 +58,7 @@ export interface TokenCapability {
 }
 
 export interface CapabilityFeature {
-  readonly id: "fence-presets" | "stress-test" | "leash" | "watch" | "staged-plans" | "whistle" | "orders" | "alerts" | "automations" | "payouts";
+  readonly id: "fence-presets" | "stress-test" | "leash" | "autopilot" | "watch" | "staged-plans" | "whistle" | "orders" | "alerts" | "automations" | "payouts";
   readonly name: string;
   readonly plain: string;
   /** When to reach for it, in the owner's words. */
@@ -108,6 +108,7 @@ const FEATURES: readonly CapabilityFeature[] = [
   { id: "watch", name: "Watch", plain: "Lyko on watch keeps an eye on a position and tells you when something happens.", when: "You say \"tell me if\" or \"keep an eye on\".", say: "Tell me if my health factor drops below 1.5", href: "/app/fold/herding?show=watch" },
   { id: "staged-plans", name: "Step-by-step plans", plain: "A plan with several steps is signed one step at a time; each next step is rebuilt from what actually arrived.", when: "A request has several moves, like swap then deposit.", say: "Swap 500 USDC to EURC, then deposit it into Morpho", href: "/app" },
   { id: "whistle", name: "Whistle", plain: `${LYKIA_TERMS.whistle.word} · ${LYKIA_TERMS.whistle.plain}: every agent and every new move stops at once. Money coming home still passes.`, when: "Something looks wrong and you want everything to stop.", say: "Blow the whistle", href: "/app/fold/fence" },
+  { id: "autopilot", name: "Autopilot", plain: "Lyko signs your own automations (auto-repay, DCA, sweeping idle USDC, recurring payments) inside a leash on your LykiaAccount, at most $100 a step and $300 a day in beta. Off until you turn it on; Stop ends it at once.", when: "You want repeats to run without signing each one.", say: "Turn on Autopilot", href: "/app/fold/pack" },
   { id: "orders", name: "Orders", plain: `Limit, stop-loss, take-profit, DCA and TWAP orders, signed once and filled on chain within your limits (${ORDER_KINDS.join(", ")}).`, when: "You want to buy or sell when a price is reached, or spread a buy over time.", say: "Buy EURC when EUR/USD is below 1.09", href: "/app/orders" },
   { id: "alerts", name: "Alerts", plain: "A message when a price crosses a level, a loan gets riskier, or money moves.", when: "You only want to be told, not to move anything.", say: "Alert me if cirBTC falls below 60000", href: "/app/alerts" },
   { id: "automations", name: "Recurring rules", plain: "A sentence Lyko plans again on a schedule or a trigger; each run is a proposal you sign.", when: "Something should happen every week or every month.", say: "Every Friday at 17:00, sweep USDC above 1000 into a vault", href: "/app/automations" },
@@ -250,6 +251,8 @@ export function readAssist(text: string, map: CapabilityMap): AssistReading | nu
   if (/\b(tell me|let me know|alert me|notify me|warn me|keep an eye|watch)\b/u.test(t)) return null;
 
   // Proactive offers.
+  if (/\b(stop|turn off|switch off|pause|kill|disable|halt)\b.*\bautopilot\b|\bautopilot\b.*\b(off|stop)\b/u.test(t)) return { kind: "offer", feature: "autopilot", reason: "Stop Autopilot ends server signing at once; then sign revokeSession to end its session on chain.", options: ["Show my Autopilot", "Blow the whistle"] };
+  if (/\bautopilot\b|\b(sign|act) (for|on behalf of) me\b|\bwithout (asking|signing) (me )?(each|every) time\b/u.test(t) && !AMOUNT.test(t)) return { kind: "offer", feature: "autopilot", reason: "Autopilot lets Lyko sign your own automations inside limits you set, on your own account.", options: ["Turn on Autopilot", "What does Autopilot hold?"] };
   if (/\b(stop everything|stop it all|stop all|freeze everything|panic|halt everything|something('s| is) wrong|kill switch)\b/u.test(t)) return { kind: "offer", feature: "whistle", reason: "The Whistle stops every agent and every new move at once.", options: ["Blow the whistle", "Show me what is running"] };
   const newPackAgent = /\b(create|make|spin up|set up|new)\b.*\b(agent|bot)\b/u.test(t) && !/\b(needs?|wants?)\b/u.test(t);
   if (!newPackAgent && !AMOUNT.test(t) && (/\b(bot|agent|ai agent|script)\b.*\b(needs?|wants?|should have|to have|spend|budget|money|allowance|funds?|pay (its|for))\b/u.test(t) || /\b(give|fund|top up)\b.*\b(bot|agent)\b/u.test(t))) {

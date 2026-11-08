@@ -7,6 +7,34 @@ own dated version history in [docs/platform/changelog.md](docs/platform/changelo
 
 ### Added
 
+- **Lyko Autopilot.** Lyko signs the owner's own automations inside a leash
+  on the owner's own LykiaAccount.
+  - **The key:** a Circle developer-controlled EOA wallet (MPC) made for
+    that owner. Lykia never holds it or the funds.
+  - **Turning it on** needs `LYKIA_CIRCLE_SERVER_WALLETS=true`, the
+    owner's accepted acknowledgement (its digest goes with
+    `POST /v1/autopilot/enable`) and one signature: `createSession` with
+    the Circle wallet as the session key.
+  - **Beta ceilings:** $100 a step and $300 a day, under the mainnet beta
+    cap. Owners can choose lower.
+  - **Checks before every step:** Autopilot is on, the leash is live, the
+    Whistle is not blown, the leash's own plan (the Fence, `spendable()`,
+    call rules and payees read from the account, and a simulation), the
+    shape of the prepared transaction, Autopilot's caps and an anomaly
+    guard. Only then does Circle sign that exact calldata. The anomaly
+    guard pauses on three refusals in an hour or unusual spend velocity.
+  - **Labels:** each step carries the verdict digest in its Arc Memo, shows
+    in the Fold as "Signed by Lyko under your Autopilot leash" and is
+    chain-proven in the leash trail.
+  - **Stop** is one tap in the Fold and in Ask Lyko. It ends server signing
+    at once and returns `revokeSession`. The Whistle stops Autopilot too.
+  - **Tasks:** auto-repay below a health floor, DCA between USDC and EURC,
+    sweeping idle USDC into a vault, recurring payments to named payees,
+    and watches that end in an Autopilot action. They run from the existing
+    flow tick, with conditions read on the LykiaAccount.
+  - **Evidence:** mainnet `eth_call` evidence with
+    `npm run prove:autopilot -w @lykia/api`. The trust model, setup and
+    risks are in [docs/autopilot.md](docs/autopilot.md).
 - **Stile: Spend from Gateway balance**, an option inside Leash. A
   pay-invoices leash with `"spendFrom": "gateway"` spends the owner's Circle
   Gateway USDC deposited on Arc, on the chains it names, through

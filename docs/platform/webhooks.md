@@ -7,7 +7,7 @@
 | Group | Events |
 |---|---|
 | intents | `intent.planned`, `intent.settled`, `step.prepared`, `step.settled`, `step.failed` |
-| agents | `agent.spawned`, `agent.revoked`, `agent.whistle`, `leash.budget.threshold`, `leash.expiring`, `leash.revoked`, `leash.denied` |
+| agents | `agent.spawned`, `agent.revoked`, `agent.whistle`, `leash.budget.threshold`, `leash.expiring`, `leash.revoked`, `leash.denied`, `autopilot.signed`, `autopilot.paused`, `autopilot.stopped` |
 | automation | `standing.fired`, `order.filled`, `alert.fired` |
 | payouts | `payout.created`, `payout.sent`, `payout.failed`, `invoice.created`, `invoice.paid` |
 | security | `security.blocked` |

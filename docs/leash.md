@@ -231,6 +231,13 @@ Lykia has no record of (the session key acted directly) are listed as
 - The contracts are not audited. On mainnet the beta cap sits above every
   leash.
 
+## Lyko on a leash: Autopilot
+
+Lyko Autopilot is a leash the owner puts on Lyko itself. Its session key is
+a Circle developer-controlled wallet made for the owner. The API asks Circle
+to sign a step only after every check in this document passes, plus
+Autopilot's own ceilings and anomaly guard. See [autopilot.md](autopilot.md).
+
 ## From Ask Lyko
 
 "Give my bot $20 a day for a week to pay invoices" compiles into a budget

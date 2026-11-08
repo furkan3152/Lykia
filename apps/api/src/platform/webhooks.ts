@@ -577,6 +577,12 @@ function sampleData(type: string): JsonValue {
       return { leashId: "lsh_test00000000", agentId: "agt_test", reason: "Revoked by the owner.", keyDisabled: true, revokeTransaction: null };
     case "leash.denied":
       return { leashId: "lsh_test00000000", agentId: "agt_test", reasons: [{ code: "leash.budget.day", message: "$30.00 is more than the $10.00 left today." }], remaining: { dayUsd: "10.00", totalUsd: "110.00" } };
+    case "autopilot.signed":
+      return { environment: "testnet", leashId: "lsh_test00000000", signer: "0x0000000000000000000000000000000000000001", runId: "apr_test00000000", intentId: "out_test0000", stepId: "s1", verdictDigest: `sha256:${"0".repeat(64)}`, usd: "25.00", circleTransactionId: "00000000-0000-4000-8000-000000000000", label: "Signed by Lyko under your Autopilot leash" };
+    case "autopilot.paused":
+      return { environment: "testnet", leashId: "lsh_test00000000", code: "anomaly.denies", reason: "3 refusals in the last hour: something is off, so Autopilot paused itself." };
+    case "autopilot.stopped":
+      return { environment: "testnet", leashId: "lsh_test00000000", by: "owner", reason: "Stopped by the owner.", revokeTransaction: null };
     default:
       return {};
   }

@@ -59,6 +59,9 @@
       "name": "Automations"
     },
     {
+      "name": "Autopilot"
+    },
+    {
       "name": "Billing",
       "description": "Plans, usage and credits for API usage."
     },
@@ -9738,6 +9741,858 @@
             "LykiaSession": []
           }
         ]
+      }
+    },
+    "/v1/autopilot": {
+      "get": {
+        "operationId": "getAutopilot",
+        "summary": "The owner's Autopilot",
+        "description": "Whether this server can sign for Autopilot, its ceilings (at most the lower of $100 a step and $300 a day and the mainnet beta cap), the acknowledgement and its digest, who holds what, and the owner's Autopilot with its leash, today's spend and the last runs. Task kinds: repay, dca, sweep, pay, watch.",
+        "tags": [
+          "Autopilot"
+        ],
+        "parameters": [
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mainnet",
+                "testnet"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ]
+      }
+    },
+    "/v1/autopilot/enable": {
+      "post": {
+        "operationId": "postAutopilotEnable",
+        "summary": "Turn Autopilot on",
+        "description": "Needs LYKIA_CIRCLE_SERVER_WALLETS=true on the server (403 otherwise), the acknowledgement digest (400 AUTOPILOT_ACK_REQUIRED otherwise) and limits under the ceilings. Makes (or reuses) the owner's Circle EOA wallet and a leash on the owner's LykiaAccount with that wallet as its session key; returns the transactions the owner signs once. Nothing is signed by the server before that session lands.",
+        "tags": [
+          "Autopilot"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "environment": {
+                    "type": "string",
+                    "enum": [
+                      "mainnet",
+                      "testnet"
+                    ]
+                  },
+                  "ack": {
+                    "type": "string",
+                    "maxLength": 80,
+                    "description": "The digest of the acknowledgement text from GET /v1/autopilot (offer.ack.digest)."
+                  },
+                  "limits": {
+                    "type": "object",
+                    "properties": {
+                      "perStepUsd": {
+                        "type": "string",
+                        "pattern": "^\\d{1,12}(?:\\.\\d{1,2})?$"
+                      },
+                      "perDayUsd": {
+                        "type": "string",
+                        "pattern": "^\\d{1,12}(?:\\.\\d{1,2})?$"
+                      },
+                      "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 30
+                      }
+                    },
+                    "required": [
+                      "perStepUsd",
+                      "perDayUsd",
+                      "days"
+                    ]
+                  },
+                  "payees": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 10,
+                    "description": "Addresses Autopilot may pay (recurring invoices). Money to you is always allowed."
+                  }
+                },
+                "required": [
+                  "ack",
+                  "limits"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/autopilot/pause": {
+      "post": {
+        "operationId": "postAutopilotPause",
+        "summary": "Pause Autopilot",
+        "description": "Nothing is signed until it is resumed; the session stays.",
+        "tags": [
+          "Autopilot"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "environment": {
+                    "type": "string",
+                    "enum": [
+                      "mainnet",
+                      "testnet"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/autopilot/resume": {
+      "post": {
+        "operationId": "postAutopilotResume",
+        "summary": "Resume Autopilot",
+        "description": "After a pause by the owner or by the anomaly guard (repeated refusals, unusual spend velocity).",
+        "tags": [
+          "Autopilot"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "environment": {
+                    "type": "string",
+                    "enum": [
+                      "mainnet",
+                      "testnet"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/autopilot/stop": {
+      "post": {
+        "operationId": "postAutopilotStop",
+        "summary": "Stop Autopilot",
+        "description": "The kill switch. Server signing stops at once, the leash and its Pack agent are revoked, and revokeSession comes back for the owner's wallet.",
+        "tags": [
+          "Autopilot"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "environment": {
+                    "type": "string",
+                    "enum": [
+                      "mainnet",
+                      "testnet"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/autopilot/tasks": {
+      "post": {
+        "operationId": "postAutopilotTasks",
+        "summary": "Add an Autopilot task",
+        "description": "repay (when the account's health factor drops below a floor), dca (convert on a schedule), sweep (idle USDC above an amount into a vault), pay (a payee named when Autopilot was turned on, on a schedule), watch (one of the owner's watches, then an action). Every run is planned under the Autopilot leash and checked again before Circle signs.",
+        "tags": [
+          "Autopilot"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "environment": {
+                    "type": "string",
+                    "enum": [
+                      "mainnet",
+                      "testnet"
+                    ]
+                  },
+                  "task": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "repay"
+                          },
+                          "amountUsd": {
+                            "type": "string",
+                            "pattern": "^\\d{1,12}(?:\\.\\d{1,2})?$"
+                          },
+                          "floor": {
+                            "type": "string",
+                            "maxLength": 8
+                          },
+                          "venue": {
+                            "const": "aave-v4"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "amountUsd",
+                          "floor"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "dca"
+                          },
+                          "amountUsd": {
+                            "type": "string",
+                            "pattern": "^\\d{1,12}(?:\\.\\d{1,2})?$"
+                          },
+                          "every": {
+                            "type": "string",
+                            "enum": [
+                              "day",
+                              "week",
+                              "month"
+                            ]
+                          },
+                          "to": {
+                            "type": "string",
+                            "enum": [
+                              "EURC",
+                              "USDC"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "amountUsd",
+                          "every",
+                          "to"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "sweep"
+                          },
+                          "amountUsd": {
+                            "type": "string",
+                            "pattern": "^\\d{1,12}(?:\\.\\d{1,2})?$"
+                          },
+                          "keepUsd": {
+                            "type": "string",
+                            "pattern": "^\\d{1,12}(?:\\.\\d{1,2})?$"
+                          },
+                          "vault": {
+                            "type": "string",
+                            "minLength": 2,
+                            "maxLength": 48
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "amountUsd",
+                          "keepUsd",
+                          "vault"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "pay"
+                          },
+                          "amountUsd": {
+                            "type": "string",
+                            "pattern": "^\\d{1,12}(?:\\.\\d{1,2})?$"
+                          },
+                          "every": {
+                            "type": "string",
+                            "enum": [
+                              "day",
+                              "week",
+                              "month"
+                            ]
+                          },
+                          "payee": {
+                            "type": "string"
+                          },
+                          "note": {
+                            "type": "string",
+                            "maxLength": 40
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "amountUsd",
+                          "every",
+                          "payee"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "const": "watch"
+                          },
+                          "watchId": {
+                            "type": "string",
+                            "maxLength": 80
+                          },
+                          "condition": {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "health-below",
+                                  "lp-out-of-range",
+                                  "idle-above",
+                                  "apy-below"
+                                ]
+                              },
+                              "threshold": {
+                                "type": "string",
+                                "maxLength": 12
+                              },
+                              "venue": {
+                                "type": "string",
+                                "maxLength": 48
+                              },
+                              "token": {
+                                "type": "string",
+                                "maxLength": 8
+                              },
+                              "amount": {
+                                "type": "string",
+                                "maxLength": 16
+                              },
+                              "percent": {
+                                "type": "string",
+                                "maxLength": 8
+                              }
+                            },
+                            "required": [
+                              "kind"
+                            ],
+                            "description": "Ignored: the watch's own condition is used."
+                          },
+                          "sentence": {
+                            "type": "string",
+                            "minLength": 4,
+                            "maxLength": 200
+                          },
+                          "amountUsd": {
+                            "type": "string",
+                            "pattern": "^\\d{1,12}(?:\\.\\d{1,2})?$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "watchId",
+                          "sentence",
+                          "amountUsd"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "task"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/autopilot/tasks/{id}/{action}": {
+      "post": {
+        "operationId": "postAutopilotTasksByIdByAction",
+        "summary": "Pause, resume, remove or run a task",
+        "description": "run plans it now with the same checks as a scheduled run.",
+        "tags": [
+          "Autopilot"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^apt_[a-f0-9]{8}$"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pause",
+                "resume",
+                "remove",
+                "run"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "environment": {
+                    "type": "string",
+                    "enum": [
+                      "mainnet",
+                      "testnet"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/billing/credits": {

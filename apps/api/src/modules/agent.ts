@@ -26,6 +26,7 @@ import { DEFAULT_FENCE, evaluateFence, PACK_ROLES, type Address, type ArcEnviron
 import type { Request, Response } from "express";
 import { encodeFunctionData, type Hex } from "viem";
 import { z } from "zod";
+import { autopilotService } from "../autopilot/service.js";
 import { LykiaHttpError } from "../http/errors.js";
 import type { ApiModule } from "../http/router.js";
 import { openSse } from "../http/sse.js";
@@ -282,7 +283,9 @@ export const agentModule: ApiModule = {
         ? { chainId: environment === "mainnet" ? 5042 : 5042002, from: (by?.signer ?? body.owner) as Address, to: body.account as Address, data: encodeFunctionData({ abi: BLOW_WHISTLE_ABI, functionName: "blowWhistle" }) as Hex, value: "0", label: "Blow the whistle on the LykiaAccount" }
         : null;
       void s().webhooks.emit("whistle.blown", body.owner, { by: by?.id ?? "owner", reason: body.reason ?? null, environment }).catch(() => undefined);
-      res.json({ transaction, note: "Set your Fence to whistle mode in the deck as well; on chain, sending this transaction stops every session except homeward calls." });
+      // The Whistle stops Autopilot too: server signing ends before the answer goes out.
+      const autopilot = await autopilotService(ctx).stop(body.owner, environment, "whistle", body.reason ? `The Whistle was blown: ${body.reason}` : undefined).catch(() => null);
+      res.json({ transaction, autopilot: autopilot?.autopilot ? { stopped: true, revokeTransaction: autopilot.transaction } : null, note: "Set your Fence to whistle mode in the deck as well; on chain, sending this transaction stops every session except homeward calls." });
     });
 
     router.get("/pack/account", async (req, res) => {

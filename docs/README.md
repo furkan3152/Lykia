@@ -19,6 +19,7 @@ structure.
 - [Tag](tag.md): agent identity on ERC-8004 and policy verdict attestations
 - [Leash](leash.md): a budget an outside agent cannot exceed, on chain and at the API
 - [Stile](stile.md): a leash that spends from a Circle Gateway balance through an ERC-1271 policy contract
+- [Lyko Autopilot](autopilot.md): Lyko signs the owner's own automations inside a leash, with a Circle developer-controlled wallet as the key
 - [Knowledge model and routing](knowledge.md)
 - [The intent compiler: goals, time and abstract wording](intents.md)
 - [Memory](memory.md)

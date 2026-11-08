@@ -23,6 +23,8 @@ import { HashChip, RichLine } from "./Markdown";
 import { memoryBadges } from "./memoryRefs";
 import { StateIcon } from "../fold/positions/art";
 import { useIntent } from "../route/useIntent";
+import { useStopAutopilot } from "../fold/autopilot/data";
+import { useEnvironment } from "../../lib/environment";
 import { STATE_COLOR, stateLabel } from "../fold/positionsModel";
 import type { PositionState } from "@lykia/core";
 
@@ -601,12 +603,25 @@ function CapabilitiesCard({ block }: { readonly block: Extract<AnswerBlock, { ki
   );
 }
 
-function OfferCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "offer" }> }) {
+function StopAutopilotButton() {
+  const environment = useEnvironment();
+  const { stop, busy } = useStopAutopilot(environment);
+  const [done, setDone] = useState(false);
   return (
-    <CardShell kind="offer" tone="olive" kick="LYKO SUGGESTS" title={block.title}>
+    <button type="button" className="m-mini m-mini--stop" disabled={busy || done} onClick={() => void stop("Stopped from Ask Lyko.").then((r) => setDone(r !== null))}>
+      {done ? "STOPPED" : busy ? "STOPPING…" : "STOP AUTOPILOT"}
+    </button>
+  );
+}
+
+function OfferCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "offer" }> }) {
+  const stopAutopilot = block.feature === "autopilot" && block.cta === "Stop Autopilot";
+  return (
+    <CardShell kind="offer" tone={stopAutopilot ? "terra" : "olive"} kick={stopAutopilot ? "ONE TAP" : "LYKO SUGGESTS"} title={block.title}>
       <p className="m-card2__note m-offer__line">{block.line}</p>
       <div className="m-card2__acts">
-        <Link to={block.href} className="m-mini">{block.cta}</Link>
+        {stopAutopilot ? <StopAutopilotButton /> : null}
+        <Link to={block.href} className="m-mini">{stopAutopilot ? "Open Autopilot" : block.cta}</Link>
       </div>
     </CardShell>
   );
