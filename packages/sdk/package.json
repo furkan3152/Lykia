@@ -44,6 +44,10 @@
       "types": "./dist/agents.d.ts",
       "import": "./dist/agents.js"
     },
+    "./leashes": {
+      "types": "./dist/leashes.d.ts",
+      "import": "./dist/leashes.js"
+    },
     "./circle": {
       "types": "./dist/circle.d.ts",
       "import": "./dist/circle.js"

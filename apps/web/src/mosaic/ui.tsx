@@ -10,7 +10,7 @@ import { useLook, useLookVersion } from "./look";
 import { MosaicCanvas } from "./MosaicCanvas";
 import { face, sprite } from "./scenes";
 import { buffer, drawTesserae } from "./tessera";
-import { COLLARS, PAL, PUP, lykoFace, type FaceMood } from "./sprites";
+import { COLLARS, LEASH, PAL, PUP, lykoFace, type FaceMood } from "./sprites";
 
 
 /* ----------------------------------------------------------- frames */
@@ -179,6 +179,11 @@ export function LykoFace({ mood = "watching", scale = 2, label = "Lyko", classNa
     return () => clearTimeout(timer);
   }, [reduced, mood]);
   return <Sprite rows={lykoFace(mood, blink)} scale={scale} label={label} className={className} />;
+}
+
+/** The leash mark: Lyko's collar (in his collar colour), the Tag and the lead. */
+export function LeashMark({ scale = 3, label }: { scale?: number; label?: string }) {
+  return <Sprite rows={LEASH} scale={scale} {...(label ? { label } : {})} />;
 }
 
 export function PupIcon({ role, scale = 3 }: { role: string; scale?: number }) {

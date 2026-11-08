@@ -99,3 +99,55 @@ test("logs tail prints new entries oldest first", async () => {
   assert.match(h.stdout[0], /r1$/u);
   assert.match(h.stdout[1], /FORBIDDEN\s+r2$/u);
 });
+
+test("leash create makes the session key here, prints the transactions and the key once", async () => {
+  const { privateKeyToAccount } = await import("viem/accounts");
+  const created = {
+    leash: { id: "lsh_0123456789ab", agentName: "Trade bot", template: "trade-small", status: "pending", budget: { perStepUsd: "50", perDayUsd: "50", totalUsd: "350" }, expiresAt: "2026-11-08T12:00:00.000Z", venues: ["uniswap-v3"], recipients: [] },
+    transactions: [{ label: "Create Trade bot's leash on your LykiaAccount", from: "0x1111111111111111111111111111111111111111", to: "0x2222222222222222222222222222222222222222", data: "0xabcdef", chainId: 5042 }],
+    session: { signer: "owner", from: "0x1111111111111111111111111111111111111111" },
+    apiKey: { id: "abcdefabcdef", secret: "lk_leash_live_abcdefabcdef_" + "B".repeat(32), prefix: "lk_leash_live_abcdefabcdef_" },
+    mcp: { mcpServers: { "lykia-leash-trade-bot": { url: "https://api.test/v1/mcp", headers: { "Lykia-Key": "lk_leash_live_abcdefabcdef_" + "B".repeat(32) } } } },
+    tag: null,
+    notes: ["Your wallet signs the session transaction once."],
+  };
+  const h = harness([["https://api.test/v1/leashes", (url, init) => (init.method === "POST" ? json(201, created) : json(200, { leashes: [] }))]], { LYKIA_API_KEY: KEY });
+  const dir = mkdtempSync(join(tmpdir(), "lykia-leash-"));
+  h.io.cwd = dir;
+  assert.equal(await run(["leash", "create", "--template", "trade-small", "--per-day", "50", "--days", "7", "--name", "Trade bot"], h.io), 0);
+  const body = JSON.parse(h.calls[0].init.body);
+  assert.deepEqual(body.budget, { perStepUsd: "50", perDayUsd: "50", totalUsd: "350" });
+  assert.equal(body.template, "trade-small");
+  assert.equal(body.expiresAt, new Date(Date.UTC(2026, 10, 1, 12) + 7 * 86_400_000).toISOString());
+  // The session key was made here; only its address went to the API.
+  const file = join(dir, "lykia-lsh_0123456789ab.session-key.json");
+  const saved = JSON.parse(readFileSync(file, "utf8"));
+  assert.equal(statSync(file).mode & 0o777, 0o600);
+  assert.equal(privateKeyToAccount(saved.privateKey).address.toLowerCase(), body.agent.signer);
+  assert.ok(!h.calls[0].init.body.includes(saved.privateKey.slice(2)), "the private key never goes to the API");
+  const printed = h.stdout.join("\n");
+  assert.match(printed, /from {2}0x1111/u);
+  assert.match(printed, /data {2}0xabcdef/u);
+  assert.equal(printed.split(created.apiKey.secret).length - 1, 2, "the key once, and once inside the MCP config");
+  assert.ok(!printed.includes(saved.privateKey), "the private key is not printed");
+  await assert.rejects(run(["leash", "create", "--template", "trade-small"], h.io), /--per-day/u);
+});
+
+test("leash ls, trail and revoke", async () => {
+  const leash = { id: "lsh_0123456789ab", agentName: "Trade bot", template: "trade-small", status: "active", expiresAt: "2026-11-08T12:00:00.000Z", usage: { day: { spentUsd: "40.00", capUsd: "50.00" }, total: { spentUsd: "40.00", capUsd: "350.00" } } };
+  const h = harness(
+    [
+      ["https://api.test/v1/leashes/lsh_0123456789ab/trail", { items: [{ at: "2026-11-01T12:00:00.000Z", kind: "settled", summary: "Swap 20 USDC to EURC on Uniswap v3", usd: "20.20", txHash: `0x${"a".repeat(64)}`, chainProven: true, source: "lykia" }] }],
+      ["https://api.test/v1/leashes/lsh_0123456789ab/revoke", { keyDisabled: true, transaction: { label: "Revoke Trade bot's leash on chain", from: "0x1", to: "0x2", data: "0xrevoke", chainId: 5042 }, note: "" }],
+      ["https://api.test/v1/leashes", { leashes: [leash] }],
+    ],
+    { LYKIA_API_KEY: KEY },
+  );
+  await run(["leash", "ls"], h.io);
+  assert.match(h.stdout.at(-1), /lsh_0123456789ab\s+Trade bot\s+trade-small\s+active\s+40\.00\/50\.00/u);
+  await run(["leash", "trail", "lsh_0123456789ab"], h.io);
+  assert.match(h.stdout.at(-1), /settled.*20\.20.*chain/u);
+  await run(["leash", "revoke", "lsh_0123456789ab"], h.io);
+  assert.match(h.stdout.at(-1), /stopped working just now[\s\S]*0xrevoke/u);
+  assert.equal(h.calls.at(-1).init.method, "POST");
+});

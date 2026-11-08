@@ -49,6 +49,7 @@ import { sessionOf } from "../platform/session.js";
 import { sharedLimit } from "../http/sharedLimits.js";
 import { authorizeOwner, environmentOf, environmentSchema, fenceFrom, ownerProof } from "./common.js";
 import { factsSchema } from "./fence.js";
+import { leashService } from "../leash/service.js";
 
 const ownerQuery = z.object({ owner: evmAddress, environment: environmentSchema.optional() });
 const idParams = z.object({ id: z.string().min(8).max(120) });
@@ -327,6 +328,8 @@ export const agentModule: ApiModule = {
       const agent = await s().pack.get(id);
       await authorizeOwner(ctx, req, agent.owner);
       const revoked = await s().pack.revoke(id, agent.owner);
+      // A leash on any of these agents ends with it: its key stops at once.
+      await leashService(ctx).revokeForAgents(agent.owner, revoked.map((a) => a.id));
       res.json({ revoked: revoked.map((a) => a.id), note: revoked.some((a) => a.session) ? "Agents with on-chain sessions: also send revokeSession on the LykiaAccount (a parent's revocation already invalidates its sub-sessions there)." : null });
     });
 

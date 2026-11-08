@@ -2,8 +2,10 @@
 import { useState } from "react";
 
 import { API_BASE } from "../../lib/env";
-import { Card, Tabs } from "../../mosaic";
-import { DEFAULT_STUDIO, agentSnippet, embedSnippet, hooksSnippet, mcpSnippet, sdkSnippet, widgetSnippet } from "./snippets";
+import { Card, LeashMark, Tabs } from "../../mosaic";
+
+const LEASH_DOCS = "https://github.com/furkan3152/Lykia/blob/main/docs/leash.md";
+import { DEFAULT_STUDIO, agentSnippet, embedSnippet, hooksSnippet, leashCurlSnippet, leashPythonSnippet, leashTsSnippet, mcpSnippet, sdkSnippet, widgetSnippet } from "./snippets";
 
 type PathId = "widget" | "embed" | "hooks" | "agents" | "mcp" | "sdk";
 
@@ -46,6 +48,34 @@ export function Quickstarts() {
           </li>
         ))}
       </ol>
+    </Card>
+  );
+}
+
+type LeashLang = "curl" | "ts" | "python";
+
+/** "Leash an agent": the owner makes a leash, the agent plans inside it with its own key. */
+export function LeashQuickstart() {
+  const [lang, setLang] = useState<LeashLang>("curl");
+  const apiOrigin = new URL(API_BASE).origin;
+  const code = lang === "curl" ? leashCurlSnippet(apiOrigin) : lang === "ts" ? leashTsSnippet() : leashPythonSnippet();
+  return (
+    <Card title="Leash an agent" kicker="A BUDGET IT CANNOT EXCEED">
+      <div className="forge-leash">
+        <span className="forge-leash__mark" aria-hidden="true"><LeashMark scale={3} /></span>
+        <ol className="forge-leash__steps">
+          <li><b>{"1. The owner makes a leash."}</b>{" Per step, per day and total in USD, an expiry, payees or venues. One call returns the session transaction to sign once, a key for this leash only (shown once) and an MCP config."}</li>
+          <li><b>{"2. The agent plans with its leash key."}</b>{" Inside: one transaction for its own session key. Outside: 422 LEASH_DENIED with reason codes and what is left."}</li>
+          <li><b>{"3. Revoke at any time."}</b>{" The key stops at the API at once; revokeSession ends it on chain."}</li>
+        </ol>
+      </div>
+      <Tabs label="Language" value={lang} onChange={setLang} tabs={[{ id: "curl", label: "CURL" }, { id: "ts", label: "TYPESCRIPT" }, { id: "python", label: "PYTHON" }]} />
+      <pre className="m-code" style={{ marginTop: 10, fontSize: 12, overflowX: "auto" }}>{code}</pre>
+      <p className="m-small" style={{ marginTop: 10 }}>
+        {"The chain holds the token caps, payees, call rules, expiry and call count; the API holds dollar caps, venues and slippage. "}
+        <a href={LEASH_DOCS} target="_blank" rel="noreferrer">{"Read what each side enforces"}</a>
+        {". CLI: "}<code>{"lykia leash create --template trade-small --per-day 50 --days 7"}</code>
+      </p>
     </Card>
   );
 }

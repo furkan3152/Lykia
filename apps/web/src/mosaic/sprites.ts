@@ -259,6 +259,25 @@ export function lykoFace(mood: FaceMood, blink = false): readonly string[] {
   return rows;
 }
 
+/**
+ * The leash: Lyko's own collar (its colour follows his look: `r` is the
+ * collar key), silver spikes, the gold Tag, and a leather lead to the
+ * shepherd's hand. Used wherever a leash is shown.
+ */
+export const LEASH: readonly string[] = [
+  "....kkkkkkk...........",
+  "..kkrsrrrsrkk.........",
+  ".krrkk...kkrrk........",
+  "krk.........krk.......",
+  "krk.........krOoooo...",
+  "krk.........krk....oOk",
+  ".krrkk...kkrrk.....ok.",
+  "..kkrsrrrsrkk......ok.",
+  "....kkkgkkk.......kok.",
+  "......kgGk.......kook.",
+  ".......kk........kkk..",
+];
+
 /** Collar colours for pups (one per role). */
 export const COLLARS: Readonly<Record<string, string>> = {
   orchestrator: "#13233A",
@@ -275,4 +294,4 @@ export const COLLARS: Readonly<Record<string, string>> = {
 /** Wool tints per token. */
 export const WOOL: Readonly<Record<string, string>> = { USDC: "#DCE9FB", EURC: "#F6E7B0", cirBTC: "#F7D2A8", USYC: "#DDEFD6", default: "#F4F1EA" };
 
-export const ALL_SPRITES: Readonly<Record<string, readonly string[]>> = { LYKO_TROT, LYKO_TROT2, LYKO_SIT, LYKO_LIE, LYKO_SNIFF, LYKO_FACE, SHEEP, SHEEP_GRAZE, PUP, WOLF };
+export const ALL_SPRITES: Readonly<Record<string, readonly string[]>> = { LYKO_TROT, LYKO_TROT2, LYKO_SIT, LYKO_LIE, LYKO_SNIFF, LYKO_FACE, SHEEP, SHEEP_GRAZE, PUP, WOLF, LEASH };

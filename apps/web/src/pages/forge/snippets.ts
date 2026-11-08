@@ -117,3 +117,63 @@ const t = createTransport({ apiKey: process.env.LYKIA_SECRET_KEY, project: "${c.
 t.on("plan-created", (e) => console.log(e.intentId, e.decision));
 const plan = await intentsApi(t).create({ owner, text: "put half my USDC to work" });`;
 }
+
+/* ------------------------------------------------------------ leash */
+
+const LEASH_BODY = { agent: { name: "Invoice bot", signer: "0xAGENT_SESSION_KEY_ADDRESS" }, template: "pay-invoices", budget: { perStepUsd: "20", perDayUsd: "20", totalUsd: "140" }, expiresAt: "2026-11-15T00:00:00Z", recipients: ["0xPAYEE"] };
+
+/** POST /v1/leashes with curl, then the agent's first plan with its leash key. */
+export function leashCurlSnippet(apiOrigin: string): string {
+  return `# The owner: one call makes the leash (a key with the agents scope, or a Lykia-Session)
+curl -s ${apiOrigin}/v1/leashes \\
+  -H "Lykia-Key: $LYKIA_SECRET_KEY" -H "content-type: application/json" \\
+  -d '${JSON.stringify(LEASH_BODY)}'
+# -> transactions (sign once), apiKey.secret (shown once), mcp
+
+# The agent: plan inside the leash with its leash key
+curl -s ${apiOrigin}/v1/leashes/lsh_…/plan \\
+  -H "Lykia-Key: $LYKIA_LEASH_KEY" -H "content-type: application/json" \\
+  -d '{"text":"pay 12 USDC to 0xPAYEE"}'
+# outside it: 422 LEASH_DENIED with reasons[].code and remaining`;
+}
+
+export function leashTsSnippet(): string {
+  return `import { Lykia, LykiaError } from "@lykia/sdk";
+
+const owner = new Lykia({ apiKey: process.env.LYKIA_SECRET_KEY });
+const { leash, transactions, apiKey, mcp } = await owner.leashes.create({
+  agent: { name: "Invoice bot", signer: agentAddress },
+  template: "pay-invoices",
+  budget: { perStepUsd: "20", perDayUsd: "20", totalUsd: "140" },
+  expiresAt, recipients: [payee],
+});
+// Sign \`transactions\` once from the owner's wallet; hand apiKey.secret to the agent.
+
+const agent = new Lykia({ apiKey: apiKey.secret });
+try {
+  const plan = await agent.leashes.plan(leash.id, { text: "pay 12 USDC to " + payee });
+  const hash = await agentWallet.sendTransaction(plan.prepared.transaction);
+  await agent.leashes.submit(leash.id, { intentId: plan.intent.id, stepId: "s1", hash });
+} catch (e) {
+  if (e instanceof LykiaError && e.code === "LEASH_DENIED") console.log(e.details.reasons, e.details.remaining);
+}`;
+}
+
+export function leashPythonSnippet(): string {
+  return `from lykia import Lykia, LykiaError
+
+owner = Lykia(os.environ["LYKIA_SECRET_KEY"], base_url="https://api.lykiaai.com")
+created = owner.leashes.create(
+    agent={"name": "Invoice bot", "signer": agent_address},
+    template="pay-invoices",
+    budget={"perStepUsd": "20", "perDayUsd": "20", "totalUsd": "140"},
+    expires_at=expires_at, recipients=[payee],
+)
+
+agent = Lykia(created["apiKey"]["secret"], base_url="https://api.lykiaai.com")
+try:
+    plan = agent.leashes.plan(created["leash"]["id"], f"pay 12 USDC to {payee}")
+except LykiaError as e:
+    if e.code == "LEASH_DENIED":
+        print(e.details["reasons"], e.details["remaining"])`;
+}

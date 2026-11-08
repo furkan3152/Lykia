@@ -15,6 +15,7 @@ import type { Contact, LykiaProfile } from "@lykia/core";
 import type { ContactsResponse, MemoryExport, MemoryIntentsResponse, MemoryView } from "@lykia/core/api/memory";
 import type { ProfileResponse } from "@lykia/core/api/profile";
 import { agentApi, agentsApi, ordersApi, packApi, standingApi, type PackAccountResponse } from "./agents.js";
+import { leashesApi } from "./leashes.js";
 import { automationsApi } from "./automations.js";
 import { invoicesApi } from "./invoices.js";
 import { payoutsApi } from "./payouts.js";
@@ -62,6 +63,8 @@ export class Lykia extends LykiaTransport {
   readonly intents = intentsApi(this);
   readonly agent = agentApi(this);
   readonly pack = packApi(this);
+  /** Leashes: a budget an outside agent cannot exceed (create, list, get, revoke, renew, trail; plan and submit with the leash key). */
+  readonly leashes = leashesApi(this);
   readonly standing = standingApi(this);
   readonly orders = ordersApi(this);
   readonly circle = circleApi(this);

@@ -90,6 +90,8 @@ export interface ApiKeyView {
   readonly apiVersion?: string;
   /** During a rotation overlap, the old secret keeps working until this time. */
   readonly previousSecretExpiresAt?: string | null;
+  /** Leash keys (lk_leash_…): the one leash the key acts in. */
+  readonly leashId?: string;
 }
 
 export interface CreatedApiKey extends ApiKeyView {
@@ -118,6 +120,10 @@ export type CatalogueWebhookEvent =
   | "invoice.paid"
   | "security.blocked"
   | "key.rotated"
+  | "leash.budget.threshold"
+  | "leash.expiring"
+  | "leash.revoked"
+  | "leash.denied"
   | "test.ping";
 export type WebhookEvent = LegacyWebhookEvent | CatalogueWebhookEvent;
 
@@ -147,6 +153,10 @@ export const WEBHOOK_EVENT_CATALOGUE: readonly WebhookEventInfo[] = [
   { type: "invoice.created", group: "payouts", description: "An invoice was issued.", aliases: [] },
   { type: "invoice.paid", group: "payouts", description: "An invoice was paid in full.", aliases: [] },
   { type: "security.blocked", group: "security", description: "The Fence or the security layer denied a move.", aliases: [] },
+  { type: "leash.budget.threshold", group: "agents", description: "A leash used 50, 80 or 100% of its daily or total budget.", aliases: [] },
+  { type: "leash.expiring", group: "agents", description: "A leash expires within 24 hours.", aliases: [] },
+  { type: "leash.revoked", group: "agents", description: "A leash was revoked: its key stopped working at once.", aliases: [] },
+  { type: "leash.denied", group: "agents", description: "A leashed agent asked for something outside its leash; the reasons and the remaining budget are included.", aliases: [] },
   { type: "key.rotated", group: "platform", description: "An API key was rotated.", aliases: [] },
   { type: "test.ping", group: "platform", description: "A test event sent from the portal, the CLI or the API.", aliases: [] },
 ];

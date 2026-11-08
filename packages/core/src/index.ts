@@ -39,3 +39,4 @@ export * from "./program.js";
 export * from "./programCompile.js";
 export * from "./fold.js";
 export * from "./positions.js";
+export * from "./leash.js";

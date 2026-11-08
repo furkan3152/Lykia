@@ -49,9 +49,14 @@ export interface CreateAgentInput {
   readonly mission?: string;
   readonly signer?: Address;
   readonly agentId?: string;
+  /** Narrows the role's capabilities (never widens them): a leashed agent reads and proposes only. */
+  readonly capabilities?: readonly PackCapability[];
 }
 
-export type SpawnInput = Omit<CreateAgentInput, "owner" | "environment">;
+export type SpawnInput = Omit<CreateAgentInput, "owner" | "environment"> & {
+  /** An agent whose allocation is not counted (a leash being renewed: the new carve replaces it). */
+  readonly releasing?: string;
+};
 
 export interface PackEvents {
   spawned?(agent: PackAgent): void;
@@ -101,9 +106,9 @@ export class PackService {
     return chosen;
   }
 
-  private capabilitiesFor(role: PackRole, parent: PackAgent | null, depth: number): PackCapability[] {
+  private capabilitiesFor(role: PackRole, parent: PackAgent | null, depth: number, only?: readonly PackCapability[]): PackCapability[] {
     const base: readonly PackCapability[] = roleTemplate(role)?.capabilities ?? ["read", "propose", "spawn"];
-    return base.filter((c) => c !== "spawn" || ((parent === null || parent.capabilities.includes("spawn")) && depth + 1 < MAX_PACK_DEPTH));
+    return base.filter((c) => (c !== "spawn" || ((parent === null || parent.capabilities.includes("spawn")) && depth + 1 < MAX_PACK_DEPTH)) && (!only || only.includes(c)));
   }
 
   private async put(agent: PackAgent): Promise<void> {
@@ -125,7 +130,7 @@ export class PackService {
       depth: 0,
       name: input.name,
       role: input.role,
-      capabilities: this.capabilitiesFor(input.role, null, 0),
+      capabilities: this.capabilitiesFor(input.role, null, 0, input.capabilities),
       fence,
       fenceHash: fenceHash(fence),
       ...(input.agentId ? { agentId: input.agentId } : {}),
@@ -140,8 +145,8 @@ export class PackService {
   }
 
   /** What the agent's active children hold. */
-  async allocated(agent: PackAgent): Promise<PackBudget> {
-    const children = (await this.ownedBy(agent.owner)).filter((a) => a.parentId === agent.id && a.status !== "revoked");
+  async allocated(agent: PackAgent, releasing?: string): Promise<PackBudget> {
+    const children = (await this.ownedBy(agent.owner)).filter((a) => a.parentId === agent.id && a.status !== "revoked" && a.id !== releasing);
     return children.reduce<PackBudget>((sum, child) => addBudget(sum, budgetOf(child.fence)), {});
   }
 
@@ -150,12 +155,12 @@ export class PackService {
     if (parent.status !== "active") throw new LykiaHttpError("CONFLICT", 409, `${parent.name} is ${parent.status}; it cannot spawn.`);
     if (!parent.capabilities.includes("spawn")) throw new LykiaHttpError("FORBIDDEN", 403, `${parent.name} (${parent.role}) may not spawn sub-agents.`);
     if (parent.depth + 1 >= MAX_PACK_DEPTH) throw new LykiaHttpError("CONFLICT", 409, `The Pack is at most ${MAX_PACK_DEPTH} levels deep.`);
-    const siblings = (await this.ownedBy(parent.owner)).filter((a) => a.parentId === parent.id && a.status !== "revoked");
+    const siblings = (await this.ownedBy(parent.owner)).filter((a) => a.parentId === parent.id && a.status !== "revoked" && a.id !== input.releasing);
     if (siblings.length >= MAX_CHILDREN) throw new LykiaHttpError("CONFLICT", 409, `${parent.name} already has ${MAX_CHILDREN} sub-agents.`);
     const fence = this.fenceFor(input.role, input.fence, parent.fence);
     const violations = subFenceViolations(parent.fence, fence);
     if (violations.length > 0) throw new LykiaHttpError("SUB_FENCE_VIOLATION", 422, "A sub-agent's Fence must sit inside its parent's.", { violations });
-    const carve = carveBudget({ caps: budgetOf(parent.fence), allocated: await this.allocated(parent) }, budgetOf(fence));
+    const carve = carveBudget({ caps: budgetOf(parent.fence), allocated: await this.allocated(parent, input.releasing) }, budgetOf(fence));
     if (!carve.ok) throw new LykiaHttpError("BUDGET_EXCEEDED", 422, `${parent.name} does not have that much budget free.`, { violations: carve.violations, free: carve.remaining });
     const depth = parent.depth + 1;
     const child: PackAgent = {
@@ -167,7 +172,7 @@ export class PackService {
       depth,
       name: input.name,
       role: input.role,
-      capabilities: this.capabilitiesFor(input.role, parent, depth),
+      capabilities: this.capabilitiesFor(input.role, parent, depth, input.capabilities),
       fence,
       fenceHash: fenceHash(fence),
       ...(input.agentId ? { agentId: input.agentId } : {}),

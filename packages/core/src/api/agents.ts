@@ -56,7 +56,7 @@ export interface ChatProgramView {
     readonly intentId: string | null;
   } | null;
   readonly scheduled: readonly {
-    readonly kind: "automation" | "order" | "alert" | "standing" | "budget";
+    readonly kind: "automation" | "order" | "alert" | "standing" | "budget" | "leash";
     readonly summary: string;
     readonly rationale: string;
     readonly href: string;

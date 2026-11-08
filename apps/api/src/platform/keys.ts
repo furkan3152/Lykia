@@ -6,6 +6,8 @@
  *   publishable keys        lk_pk_live_<id>_<secret>   browser-safe: read, quote and build, bound to origins
  *                           lk_pk_test_<id>_<secret>
  *   legacy keys             lk_sk_<id>_<secret>, lk_pk_<id>_<secret>   keep working exactly as before
+ *   leash keys              lk_leash_live_<id>_<secret>, lk_leash_test_<id>_<secret>
+ *                           one leash only: plan, submit and read inside it (see leash/), dead when it ends
  *
  * Only an HMAC of the secret is stored (k_api-key derived from
  * LYKIA_SESSION_SECRET); the full key is shown once. Rotation issues a new
@@ -39,8 +41,8 @@ export const DEFAULT_PER_DAY = 20_000;
 const DEFAULT_ROTATION_OVERLAP_S = 24 * 3600;
 export const MAX_ROTATION_OVERLAP_S = 7 * 24 * 3600;
 const MAX_ALLOWED_IPS = 20;
-/** lk_(sk|pk)_<id>_<secret> (legacy) or lk_(live|test)_<id>_<secret> or lk_pk_(live|test)_<id>_<secret>. */
-const KEY_PATTERN = /^lk_(?:(live|test)|(sk)|(pk)(?:_(live|test))?)_([a-z0-9]{12})_([A-Za-z0-9_-]{32})$/u;
+/** lk_(sk|pk)_<id>_<secret> (legacy) or lk_(live|test)_<id>_<secret> or lk_pk_(live|test)_<id>_<secret> or lk_leash_(live|test)_<id>_<secret>. */
+const KEY_PATTERN = /^lk_(?:(live|test)|(sk)|(pk)(?:_(live|test))?|leash_(live|test))_([a-z0-9]{12})_([A-Za-z0-9_-]{32})$/u;
 
 export interface StoredKey {
   readonly id: string;
@@ -64,18 +66,21 @@ export interface StoredKey {
   /** The secret before the last rotation, accepted until previousExpiresAt. */
   readonly previousHash?: string | null;
   readonly previousExpiresAt?: string | null;
+  /** Set on leash keys: the one leash this key may act in. The gate allows nothing else. */
+  readonly leashId?: string;
 }
 
 export function hashSecret(ctx: AppContext, secret: string): string {
   return hmacHex(purposeKey(ctx, "api-key"), secret);
 }
 
-function keyPrefix(key: Pick<StoredKey, "id" | "kind" | "mode">): string {
+function keyPrefix(key: Pick<StoredKey, "id" | "kind" | "mode" | "leashId">): string {
+  if (key.leashId) return `lk_leash_${key.mode ?? "live"}_${key.id}_`;
   if (!key.mode) return `lk_${key.kind === "secret" ? "sk" : "pk"}_${key.id}_`;
   return key.kind === "secret" ? `lk_${key.mode}_${key.id}_` : `lk_pk_${key.mode}_${key.id}_`;
 }
 
-function fullKey(key: Pick<StoredKey, "id" | "kind" | "mode">): string {
+function fullKey(key: Pick<StoredKey, "id" | "kind" | "mode" | "leashId">): string {
   return `${keyPrefix(key)}${randomToken(24)}`;
 }
 
@@ -97,6 +102,7 @@ function viewOf(key: StoredKey): ApiKeyView {
     allowedIps: key.allowedIps ?? [],
     apiVersion: key.apiVersion ?? LATEST_API_VERSION,
     previousSecretExpiresAt: key.previousExpiresAt ?? null,
+    ...(key.leashId ? { leashId: key.leashId } : {}),
   };
 }
 
@@ -115,6 +121,8 @@ export interface CreateKeyInput {
   readonly mode?: ApiKeyMode;
   readonly allowedIps?: readonly string[];
   readonly apiVersion?: string;
+  /** A leash key (secret, live or test): see leash/service.ts. */
+  readonly leashId?: string;
 }
 
 /** Validates an IP allowlist entry: an IPv4/IPv6 address or a CIDR range. */
@@ -170,14 +178,16 @@ function scopesFor(input: CreateKeyInput): readonly ApiKeyScope[] {
 
 export async function createKey(ctx: AppContext, input: CreateKeyInput): Promise<CreatedApiKey> {
   const owner = input.owner.toLowerCase();
-  const mine = (await listAll(keys(ctx))).filter((d) => d.value.owner === owner && !d.value.revokedAt);
-  if (mine.length >= MAX_KEYS_PER_DEVELOPER) throw new LykiaHttpError("KEY_LIMIT", 409, `At most ${MAX_KEYS_PER_DEVELOPER} active keys per developer.`);
+  // Leash keys are capped per owner by the leash service, not here.
+  const mine = (await listAll(keys(ctx))).filter((d) => d.value.owner === owner && !d.value.revokedAt && !d.value.leashId);
+  if (!input.leashId && mine.length >= MAX_KEYS_PER_DEVELOPER) throw new LykiaHttpError("KEY_LIMIT", 409, `At most ${MAX_KEYS_PER_DEVELOPER} active keys per developer.`);
   if (input.kind === "publishable" && !input.projectId && (input.allowedOrigins ?? []).length === 0) throw new LykiaHttpError("INVALID_REQUEST", 400, "A publishable key needs at least one allowed origin.");
   const allowedIps = input.allowedIps ?? [];
   if (allowedIps.length > MAX_ALLOWED_IPS || !allowedIps.every(validIpEntry)) throw new LykiaHttpError("INVALID_REQUEST", 400, `allowedIps takes up to ${MAX_ALLOWED_IPS} IP addresses or CIDR ranges.`);
   const scopes = scopesFor(input);
   const id = randomHex(6);
-  const shape = { id, kind: input.kind, ...(input.mode ? { mode: input.mode } : {}) } as const;
+  if (input.leashId && (input.kind !== "secret" || !input.mode)) throw new LykiaHttpError("INVALID_REQUEST", 400, "A leash key is a live or test secret key.");
+  const shape = { id, kind: input.kind, ...(input.mode ? { mode: input.mode } : {}), ...(input.leashId ? { leashId: input.leashId } : {}) } as const;
   const full = fullKey(shape);
   const stored: StoredKey = {
     id,
@@ -196,6 +206,7 @@ export async function createKey(ctx: AppContext, input: CreateKeyInput): Promise
     ...(input.mode ? { mode: input.mode } : {}),
     allowedIps,
     apiVersion: checkVersion(input.apiVersion),
+    ...(input.leashId ? { leashId: input.leashId } : {}),
   };
   await keys(ctx).put(id, stored);
   return { ...viewOf(stored), secret: full };
@@ -271,13 +282,16 @@ export interface ParsedKey {
   readonly id: string;
   readonly kind: "secret" | "publishable";
   readonly mode: ApiKeyMode | null;
+  /** lk_leash_… */
+  readonly leash?: boolean;
 }
 
 /** The shape of a presented key, or null when it is not a Lykia key. */
 export function parseKey(presented: string): ParsedKey | null {
   const match = KEY_PATTERN.exec(presented.trim());
   if (!match) return null;
-  const [, secretMode, legacySecret, pub, pubMode, id] = match;
+  const [, secretMode, legacySecret, pub, pubMode, leashMode, id] = match;
+  if (leashMode) return { id: id as string, kind: "secret", mode: leashMode as ApiKeyMode, leash: true };
   if (secretMode) return { id: id as string, kind: "secret", mode: secretMode as ApiKeyMode };
   if (legacySecret) return { id: id as string, kind: "secret", mode: null };
   if (pub) return { id: id as string, kind: "publishable", mode: (pubMode as ApiKeyMode | undefined) ?? null };
@@ -291,7 +305,7 @@ export async function lookupKey(ctx: AppContext, presented: string): Promise<Sto
   const doc = await keys(ctx).get(parsed.id);
   if (!doc || doc.value.revokedAt) return null;
   const key = doc.value;
-  if (key.kind !== parsed.kind || (key.mode ?? null) !== parsed.mode) return null;
+  if (key.kind !== parsed.kind || (key.mode ?? null) !== parsed.mode || Boolean(key.leashId) !== Boolean(parsed.leash)) return null;
   const hash = hashSecret(ctx, presented.trim());
   if (safeEqual(key.hash, hash)) return key;
   // The previous secret works until its overlap window ends.

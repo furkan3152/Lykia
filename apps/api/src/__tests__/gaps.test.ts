@@ -121,8 +121,10 @@ describe("on-chain session call rules from venues", () => {
     assert.ok(!rules.some((r) => r.target.toLowerCase() === metarouter("mainnet")!.toLowerCase()), "no Aerodrome router rule");
     const hedger = { fence: { ...DEFAULT_FENCE, kinds: { allow: ["approve", "fx", "swap"] } } } as never;
     const swaps = callRulesFor(hedger, "mainnet");
-    assert.equal(swaps.length, 1);
-    assert.equal(swaps[0]!.receiverWords, 0b1000);
+    // Uniswap v3 SwapRouter02 and the Archery and Unitflow forks: each takes the recipient at word 3.
+    assert.equal(swaps.length, 3);
+    assert.ok(swaps.every((r) => r.receiverWords === 0b1000));
+    assert.equal(new Set(swaps.map((r) => r.target.toLowerCase())).size, 3);
     assert.equal(callRulesFor({ fence: { ...DEFAULT_FENCE, venues: { allow: ["arc-transfer"] } } } as never, "mainnet").length, 0);
   });
 });

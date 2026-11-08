@@ -569,6 +569,14 @@ function sampleData(type: string): JsonValue {
       return { invoiceId: "inv_test0000", amount: "1200", token: "USDC" };
     case "security.blocked":
       return { reason: "Fence denied the move", rule: "caps.perStepUsd" };
+    case "leash.budget.threshold":
+      return { leashId: "lsh_test00000000", agentId: "agt_test", window: "day", threshold: 80, spentUsd: "40.00", capUsd: "50.00", remainingUsd: "10.00" };
+    case "leash.expiring":
+      return { leashId: "lsh_test00000000", agentId: "agt_test", expiresAt: "2026-11-15T12:00:00.000Z", hoursLeft: 24 };
+    case "leash.revoked":
+      return { leashId: "lsh_test00000000", agentId: "agt_test", reason: "Revoked by the owner.", keyDisabled: true, revokeTransaction: null };
+    case "leash.denied":
+      return { leashId: "lsh_test00000000", agentId: "agt_test", reasons: [{ code: "leash.budget.day", message: "$30.00 is more than the $10.00 left today." }], remaining: { dayUsd: "10.00", totalUsd: "110.00" } };
     default:
       return {};
   }

@@ -17,6 +17,7 @@ structure.
 - [Fence](fence.md): the typed policy every plan is checked against
 - [Agents and sub-agents](pack.md): nested Fences and budgets (the API calls them the Pack)
 - [Tag](tag.md): agent identity on ERC-8004 and policy verdict attestations
+- [Leash](leash.md): a budget an outside agent cannot exceed, on chain and at the API
 - [Knowledge model and routing](knowledge.md)
 - [The intent compiler: goals, time and abstract wording](intents.md)
 - [Memory](memory.md)

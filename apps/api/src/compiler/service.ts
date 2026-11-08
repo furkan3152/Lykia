@@ -18,6 +18,8 @@
  */
 import {
   alertDraftLink,
+  leashDraftLink,
+  leashDraftOf,
   alertDraftOf,
   automationDraftLink,
   automationDraftOf,
@@ -207,6 +209,10 @@ function linkOf(d: ScheduledDraft): { link: string; valid: boolean } {
       return { link: "/app/automations", valid: true };
     case "budget":
       return { link: "/app/pack", valid: true };
+    case "leash": {
+      const valid = leashDraftOf(d.draft) !== null;
+      return { link: leashDraftLink(d.draft), valid };
+    }
   }
 }
 

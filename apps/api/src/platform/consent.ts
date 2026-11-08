@@ -63,6 +63,8 @@ export async function hasConsent(ctx: AppContext, owner: string, projectId: stri
  */
 export async function keyMayActFor(ctx: AppContext, key: StoredKey, owner: string): Promise<boolean> {
   if (key.kind !== "secret") return false;
+  // A leash key acts inside its leash only, never for its owner in general.
+  if (key.leashId) return false;
   if (key.owner.toLowerCase() === owner.toLowerCase()) return true;
   return hasConsent(ctx, owner, key.projectId);
 }

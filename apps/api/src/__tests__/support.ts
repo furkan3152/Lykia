@@ -46,14 +46,24 @@ export class FakeArc {
   eurcUsd = 111_540_300n;
   btcUsd = 7_797_796_775_331n;
   transactions = new Map<string, { from: string; to: string; input: string; value: bigint; chainId: number }>();
-  receipts = new Map<string, { status: "success" | "reverted" }>();
+  receipts = new Map<string, { status: "success" | "reverted"; logs?: readonly unknown[]; blockNumber?: bigint }>();
   now = () => Math.floor(Date.now() / 1000);
+  /** Reads for contracts the base fake does not model (functionName -> answer); checked first. */
+  extraReads = new Map<string, (call: Call) => unknown>();
+  /** Bytecode by address (lower case); absent = no code. */
+  code = new Map<string, `0x${string}`>();
+  /** eth_call: return to succeed, throw to revert. */
+  onCall: ((request: { account?: unknown; to?: string; data?: string }) => Promise<{ data?: `0x${string}` }>) | null = null;
+  /** Logs eth_getLogs answers with (filtered by address). */
+  logs: { address: string; blockNumber?: bigint }[] = [];
 
   setBalance(token: string, holder: string, amount: bigint): void {
     this.balances.set(`${token.toLowerCase()}:${holder.toLowerCase()}`, amount);
   }
 
   private read(call: Call): unknown {
+    const extra = this.extraReads.get(call.functionName);
+    if (extra) return extra(call);
     const a = call.address.toLowerCase();
     switch (call.functionName) {
       case "balanceOf":
@@ -92,6 +102,11 @@ export class FakeArc {
           }
         }),
       readContract: async (call: Call) => this.read(call),
+      // Loose parameter types (never) so subclasses can narrow these to what they model.
+      getCode: async (request: never) => this.code.get((request as { address: string }).address.toLowerCase()) as string | undefined,
+      getBlockNumber: async () => 1000n,
+      call: async (request: never): Promise<{ data?: `0x${string}` }> => (this.onCall ? this.onCall(request) : { data: "0x" }),
+      getLogs: async (request: never): Promise<unknown[]> => this.logs.filter((l) => !(request as { address?: string }).address || l.address.toLowerCase() === (request as { address: string }).address.toLowerCase()),
       simulateContract: async (call: Call & { args: readonly [{ amountIn: bigint; fee: number }] }) => {
         const params = call.args[0];
         if (params.fee !== 500) throw new Error("no pool");

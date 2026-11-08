@@ -190,9 +190,15 @@ export function developerGate(ctx: AppContext) {
         attachProject(req, project);
       }
       // Scope is checked after counting: refused requests still use the quota.
-      const fine = key.mode !== undefined;
-      const scope = fine ? fineScopeFor(req.method, req.path) : legacyScopeFor(req.method, req.path);
-      if (!scopeAllows(key.scopes, scope, fine, req.path)) throw new LykiaHttpError("FORBIDDEN", 403, `This key lacks the ${scope} scope.`, { required: scope });
+      if (key.leashId) {
+        // A leash key reaches its own leash's routes and MCP, nothing else, and only while the leash lives.
+        const { assertLeashKeyAllowed } = await import("../leash/store.js");
+        await assertLeashKeyAllowed(ctx, key.leashId, req.method, req.path);
+      } else {
+        const fine = key.mode !== undefined;
+        const scope = fine ? fineScopeFor(req.method, req.path) : legacyScopeFor(req.method, req.path);
+        if (!scopeAllows(key.scopes, scope, fine, req.path)) throw new LykiaHttpError("FORBIDDEN", 403, `This key lacks the ${scope} scope.`, { required: scope });
+      }
       // A test key may not act on a mainnet plan, even one it did not create.
       const intent = key.mode === "test" && req.method !== "GET" ? INTENT_PATH.exec(req.path) : null;
       if (intent) {

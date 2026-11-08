@@ -73,6 +73,8 @@ export interface CreateInput {
   readonly integrator?: IntegratorFeePolicy;
   /** Digest of the compiled program the plan came from (pinned in the verdict). */
   readonly program?: `sha256:${string}`;
+  /** Spend that counts toward the Fence's daily and weekly caps; default the owner's own (a leash passes its own). */
+  readonly spent?: { readonly dayUsd: string | null; readonly weekUsd: string | null };
 }
 
 const INTENT_TTL_MS = 30 * 24 * 3600_000;
@@ -160,7 +162,7 @@ export class IntentService {
       source: input.source,
       ...(input.dryRun ? { dryRun: true } : {}),
       now,
-      spent: await this.spent(input.environment, input.owner),
+      spent: input.spent ?? (await this.spent(input.environment, input.owner)),
       ...(input.proposedByAgent ? { proposedByAgent: true } : {}),
       ...(input.preferences ? { preferences: input.preferences } : {}),
       ...(input.integrator ? { integrator: input.integrator } : {}),

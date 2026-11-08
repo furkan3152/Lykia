@@ -16,6 +16,7 @@ import { encodeFunctionData, keccak256, toBytes, toFunctionSelector, zeroAddress
 import { morphoVaults, vaultVenue } from "../flock/flock.js";
 import { aaveSpokes } from "../engine/venues/aave.js";
 import { v3Contracts } from "../engine/venues/uniswap.js";
+import { archeryContracts, unitflowContracts } from "../engine/venues/forks.js";
 import type { AppContext } from "../context.js";
 import { services } from "../services.js";
 
@@ -31,6 +32,7 @@ const SPEC_COMPONENTS = [
 ] as const;
 
 export const SESSION_ABI = [
+  { type: "function", name: "revokeSession", stateMutability: "nonpayable", inputs: [{ name: "id", type: "bytes32" }], outputs: [] },
   { type: "function", name: "createSession", stateMutability: "nonpayable", inputs: [{ name: "spec", type: "tuple", components: SPEC_COMPONENTS }], outputs: [{ name: "id", type: "bytes32" }] },
   { type: "function", name: "createSubSession", stateMutability: "nonpayable", inputs: [{ name: "parentId", type: "bytes32" }, { name: "spec", type: "tuple", components: SPEC_COMPONENTS }], outputs: [{ name: "id", type: "bytes32" }] },
 ] as const;
@@ -64,7 +66,7 @@ export interface SessionSpecInput {
 }
 
 /** USD micro-dollars -> token base units at a reference price, rounded down. */
-function usdToUnits(usd: string, decimals: number, usdPerToken: number): bigint {
+export function usdToUnits(usd: string, decimals: number, usdPerToken: number): bigint {
   const micros = usdMicros(usd);
   const priceMicros = BigInt(Math.round(usdPerToken * 1_000_000));
   if (priceMicros <= 0n) return 0n;
@@ -110,7 +112,7 @@ export function sessionCalldata(spec: SessionSpec, parentSessionId?: Hex): Hex {
  * Call rules derived from the venues an agent's Fence allows, for calls
  * whose output argument sits at a fixed ABI word so the account can pin it
  * to itself (receiverWords): ERC-4626 vaults, Aave V4 Spokes and Uniswap v3
- * exactInputSingle. Routers whose recipient lives inside dynamic bytes
+ * exactInputSingle (and its Archery and Unitflow forks). Routers whose recipient lives inside dynamic bytes
  * (Uniswap v4's UniversalRouter, the Aerodrome Metarouter) are never
  * derived: the account could not check where the output goes.
  */
@@ -141,6 +143,13 @@ export function callRulesFor(agent: Pick<PackAgent, "fence">, environment: ArcEn
   }
   if (allowVenue("uniswap-v3") && (kinds.has("swap") || kinds.has("fx"))) {
     add(v3Contracts(environment)?.router, "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))", [3]);
+  }
+  // Uniswap v3 forks with the original struct (recipient at word 3, deadline inside): Archery (tick spacing) and Unitflow (fee).
+  if (allowVenue("archery") && (kinds.has("swap") || kinds.has("fx"))) {
+    add(archeryContracts(environment)?.router, "exactInputSingle((address,address,int24,address,uint256,uint256,uint256,uint160))", [3]);
+  }
+  if (allowVenue("unitflow-finance-v3") && (kinds.has("swap") || kinds.has("fx"))) {
+    add(unitflowContracts(environment)?.router, "exactInputSingle((address,address,uint24,address,uint256,uint256,uint256,uint160))", [3]);
   }
   return rules;
 }

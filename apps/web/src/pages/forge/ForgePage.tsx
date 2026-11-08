@@ -30,7 +30,7 @@ import { ApiReference } from "./ApiReference";
 import { Keys } from "./Keys";
 import { Logs } from "./Logs";
 import { Projects } from "./Projects";
-import { Quickstarts } from "./Quickstarts";
+import { LeashQuickstart, Quickstarts } from "./Quickstarts";
 import { Strike } from "./Strike";
 import { Studio } from "./Studio";
 import { Usage } from "./Usage";
@@ -140,6 +140,7 @@ export default function ForgePage() {
               ))}
             </div>
             <Quickstarts />
+            <LeashQuickstart />
           </div>
         ) : section === "workshop" ? (
           <Studio key={studio?.projectId ?? "default"} {...(studio ? { initial: studio } : {})} />

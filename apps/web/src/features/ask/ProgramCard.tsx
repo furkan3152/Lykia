@@ -17,7 +17,7 @@ import { useLykiaWallet } from "../wallet/useLykiaWallet";
 import { useChatActions } from "./actions";
 
 const SAMPLE_OWNER = "0x000000000000000000000000000000000000dEaD";
-const KIND_LABEL: Readonly<Record<ChatProgramView["scheduled"][number]["kind"], string>> = { automation: "AUTOMATION", order: "LYKIAORDERS", alert: "ALERT", standing: "STANDING ORDER", budget: "FENCE BUDGET" };
+const KIND_LABEL: Readonly<Record<ChatProgramView["scheduled"][number]["kind"], string>> = { automation: "AUTOMATION", order: "LYKIAORDERS", alert: "ALERT", standing: "STANDING ORDER", budget: "FENCE BUDGET", leash: "LEASH" };
 
 /** The Fence verdict as a seal, or a quiet tag when it is decided later. */
 function Verdict({ decision, reasons }: { decision: "allow" | "confirm" | "deny" | "unknown"; reasons: readonly string[] }) {
@@ -157,7 +157,7 @@ export function ProgramCard({ view: initial }: { view: ChatProgramView }) {
                 <Verdict decision={s.decision} reasons={s.reasons} />
                 <div>
                   <Link to={s.href} className={cx("m-btn m-btn--sm", s.saved && "m-btn--ghost")}>
-                    {s.saved ? "MANAGE" : s.kind === "order" ? "SIGN ON THE ORDERS PAGE" : s.kind === "budget" ? "OPEN THE PACK" : "REVIEW AND SAVE"}
+                    {s.saved ? "MANAGE" : s.kind === "order" ? "SIGN ON THE ORDERS PAGE" : s.kind === "budget" ? "OPEN THE PACK" : s.kind === "leash" ? "SET UP THE LEASH" : "REVIEW AND SAVE"}
                   </Link>
                 </div>
               </div>

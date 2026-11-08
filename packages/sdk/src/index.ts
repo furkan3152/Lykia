@@ -10,6 +10,8 @@ export { operations, operationPath, type OperationArgs } from "./operations.js";
 export { intentsApi, type IntentsApi, type CreateIntentInput } from "./intents.js";
 export { fenceApi, type FenceApi, type FenceValidation } from "./fence.js";
 export { agentApi, packApi, standingApi, ordersApi, type AgentApi, type PackApi, type ChatInput, type AskResult } from "./agents.js";
+export { leashesApi, type LeashesApi, type RenewLeashInput, type LeashTemplatesResponse } from "./leashes.js";
+export type { CreateLeashRequest, CreateLeashResponse, LeashPlanResponse, LeashSubmitResponse, LeashTrailResponse, LeashView, RenewLeashResponse, RevokeLeashResponse, LeashDenied } from "@lykia/core/api/leash";
 export { agentsApi, type AgentsApi, type AgentInput, type AgentRunResult, type VerdictCheck } from "./agents.js";
 export { payoutsApi, type PayoutsApi, type CreatePayoutInput } from "./payouts.js";
 export { invoicesApi, type InvoicesApi, type InvoiceWithUrl } from "./invoices.js";

@@ -60,4 +60,5 @@ See also: [embed-protocol.md](embed-protocol.md) and
 Developer APIs for money flows: [payouts.md](payouts.md) (batch payouts
 with an Arc Memo per row), [invoices.md](invoices.md) (invoices and hosted
 payment links), [agents-api.md](agents-api.md) (configure and run agents,
-verify verdicts) and [automations.md](automations.md) (one trigger API).
+verify verdicts), [automations.md](automations.md) (one trigger API) and
+[leashes.md](leashes.md) (a budget an outside agent cannot exceed).

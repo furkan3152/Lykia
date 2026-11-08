@@ -125,6 +125,7 @@ class Lykia(_Base):
         self.logs = _Logs(self)
         self.billing = _Billing(self)
         self.intents = _Intents(self)
+        self.leashes = _Leashes(self)
 
     def close(self) -> None:
         self._http.close()
@@ -255,6 +256,69 @@ class _Intents(_Part):
 
     def submit(self, intent_id: str, step_id: str, hashes: List[str]) -> Json:
         return self._c.post(f"/v1/intents/{quote(intent_id, safe='')}/steps/{quote(step_id, safe='')}/submit", {"hashes": hashes})
+
+
+class _Leashes(_Part):
+    """A budget an outside agent cannot exceed.
+
+    The owner creates, lists, revokes and renews (a session, or a secret key
+    with the agents scope). The agent plans and submits with its own leash
+    key (``lk_leash_...``), which can do nothing else. A plan outside the
+    leash raises ``LykiaError`` with code ``LEASH_DENIED``; its ``details``
+    carry the reason codes and the remaining budget.
+    """
+
+    def _path(self, leash_id: str, rest: str = "") -> str:
+        return f"/v1/leashes/{quote(leash_id, safe='')}{rest}"
+
+    def templates(self) -> Json:
+        return self._c.request("GET", "/v1/leashes/templates")
+
+    def create(self, *, budget: Dict[str, str], expires_at: str, agent: Optional[Dict[str, Any]] = None, parent_agent_id: Optional[str] = None, template: Optional[str] = None, recipients: Optional[List[str]] = None, venues: Optional[List[str]] = None, environment: Optional[str] = None, idempotency_key: Optional[str] = None, **extra: Any) -> Json:
+        body: Dict[str, Any] = {"budget": budget, "expiresAt": expires_at, **extra}
+        if agent is not None:
+            body["agent"] = agent
+        if parent_agent_id is not None:
+            body["parentAgentId"] = parent_agent_id
+        if template is not None:
+            body["template"] = template
+        if recipients is not None:
+            body["recipients"] = recipients
+        if venues is not None:
+            body["venues"] = venues
+        if environment or self._c.environment:
+            body["environment"] = environment or self._c.environment
+        return self._c.post("/v1/leashes", body, idempotency_key)
+
+    def list(self, owner: Optional[str] = None, environment: Optional[str] = None) -> Json:
+        return self._c.request("GET", "/v1/leashes", query={"owner": owner, "environment": environment or self._c.environment})
+
+    def get(self, leash_id: str) -> Json:
+        return self._c.request("GET", self._path(leash_id))
+
+    def revoke(self, leash_id: str) -> Json:
+        return self._c.post(self._path(leash_id, "/revoke"), {})
+
+    def renew(self, leash_id: str, *, expires_at: str, budget: Optional[Dict[str, str]] = None, **extra: Any) -> Json:
+        body: Dict[str, Any] = {"expiresAt": expires_at, **extra}
+        if budget is not None:
+            body["budget"] = budget
+        return self._c.post(self._path(leash_id, "/renew"), body)
+
+    def trail(self, leash_id: str) -> Json:
+        return self._c.request("GET", self._path(leash_id, "/trail"))
+
+    def bind_session(self, leash_id: str, tx_hash: Optional[str] = None) -> Json:
+        return self._c.post(self._path(leash_id, "/session"), {"txHash": tx_hash} if tx_hash else {})
+
+    def plan(self, leash_id: str, text: Optional[str] = None, *, actions: Optional[List[Json]] = None, dry_run: bool = False) -> Json:
+        body: Dict[str, Any] = {"text": text} if text is not None else {"actions": actions or []}
+        if dry_run:
+            body["dryRun"] = True
+        return self._c.post(self._path(leash_id, "/plan"), body)
+
+    def submit(self, leash_id: str, intent_id: str, step_id: str, tx_hash: str) -> Json:
+        return self._c.post(self._path(leash_id, "/submit"), {"intentId": intent_id, "stepId": step_id, "hash": tx_hash})
 
 
 class _Keys(_Part):

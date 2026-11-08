@@ -44,6 +44,7 @@ it, and every payout from it passes the Fence and the beta cap first).
 | Outcomes, not transactions | A sentence, a form or one API call becomes a scored, simulated route sent as one transaction with an Arc Memo. |
 | Rules that hold | The Fence is checked before every signature, enforced on chain for Lykia smart accounts, and its verdict digest rides in the Arc Memo; agents carry a Tag (ERC-8004) that pins it. |
 | One engine for every builder | REST and SSE, MCP, TypeScript and Python SDKs, a CLI and components, all on the engine the app uses. |
+| A budget an agent cannot exceed | A **Leash** gives any outside agent per-step, daily and total limits, an expiry and its venues or payees in one call: its LykiaAccount session holds the token caps on chain, the Fence holds the rest, its key works for that leash only, and Revoke stops it at once. |
 
 The League hosts cities: Lykia's own products, each a real project built in
 **The Forge**. The official cities (Lykia Pay for invoices, payment links and
@@ -94,6 +95,7 @@ authoritative version of this table.
 
 - [USDC and Circle in Lykia](#usdc-and-circle-in-lykia)
 - [Features](#features)
+- [Leash](#leash)
 - [How it works](#how-it-works)
 - [Quick start](#quick-start)
 - [Using the API](#using-the-api)
@@ -136,6 +138,9 @@ authoritative version of this table.
   redeploy.
 - **Agents.** Sub-agents with strict-subset Fences and budgets, ERC-8004
   identities (**Tag**) and verifiable policy verdicts.
+- **Leash.** One call puts an outside agent on a budget it cannot exceed,
+  held on chain by its LykiaAccount session and by the Fence at the API,
+  with a key for that leash only ([Leash](#leash)).
 - **Platform.** Test and live keys, scopes, quotas, idempotency keys,
   signed webhooks with retries, request logs and an OpenAPI 3.1 document.
 - **Integrations.** TypeScript and Python SDKs, a CLI, React components,
@@ -148,6 +153,29 @@ Gateway are routes in the engine. Circle Wallets (optional, off by default),
 the Compliance Engine, the Agent Wallet policy export, StableFX, the USYC
 Teller, the x402 facilitator and the Agent Marketplace sit beside it. Where
 each one lives in the code: [USDC and Circle in Lykia](#usdc-and-circle-in-lykia).
+
+## Leash
+
+An agent that runs outside Lykia (your backend, an MCP client, a bot) gets
+a budget it cannot exceed in one call:
+
+```bash
+curl -s https://api.lykiaai.com/v1/leashes -H "Lykia-Key: $LYKIA_SECRET_KEY" -H "content-type: application/json" \
+  -d '{"agent":{"name":"Invoice bot","signer":"0xAGENT"},"template":"pay-invoices",
+       "budget":{"perStepUsd":"20","perDayUsd":"20","totalUsd":"140"},"expiresAt":"2026-11-15T00:00:00Z","recipients":["0xPAYEE"]}'
+```
+
+The answer holds the session transaction the owner signs once on their
+LykiaAccount, a key that works for this leash only (shown once) and a ready
+MCP config. The agent plans with that key; inside the leash it gets one
+transaction for its own session key, outside it gets `422 LEASH_DENIED` with
+reason codes and what is left. On chain the account holds the per-token caps
+(per call, per day, in total), the payees, the call rules, the expiry and the
+call count; the API holds the dollar caps, the venues and the slippage.
+Revoke stops the key at once and returns `revokeSession` to sign. The same
+from the Fold (Pack tab), `lykia leash create`, both SDKs and Ask Lyko
+("give my bot $20 a day for a week to pay invoices"). Details, the threat
+model and a mainnet simulation: [docs/leash.md](docs/leash.md).
 
 ## How it works
 
@@ -268,6 +296,7 @@ Fence. Moves that bring value home are never capped.
 | Brand and vocabulary | [docs/brand.md](docs/brand.md) |
 | Fence specification | [docs/fence.md](docs/fence.md) |
 | Agents and sub-agents | [docs/pack.md](docs/pack.md) |
+| Leash: a budget an agent cannot exceed | [docs/leash.md](docs/leash.md) |
 | Agent identity (Tag) | [docs/tag.md](docs/tag.md) |
 | Knowledge model and routing | [docs/knowledge.md](docs/knowledge.md) |
 | Integrating a protocol | [docs/integrate-your-protocol.md](docs/integrate-your-protocol.md) |

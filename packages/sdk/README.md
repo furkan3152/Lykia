@@ -97,6 +97,29 @@ A sub-agent that asks for more than its parent allows is refused:
 
 The `details` of the error list every violating field.
 
+## Leashes
+
+A leash gives an outside agent a budget it cannot exceed. The owner creates it (a session, or a secret key with the `agents` scope that may act for the owner); the agent uses the leash key it returns, which works for that leash only.
+
+```ts
+const { leash, transactions, apiKey, mcp } = await lykia.leashes.create({
+  agent: { name: "Invoice bot", signer: agentAddress }, // the agent's own key becomes the LykiaAccount session key
+  template: "pay-invoices",
+  budget: { perStepUsd: "20", perDayUsd: "20", totalUsd: "140" },
+  expiresAt: "2026-11-15T00:00:00Z",
+  recipients: [payee],
+});
+// The owner signs `transactions` once. Give apiKey.secret (shown once) to the agent.
+
+const agent = new Lykia({ apiKey: apiKey.secret });
+const plan = await agent.leashes.plan(leash.id, { text: `pay 12 USDC to ${payee}` }); // LykiaError LEASH_DENIED outside the leash
+// plan.prepared.transaction is one transaction from the session key; after sending it:
+await agent.leashes.submit(leash.id, { intentId: plan.intent.id, stepId: plan.prepared!.stepId, hash });
+await lykia.leashes.revoke(leash.id); // the key stops at once; sign the returned revokeSession
+```
+
+`get` and `list` carry live usage read from the account on chain (`spendable()` is authoritative); `trail` marks each action chain-proven or not. See [docs/leash.md](../../docs/leash.md).
+
 ## Webhooks
 
 Verify the `Lykia-Signature` header against the raw request body:

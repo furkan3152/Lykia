@@ -20,6 +20,11 @@ for await (const entry of lykia.platform.logs.all({ statusClass: "error" })) con
 - Retries 429/502/503/504 honouring `Retry-After`, one Idempotency-Key per
   logical POST, typed errors (`LykiaError` with `code`, `status`, `requestId`).
 - `constructEvent` / `verifyWebhook` check `Lykia-Signature`.
+- `lykia.leashes` (also `@lykia/sdk/leashes`): `create`, `list`, `get`,
+  `revoke`, `renew`, `trail`, `bindSession`, and with the leash key `plan`
+  and `submit`. A plan outside the leash throws `LykiaError` with code
+  `LEASH_DENIED`; `details.reasons` and `details.remaining` say why and what
+  is left ([leashes.md](leashes.md)).
 
 ## Python: `lykia` (sdks/python)
 
@@ -32,6 +37,10 @@ with Lykia(os.environ["LYKIA_API_KEY"], base_url=BASE, api_version="2026-11-01")
         print(entry["requestId"])
     lykia.call("getVenues", query={"environment": "testnet"})
 ```
+
+`lykia.leashes` has `create`, `list`, `get`, `revoke`, `renew`, `trail`,
+`bind_session`, `plan` and `submit`; a refusal raises `LykiaError` with
+code `LEASH_DENIED`.
 
 Typed (`py.typed`), built on httpx, sync `Lykia` and async `AsyncLykia`,
 retries with backoff, idempotency keys, cursor pagination, and

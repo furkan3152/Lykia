@@ -63,3 +63,9 @@ A Pack agent can be bound to a session on the owner's LykiaAccount:
 - After the transaction lands, `POST /v1/pack/:id/session` records the session id.
 
 Without call rules, a session can only make payments through `agentTransfer`. Vault and swap calls need explicit call rules in the request.
+
+When no call rules are sent, they are derived from the Fence's venues for calls whose output argument sits at a fixed ABI word: ERC-4626 vault deposits and withdrawals, Aave V4 Spokes, and `exactInputSingle` on Uniswap v3's SwapRouter02 and on the Archery and Unitflow V3 routers. Each rule pins that argument to the account.
+
+## Leashes
+
+A leash ([leash.md](leash.md)) is a Pack agent made for an agent that runs outside Lykia: one call creates the agent with a strict-subset Fence and a carved budget, its session transaction, a key that works for that agent's leash only and an MCP config. Revoking the Pack agent revokes its leash, and revoking a leash revokes its Pack agent.

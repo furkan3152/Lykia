@@ -31,6 +31,7 @@ import type { ActionAmount, PlanAction } from "./actions.js";
 import { getToken } from "./assets.js";
 import { canonicalDigest, type Sha256Digest } from "./canonical.js";
 import type { AlertDraft, AutomationDraft } from "./drafts.js";
+import type { LeashDraft } from "./leash.js";
 import type { AutomationTrigger } from "./devflows.js";
 import type { Weekday } from "./fence.js";
 import { WEEKDAYS } from "./fence.js";
@@ -161,7 +162,8 @@ export type ScheduledDraft =
   | { readonly kind: "order"; readonly elementId: string; readonly summary: string; readonly rationale: string; readonly order: OrderSpec }
   | { readonly kind: "alert"; readonly elementId: string; readonly summary: string; readonly rationale: string; readonly draft: AlertDraft }
   | { readonly kind: "standing"; readonly elementId: string; readonly summary: string; readonly rationale: string; readonly draft: StandingOrderDraft }
-  | { readonly kind: "budget"; readonly elementId: string; readonly summary: string; readonly rationale: string; readonly suggestion: { readonly agent: string | null; readonly perDayUsd: string | null; readonly perWeekUsd: string | null } };
+  | { readonly kind: "budget"; readonly elementId: string; readonly summary: string; readonly rationale: string; readonly suggestion: { readonly agent: string | null; readonly perDayUsd: string | null; readonly perWeekUsd: string | null } }
+  | { readonly kind: "leash"; readonly elementId: string; readonly summary: string; readonly rationale: string; readonly draft: LeashDraft };
 
 export interface NowPart {
   readonly elementId: string;
@@ -994,6 +996,17 @@ export function compileProgram(program: Program, state: ProgramState, options: R
         const trigger = automationTrigger(w2, sched);
         if (trigger) scheduled.push({ kind: "automation", elementId: e.id, summary: `Notify ${whenWords(w2)}`, rationale: `${quoteOf(e)} → an automation that notifies your webhooks; it moves no money.`, draft: { name: `Notify ${whenWords(w2)}`.slice(0, 120), trigger, action: { type: "notify", channel: "webhook" } }, actions: [], firstRun: null });
       }
+      continue;
+    }
+    if (e.kind === "budget" && e.perDayUsd !== undefined && (e.days !== undefined || e.leash !== undefined)) {
+      // A daily budget with a duration or a purpose: a leash the owner sets up in the Fold and signs once.
+      const template = e.leash ?? "pay-invoices";
+      const days = e.days ?? 7;
+      const label = e.agent ? `${e.agent.charAt(0).toUpperCase()}${e.agent.slice(1)}` : template === "pay-invoices" ? "Invoice bot" : template === "trade-small" ? "Trading bot" : "Yield bot";
+      const draft: LeashDraft = { name: label.slice(0, 48), template, perDayUsd: e.perDayUsd, days };
+      const titles = { "pay-invoices": "pay invoices", "trade-small": "trade small", earn: "earn" } as const;
+      const notes = [e.days === undefined ? "No duration was named, so it runs for 7 days; change it in the sheet." : "", template === "pay-invoices" ? "Name the payees in the sheet: this leash pays known recipients only." : ""].filter(Boolean).join(" ");
+      scheduled.push({ kind: "leash", elementId: e.id, summary: `Leash for ${draft.name}: $${e.perDayUsd} a day for ${days} day${days === 1 ? "" : "s"}, to ${titles[template]}`, rationale: `${quoteOf(e)} → a leash: a Pack agent with its own Fence and budget, an on-chain session on your LykiaAccount you sign once, and a key that works for that leash only.${notes ? ` ${notes}` : ""}`, draft });
       continue;
     }
     if (e.kind === "budget") {

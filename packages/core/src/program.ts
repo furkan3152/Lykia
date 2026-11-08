@@ -96,8 +96,11 @@ export type ProgramElement =
   | (Base & { readonly kind: "dca"; readonly sell: string; readonly buy: string; readonly amount: string; readonly every: Period; readonly executions?: number })
   /** Tell the owner; moves no money. */
   | (Base & { readonly kind: "alert"; readonly when: When })
-  /** A spending budget for an agent: a Fence suggestion the owner signs, never applied by the compiler. */
-  | (Base & { readonly kind: "budget"; readonly agent?: string; readonly perDayUsd?: string; readonly perWeekUsd?: string; readonly purpose?: string })
+  /**
+   * A spending budget for an agent: a Fence suggestion the owner signs, never applied by the compiler.
+   * With `days` or `leash` (and a daily amount) it becomes a leash draft for the Fold's New leash sheet.
+   */
+  | (Base & { readonly kind: "budget"; readonly agent?: string; readonly perDayUsd?: string; readonly perWeekUsd?: string; readonly purpose?: string; readonly days?: number; readonly leash?: "pay-invoices" | "trade-small" | "earn" })
   /** A plain plan action the program has no richer element for (borrow, supply, rebalance), validated like any action. */
   | (Base & { readonly kind: "action"; readonly action: PlanAction; readonly when?: When })
   /** Something Lykia will not do, with the reason (an override attempt, an unknown venue, an impossible promise). */
@@ -346,6 +349,8 @@ export function validateProgram(input: unknown): ProgramValidation {
           if (e.perDayUsd !== undefined && !positiveDecimal(e.perDayUsd)) add(`${path}.perDayUsd`, "A positive decimal string.");
           if (e.perWeekUsd !== undefined && !positiveDecimal(e.perWeekUsd)) add(`${path}.perWeekUsd`, "A positive decimal string.");
           if (e.agent !== undefined && (typeof e.agent !== "string" || e.agent.length > 60)) add(`${path}.agent`, "A short agent name.");
+          if (e.days !== undefined && !(Number.isInteger(e.days) && (e.days as number) >= 1 && (e.days as number) <= 90)) add(`${path}.days`, "1 to 90 days.");
+          if (e.leash !== undefined && !["pay-invoices", "trade-small", "earn"].includes(e.leash as string)) add(`${path}.leash`, "pay-invoices, trade-small or earn.");
           break;
         case "action": {
           const problems = validateActions([e.action]);

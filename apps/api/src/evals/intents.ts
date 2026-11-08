@@ -43,7 +43,7 @@ export interface Rubric {
   /** No plan for now at all. */
   readonly noNow?: boolean;
   /** Draft kinds expected (with an order kind for orders). */
-  readonly scheduled?: readonly { readonly kind: "automation" | "order" | "alert" | "standing" | "budget"; readonly orderKind?: string }[];
+  readonly scheduled?: readonly { readonly kind: "automation" | "order" | "alert" | "standing" | "budget" | "leash"; readonly orderKind?: string }[];
   readonly kept?: { readonly token: string; readonly amount: string };
   /** At least one question (true), or one matching the pattern. */
   readonly question?: true | RegExp;
@@ -235,6 +235,30 @@ export const EVAL_CASES: readonly EvalCase[] = [
     state: "treasury",
     text: "Give my trading bot a budget of 500 USDC per week and alert me if EURC drops below 1.05.",
     expect: { elements: [{ kind: "budget", match: { perWeekUsd: "500" } }, { kind: "alert", when: "price" }], scheduled: [{ kind: "budget" }, { kind: "alert" }] },
+  },
+  {
+    id: "leash-invoices",
+    category: "agents",
+    mode: "both",
+    state: "treasury",
+    text: "Give my bot $20 a day for a week to pay invoices.",
+    expect: { status: ["ready"], elements: [{ kind: "budget", match: { perDayUsd: "20", days: 7, leash: "pay-invoices" } }], scheduled: [{ kind: "leash" }], noNow: true, noQuestion: true },
+  },
+  {
+    id: "leash-trading-days",
+    category: "agents",
+    mode: "both",
+    state: "treasury",
+    text: "Let my trading agent spend 50 USDC a day for 10 days on small swaps.",
+    expect: { status: ["ready"], elements: [{ kind: "budget", match: { agent: "trading agent", perDayUsd: "50", days: 10, leash: "trade-small" } }], scheduled: [{ kind: "leash" }], noNow: true },
+  },
+  {
+    id: "leash-earn-and-pay-now",
+    category: "agents",
+    mode: "both",
+    state: "treasury",
+    text: "Pay 0x1111111111111111111111111111111111111111 150 USDC now, and give my yield bot 300 dollars per day for two weeks to earn in vaults.",
+    expect: { elements: [{ kind: "pay" }, { kind: "budget", match: { perDayUsd: "300", days: 14, leash: "earn" } }], scheduled: [{ kind: "leash" }], nowVerbs: ["send"] },
   },
 
   /* ------------------------------------------------------------ exits and DCA */

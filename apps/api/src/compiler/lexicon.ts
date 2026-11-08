@@ -23,7 +23,7 @@
  * attempts to override the Fence or the rules, unknown venues and tokens,
  * guaranteed yields. It never invents an address.
  */
-import { findCctpDestination, findToken, PROGRAM_LIMITS, type ActionAmount, PROGRAM_SCHEMA, type PlanAction, type PriceFeed, type Program, type ProgramConflict, type ProgramElement, type ProgramPreferences, type Quantity, type Recipient, type RiskTier, type Weekday, type When } from "@lykia/core";
+import { findCctpDestination, findToken, PROGRAM_LIMITS, type ActionAmount, PROGRAM_SCHEMA, type PlanAction, type PriceFeed, type Program, type ProgramConflict, type ProgramElement, type ProgramPreferences, type Quantity, type Recipient, type RiskTier, type Weekday, type When, templateForPurpose } from "@lykia/core";
 import { readSentence } from "../language/reader.js";
 
 type Period = "day" | "week" | "month";
@@ -705,7 +705,16 @@ function budgetTemplate(c: Ctx, clause: string): boolean {
   const agent = (m[1] ?? "").trim() || undefined;
   const value = scaled(m[2] as string, m[3]);
   const period = (m[4] as string).toLowerCase();
-  c.elements.push({ id: id(c), kind: "budget", ...(agent ? { agent: `${agent} agent` } : {}), ...(period === "day" ? { perDayUsd: value } : { perWeekUsd: value }), ...(/x402|api|data|research/iu.test(clause) ? { purpose: "paid APIs (x402)" } : {}), quote: clip(clause) });
+  // What follows the amount: a duration ("for a week", "for 10 days", "for two weeks", "for a month") and a purpose.
+  const tail = clause.slice((m.index ?? 0) + m[0].length);
+  const duration = /\bfor\s+(?:(a|an|one|two|three|four|\d{1,2})\s+)?(days?|weeks?|month)\b/iu.exec(tail);
+  const unit = (duration?.[2] ?? "").toLowerCase();
+  const words: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4 };
+  const n = duration ? (duration[1] === undefined ? 1 : words[duration[1].toLowerCase()] ?? Number(duration[1])) : 0;
+  const days = duration ? Math.min(90, n * (unit.startsWith("week") ? 7 : unit === "month" ? 30 : 1)) : undefined;
+  const leash = templateForPurpose(tail) ?? undefined;
+  const noun = /\b(bot|agent|assistant)\b/iu.exec(m[0])?.[1]?.toLowerCase() ?? "agent";
+  c.elements.push({ id: id(c), kind: "budget", ...(agent ? { agent: `${agent} ${noun}` } : {}), ...(period === "day" ? { perDayUsd: value } : { perWeekUsd: value }), ...(/x402|api|data|research/iu.test(clause) ? { purpose: "paid APIs (x402)" } : {}), ...(days && period === "day" ? { days } : {}), ...(leash && period === "day" ? { leash } : {}), quote: clip(clause) });
   goal(c, "Give an agent a budget");
   return true;
 }

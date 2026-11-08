@@ -37,6 +37,7 @@ export async function flowCaller(ctx: AppContext, req: Request, scope: ApiKeySco
   let project: Project | null = null;
   if (key) {
     if (key.kind !== "secret") throw new LykiaHttpError("FORBIDDEN", 403, "This route needs a secret key or a session, never a browser key.");
+    if (key.leashId) throw new LykiaHttpError("LEASH_KEY_SCOPE", 403, "A leash key can only plan, submit and read inside its own leash.");
     const fine = key.mode !== undefined;
     const required = fine ? scope : LEGACY_OF[scope];
     if (!scopeAllows(key.scopes, required, fine)) throw new LykiaHttpError("FORBIDDEN", 403, `This key lacks the ${required} scope.`, { required });

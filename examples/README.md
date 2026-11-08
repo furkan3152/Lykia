@@ -6,6 +6,7 @@ unless you give it a key and tell it to.
 | Example | What it shows |
 |---|---|
 | [`agent-mcp`](agent-mcp) | An agent talks to Lykia over MCP: lists the tools, checks a move against a Fence, plans a sentence. |
+| [`leash-agent`](leash-agent) | An outside agent on a leash: plans and submits a small swap with its leash key and session key, and gets a clean refusal over the cap. Also over MCP. |
 | [`sdk-node`](sdk-node) | The full loop with `@lykia/sdk` and viem: plan with the fee, read the verdict, prepare the calls, simulate them, and sign only when you ask. |
 | [`embed`](embed) | The "Routed by Lykia" ecosystem strip on any web page, in two lines of HTML. |
 | [`nextjs-widget`](nextjs-widget) | `@lykia/widget` in a Next.js App Router layout: the assistant, send and swap in your brand. Typechecks with plain React. |
@@ -15,5 +16,5 @@ unless you give it a key and tell it to.
 | [`adapter-manifest`](adapter-manifest) | A `lykia.adapter/v1` manifest for an ERC-4626 vault: submit it, validate it on chain, and after review the vault becomes routable without a redeploy. |
 
 Run them from the repository root after `npm ci` and `npm run build:packages`.
-`npm run test:examples` checks the five examples that have a `test/` folder offline.
+`npm run test:examples` checks the six examples that have a `test/` folder offline.
 Point them at another API with `LYKIA_API=https://…`.

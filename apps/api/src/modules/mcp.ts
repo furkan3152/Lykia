@@ -1,6 +1,7 @@
 /**
  * MCP over streamable HTTP at /v1/mcp: read-only tools for agents. Nothing
- * here signs; lykia_plan returns unsigned plans the owner executes.
+ * here signs; lykia_plan returns unsigned plans the owner executes. With a
+ * leash key (lk_leash_…) the server has only that leash's tools (leash/mcp.ts).
  */
 import { createMcpHandler, McpServer, type StandardSchemaWithJSON } from "@modelcontextprotocol/server";
 import { DEFAULT_FENCE, DEV_TOOLS, evaluateFence, FEE_EXEMPT_KINDS, FEE_POLICY_TEXT, feePercent, MAX_FEE_BPS, protocolsFor, validateFence, type Address, type ArcEnvironment, type FenceFacts } from "@lykia/core";
@@ -26,6 +27,9 @@ import { ordersService, publicOrderView } from "../orders/service.js";
 import { DEFAULT_FENCE as OWNER_DEFAULT_FENCE } from "@lykia/core";
 import { registerBuilderTools } from "../aggregator/mcpTools.js";
 import { lockedOr } from "../platform/requestState.js";
+import { keyOf } from "../platform/gate.js";
+import { buildLeashMcpServer } from "../leash/mcp.js";
+import { leashService } from "../leash/service.js";
 
 const env = z.enum(["mainnet", "testnet"]).optional();
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/u);
@@ -152,12 +156,18 @@ export const mcpModule: ApiModule = {
   register(router, ctx) {
     const handler = createMcpHandler(() => buildMcpServer(ctx), { legacy: "stateless" });
     const serve = async (req: Request, res: Response) => {
+      // A leash key gets a server with its leash's tools only (the gate already checked the leash is alive).
+      const leashId = keyOf(req)?.leashId;
+      const active = leashId ? await (async () => {
+        const leash = await leashService(ctx).get(leashId);
+        return createMcpHandler(() => buildLeashMcpServer(ctx, leash, ctx.config.version), { legacy: "stateless" });
+      })() : handler;
       const url = `${req.protocol}://${req.get("host") ?? "localhost"}${req.originalUrl}`;
       const headers = new Headers();
       for (const [key, value] of Object.entries(req.headers)) if (typeof value === "string") headers.set(key, value);
       const init: RequestInit = { method: req.method, headers };
       if (req.method === "POST") init.body = JSON.stringify(req.body ?? {});
-      const response = await handler.fetch(new globalThis.Request(url, init), req.method === "POST" ? { parsedBody: req.body } : {});
+      const response = await active.fetch(new globalThis.Request(url, init), req.method === "POST" ? { parsedBody: req.body } : {});
       res.status(response.status);
       response.headers.forEach((value, key) => res.setHeader(key, value));
       res.send(Buffer.from(await response.arrayBuffer()));

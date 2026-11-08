@@ -5,8 +5,47 @@ own dated version history in [docs/platform/changelog.md](docs/platform/changelo
 
 ## Unreleased
 
+### Added
+
+- **Leash**: a budget an outside agent cannot exceed. `POST /v1/leashes`
+  makes a Pack agent whose Fence is a strict subset of its parent's, carves
+  its daily budget from the parent (or, for a root leash, from the owner's
+  own Fence), and returns the unsigned LykiaAccount session transaction
+  (`createSession` from the owner, or `createSubSession` from a parent
+  agent's session key) with per-token caps, payees, call rules, the expiry
+  and the Fence hash, a leash key (`lk_leash_…`) shown once, an MCP config
+  and optionally an ERC-8004 Tag registration. Templates: `pay-invoices`,
+  `trade-small`, `earn` and `custom`.
+- Leash routes: list and read with live usage from `getLimit()` and
+  `spendable()` on chain, `trail` (each action marked chain-proven from its
+  receipt and `AgentMemo`), `revoke` (the key stops at once; returns
+  `revokeSession`), `renew` (a new carve, never an increase in place),
+  `session` (bind from the `SessionCreated` event), and for the leash key
+  only `plan` and `submit`. A plan outside the leash is `422 LEASH_DENIED`
+  with reason codes and the remaining budget.
+- Leash keys reach their own leash's routes and MCP and nothing else; with
+  one, `/v1/mcp` lists only the leash's tools.
+- Webhooks: `leash.budget.threshold` (50, 80, 100%), `leash.expiring`,
+  `leash.revoked`, `leash.denied`.
+- `lykia.leashes` in `@lykia/sdk` (and `@lykia/sdk/leashes`), `leashes` in
+  the Python SDK, `lykia leash create | ls | get | trail | revoke | bind` in
+  the CLI (it makes the agent's session key on your machine), and
+  `examples/leash-agent`.
+- The Fold's Pack tab has a Leashes section: a card per leash with budget
+  meters for today and the whole leash, time left, venues or payees, the
+  last actions and Revoke; and a New leash sheet (who, limits, review, then
+  the keys, shown once). The Forge has a "Leash an agent" quickstart.
+- Ask Lyko reads "give my bot $20 a day for a week to pay invoices" as a
+  leash draft that opens the New leash sheet prefilled. Three intent-eval
+  cases cover it.
+- `npm run prove:leash -w @lykia/api` simulates a leash's session,
+  over-cap transfers and revocation on Arc mainnet with `eth_call`.
+
 ### Changed
 
+- Session call rules now also cover Archery's and Unitflow V3's
+  `exactInputSingle`, which take the recipient at a fixed ABI word like
+  Uniswap v3's, so the account can pin the output.
 - The developer portal is now **The Forge** (it was The Mint, which read
   as minting an NFT). It lives at `/forge/:section`; every `/mint` path
   redirects to its `/forge` twin with its query and hash (a 308 from

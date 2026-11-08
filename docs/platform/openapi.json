@@ -125,6 +125,9 @@
       "name": "League"
     },
     {
+      "name": "Leashes"
+    },
+    {
       "name": "Logs",
       "description": "Request logs per key and project."
     },
@@ -24137,6 +24140,1032 @@
             }
           }
         }
+      }
+    },
+    "/v1/leashes": {
+      "get": {
+        "operationId": "getLeashes",
+        "summary": "List an owner's leashes",
+        "description": "Each with live usage: spendable() and getLimit() read from the LykiaAccount are authoritative; Lykia's records count when larger.",
+        "tags": [
+          "Leashes"
+        ],
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mainnet",
+                "testnet"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "secret",
+        "x-lykia-scope": "read",
+        "security": [
+          {
+            "LykiaKey": []
+          },
+          {
+            "LykiaSession": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "postLeashes",
+        "summary": "Put an agent on a leash",
+        "description": "One call: a Pack agent whose Fence is a strict subset of its parent's, a daily budget carved from the parent, the unsigned LykiaAccount session transaction (createSession from the owner, or createSubSession from the parent agent's session key) with per-token caps, payees, call rules, expiry and the Fence hash, a leash key shown once, a ready MCP config and optionally an ERC-8004 Tag registration. Owner only: a Lykia-Session, or a secret key with the agents scope that may act for the owner.",
+        "tags": [
+          "Leashes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "secret",
+        "x-lykia-scope": "agents",
+        "x-lykia-idempotent": true,
+        "security": [
+          {
+            "LykiaKey": []
+          },
+          {
+            "LykiaSession": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "owner": {
+                    "type": "string",
+                    "description": "Defaults to the signed-in address; required with a project key acting through consent."
+                  },
+                  "environment": {
+                    "type": "string",
+                    "enum": [
+                      "mainnet",
+                      "testnet"
+                    ]
+                  },
+                  "agent": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 48
+                      },
+                      "mission": {
+                        "type": "string",
+                        "maxLength": 400
+                      },
+                      "signer": {
+                        "type": "string",
+                        "description": "The agent's own address: it becomes the LykiaAccount session key. Lykia never sees its private key."
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "signer"
+                    ]
+                  },
+                  "parentAgentId": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 120,
+                    "description": "A Pack agent to carve the leash from (its Fence and budget bound the leash)."
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 48,
+                    "description": "With parentAgentId: the new sub-agent's name."
+                  },
+                  "signer": {
+                    "type": "string",
+                    "description": "With parentAgentId: the new sub-agent's session key address."
+                  },
+                  "template": {
+                    "type": "string",
+                    "enum": [
+                      "pay-invoices",
+                      "trade-small",
+                      "earn",
+                      "custom"
+                    ]
+                  },
+                  "fence": {
+                    "type": "object",
+                    "additionalProperties": {},
+                    "description": "\"custom\" only: a lykia.fence/v1 document."
+                  },
+                  "budget": {
+                    "type": "object",
+                    "properties": {
+                      "perStepUsd": {
+                        "type": "string",
+                        "pattern": "^\\d{1,12}(?:\\.\\d{1,2})?$"
+                      },
+                      "perDayUsd": {
+                        "type": "string",
+                        "pattern": "^\\d{1,12}(?:\\.\\d{1,2})?$"
+                      },
+                      "totalUsd": {
+                        "type": "string",
+                        "pattern": "^\\d{1,12}(?:\\.\\d{1,2})?$"
+                      }
+                    },
+                    "required": [
+                      "perStepUsd",
+                      "perDayUsd",
+                      "totalUsd"
+                    ]
+                  },
+                  "expiresAt": {
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "venues": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 48
+                    },
+                    "maxItems": 20
+                  },
+                  "recipients": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 25
+                  },
+                  "maxSlippageBps": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 300
+                  },
+                  "tools": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "plan",
+                        "submit",
+                        "status",
+                        "trail",
+                        "venues",
+                        "scent"
+                      ]
+                    },
+                    "maxItems": 6
+                  },
+                  "maxCalls": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000
+                  },
+                  "tag": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "budget",
+                  "expiresAt"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/leashes/{id}": {
+      "get": {
+        "operationId": "getLeashesById",
+        "summary": "One leash with usage",
+        "description": "The owner, or the leash's own key.",
+        "tags": [
+          "Leashes"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^lsh_[a-f0-9]{12}$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "key",
+        "x-lykia-scope": "read",
+        "security": [
+          {
+            "LykiaKey": []
+          },
+          {}
+        ]
+      }
+    },
+    "/v1/leashes/{id}/plan": {
+      "post": {
+        "operationId": "postLeashesByIdPlan",
+        "summary": "Plan inside a leash",
+        "description": "For the leash key. The Fence with the leash's own spend, the leash's total, spendable() per token and the session's call rules and payees on chain, then a simulation from the session key. Inside: the intent and its first step as one transaction for the session key. Outside: 422 LEASH_DENIED with reason codes and the remaining budget.",
+        "tags": [
+          "Leashes"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^lsh_[a-f0-9]{12}$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "key",
+        "x-lykia-scope": "build",
+        "security": [
+          {
+            "LykiaKey": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "actions": {
+                    "type": "array",
+                    "items": {},
+                    "maxItems": 12
+                  },
+                  "dryRun": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/leashes/{id}/renew": {
+      "post": {
+        "operationId": "postLeashesByIdRenew",
+        "summary": "Renew a leash",
+        "description": "A new carve, a new session and a new key; the old leash is revoked. Never an increase in place.",
+        "tags": [
+          "Leashes"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^lsh_[a-f0-9]{12}$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "secret",
+        "x-lykia-scope": "agents",
+        "security": [
+          {
+            "LykiaKey": []
+          },
+          {
+            "LykiaSession": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "budget": {
+                    "type": "object",
+                    "properties": {
+                      "perStepUsd": {
+                        "type": "string",
+                        "pattern": "^\\d{1,12}(?:\\.\\d{1,2})?$"
+                      },
+                      "perDayUsd": {
+                        "type": "string",
+                        "pattern": "^\\d{1,12}(?:\\.\\d{1,2})?$"
+                      },
+                      "totalUsd": {
+                        "type": "string",
+                        "pattern": "^\\d{1,12}(?:\\.\\d{1,2})?$"
+                      }
+                    },
+                    "required": [
+                      "perStepUsd",
+                      "perDayUsd",
+                      "totalUsd"
+                    ]
+                  },
+                  "expiresAt": {
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "recipients": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 25
+                  },
+                  "venues": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 48
+                    },
+                    "maxItems": 20
+                  },
+                  "signer": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "expiresAt"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/leashes/{id}/revoke": {
+      "post": {
+        "operationId": "postLeashesByIdRevoke",
+        "summary": "Revoke a leash",
+        "description": "The leash key stops working at once and the carve returns to the parent. Returns the unsigned revokeSession(id) for the owner's wallet; once signed the session and every sub-session under it end on chain.",
+        "tags": [
+          "Leashes"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^lsh_[a-f0-9]{12}$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "secret",
+        "x-lykia-scope": "agents",
+        "security": [
+          {
+            "LykiaKey": []
+          },
+          {
+            "LykiaSession": []
+          }
+        ]
+      }
+    },
+    "/v1/leashes/{id}/session": {
+      "post": {
+        "operationId": "postLeashesByIdSession",
+        "summary": "Bind the on-chain session",
+        "description": "With txHash: read from its SessionCreated event. Without: found among the session ids issued since the leash was made.",
+        "tags": [
+          "Leashes"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^lsh_[a-f0-9]{12}$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "secret",
+        "x-lykia-scope": "agents",
+        "security": [
+          {
+            "LykiaKey": []
+          },
+          {
+            "LykiaSession": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "txHash": {
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{64}$"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/leashes/{id}/submit": {
+      "post": {
+        "operationId": "postLeashesByIdSubmit",
+        "summary": "Report a signed leash step",
+        "description": "The hash of the transaction the session key sent. Checked against the prepared one, settled from its receipt, counted against the leash; the next step comes back prepared.",
+        "tags": [
+          "Leashes"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^lsh_[a-f0-9]{12}$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "key",
+        "x-lykia-scope": "execute",
+        "security": [
+          {
+            "LykiaKey": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "intentId": {
+                    "type": "string",
+                    "pattern": "^out_[A-Za-z0-9_-]{6,32}$"
+                  },
+                  "stepId": {
+                    "type": "string",
+                    "pattern": "^s\\d{1,2}$"
+                  },
+                  "hash": {
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{64}$"
+                  }
+                },
+                "required": [
+                  "intentId",
+                  "stepId",
+                  "hash"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/leashes/{id}/trail": {
+      "get": {
+        "operationId": "getLeashesByIdTrail",
+        "summary": "Everything done under a leash",
+        "description": "Plans, denials and transactions, each cross-checked with the chain: chain-proven when the receipt succeeded, carries AgentCall or AgentTransfer for the session and its AgentMemo names the same intent, step and verdict. Session events Lykia has no record of are listed as source chain.",
+        "tags": [
+          "Leashes"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^lsh_[a-f0-9]{12}$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "key",
+        "x-lykia-scope": "read",
+        "security": [
+          {
+            "LykiaKey": []
+          },
+          {}
+        ]
+      }
+    },
+    "/v1/leashes/templates": {
+      "get": {
+        "operationId": "getLeashesTemplates",
+        "summary": "Leash templates and the enforcement split",
+        "description": "pay-invoices, trade-small, earn and custom, with what LykiaAccount enforces on chain and what the API enforces.",
+        "tags": [
+          "Leashes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "public",
+        "security": [
+          {},
+          {
+            "LykiaKey": []
+          }
+        ]
       }
     },
     "/v1/logs": {

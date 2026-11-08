@@ -100,3 +100,41 @@ def test_async_client():
         return items
 
     assert asyncio.run(run()) == [{"id": "evt_1"}]
+
+
+def test_leashes_call_the_documented_routes_and_surface_denials():
+    seen = []
+    leash = "lsh_0123456789ab"
+
+    def handler(request):
+        seen.append((request.method, request.url.raw_path.decode(), json.loads(request.content) if request.content else None))
+        if request.url.path.endswith("/plan"):
+            return httpx.Response(422, json={"error": {"code": "LEASH_DENIED", "message": "Over the cap.", "details": {"reasons": [{"code": "fence.caps.step", "message": "Over the cap."}], "remaining": {"stepUsd": "20.00", "dayUsd": "20.00", "totalUsd": "140.00"}}}})
+        return httpx.Response(200, json={"ok": True})
+
+    client = make(handler, environment="mainnet")
+    client.leashes.create(agent={"name": "Invoice bot", "signer": "0x" + "7" * 40}, template="pay-invoices", budget={"perStepUsd": "20", "perDayUsd": "20", "totalUsd": "140"}, expires_at="2026-11-15T00:00:00Z", recipients=["0x" + "2" * 40])
+    client.leashes.list()
+    client.leashes.get(leash)
+    client.leashes.trail(leash)
+    client.leashes.revoke(leash)
+    client.leashes.renew(leash, expires_at="2026-11-22T00:00:00Z")
+    client.leashes.submit(leash, "out_abcdefgh", "s1", "0x" + "b" * 64)
+    with pytest.raises(LykiaError) as raised:
+        client.leashes.plan(leash, "pay 30 USDC to 0x" + "2" * 40)
+    assert raised.value.code == "LEASH_DENIED"
+    assert raised.value.details["reasons"][0]["code"] == "fence.caps.step"
+    assert raised.value.details["remaining"]["dayUsd"] == "20.00"
+    routes = [f"{m} {p}" for m, p, _ in seen]
+    assert routes[:7] == [
+        "POST /v1/leashes",
+        "GET /v1/leashes?environment=mainnet",
+        f"GET /v1/leashes/{leash}",
+        f"GET /v1/leashes/{leash}/trail",
+        f"POST /v1/leashes/{leash}/revoke",
+        f"POST /v1/leashes/{leash}/renew",
+        f"POST /v1/leashes/{leash}/submit",
+    ]
+    assert seen[0][2]["expiresAt"] == "2026-11-15T00:00:00Z"
+    assert seen[0][2]["environment"] == "mainnet"
+    assert seen[5][2] == {"expiresAt": "2026-11-22T00:00:00Z"}

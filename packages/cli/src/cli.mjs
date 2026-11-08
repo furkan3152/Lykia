@@ -10,14 +10,68 @@
 //   lykia webhooks listen --forward-to http://localhost:3000/hooks [--events a,b] [--secret whsec_…]
 //   lykia webhooks test [--endpoint whe_…] [--type payout.sent] | deliveries | events
 //   lykia logs tail [--status error] [--key ID] | logs list
+//   lykia leash create --template trade-small --per-day 50 --days 7 [--per-step 25] [--total 350] [--name NAME]
+//              [--signer 0x…] [--recipient 0x…,0x…] [--owner 0x…] [--env mainnet|testnet]
+//   lykia leash ls | get ID | trail ID | revoke ID | bind ID [--tx 0x…]
 //   lykia usage | plan-info | openapi
-import { createHmac, randomBytes } from "node:crypto";
+import { createECDH, createHmac, randomBytes } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 export const DEFAULT_BASE_URL = "https://api.lykiaai.com";
 const KEY_PATTERN = /^lk_(?:live|test|sk|pk(?:_live|_test)?)_[a-z0-9]{12}_[A-Za-z0-9_-]{32}$/u;
+
+/* ------------------------------------------------------------ keccak-256 and session keys */
+
+const MASK = (1n << 64n) - 1n;
+const RC = [0x1n, 0x8082n, 0x800000000000808an, 0x8000000080008000n, 0x808bn, 0x80000001n, 0x8000000080008081n, 0x8000000000008009n, 0x8an, 0x88n, 0x80008009n, 0x8000000an, 0x8000808bn, 0x800000000000008bn, 0x8000000000008089n, 0x8000000000008003n, 0x8000000000008002n, 0x8000000000000080n, 0x800an, 0x800000008000000an, 0x8000000080008081n, 0x8000000000008080n, 0x80000001n, 0x8000000080008008n];
+const ROT = [[0, 36, 3, 41, 18], [1, 44, 10, 45, 2], [62, 6, 43, 15, 61], [28, 55, 25, 21, 56], [27, 20, 39, 8, 14]];
+const rotl = (v, n) => (n === 0 ? v : ((v << BigInt(n)) | (v >> BigInt(64 - n))) & MASK);
+
+function keccakF(s) {
+  for (let round = 0; round < 24; round++) {
+    const c = [0, 1, 2, 3, 4].map((x) => s[x] ^ s[x + 5] ^ s[x + 10] ^ s[x + 15] ^ s[x + 20]);
+    for (let x = 0; x < 5; x++) {
+      const d = c[(x + 4) % 5] ^ rotl(c[(x + 1) % 5], 1);
+      for (let y = 0; y < 25; y += 5) s[x + y] ^= d;
+    }
+    const b = new Array(25);
+    for (let x = 0; x < 5; x++) for (let y = 0; y < 5; y++) b[y + 5 * ((2 * x + 3 * y) % 5)] = rotl(s[x + 5 * y], ROT[x][y]);
+    for (let y = 0; y < 25; y += 5) for (let x = 0; x < 5; x++) s[x + y] = b[x + y] ^ (~b[((x + 1) % 5) + y] & MASK & b[((x + 2) % 5) + y]);
+    s[0] ^= RC[round];
+  }
+}
+
+/** Keccak-256 (Ethereum's hash, not NIST SHA3-256) of bytes. */
+export function keccak256(bytes) {
+  const rate = 136;
+  const padded = new Uint8Array(Math.ceil((bytes.length + 1) / rate) * rate);
+  padded.set(bytes);
+  padded[bytes.length] ^= 0x01;
+  padded[padded.length - 1] ^= 0x80;
+  const s = new Array(25).fill(0n);
+  for (let off = 0; off < padded.length; off += rate) {
+    for (let i = 0; i < rate / 8; i++) {
+      let lane = 0n;
+      for (let j = 7; j >= 0; j--) lane = (lane << 8n) | BigInt(padded[off + i * 8 + j]);
+      s[i] ^= lane;
+    }
+    keccakF(s);
+  }
+  const out = new Uint8Array(32);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 8; j++) out[i * 8 + j] = Number((s[i] >> BigInt(8 * j)) & 0xffn);
+  return out;
+}
+
+/** A fresh secp256k1 key made on this machine: the agent's session key. Lykia never sees the private key. */
+export function newSessionKey() {
+  const ecdh = createECDH("secp256k1");
+  ecdh.generateKeys();
+  const publicKey = ecdh.getPublicKey();
+  const address = `0x${Buffer.from(keccak256(publicKey.subarray(1))).subarray(12).toString("hex")}`;
+  return { address, privateKey: `0x${ecdh.getPrivateKey("hex").padStart(64, "0")}` };
+}
 
 export function configPath(env = process.env) {
   return env.LYKIA_CONFIG ?? join(env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "lykia", "config.json");
@@ -71,6 +125,8 @@ const HELP = `lykia: the Lykia API from your terminal (built on Arc Network)
   webhooks listen --forward-to http://localhost:3000/hooks [--events a,b]
   webhooks test [--endpoint ID] [--type EVENT] | deliveries | events
   logs tail [--status error] [--key ID] | logs list
+  leash create --template trade-small --per-day 50 --days 7 [--per-step 25] [--total 350] [--name NAME] [--signer 0x…] [--recipient 0x…]
+  leash ls | get ID | trail ID | revoke ID | bind ID [--tx 0x…]
   usage | plan-info | openapi
 
 Add --json for raw JSON. Account commands need a key with the admin scope.`;
@@ -282,6 +338,98 @@ export async function run(argv, io) {
         return 0;
       }
       throw new CliError(`Unknown logs command ${sub}.`);
+    }
+    case "leash":
+    case "leashes": {
+      const c = api();
+      const usd = (v) => `$${v}`;
+      const txLines = (txs) => txs.flatMap((t, i) => [`  ${i + 1}. ${t.label}`, `     from  ${t.from}`, `     to    ${t.to}`, `     data  ${t.data}`, `     chain ${t.chainId}`]);
+      if (sub === "create") {
+        const template = typeof args.template === "string" ? args.template : "trade-small";
+        const perDay = typeof args["per-day"] === "string" ? args["per-day"] : null;
+        if (!perDay) throw new CliError("leash create needs --per-day (USD), e.g. --per-day 50.");
+        const days = Number(args.days ?? 7);
+        if (!Number.isInteger(days) || days < 1 || days > 90) throw new CliError("--days is 1 to 90.");
+        const perStep = typeof args["per-step"] === "string" ? args["per-step"] : perDay;
+        const total = typeof args.total === "string" ? args.total : String(Number(perDay) * days);
+        const name = typeof args.name === "string" ? args.name : `${template} agent`;
+        const generated = typeof args.signer === "string" ? null : newSessionKey();
+        const signer = typeof args.signer === "string" ? args.signer : generated.address;
+        const body = {
+          ...(typeof args.owner === "string" ? { owner: args.owner } : {}),
+          ...(typeof args.env === "string" ? { environment: args.env } : {}),
+          agent: { name, signer },
+          template,
+          budget: { perStepUsd: perStep, perDayUsd: perDay, totalUsd: total },
+          expiresAt: new Date(io.now() + days * 86_400_000).toISOString(),
+          ...(typeof args.recipient === "string" ? { recipients: args.recipient.split(",") } : {}),
+          ...(typeof args.venues === "string" ? { venues: args.venues.split(",") } : {}),
+          ...(args.tag ? { tag: true } : {}),
+        };
+        const created = await c.request("POST", "/v1/leashes", body);
+        let keyFile = null;
+        if (generated) {
+          keyFile = typeof args["key-out"] === "string" ? args["key-out"] : join(io.cwd ?? process.cwd(), `lykia-${created.leash.id}.session-key.json`);
+          writeFileSync(keyFile, `${JSON.stringify({ leashId: created.leash.id, address: generated.address, privateKey: generated.privateKey, note: "The agent's LykiaAccount session key. Keep it with the agent; Lykia never sees it." }, null, 2)}\n`, { mode: 0o600 });
+          try {
+            chmodSync(keyFile, 0o600);
+          } catch {
+            // Windows: permissions are managed by the user profile.
+          }
+        }
+        const l = created.leash;
+        const lines = [
+          `Leash ${l.id} for ${l.agentName} (${l.template}), ${l.status}: it goes live once the session transaction lands.`,
+          `  Budget   ${usd(l.budget.perStepUsd)} a step, ${usd(l.budget.perDayUsd)} a day, ${usd(l.budget.totalUsd)} in total, until ${l.expiresAt}`,
+          `  Venues   ${(l.venues ?? ["any the Fence allows"]).join(", ")}${l.recipients.length ? `\n  Payees   ${l.recipients.join(", ")}` : ""}`,
+          `  Session  key ${signer}${keyFile ? ` (private key written to ${keyFile}, mode 600; it never leaves this machine)` : ""}`,
+          "",
+          `Sign ${created.session.signer === "owner" ? "from your wallet" : "from the parent agent's session key"} (${created.session.from}), in order:`,
+          ...txLines(created.transactions),
+          ...(created.tag ? ["", "Optional ERC-8004 Tag:", ...txLines([created.tag.transaction])] : []),
+          "",
+          "Leash key, shown once. Store it now; it works for this leash only:",
+          `  ${created.apiKey.secret}`,
+          "",
+          "MCP config:",
+          JSON.stringify(created.mcp, null, 2),
+          "",
+          ...created.notes.map((n) => `- ${n}`),
+          `- Then: lykia leash bind ${l.id} --tx <hash of the session transaction>`,
+        ];
+        out(created, lines.join("\n"));
+        return 0;
+      }
+      if (!sub || sub === "ls" || sub === "list") {
+        const owner = typeof args.owner === "string" ? `owner=${args.owner}&` : "";
+        const { leashes } = await c.request("GET", `/v1/leashes?${owner}${typeof args.env === "string" ? `environment=${args.env}` : ""}`);
+        out(leashes, table(leashes.map((l) => ({ id: l.id, agent: l.agentName, template: l.template, status: l.status, today: `${l.usage.day.spentUsd}/${l.usage.day.capUsd}`, total: `${l.usage.total.spentUsd}/${l.usage.total.capUsd}`, expires: l.expiresAt.slice(0, 16) })), ["id", "agent", "template", "status", "today", "total", "expires"]));
+        return 0;
+      }
+      const id = rest[0];
+      if (!id) throw new CliError(`leash ${sub} needs a leash id (lsh_…).`);
+      const path = `/v1/leashes/${encodeURIComponent(id)}`;
+      if (sub === "get") {
+        const l = await c.request("GET", path);
+        out(l, [`${l.id} ${l.agentName} (${l.template}) ${l.status}`, `  today ${usd(l.usage.day.spentUsd)} of ${usd(l.usage.day.capUsd)}, total ${usd(l.usage.total.spentUsd)} of ${usd(l.usage.total.capUsd)} (${l.usage.source})`, ...l.usage.tokens.map((t) => `  ${t.symbol}: spendable ${t.spendable} units now (on chain)`)].join("\n"));
+        return 0;
+      }
+      if (sub === "trail") {
+        const trail = await c.request("GET", `${path}/trail`);
+        out(trail, table(trail.items.map((i) => ({ at: i.at.slice(0, 19), kind: i.kind, summary: i.summary.slice(0, 48), usd: i.usd ?? "", tx: i.txHash ? `${i.txHash.slice(0, 10)}…` : "", proven: i.chainProven ? "chain" : "no", source: i.source })), ["at", "kind", "summary", "usd", "tx", "proven", "source"]));
+        return 0;
+      }
+      if (sub === "revoke") {
+        const r = await c.request("POST", `${path}/revoke`, {});
+        out(r, [`Revoked ${id}: its key stopped working just now.`, ...(r.transaction ? ["Sign this to end the session on chain too:", ...txLines([r.transaction])] : [r.note])].join("\n"));
+        return 0;
+      }
+      if (sub === "bind") {
+        const l = await c.request("POST", `${path}/session`, typeof args.tx === "string" ? { txHash: args.tx } : {});
+        out(l, l.session?.sessionId ? `${id} is ${l.status}: session ${l.session.sessionId}.` : `${id} is still ${l.status}: no session on chain yet.`);
+        return 0;
+      }
+      throw new CliError(`Unknown leash command ${sub}.`);
     }
     case "usage": {
       const usage = await api().request("GET", "/v1/billing/usage?days=7");
