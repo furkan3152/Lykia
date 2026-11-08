@@ -710,6 +710,14 @@ html[data-night="on"] .ps-summary__states li, html[data-night="on"] .ps-health, 
 .fd-newleash__split li { display: flex; justify-content: space-between; gap: 6px; align-items: center; }
 .fd-newleash__store { display: flex; flex-direction: column; gap: 3px; box-shadow: inset 0 0 0 2px var(--warn); }
 .fd-newleash__sign { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.fd-tpl.is-off { cursor: not-allowed; opacity: 0.72; }
+.fd-tpl b .m-tag { margin-left: 6px; vertical-align: middle; }
+.fd-gwbal { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; }
+.fd-gwbal__rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.fd-gwbal__rows li { display: flex; justify-content: space-between; gap: 10px; }
+.fd-gwbal__rows li[data-arc="true"] b { color: var(--sea-2); }
+.fd-gwbal__total { border-top: 2px solid var(--grout); padding-top: 4px; }
+.fd-leash__from { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0; }
 .fd-newleash__foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; padding-top: 4px; }
 .fd-newleash__foot .m-btn { min-height: 44px; }
 .fd-leashkey { display: flex; flex-direction: column; gap: 4px; min-width: 0; }

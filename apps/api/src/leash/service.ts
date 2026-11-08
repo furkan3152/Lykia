@@ -14,9 +14,14 @@
  * agent signs (agentTransfer / agentExecute) and simulated on Arc. A plan
  * outside the leash is refused with machine-readable reasons and what is
  * left. Fail closed: when the chain cannot be read, nothing is prepared.
+ *
+ * A Gateway leash (`spendFrom: "gateway"`) keeps these endpoints and this
+ * record but spends from the owner's Circle Gateway balance through the
+ * owner's LykiaStile; its half lives in ./gateway.ts.
  */
 import {
   LEASH_ENFORCEMENT,
+  LEASH_GATEWAY_ENFORCEMENT,
   LEASH_LIMITS,
   LEASH_SCHEMA,
   LEASH_REQUIRED_TOOLS,
@@ -51,6 +56,7 @@ import {
   type LeashBudget,
   type LeashDenyReason,
   type LeashSession,
+  type LeashSpendFrom,
   type LeashTemplateKey,
   type LeashTool,
   type LeashUsage,
@@ -74,6 +80,7 @@ import { services } from "../services.js";
 import { listAll } from "../store/types.js";
 import { ACCOUNT_ABI, agentEvents, accountError, fenceBytes32, findSession, memoMatches, readSession, readSessionNonce, recentAgentLogs, revokeTransaction, sessionFromLogs, sessionTransaction, WrapError, wrapForSession, type SessionState } from "./chain.js";
 import { LEASH_RECORD_TTL_MS, leashActions, leashes, leashMarks, leashOwners, leashSpend, leashSteps, type LeashAction, type LeashStep } from "./store.js";
+import { gatewayBind, gatewayCreate, gatewayCreateNotes, gatewayCreateResponse, gatewayPlan, gatewayPreflight, gatewayRevokeTransactions, gatewaySubmit, gatewayTrail, gatewayUsage, type GatewayCreatePlan, type LeashHost } from "./gateway.js";
 
 export interface LeashCaller {
   readonly via: "session" | "secret";
@@ -102,6 +109,12 @@ export interface CreateLeashInput {
   readonly publicBaseUrl: string;
   /** Renewal: the leash whose allocation the new carve replaces. */
   readonly releasing?: Leash;
+  /** Absent = "arc". */
+  readonly spendFrom?: LeashSpendFrom;
+  /** Gateway leashes: destination chain keys. */
+  readonly destinations?: readonly string[];
+  /** Gateway leashes: Gateway's per-intent fee the session allows (USD). */
+  readonly maxGatewayFeeUsd?: string;
 }
 
 const ZERO32 = `0x${"0".repeat(64)}` as Hex;
@@ -114,10 +127,10 @@ function denied(leash: Leash, reasons: readonly LeashDenyReason[], remaining: Le
   return new LykiaHttpError("LEASH_DENIED", 422, reasons.map((r) => r.message).join(" ") || "Outside this leash.", details as never);
 }
 
-export class LeashService {
+export class LeashService implements LeashHost {
   constructor(private readonly ctx: AppContext) {}
 
-  private now(): number {
+  now(): number {
     return this.ctx.clock.now();
   }
 
@@ -133,7 +146,7 @@ export class LeashService {
     return this.expireIfDue(doc.value);
   }
 
-  private async put(leash: Leash): Promise<Leash> {
+  async put(leash: Leash): Promise<Leash> {
     await leashes(this.ctx).put(leash.id, leash, { ttlMs: LEASH_RECORD_TTL_MS });
     await leashOwners(this.ctx).put(`${leash.owner}:${leash.id}`, { id: leash.id }, { ttlMs: LEASH_RECORD_TTL_MS });
     return leash;
@@ -149,16 +162,16 @@ export class LeashService {
     return out.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
-  private async action(leash: Leash, action: Omit<LeashAction, "at">): Promise<void> {
+  async action(leash: Leash, action: Omit<LeashAction, "at">): Promise<void> {
     const at = this.now();
     await leashActions(this.ctx).put(`${leash.id}:${inverted(at)}:${randomHex(3)}`, { at: iso(at), ...action }, { ttlMs: LEASH_RECORD_TTL_MS });
   }
 
-  private async actions(leash: Leash, limit = 100): Promise<LeashAction[]> {
+  async actions(leash: Leash, limit = 100): Promise<LeashAction[]> {
     return (await leashActions(this.ctx).list({ prefix: `${leash.id}:`, limit })).map((d) => d.value);
   }
 
-  private fire(type: string, leash: Leash, data: Record<string, unknown>): void {
+  fire(type: string, leash: Leash, data: Record<string, unknown>): void {
     void agentServices(this.ctx)
       .webhooks.emit(type, leash.owner, { leashId: leash.id, agentId: leash.agentId, environment: leash.environment, ...data } as never)
       .catch((error: unknown) => this.ctx.log.warn("leash webhook failed", { type, error: error instanceof Error ? error.message : String(error) }));
@@ -217,6 +230,8 @@ export class LeashService {
     const active = (await this.ownedBy(owner)).filter((l) => (l.status === "pending" || l.status === "active") && l.id !== input.releasing?.id);
     if (active.length >= LEASH_LIMITS.perOwner) throw new LykiaHttpError("LIMIT_REACHED", 409, `At most ${LEASH_LIMITS.perOwner} live leashes per owner; revoke one first.`);
     const pack = agentServices(ctx).pack;
+    const gateway = input.spendFrom === "gateway";
+    const preflight = gateway ? gatewayPreflight(ctx, { environment, ...(input.parentAgentId ? { parentAgentId: input.parentAgentId } : {}), ...(input.destinations ? { destinations: input.destinations } : {}), ...(input.maxGatewayFeeUsd !== undefined ? { maxGatewayFeeUsd: input.maxGatewayFeeUsd } : {}) }) : null;
 
     // Who the leash is for: a new root agent, or a sub-agent of a Pack agent.
     const parent: PackAgent | null = input.parentAgentId ? await pack.get(input.parentAgentId) : null;
@@ -230,10 +245,10 @@ export class LeashService {
     else if (signer === owner || /^0x0{40}$/u.test(signer)) issues.push({ path: "agent.signer", message: "The session key must be the agent's own address, not the owner's and not zero." });
 
     // Limits: the template narrowed by the caller, then kept inside the parent.
-    const requested = leashFence({ template: input.template, name: name || "agent", environment, budget: input.budget, ...(input.venues ? { venues: input.venues } : {}), ...(input.recipients ? { recipients: input.recipients } : {}), ...(input.maxSlippageBps !== undefined ? { maxSlippageBps: input.maxSlippageBps } : {}), ...(input.fence ? { fence: input.fence } : {}) });
+    const requested = leashFence({ template: input.template, name: name || "agent", environment, budget: input.budget, ...(input.venues ? { venues: input.venues } : {}), ...(input.recipients ? { recipients: input.recipients } : {}), ...(input.maxSlippageBps !== undefined ? { maxSlippageBps: input.maxSlippageBps } : {}), ...(input.fence ? { fence: input.fence } : {}), ...(gateway ? { spendFrom: "gateway" as const } : {}) });
     issues.push(...requested.issues);
     if (issues.length > 0 || !requested.fence) throw new LykiaHttpError("INVALID_LEASH", 400, "The leash is not valid.", { issues: issues.slice(0, 20) });
-    let ceiling: Fence = parent ? parent.fence : leashCeiling({ template: input.template, environment, ...(input.recipients ? { recipients: input.recipients } : {}), beta: ctx.config.beta, ...(input.fence ? { fence: input.fence } : {}) });
+    let ceiling: Fence = parent ? parent.fence : leashCeiling({ template: input.template, environment, ...(input.recipients ? { recipients: input.recipients } : {}), beta: ctx.config.beta, ...(input.fence ? { fence: input.fence } : {}), ...(gateway ? { spendFrom: "gateway" as const } : {}) });
     if (!parent && caller.project) ceiling = tightenFence(ceiling, caller.project);
     const fence: Fence = { ...intersectFence(ceiling, requested.fence, requested.fence.label), signers: ["agent"] };
     const violations = subFenceViolations(ceiling, fence);
@@ -257,6 +272,7 @@ export class LeashService {
       const carve = carveBudget({ caps, allocated }, leashCarve(input.budget));
       if (!carve.ok) throw new LykiaHttpError("BUDGET_EXCEEDED", 422, "Your Fence does not have that much daily budget free for leashes.", { violations: carve.violations, free: carve.remaining });
     }
+    if (gateway && preflight) return this.createGateway(caller, input, { owner, name, signer: signer as Address, fence, hash, active, destinations: preflight.destinations });
 
     // The on-chain half: the owner's LykiaAccount (or the parent's), the session spec and its transaction.
     let account: Address;
@@ -378,9 +394,69 @@ export class LeashService {
       session: { signer: session.signer, from: session.from, account, spec: JSON.parse(JSON.stringify(spec, (_k, v: unknown) => (typeof v === "bigint" ? v.toString() : v))), note: built.note },
       apiKey: { id: key.id, secret: key.secret, prefix: key.prefix },
       mcp: { mcpServers: { [`lykia-leash-${name.toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-|-$/gu, "") || "agent"}`]: { url: `${input.publicBaseUrl.replace(/\/$/u, "")}/v1/mcp`, headers: { "Lykia-Key": key.secret } } } },
+      stile: null,
       tag,
       enforcement: LEASH_ENFORCEMENT,
       notes,
+    };
+  }
+
+  /** The Gateway half of create: the owner's LykiaStile, the delegation and the session; the same Pack agent, key and record. */
+  private async createGateway(caller: LeashCaller, input: CreateLeashInput, at: { readonly owner: Address; readonly name: string; readonly signer: Address; readonly fence: Fence; readonly hash: ReturnType<typeof fenceHash>; readonly active: readonly Leash[]; readonly destinations: readonly { key: string; name: string; domain: number }[] }): Promise<CreateLeashResponse> {
+    const ctx = this.ctx;
+    const { owner, name, signer, fence, hash } = at;
+    const environment = input.environment;
+    const recipients = (fence.recipients?.allow ?? []).map((r) => r.toLowerCase() as Address);
+    const plan: GatewayCreatePlan = await gatewayCreate(ctx, { owner, environment, key: signer, name, fenceHash: hash, budget: input.budget, expiresAt: input.expiresAt, recipients, destinations: at.destinations, ...(input.maxGatewayFeeUsd !== undefined ? { maxGatewayFeeUsd: input.maxGatewayFeeUsd } : {}) });
+    const pack = agentServices(ctx).pack;
+    const agent = await pack.create({ owner, environment, name, role: "custom", fence, ...(input.agent?.mission ? { mission: input.agent.mission } : {}), signer, capabilities: ["read", "propose"] });
+    const id = `lsh_${randomHex(6)}`;
+    let key;
+    try {
+      key = await createKey(ctx, { owner, label: `Leash · ${name}`.slice(0, 64), kind: "secret", mode: environment === "testnet" ? "test" : "live", leashId: id, scopes: ["read", "build", "execute"], perMinute: 60, perDay: 5_000 });
+    } catch (error) {
+      await pack.revoke(agent.id, owner).catch(() => []);
+      throw error;
+    }
+    const tools = [...new Set([...LEASH_REQUIRED_TOOLS, ...(input.tools ?? LEASH_TOOLS)])].filter((t) => LEASH_TOOLS.includes(t) && t !== "venues" && t !== "scent");
+    const leash: Leash = {
+      schema: LEASH_SCHEMA,
+      id,
+      owner,
+      environment,
+      agentId: agent.id,
+      agentName: name,
+      ...(input.agent?.mission ? { mission: input.agent.mission } : {}),
+      parentAgentId: null,
+      template: input.template,
+      fence,
+      fenceHash: hash,
+      budget: input.budget,
+      expiresAt: new Date(Date.parse(input.expiresAt)).toISOString(),
+      tools,
+      venues: fence.venues?.allow ?? null,
+      recipients,
+      status: "pending",
+      session: null,
+      spendFrom: "gateway",
+      stile: plan.stile,
+      tag: null,
+      key: { id: key.id, prefix: key.prefix },
+      createdBy: { via: caller.via, developer: caller.developer, ...(caller.projectId ? { projectId: caller.projectId } : {}) },
+      ...(input.releasing ? { renewedFrom: input.releasing.id } : {}),
+      createdAt: iso(this.now()),
+    };
+    await this.put(leash);
+    return {
+      leash: await this.view(leash),
+      transactions: plan.transactions,
+      session: null,
+      stile: gatewayCreateResponse(plan),
+      apiKey: { id: key.id, secret: key.secret, prefix: key.prefix },
+      mcp: { mcpServers: { [`lykia-leash-${name.toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-|-$/gu, "") || "agent"}`]: { url: `${input.publicBaseUrl.replace(/\/$/u, "")}/v1/mcp`, headers: { "Lykia-Key": key.secret } } } },
+      tag: null,
+      enforcement: LEASH_GATEWAY_ENFORCEMENT,
+      notes: gatewayCreateNotes(plan),
     };
   }
 
@@ -400,6 +476,10 @@ export class LeashService {
 
   /** Binds the session once its transaction landed: from the receipt, or by checking the ids issued since the leash was made. */
   async bind(leash: Leash, txHash?: `0x${string}`): Promise<Leash> {
+    if (leash.spendFrom === "gateway") {
+      // The Pack agent is not bound to the Stile session: it is not a LykiaAccount session and cannot carve sub-sessions.
+      return gatewayBind(this.ctx, this, leash, txHash);
+    }
     if (!leash.session || leash.session.sessionId || (leash.status !== "pending" && leash.status !== "active")) return leash;
     const s = leash.session;
     let sessionId: Hex | null;
@@ -429,7 +509,7 @@ export class LeashService {
     return [...(leash.session?.tokens ?? [])];
   }
 
-  private async storeSpent(leash: Leash): Promise<{ day: bigint; total: bigint }> {
+  async storeSpent(leash: Leash): Promise<{ day: bigint; total: bigint }> {
     const counters = leashSpend(this.ctx);
     const [day, total] = await Promise.all([counters.get(`${leash.id}:d:${dayKey(this.now())}`), counters.get(`${leash.id}:t`)]);
     return { day: BigInt(day), total: BigInt(total) };
@@ -437,6 +517,11 @@ export class LeashService {
 
   /** Spent and left, per window and per token. On chain values win when they are larger: spendable() is the authority. */
   async usage(leash: Leash): Promise<LeashUsage & { readonly unreadable?: boolean; readonly state?: SessionState }> {
+    if (leash.spendFrom === "gateway") {
+      const { stileState: _st, ...u } = await gatewayUsage(this.ctx, this, leash);
+      if (u.source === "chain") await this.thresholds(leash, u);
+      return u;
+    }
     const stored = await this.storeSpent(leash);
     const secondsLeft = Math.max(0, Math.floor((Date.parse(leash.expiresAt) - this.now()) / 1000));
     const base = { asOf: iso(this.now()), perStepUsd: leash.budget.perStepUsd, secondsLeft };
@@ -478,7 +563,7 @@ export class LeashService {
     }
   }
 
-  private remaining(leash: Leash, usage: Pick<LeashUsage, "day" | "total">): LeashDenied["remaining"] {
+  remaining(leash: Leash, usage: Pick<LeashUsage, "day" | "total">): LeashDenied["remaining"] {
     const min = (...v: string[]) => v.reduce((a, b) => (usdMicros(a) <= usdMicros(b) ? a : b));
     return { stepUsd: formatUsdMicros(usdMicros(min(leash.budget.perStepUsd, usage.day.remainingUsd, usage.total.remainingUsd))), dayUsd: usage.day.remainingUsd, totalUsd: usage.total.remainingUsd };
   }
@@ -506,6 +591,11 @@ export class LeashService {
       await this.release(current);
       // Leashes carved from this leash's agent go with it (the Pack revoked their agents already).
       for (const child of (await this.ownedBy(current.owner)).filter((l) => l.parentAgentId === current.agentId && (l.status === "pending" || l.status === "active"))) await this.revoke(child, `Its parent leash ${current.id} was revoked.`);
+    }
+    if (current.spendFrom === "gateway") {
+      const g = gatewayRevokeTransactions(current);
+      if (wasLive) this.fire("leash.revoked", current, { reason, keyDisabled: true, revokeTransaction: g.transaction as never });
+      return { leash: await this.view(current), keyDisabled: true, transaction: g.transaction, more: g.more, note: g.note };
     }
     const sessionId = current.session?.sessionId as Hex | null | undefined;
     const transaction = current.session && sessionId ? revokeTransaction({ chainId: current.session.chainId, owner: current.owner, account: current.session.account, sessionId, label: `Revoke ${current.agentName}'s leash on chain` }) : null;
@@ -536,10 +626,11 @@ export class LeashService {
       expiresAt: input.expiresAt,
       ...(input.venues ?? leash.venues ? { venues: input.venues ?? (leash.venues as string[]) } : {}),
       ...(input.recipients ?? (leash.recipients.length > 0 ? leash.recipients : undefined) ? { recipients: input.recipients ?? leash.recipients } : {}),
-      maxSlippageBps: leash.fence.limits?.maxSlippageBps ?? 0,
+      ...(leash.spendFrom === "gateway" ? {} : { maxSlippageBps: leash.fence.limits?.maxSlippageBps ?? 0 }),
       tools: leash.tools,
       publicBaseUrl: input.publicBaseUrl,
       releasing: leash,
+      ...(leash.spendFrom === "gateway" && leash.stile ? { spendFrom: "gateway" as const, destinations: leash.stile.destinations, maxGatewayFeeUsd: (Number(leash.stile.maxGatewayFee) / 1_000_000).toString() } : {}),
     });
     const revoked = await this.revoke(leash, `Renewed as ${created.leash.id}.`);
     return { ...created, previous: { id: leash.id, revokeTransaction: revoked.transaction } };
@@ -547,7 +638,20 @@ export class LeashService {
 
   /* ------------------------------------------------------------ plan */
 
-  private liveReasons(leash: Leash, agent: PackAgent | null): LeashDenyReason[] {
+  denied(leash: Leash, reasons: readonly LeashDenyReason[], remaining: LeashDenied["remaining"], extra: { verdictDigest?: string | null; intentId?: string | null } = {}): LykiaHttpError {
+    return denied(leash, reasons, remaining, extra);
+  }
+
+  async packAgent(leash: Leash): Promise<PackAgent | null> {
+    return agentServices(this.ctx).pack.get(leash.agentId).catch(() => null);
+  }
+
+  async recordSpend(leash: Leash, usd: string): Promise<void> {
+    await agentServices(this.ctx).pack.recordSpend(leash.agentId, usd).catch(() => undefined);
+  }
+
+  liveReasons(leash: Leash, agentIn: unknown): LeashDenyReason[] {
+    const agent = agentIn as PackAgent | null;
     if (leash.status === "revoked") return [{ code: "leash.revoked", message: "This leash was revoked." }];
     if (leash.status === "expired" || Date.parse(leash.expiresAt) <= this.now()) return [{ code: "leash.expired", message: `This leash expired at ${leash.expiresAt}.` }];
     if (!agent || agent.status === "revoked") return [{ code: "leash.revoked", message: "This leash's Pack agent was revoked." }];
@@ -555,9 +659,10 @@ export class LeashService {
     return [];
   }
 
-  async plan(leashIn: Leash, input: { readonly text?: string; readonly actions?: readonly PlanAction[]; readonly dryRun?: boolean }): Promise<LeashPlanResponse> {
+  async plan(leashIn: Leash, input: { readonly text?: string; readonly actions?: readonly PlanAction[]; readonly dryRun?: boolean; readonly forward?: boolean }): Promise<LeashPlanResponse> {
     const ctx = this.ctx;
     const leash = leashIn.status === "pending" ? await this.bind(leashIn).catch(() => leashIn) : leashIn;
+    if (leash.spendFrom === "gateway") return gatewayPlan(ctx, this, leash, input);
     const agent = await agentServices(ctx).pack.get(leash.agentId).catch(() => null);
     const refuse = async (reasons: readonly LeashDenyReason[], usage: Pick<LeashUsage, "day" | "total">, extra: { verdictDigest?: string | null; intentId?: string | null; summary?: string } = {}) => {
       const remaining = this.remaining(leash, usage);
@@ -708,6 +813,7 @@ export class LeashService {
   async submit(leashIn: Leash, input: { readonly intentId: string; readonly stepId: string; readonly hash: `0x${string}` }): Promise<LeashSubmitResponse> {
     const ctx = this.ctx;
     const leash = leashIn;
+    if (leash.spendFrom === "gateway") return gatewaySubmit(ctx, this, leash, input);
     const agent = await agentServices(ctx).pack.get(leash.agentId).catch(() => null);
     const live = this.liveReasons(leash, agent);
     if (live.length > 0) throw new LykiaHttpError(live[0]!.code === "leash.expired" ? "LEASH_EXPIRED" : "LEASH_REVOKED", 403, live[0]!.message, { leashId: leash.id });
@@ -791,6 +897,7 @@ export class LeashService {
    */
   async trail(leash: Leash): Promise<LeashTrailResponse> {
     const ctx = this.ctx;
+    if (leash.spendFrom === "gateway") return gatewayTrail(ctx, this, leash);
     const actions = await this.actions(leash, 200);
     const s = leash.session;
     const sessionId = s?.sessionId as Hex | null | undefined;

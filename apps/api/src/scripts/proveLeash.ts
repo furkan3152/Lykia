@@ -103,7 +103,7 @@ async function main() {
   const agentA = privateKeyToAccount(generatePrivateKey());
   const expiresAt = new Date(Date.now() + 7 * 86_400_000).toISOString();
   const created = await s.create({ via: "session", developer: OWNER }, { owner: OWNER, environment: "mainnet", agent: { name: "Invoice bot", signer: agentA.address }, template: "pay-invoices", budget: BUDGET, expiresAt, recipients: [PAYEE], publicBaseUrl: "https://api.lykiaai.com" });
-  const account = created.session.account;
+  const account = created.session!.account;
   const [accountTx, sessionTx] = created.transactions.length === 2 ? created.transactions : [null, created.transactions[0]!];
   if (!sessionTx) throw new Error("no session transaction");
   const nonceA = BigInt(created.leash.session!.nonceAtCreation) + 1n;

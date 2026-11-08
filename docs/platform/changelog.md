@@ -22,6 +22,17 @@
   `leash.denied`.
 - Error codes `LEASH_DENIED` (422), `LEASH_KEY_SCOPE`, `LEASH_REVOKED`,
   `LEASH_EXPIRED` (403), `INVALID_LEASH` (400).
+- Gateway leashes (Stile): `POST /v1/leashes` takes `spendFrom` (`"arc"`, the
+  default, or `"gateway"`), `destinations` and `maxGatewayFeeUsd`; the
+  response may carry `stile` (with `deployment`, a creation without `to`) and
+  `session: null`. `POST /v1/leashes/:id/plan` takes `forward`; for a Gateway
+  leash `intent` is null and `prepared.gateway` holds the burn intents, the
+  digest and the signature. Submit answers `gateway` (transfer id,
+  attestation, unsigned `gatewayMint`); trail items may carry `gateway`;
+  revoke answers `more` (pause, `removeDelegate`). `GET /v1/leashes/templates`
+  answers `gateway` (availability per environment, destinations, ceilings).
+  New deny codes `leash.gateway.*` and `leash.stile.*`; `NOT_AVAILABLE` (409)
+  while `LYKIA_STILE` is off ([../stile.md](../stile.md)).
 
 ## 2026-11-01
 

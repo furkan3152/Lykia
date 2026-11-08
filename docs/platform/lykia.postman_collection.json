@@ -8362,7 +8362,7 @@
                 "templates"
               ]
             },
-            "description": "pay-invoices, trade-small, earn and custom, with what LykiaAccount enforces on chain and what the API enforces.\n\nAuth: public."
+            "description": "pay-invoices, trade-small, earn and custom, with what LykiaAccount enforces on chain and what the API enforces; and, for spending from a Gateway balance through LykiaStile, where it is available, its destinations, ceilings and enforcement split.\n\nAuth: public."
           }
         },
         {
@@ -8406,7 +8406,7 @@
                 }
               }
             },
-            "description": "One call: a Pack agent whose Fence is a strict subset of its parent's, a daily budget carved from the parent, the unsigned LykiaAccount session transaction (createSession from the owner, or createSubSession from the parent agent's session key) with per-token caps, payees, call rules, expiry and the Fence hash, a leash key shown once, a ready MCP config and optionally an ERC-8004 Tag registration. Owner only: a Lykia-Session, or a secret key with the agents scope that may act for the owner.\n\nAuth: secret, scope: agents."
+            "description": "One call: a Pack agent whose Fence is a strict subset of its parent's, a daily budget carved from the parent, the unsigned LykiaAccount session transaction (createSession from the owner, or createSubSession from the parent agent's session key) with per-token caps, payees, call rules, expiry and the Fence hash, a leash key shown once, a ready MCP config and optionally an ERC-8004 Tag registration. With spendFrom gateway the money is the owner's Circle Gateway balance: the response carries the owner's LykiaStile (its creation when there is none), addDelegate on Gateway Wallet and createSession on the Stile instead of a LykiaAccount session. Owner only: a Lykia-Session, or a secret key with the agents scope that may act for the owner.\n\nAuth: secret, scope: agents."
           }
         },
         {
@@ -8454,7 +8454,7 @@
                 }
               }
             },
-            "description": "For the leash key. The Fence with the leash's own spend, the leash's total, spendable() per token and the session's call rules and payees on chain, then a simulation from the session key. Inside: the intent and its first step as one transaction for the session key. Outside: 422 LEASH_DENIED with reason codes and the remaining budget.\n\nAuth: key, scope: build."
+            "description": "For the leash key. The Fence with the leash's own spend, the leash's total, spendable() per token and the session's call rules and payees on chain, then a simulation from the session key. Inside: the intent and its first step as one transaction for the session key. Outside: 422 LEASH_DENIED with reason codes and the remaining budget. A Gateway leash plans one transfer: the burn intents (payment and Lykia's fee leg) and the reserve transaction on the owner's LykiaStile, in prepared.gateway.\n\nAuth: key, scope: build."
           }
         },
         {
@@ -8633,7 +8633,7 @@
                 }
               }
             },
-            "description": "The hash of the transaction the session key sent. Checked against the prepared one, settled from its receipt, counted against the leash; the next step comes back prepared.\n\nAuth: key, scope: execute."
+            "description": "The hash of the transaction the session key sent. Checked against the prepared one, settled from its receipt, counted against the leash; the next step comes back prepared. For a Gateway leash the reservation is proven from its Reserved event, then the burn intents go to Gateway's /v1/transfer with contractSigner true; the attestation and the unsigned gatewayMint come back (status pending while Gateway cannot see the reservation yet: submit the same hash again).\n\nAuth: key, scope: execute."
           }
         }
       ]

@@ -8,7 +8,9 @@
     "build": "hardhat compile",
     "test": "hardhat test",
     "test:fork": "LYKIA_FORK=1 hardhat test test/fork.test.cjs",
-    "export": "hardhat compile --quiet && node scripts/export.cjs"
+    "export": "hardhat compile --quiet && node scripts/export.cjs",
+    "stile:plan": "hardhat compile --quiet && node scripts/stile.cjs plan",
+    "stile:check": "hardhat compile --quiet && node scripts/stile.cjs check"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "2.1.2",

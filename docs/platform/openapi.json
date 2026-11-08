@@ -25353,7 +25353,7 @@
       "post": {
         "operationId": "postLeashes",
         "summary": "Put an agent on a leash",
-        "description": "One call: a Pack agent whose Fence is a strict subset of its parent's, a daily budget carved from the parent, the unsigned LykiaAccount session transaction (createSession from the owner, or createSubSession from the parent agent's session key) with per-token caps, payees, call rules, expiry and the Fence hash, a leash key shown once, a ready MCP config and optionally an ERC-8004 Tag registration. Owner only: a Lykia-Session, or a secret key with the agents scope that may act for the owner.",
+        "description": "One call: a Pack agent whose Fence is a strict subset of its parent's, a daily budget carved from the parent, the unsigned LykiaAccount session transaction (createSession from the owner, or createSubSession from the parent agent's session key) with per-token caps, payees, call rules, expiry and the Fence hash, a leash key shown once, a ready MCP config and optionally an ERC-8004 Tag registration. With spendFrom gateway the money is the owner's Circle Gateway balance: the response carries the owner's LykiaStile (its creation when there is none), addDelegate on Gateway Wallet and createSession on the Stile instead of a LykiaAccount session. Owner only: a Lykia-Session, or a secret key with the agents scope that may act for the owner.",
         "tags": [
           "Leashes"
         ],
@@ -25560,6 +25560,30 @@
                   },
                   "tag": {
                     "type": "boolean"
+                  },
+                  "spendFrom": {
+                    "type": "string",
+                    "enum": [
+                      "arc",
+                      "gateway"
+                    ],
+                    "description": "\"arc\" (default): the owner's LykiaAccount on Arc. \"gateway\": the owner's Circle Gateway balance through LykiaStile, where it is switched on (see GET /v1/leashes/templates)."
+                  },
+                  "destinations": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 24
+                    },
+                    "minItems": 1,
+                    "maxItems": 16,
+                    "description": "\"gateway\" only: Gateway chains the agent may pay to, e.g. [\"arc\", \"base\"]."
+                  },
+                  "maxGatewayFeeUsd": {
+                    "type": "string",
+                    "maxLength": 12,
+                    "description": "\"gateway\" only: Circle's fee per burn intent the session allows (default $0.10, at most $5)."
                   }
                 },
                 "required": [
@@ -25650,7 +25674,7 @@
       "post": {
         "operationId": "postLeashesByIdPlan",
         "summary": "Plan inside a leash",
-        "description": "For the leash key. The Fence with the leash's own spend, the leash's total, spendable() per token and the session's call rules and payees on chain, then a simulation from the session key. Inside: the intent and its first step as one transaction for the session key. Outside: 422 LEASH_DENIED with reason codes and the remaining budget.",
+        "description": "For the leash key. The Fence with the leash's own spend, the leash's total, spendable() per token and the session's call rules and payees on chain, then a simulation from the session key. Inside: the intent and its first step as one transaction for the session key. Outside: 422 LEASH_DENIED with reason codes and the remaining budget. A Gateway leash plans one transfer: the burn intents (payment and Lykia's fee leg) and the reserve transaction on the owner's LykiaStile, in prepared.gateway.",
         "tags": [
           "Leashes"
         ],
@@ -25737,6 +25761,10 @@
                   },
                   "dryRun": {
                     "type": "boolean"
+                  },
+                  "forward": {
+                    "type": "boolean",
+                    "description": "Gateway leashes: ask Circle's Forwarding Service to submit the mint on the destination (its fee comes from Gateway's estimate)."
                   }
                 }
               }
@@ -26053,7 +26081,7 @@
       "post": {
         "operationId": "postLeashesByIdSubmit",
         "summary": "Report a signed leash step",
-        "description": "The hash of the transaction the session key sent. Checked against the prepared one, settled from its receipt, counted against the leash; the next step comes back prepared.",
+        "description": "The hash of the transaction the session key sent. Checked against the prepared one, settled from its receipt, counted against the leash; the next step comes back prepared. For a Gateway leash the reservation is proven from its Reserved event, then the burn intents go to Gateway's /v1/transfer with contractSigner true; the attestation and the unsigned gatewayMint come back (status pending while Gateway cannot see the reservation yet: submit the same hash again).",
         "tags": [
           "Leashes"
         ],
@@ -26230,7 +26258,7 @@
       "get": {
         "operationId": "getLeashesTemplates",
         "summary": "Leash templates and the enforcement split",
-        "description": "pay-invoices, trade-small, earn and custom, with what LykiaAccount enforces on chain and what the API enforces.",
+        "description": "pay-invoices, trade-small, earn and custom, with what LykiaAccount enforces on chain and what the API enforces; and, for spending from a Gateway balance through LykiaStile, where it is available, its destinations, ceilings and enforcement split.",
         "tags": [
           "Leashes"
         ],

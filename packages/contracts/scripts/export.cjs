@@ -26,6 +26,7 @@ const CONTRACTS = [
   { name: "PracticeSwap", file: "practice/PracticeSwap.sol", deployable: true, environments: ["testnet"], note: "Arc testnet practice venue." },
   { name: "PracticeLending", file: "practice/PracticeLending.sol", deployable: true, environments: ["testnet"], note: "Arc testnet practice venue." },
   { name: "LykiaOrders", file: "orders/LykiaOrders.sol", deployable: true, environments: ["testnet", "mainnet"], note: "Signed conditional swap orders (limit, stop-loss, take-profit, DCA, TWAP) executed by keepers through LykiaRouter." },
+  { name: "LykiaStile", file: "stile/LykiaStile.sol", deployable: true, environments: ["testnet", "mainnet"], note: "Per owner: each depositor deploys their own from their own wallet (the API builds the unsigned creation). ERC-1271 policy signer for a Circle Gateway deposit." },
   { name: "LykiaClQuoter", file: "quoters/LykiaClQuoter.sol", deployable: false, environments: [], note: "Never deployed: the API places the runtime code at a throwaway address through an eth_call state override to quote concentrated-liquidity pools exactly." },
 ];
 

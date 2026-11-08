@@ -49,6 +49,35 @@ including the mainnet beta cap; with `violations`), `422 BUDGET_EXCEEDED`
 (the parent's daily budget is carved out; with `free`), `409 LIMIT_REACHED`,
 `503 UNPRICED` and `503 CHAIN_UNAVAILABLE` (nothing was made).
 
+### Spend from a Gateway balance
+
+```json
+POST /v1/leashes
+{
+  "agent": { "name": "Payout runner", "signer": "0x…agent's own address…" },
+  "spendFrom": "gateway",
+  "destinations": ["base", "arbitrum"],
+  "template": "pay-invoices",
+  "budget": { "perStepUsd": "50", "perDayUsd": "150", "totalUsd": "1050" },
+  "expiresAt": "2026-11-15T00:00:00Z",
+  "recipients": ["0x…payee…"]
+}
+```
+
+The money is the owner's Circle Gateway USDC deposited on Arc, spent
+through the owner's own LykiaStile. The answer has `session: null` and
+`stile`: the Stile's address, `deployment` (its creation from the owner's
+wallet, no `to`, when the owner has none yet) and the session's limits;
+`transactions` holds `addDelegate(USDC, stile)` (when needed) and
+`createSession`. Send the creation first, then the transactions, with
+nothing else from the wallet in between. A plan returns `intent: null` and
+`prepared.gateway` (the burn intents, the digest, the signature);
+`prepared.transaction` is `reserve` for the session key. Submit posts the
+intents to Gateway once the reservation is on chain. `pay-invoices` only, at
+most $100 per transfer and $300 a day while LykiaStile is unaudited;
+`maxGatewayFeeUsd` (default 0.10, at most 5) caps Circle's fee per intent.
+`409 NOT_AVAILABLE` where it is not switched on. See [../stile.md](../stile.md).
+
 ## Usage
 
 ```json

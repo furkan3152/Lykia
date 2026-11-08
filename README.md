@@ -177,6 +177,12 @@ from the Fold (Pack tab), `lykia leash create`, both SDKs and Ask Lyko
 ("give my bot $20 a day for a week to pay invoices"). Details, the threat
 model and a mainnet simulation: [docs/leash.md](docs/leash.md).
 
+**Spend from: Gateway balance.** With `"spendFrom": "gateway"` a pay-invoices
+leash spends the owner's Circle Gateway USDC (the part deposited on Arc) on
+the chains it names, through the owner's own `LykiaStile` contract that
+Gateway checks over ERC-1271. Off until switched on; unaudited, so at most
+$100 per transfer and $300 a day: [docs/stile.md](docs/stile.md).
+
 ## How it works
 
 ```mermaid

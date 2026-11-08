@@ -13,7 +13,8 @@ import { sendSequentially } from "./sequence";
 import { useWallet } from "./store";
 
 export interface WalletTx {
-  readonly to: `0x${string}`;
+  /** Absent: a contract creation from the wallet (browser wallets only). */
+  readonly to?: `0x${string}`;
   readonly data: `0x${string}`;
   readonly value: string | bigint;
   readonly chainId: number;
@@ -61,7 +62,8 @@ export function useLykiaWallet(): LykiaWallet {
   if (passkey) {
     const sendPasskey = (txs: readonly WalletTx[]) => {
       if (txs.some((t) => t.chainId !== chainFor(passkey.environment).id)) throw new Error(`This passkey wallet is on Arc ${passkey.environment}; switch the network toggle to match the plan.`);
-      return passkey.sendCalls(txs.map((t) => ({ to: t.to, data: t.data, value: BigInt(t.value) })));
+      if (txs.some((t) => !t.to)) throw new Error("A passkey account cannot create a contract from its own address; use a browser wallet for this step.");
+      return passkey.sendCalls(txs.map((t) => ({ to: t.to!, data: t.data, value: BigInt(t.value) })));
     };
     return {
       kind: "passkey",
@@ -95,7 +97,7 @@ export function useLykiaWallet(): LykiaWallet {
     sendSequentially(txs, {
       currentChainId: liveChainId,
       switchChain: switchTo,
-      sendOne: (tx) => sendTransactionAsync({ to: tx.to, data: tx.data, value: BigInt(tx.value), chainId: tx.chainId }),
+      sendOne: (tx) => (tx.to ? sendTransactionAsync({ to: tx.to, data: tx.data, value: BigInt(tx.value), chainId: tx.chainId }) : sendTransactionAsync({ data: tx.data, value: BigInt(tx.value), chainId: tx.chainId })),
       waitFor: (hash, target) => waitForTransactionReceipt(config, { hash, chainId: target, timeout: RECEIPT_TIMEOUT_MS }),
     });
   return {

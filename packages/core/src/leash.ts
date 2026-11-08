@@ -15,6 +15,12 @@
  *  - an API key that works for this one leash and nothing else;
  *  - optionally an ERC-8004 Tag pinning the Fence.
  *
+ * A leash spends from the owner's LykiaAccount on Arc (`spendFrom: "arc"`,
+ * the default) or from the owner's Circle Gateway balance (`"gateway"`).
+ * A Gateway leash has no LykiaAccount session: its on-chain half is a
+ * session on the owner's LykiaStile, an ERC-1271 contract the owner adds as
+ * a Gateway delegate (see `LEASH_GATEWAY_ENFORCEMENT` and docs/stile.md).
+ *
  * What the chain enforces and what the API enforces are kept apart on
  * purpose (see `LEASH_ENFORCEMENT` and docs/leash.md): LykiaAccount counts
  * token units, not dollars, and knows nothing about slippage or venues.
@@ -51,6 +57,20 @@ export const LEASH_TEMPLATE_KEYS: readonly LeashTemplateKey[] = ["pay-invoices",
  * revoked / expired: the key is dead at the API; budget is back with the parent.
  */
 export type LeashStatus = "pending" | "active" | "revoked" | "expired";
+
+/** Where a leash's money is: the owner's LykiaAccount on Arc, or the owner's Circle Gateway balance through LykiaStile. */
+export type LeashSpendFrom = "arc" | "gateway";
+export const LEASH_SPEND_FROM: readonly LeashSpendFrom[] = ["arc", "gateway"];
+
+/** The venue id a Gateway leash's Fence allows: Circle Gateway transfers out of the unified balance. */
+export const LEASH_GATEWAY_VENUE = "gateway";
+
+/**
+ * Ceilings for Gateway leashes while LykiaStile is unaudited, in USD (USDC
+ * 1:1), on both environments. Each LykiaStile carries them as immutables, so
+ * no session can be issued above them on chain either.
+ */
+export const STILE_BETA = Object.freeze({ perStepUsd: "100", perDayUsd: "300" });
 
 /** What a leash key may call (REST and MCP). Always at least plan, submit and status. */
 export type LeashTool = "plan" | "submit" | "status" | "trail" | "venues" | "scent";
@@ -164,6 +184,31 @@ export interface LeashSession {
   readonly block?: string;
 }
 
+/** The on-chain half of a Gateway leash: a session on the owner's LykiaStile. */
+export interface LeashStile {
+  /** The owner's LykiaStile (predicted from the owner's nonce until its creation lands). */
+  readonly address: Address;
+  /** Known once the session landed (from SessionCreated). */
+  readonly sessionId: `0x${string}` | null;
+  /** The agent's own key: the Stile session key. Lykia never holds it. */
+  readonly key: Address;
+  readonly chainId: number;
+  readonly validUntil: number;
+  /** The Stile's sessionNonce when the leash was made (the session id is found above it). */
+  readonly nonceAtCreation: string;
+  /** Gateway destination chain keys the leash may pay to ("arc", "base", ...). */
+  readonly destinations: readonly string[];
+  /** Gateway's per-intent fee the session allows, in USDC base units. */
+  readonly maxGatewayFee: string;
+  /** Lykia's fee leg the Stile requires (its immutables). */
+  readonly feeBps: number;
+  readonly feeRecipient: Address;
+  /** True when the leash's transactions include the Stile's creation. */
+  readonly deploys: boolean;
+  readonly txHash?: `0x${string}`;
+  readonly block?: string;
+}
+
 export interface Leash {
   readonly schema: typeof LEASH_SCHEMA;
   readonly id: string;
@@ -185,6 +230,10 @@ export interface Leash {
   readonly recipients: readonly Address[];
   readonly status: LeashStatus;
   readonly session: LeashSession | null;
+  /** Absent = "arc". */
+  readonly spendFrom?: LeashSpendFrom;
+  /** Gateway leashes only. */
+  readonly stile?: LeashStile | null;
   /** ERC-8004 Tag: the agent id once registered, the card digest when drafted. */
   readonly tag: { readonly agentId?: string; readonly cardDigest?: string } | null;
   /** The leash key: its id and visible prefix. The secret is shown once. */
@@ -237,6 +286,16 @@ export interface LeashUsage {
   readonly calls: { readonly used: number; readonly max: number } | null;
   /** Seconds until expiry (0 when past). */
   readonly secondsLeft: number;
+  /** Gateway leashes: what the LykiaStile and Gateway say right now. */
+  readonly stile?: {
+    /** The most the next reservation may charge (payment plus Lykia fee), USDC base units; spendable() on the Stile. */
+    readonly spendable: string;
+    readonly paused: boolean | null;
+    /** GatewayWallet.isAuthorizedForBalance(USDC, owner, Stile). */
+    readonly delegated: boolean | null;
+    /** The owner's Gateway balance deposited on Arc (the only part an Arc Stile can spend), USDC; null when Gateway did not answer. */
+    readonly arcBalanceUsdc: string | null;
+  };
 }
 
 export function leashWindow(spentUsd: string, capUsd: string): LeashWindow {
@@ -278,7 +337,14 @@ export type LeashDenyCode =
   | "leash.needs-owner"
   | "leash.unpriced"
   | "leash.venue.none"
-  | "leash.not-understood";
+  | "leash.not-understood"
+  | "leash.gateway.destination"
+  | "leash.gateway.recipient"
+  | "leash.gateway.balance"
+  | "leash.gateway.unavailable"
+  | "leash.gateway.fee"
+  | "leash.stile.paused"
+  | "leash.stile.delegate";
 
 export interface LeashDenyReason {
   /** A LeashDenyCode or `fence.<FenceRule>`. */
@@ -311,6 +377,22 @@ export const LEASH_ENFORCEMENT: readonly EnforcementLine[] = [
   { limit: "Scent, schedule, step count", enforcedBy: "api", how: "Fence rules evaluated on every plan." },
 ];
 
+/** The same split for a Gateway leash: what LykiaStile enforces, what Gateway checks and what the API holds. */
+export const LEASH_GATEWAY_ENFORCEMENT: readonly EnforcementLine[] = [
+  { limit: "Expiry", enforcedBy: "both", how: "LykiaStile refuses reservations after validUntil and stops validating its digests; the API stops the key at expiresAt." },
+  { limit: "Per-transfer cap", enforcedBy: "both", how: "On chain: perTransfer in USDC units, payment plus Lykia fee, never above the Stile's immutable ceiling ($100 while unaudited). At the API: USD per step." },
+  { limit: "Daily cap", enforcedBy: "both", how: "On chain: daily over a rolling 24 h window, never above the Stile's ceiling ($300 while unaudited). At the API: USD per day." },
+  { limit: "Total budget", enforcedBy: "both", how: "On chain: lifetime on the session. At the API: USD over the leash's life." },
+  { limit: "Payees", enforcedBy: "both", how: "On chain: the session's recipient list (32-byte addresses). At the API: the Fence's recipient allowlist." },
+  { limit: "Destination chains", enforcedBy: "both", how: "On chain: the session's allowed Gateway domains. At the API: the leash's destination list." },
+  { limit: "Source of funds", enforcedBy: "chain", how: "Every reserved intent must debit the owner's deposit on Arc through Gateway Wallet, signed by the Stile, with empty hook data." },
+  { limit: "Lykia fee", enforcedBy: "chain", how: "With a fee, a reservation is a burn intent set [payment, fee]: Gateway attests and mints both together or neither." },
+  { limit: "Gateway fee", enforcedBy: "chain", how: "maxFee of each intent is at most the session's maxGatewayFee; Circle charges at most that." },
+  { limit: "Revocation", enforcedBy: "both", how: "The API disables the key at once; revokeSession on the Stile stops new reservations and validation. Gateway may validate against a block up to about 5 minutes old." },
+  { limit: "Signature check", enforcedBy: "chain", how: "Gateway calls isValidSignature (read-only, in its validation enclave, with an RPC quorum); it answers only for reserved, unexpired, uncancelled digests of a live session while the Stile is not paused." },
+  { limit: "USD valuation, Scent, schedule", enforcedBy: "api", how: "The Fence evaluates every transfer before the reservation is prepared." },
+];
+
 /* ------------------------------------------------------------ building */
 
 export interface LeashLimitsInput {
@@ -323,6 +405,8 @@ export interface LeashLimitsInput {
   readonly maxSlippageBps?: number;
   /** "custom": the caller's Fence. */
   readonly fence?: Fence;
+  /** Absent = "arc". */
+  readonly spendFrom?: LeashSpendFrom;
 }
 
 export interface LeashIssue {
@@ -368,6 +452,7 @@ export function leashFence(input: LeashLimitsInput): { readonly fence: Fence | n
   const issues: LeashIssue[] = [...budgetIssues(input.budget)];
   const t = LEASH_TEMPLATES[input.template];
   if (!t) return { fence: null, issues: [{ path: "template", message: `One of ${LEASH_TEMPLATE_KEYS.join(", ")}.` }] };
+  if (input.spendFrom === "gateway") return gatewayLeashFence(input, issues);
   const slip = input.maxSlippageBps ?? t.maxSlippageBps;
   if (!Number.isInteger(slip) || slip < 0 || slip > LEASH_LIMITS.maxSlippageBps) issues.push({ path: "maxSlippageBps", message: `0 to ${LEASH_LIMITS.maxSlippageBps}.` });
   else if (input.template !== "custom" && slip > t.maxSlippageBps) issues.push({ path: "maxSlippageBps", message: `The ${t.title} template allows at most ${t.maxSlippageBps} bps.` });
@@ -425,13 +510,71 @@ export function leashFence(input: LeashLimitsInput): { readonly fence: Fence | n
   return { fence: issues.length > 0 ? null : fence, issues };
 }
 
+/** Budget issues against the Stile beta ceilings. */
+export function stileBudgetIssues(budget: Pick<LeashBudget, "perStepUsd" | "perDayUsd">): LeashIssue[] {
+  const out: LeashIssue[] = [];
+  if (USD_PATTERN.test(budget.perStepUsd) && usdMicros(budget.perStepUsd) > usdMicros(STILE_BETA.perStepUsd)) out.push({ path: "budget.perStepUsd", message: `A Gateway leash allows at most $${STILE_BETA.perStepUsd} per transfer while LykiaStile is unaudited.` });
+  if (USD_PATTERN.test(budget.perDayUsd) && usdMicros(budget.perDayUsd) > usdMicros(STILE_BETA.perDayUsd)) out.push({ path: "budget.perDayUsd", message: `A Gateway leash allows at most $${STILE_BETA.perDayUsd} a day while LykiaStile is unaudited.` });
+  return out;
+}
+
+/** A Gateway leash: USDC transfers to named payees through Circle Gateway, nothing else. */
+function gatewayLeashFence(input: LeashLimitsInput, issues: LeashIssue[]): { readonly fence: Fence | null; readonly issues: readonly LeashIssue[] } {
+  if (input.template !== "pay-invoices") issues.push({ path: "template", message: 'A Gateway leash pays named payees: use the "pay-invoices" template.' });
+  if (input.venues !== undefined && !(input.venues.length === 1 && input.venues[0] === LEASH_GATEWAY_VENUE)) issues.push({ path: "venues", message: `A Gateway leash uses one venue, ${LEASH_GATEWAY_VENUE}.` });
+  if (input.maxSlippageBps !== undefined && input.maxSlippageBps !== 0) issues.push({ path: "maxSlippageBps", message: "A Gateway transfer has no slippage; leave it out or send 0." });
+  issues.push(...stileBudgetIssues(input.budget));
+  const recipients = [...new Set((input.recipients ?? []).map((r) => r.toLowerCase()))] as Address[];
+  if (recipients.length === 0) issues.push({ path: "recipients", message: "Name at least one payee: this leash pays known recipients only." });
+  if (recipients.length > LEASH_LIMITS.recipients) issues.push({ path: "recipients", message: `At most ${LEASH_LIMITS.recipients} recipients.` });
+  if (!recipients.every((r) => isAddress(r))) issues.push({ path: "recipients", message: "Addresses, 0x followed by 40 hex characters." });
+  const fence: Fence = {
+    schema: FENCE_SCHEMA,
+    label: `Leash · ${input.name}`.slice(0, 64),
+    mode: "live",
+    environments: [input.environment],
+    kinds: { allow: ["transfer"] },
+    venues: { allow: [LEASH_GATEWAY_VENUE] },
+    tokens: { allow: ["USDC"], unlisted: "deny" },
+    recipients: { mode: "allowlist", allow: recipients },
+    caps: { perStepUsd: input.budget.perStepUsd, perIntentUsd: input.budget.perDayUsd, dailyUsd: input.budget.perDayUsd },
+    limits: { maxSteps: 1, maxSlippageBps: 0 },
+    scent: { require: "verified" },
+    confirm: { when: [] },
+    signers: ["agent"],
+  };
+  return { fence: issues.length > 0 ? null : fence, issues };
+}
+
 /**
  * The Fence a root leash (one with no parent agent) must sit inside: the
  * template at its widest, with the mainnet beta cap as its caps. A custom
  * root leash's ceiling is the caller's own Fence with the same caps.
  */
-export function leashCeiling(input: { readonly template: LeashTemplateKey; readonly environment: ArcEnvironment; readonly recipients?: readonly Address[]; readonly beta?: { readonly perStepUsd: string; readonly perDayUsd: string } | null; readonly fence?: Fence }): Fence {
+export function leashCeiling(input: { readonly template: LeashTemplateKey; readonly environment: ArcEnvironment; readonly recipients?: readonly Address[]; readonly beta?: { readonly perStepUsd: string; readonly perDayUsd: string } | null; readonly fence?: Fence; readonly spendFrom?: LeashSpendFrom }): Fence {
   const t = LEASH_TEMPLATES[input.template];
+  if (input.spendFrom === "gateway") {
+    // The Stile ceiling on both environments, and the mainnet beta cap where it is lower.
+    const lower = (a: string, b: string | undefined) => (b !== undefined && usdMicros(b) < usdMicros(a) ? b : a);
+    const beta = input.environment === "mainnet" ? input.beta : null;
+    const step = lower(STILE_BETA.perStepUsd, beta?.perStepUsd);
+    const day = lower(STILE_BETA.perDayUsd, beta?.perDayUsd);
+    const recipients = [...new Set((input.recipients ?? []).map((r) => r.toLowerCase()))] as Address[];
+    return {
+      schema: FENCE_SCHEMA,
+      label: "Gateway leash ceiling",
+      mode: "live",
+      environments: [input.environment],
+      kinds: { allow: ["transfer"] },
+      venues: { allow: [LEASH_GATEWAY_VENUE] },
+      tokens: { allow: ["USDC"], unlisted: "deny" },
+      recipients: { mode: "allowlist", allow: recipients },
+      caps: { perStepUsd: step, perIntentUsd: day, dailyUsd: day },
+      limits: { maxSteps: 1, maxSlippageBps: 0 },
+      scent: { require: "verified" },
+      signers: ["agent"],
+    };
+  }
   const caps = input.beta && input.environment === "mainnet" ? { perStepUsd: input.beta.perStepUsd, perIntentUsd: input.beta.perDayUsd, dailyUsd: input.beta.perDayUsd } : undefined;
   if (input.template === "custom" && input.fence) {
     const f = input.fence;

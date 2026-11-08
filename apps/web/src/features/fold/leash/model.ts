@@ -2,16 +2,47 @@
  * Leashes in the Fold: pure helpers for the Leashes section and the New
  * leash sheet. Meters, time left, the sheet's form and its checks, the
  * request it sends, and the sample leashes the sample flock shows.
+ *
+ * "Spend from" picks where the money is: the owner's LykiaAccount on Arc,
+ * or the owner's Circle Gateway balance through their own LykiaStile (only
+ * where the API offers it; otherwise the option reads "coming soon").
  */
-import { LEASH_LIMITS, LEASH_TEMPLATES, budgetIssues, draftBudget, isAddress, leashDraftOf, usdMicros, type Address, type ArcEnvironment, type LeashDraft, type LeashTemplateKey, type LeashWindow } from "@lykia/core";
+import { LEASH_LIMITS, LEASH_TEMPLATES, STILE_BETA, budgetIssues, draftBudget, isAddress, leashDraftOf, stileBudgetIssues, usdMicros, type Address, type ArcEnvironment, type LeashDraft, type LeashSpendFrom, type LeashTemplateKey, type LeashWindow } from "@lykia/core";
 import type { CreateLeashRequest, LeashTrailItem, LeashView } from "@lykia/core/api/leash";
 
-export type LeashStep = "who" | "limits" | "review";
+export type LeashStep = "who" | "from" | "limits" | "review";
 export const LEASH_STEPS: readonly { readonly id: LeashStep; readonly label: string }[] = [
   { id: "who", label: "Who" },
+  { id: "from", label: "Spend from" },
   { id: "limits", label: "Limits" },
   { id: "review", label: "Review" },
 ];
+
+/** What GET /v1/leashes/templates says about spending from a Gateway balance. */
+export interface GatewayOffer {
+  readonly available: Readonly<Partial<Record<ArcEnvironment, boolean>>>;
+  readonly reasons?: Readonly<Partial<Record<ArcEnvironment, string>>>;
+  readonly destinations: readonly { readonly key: string; readonly name: string; readonly domain: number }[];
+  readonly ceilings: { readonly perStepUsd: string; readonly perDayUsd: string };
+}
+
+export interface GatewayOption {
+  readonly available: boolean;
+  readonly reason: string | null;
+  readonly destinations: readonly { readonly key: string; readonly name: string }[];
+}
+
+/** The Gateway option for one environment; "coming soon" when the API does not offer it or did not answer. */
+export function gatewayOptionOf(offer: GatewayOffer | undefined, environment: ArcEnvironment): GatewayOption {
+  if (!offer) return { available: false, reason: "Coming soon.", destinations: [] };
+  const available = offer.available[environment] === true;
+  return { available, reason: available ? null : "Coming soon.", destinations: offer.destinations.map((d) => ({ key: d.key, name: d.name })) };
+}
+
+/** A chain's name from the offer, or the key with a capital. */
+export function chainName(key: string, offer?: Pick<GatewayOffer, "destinations">): string {
+  return offer?.destinations.find((d) => d.key === key)?.name ?? key.charAt(0).toUpperCase() + key.slice(1);
+}
 
 /** The three templates the sheet offers (custom goes through the API). */
 export const SHEET_TEMPLATES: readonly Exclude<LeashTemplateKey, "custom">[] = ["pay-invoices", "trade-small", "earn"];
@@ -29,11 +60,15 @@ export interface LeashForm {
   /** Comma- or line-separated payee addresses. */
   readonly recipients: string;
   readonly venues: readonly string[];
+  /** Where the money is. */
+  readonly spendFrom: LeashSpendFrom;
+  /** Gateway only: chain keys the agent may pay on. */
+  readonly destinations: readonly string[];
 }
 
 export function emptyForm(template: Exclude<LeashTemplateKey, "custom"> = "pay-invoices"): LeashForm {
   const t = LEASH_TEMPLATES[template];
-  return { name: "", mission: "", template, keyMode: "generate", signer: "", perDayUsd: t.suggested.perDayUsd, perStepUsd: t.suggested.perStepUsd, days: "7", recipients: "", venues: [...(t.venues ?? [])] };
+  return { name: "", mission: "", template, keyMode: "generate", signer: "", perDayUsd: t.suggested.perDayUsd, perStepUsd: t.suggested.perStepUsd, days: "7", recipients: "", venues: [...(t.venues ?? [])], spendFrom: "arc", destinations: [] };
 }
 
 /** A form prefilled from Ask Lyko's draft. */
@@ -50,7 +85,20 @@ export function draftFromParam(value: string | null, decode: (v: string) => unkn
 
 export function withTemplate(form: LeashForm, template: Exclude<LeashTemplateKey, "custom">): LeashForm {
   const t = LEASH_TEMPLATES[template];
-  return { ...form, template, venues: [...(t.venues ?? [])], ...(form.perDayUsd ? {} : { perDayUsd: t.suggested.perDayUsd, perStepUsd: t.suggested.perStepUsd }) };
+  // Only Pay invoices spends from a Gateway balance; another template goes back to the Arc wallet.
+  const source = template !== "pay-invoices" && form.spendFrom === "gateway" ? { spendFrom: "arc" as const, destinations: [] } : {};
+  return { ...form, template, venues: [...(t.venues ?? [])], ...source, ...(form.perDayUsd ? {} : { perDayUsd: t.suggested.perDayUsd, perStepUsd: t.suggested.perStepUsd }) };
+}
+
+/** Switches the money source. A Gateway leash pays named payees, so it takes the Pay invoices template. */
+export function withSpendFrom(form: LeashForm, spendFrom: LeashSpendFrom): LeashForm {
+  if (spendFrom === "arc") return { ...form, spendFrom };
+  const paying = form.template === "pay-invoices" ? form : withTemplate(form, "pay-invoices");
+  return { ...paying, spendFrom, venues: [], destinations: form.destinations.length > 0 ? form.destinations : ["arc"] };
+}
+
+export function toggleDestination(form: LeashForm, key: string): LeashForm {
+  return { ...form, destinations: form.destinations.includes(key) ? form.destinations.filter((d) => d !== key) : [...form.destinations, key] };
 }
 
 export function recipientsOf(form: Pick<LeashForm, "recipients">): string[] {
@@ -87,11 +135,16 @@ export function formIssues(form: LeashForm, step: LeashStep, owner: string | nul
       else if (owner && form.signer.trim().toLowerCase() === owner.toLowerCase()) out.push({ field: "signer", message: "Not your own wallet: the agent needs a key of its own." });
     }
   }
+  if ((step === "from" || step === "review") && form.spendFrom === "gateway") {
+    if (form.destinations.length === 0) out.push({ field: "destinations", message: "Pick at least one chain the agent may pay on." });
+    if (form.template !== "pay-invoices") out.push({ field: "template", message: "A Gateway leash pays named payees: Pay invoices." });
+  }
   if (step === "limits" || step === "review") {
     const days = daysOf(form);
     if (!Number.isInteger(days) || days < 1 || days > LEASH_LIMITS.maxDays) out.push({ field: "days", message: `1 to ${LEASH_LIMITS.maxDays} days.` });
     else {
       for (const i of budgetIssues(budgetOf(form))) out.push({ field: i.path === "budget.perStepUsd" ? "perStepUsd" : "perDayUsd", message: i.message });
+      if (form.spendFrom === "gateway") for (const i of stileBudgetIssues(budgetOf(form))) out.push({ field: i.path === "budget.perStepUsd" ? "perStepUsd" : "perDayUsd", message: i.message });
     }
     const payees = recipientsOf(form);
     if (LEASH_TEMPLATES[form.template].recipients === "allowlist") {
@@ -99,7 +152,7 @@ export function formIssues(form: LeashForm, step: LeashStep, owner: string | nul
     }
     if (payees.some((p) => !isAddress(p))) out.push({ field: "recipients", message: "Each payee is an address, 0x followed by 40 hex characters." });
     if (payees.length > LEASH_LIMITS.recipients) out.push({ field: "recipients", message: `At most ${LEASH_LIMITS.recipients} payees.` });
-    if (LEASH_TEMPLATES[form.template].venues && form.venues.length === 0) out.push({ field: "venues", message: "Keep at least one venue." });
+    if (form.spendFrom === "arc" && LEASH_TEMPLATES[form.template].venues && form.venues.length === 0) out.push({ field: "venues", message: "Keep at least one venue." });
   }
   return out;
 }
@@ -117,9 +170,15 @@ export function requestOf(form: LeashForm, input: { readonly owner: string; read
     budget: budgetOf(form),
     expiresAt: new Date(input.now + days * 86_400_000).toISOString(),
     ...(t.recipients === "allowlist" ? { recipients: payees as Address[] } : {}),
-    ...(t.venues && form.venues.length !== t.venues.length ? { venues: form.venues } : {}),
+    ...(form.spendFrom === "gateway" ? { spendFrom: "gateway" as const, destinations: [...form.destinations] } : t.venues && form.venues.length !== t.venues.length ? { venues: form.venues } : {}),
   };
 }
+
+/** What the sheet shows on the sample flock instead of a real Gateway balance. */
+export const SAMPLE_GATEWAY_BALANCE = { total: "1645", perChain: [{ chain: "Arc", balance: "1250" }, { chain: "Base", balance: "320" }, { chain: "Arbitrum", balance: "75" }] } as const;
+
+/** The Gateway ceilings while LykiaStile is unaudited, for the sheet's copy. */
+export const GATEWAY_CEILINGS = STILE_BETA;
 
 /* ------------------------------------------------------------ cards */
 
@@ -152,6 +211,17 @@ export function statusLabel(l: Pick<LeashView, "status" | "session">): string {
   if (l.status === "pending") return l.session?.sessionId ? "live" : "waiting for your signature";
   if (l.status === "active") return "live";
   return l.status;
+}
+
+export function spendFromLabel(l: Pick<LeashView, "spendFrom">): string {
+  return l.spendFrom === "gateway" ? "Gateway balance" : "Arc wallet";
+}
+
+/** Where a Gateway leash may pay; null for an Arc leash. */
+export function destinationsLabel(l: Pick<LeashView, "spendFrom" | "stile">, offer?: Pick<GatewayOffer, "destinations">): string | null {
+  if (l.spendFrom !== "gateway") return null;
+  const keys = l.stile?.destinations ?? [];
+  return keys.length > 0 ? keys.map((k) => chainName(k, offer)).join(", ") : "no chain";
 }
 
 export function venueLabel(l: Pick<LeashView, "venues" | "recipients" | "template">): string {
@@ -209,7 +279,7 @@ function sample(id: string, partial: Partial<LeashView> & Pick<LeashView, "agent
   } as LeashView;
 }
 
-/** What the sample flock shows: an invoice bot near its daily cap and a small trader with room left. */
+/** What the sample flock shows: an invoice bot near its daily cap, a small trader with room left, and a payout runner that spends from a Gateway balance. */
 export function sampleLeashes(now: number): LeashView[] {
   const day = 86_400_000;
   const at = (ms: number) => new Date(now - ms).toISOString();
@@ -229,6 +299,24 @@ export function sampleLeashes(now: number): LeashView[] {
       { agentName: "FX scout", template: "trade-small", budget: { perStepUsd: "25", perDayUsd: "50", totalUsd: "350" }, expiresAt: new Date(now + 6 * day + 2 * 3_600_000).toISOString() },
       { day: "10.10", total: "30.30" },
       [{ at: at(2 * 3_600_000), kind: "settled", summary: "Swap 10 USDC to EURC on Uniswap v3", usd: "10.10", chainProven: true, source: "lykia" }],
+    ),
+    sample(
+      "lsh_sample000003",
+      {
+        agentName: "Payout runner",
+        template: "pay-invoices",
+        budget: { perStepUsd: "50", perDayUsd: "150", totalUsd: "1050" },
+        expiresAt: new Date(now + 5 * day + 3 * 3_600_000).toISOString(),
+        recipients: ["0x6666666666666666666666666666666666666666", "0x8888888888888888888888888888888888888888"],
+        venues: ["gateway"],
+        spendFrom: "gateway",
+        stile: { address: "0x0000000000000000000000000000000000005711", sessionId: `0x${"5".repeat(64)}`, key: "0x0000000000000000000000000000000000000a11", chainId: 5042, validUntil: 0, nonceAtCreation: "0", destinations: ["base", "arbitrum", "arc"], maxGatewayFee: "100000", feeBps: 100, feeRecipient: "0x8c5281055b197443ff01dbbdfbf29fd63946ca1e", deploys: false },
+      },
+      { day: "40.40", total: "121.20" },
+      [
+        { at: at(70 * 60_000), kind: "settled", summary: "Pay 25 USDC to 0x6666…6666 on Base from the Gateway balance", usd: "25.25", chainProven: true, source: "lykia" },
+        { at: at(5 * 3_600_000), kind: "settled", summary: "Pay 15 USDC to 0x8888…8888 on Arbitrum from the Gateway balance", usd: "15.15", chainProven: true, source: "lykia" },
+      ],
     ),
   ];
 }

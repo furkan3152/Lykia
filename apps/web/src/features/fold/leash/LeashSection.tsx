@@ -1,7 +1,9 @@
 /**
- * Pack · Leashes. Every leash as a card: who it is for, its template, a
- * budget meter for today and for its whole life (read from the LykiaAccount
- * on chain), the time left, where it may go, its last actions, and Revoke,
+ * Pack · Leashes. Every leash as a card: who it is for, its template, where
+ * it spends from (Arc wallet or Gateway balance, and for Gateway the chains
+ * it may pay on), a budget meter for today and for its whole life (read from
+ * the LykiaAccount or LykiaStile on chain), the time left, where it may go,
+ * its last actions, and Revoke,
  * always one click away. "New leash" opens the three-step sheet; a draft
  * from Ask Lyko (`?leash=`) opens it prefilled.
  */
@@ -17,8 +19,8 @@ import { Button, LeashMark, Tag, toast } from "../../../mosaic";
 import { useLykiaWallet } from "../../wallet/useLykiaWallet";
 import { useWallet } from "../../wallet/store";
 import type { FoldOwner } from "../data";
-import { useLeashes } from "./data";
-import { actionLine, draftFromParam, meterOf, nearCap, statusLabel, stepLeft, timeLeft, usdText, venueLabel, type MeterView } from "./model";
+import { useGatewayOffer, useLeashes } from "./data";
+import { actionLine, destinationsLabel, draftFromParam, meterOf, nearCap, spendFromLabel, statusLabel, stepLeft, timeLeft, usdText, venueLabel, type GatewayOffer, type MeterView } from "./model";
 import { NewLeashSheet } from "./NewLeashSheet";
 
 function Bar({ m, label }: { readonly m: MeterView; readonly label: string }) {
@@ -37,11 +39,12 @@ function Bar({ m, label }: { readonly m: MeterView; readonly label: string }) {
   );
 }
 
-export function LeashCard({ l, now, busy, onRevoke }: { readonly l: LeashView; readonly now: number; readonly busy: boolean; readonly onRevoke: (l: LeashView) => void }) {
+export function LeashCard({ l, now, busy, onRevoke, offer }: { readonly l: LeashView; readonly now: number; readonly busy: boolean; readonly onRevoke: (l: LeashView) => void; readonly offer?: GatewayOffer | undefined }) {
   const live = l.status === "active" || l.status === "pending";
   const close = nearCap(l);
+  const paysOn = destinationsLabel(l, offer);
   return (
-    <article className="fd-leash m-frame m-frame--thin" data-status={l.status} data-near={close}>
+    <article className="fd-leash m-frame m-frame--thin" data-status={l.status} data-near={close} data-from={l.spendFrom ?? "arc"}>
       <header className="fd-leash__head">
         <span className="fd-leash__mark" aria-hidden="true"><LeashMark scale={2} /></span>
         <h3>{l.agentName}</h3>
@@ -53,6 +56,10 @@ export function LeashCard({ l, now, busy, onRevoke }: { readonly l: LeashView; r
       <Bar m={meterOf(l.usage.day)} label="TODAY" />
       <Bar m={meterOf(l.usage.total)} label="WHOLE LEASH" />
       {close && live ? <p className="fd-leash__warn">{`Near its cap: ${usdText(stepLeft(l))} left for the next step.`}</p> : null}
+      <p className="fd-leash__from">
+        <Tag tone={l.spendFrom === "gateway" ? "sea" : "ghost"}>{spendFromLabel(l).toUpperCase()}</Tag>
+        {paysOn ? <span className="m-small">{`Pays on ${paysOn}`}</span> : null}
+      </p>
       <dl className="fd-agent__facts">
         <div><dt>{"Time left"}</dt><dd className="num">{live ? timeLeft(l.expiresAt, now) : "ended"}</dd></div>
         <div><dt>{"Per step"}</dt><dd className="num">{usdText(l.budget.perStepUsd)}</dd></div>
@@ -75,6 +82,7 @@ export function LeashCard({ l, now, busy, onRevoke }: { readonly l: LeashView; r
 
 export function LeashSection({ owner, onSignIn }: { readonly owner: FoldOwner; readonly onSignIn: () => void }) {
   const leashes = useLeashes(owner);
+  const offer = useGatewayOffer();
   const qc = useQueryClient();
   const wallet = useLykiaWallet();
   const openModal = useWallet((s) => s.openModal);
@@ -124,7 +132,7 @@ export function LeashSection({ owner, onSignIn }: { readonly owner: FoldOwner; r
         <span className="fd-leashes__mark" aria-hidden="true"><LeashMark scale={3} /></span>
         <div>
           <h3 id="fd-leashes-h">{"Leashes"}</h3>
-          <p className="m-small">{"A budget an outside agent cannot exceed: per step, per day and in total, until a date, only where you allow. Your LykiaAccount holds the caps on chain; Revoke cuts the key at once."}</p>
+          <p className="m-small">{"A budget an outside agent cannot exceed: per step, per day and in total, until a date, only where you allow. It spends from your Arc wallet or your Gateway balance; the caps sit on chain either way, and Revoke cuts the key at once."}</p>
         </div>
         <Button tone="sea" onClick={() => (owner.sample || owner.signedIn ? setOpen(true) : onSignIn())}>{owner.signedIn || owner.sample ? "+ NEW LEASH" : "SIGN IN TO LEASH"}</Button>
       </header>
@@ -133,7 +141,7 @@ export function LeashSection({ owner, onSignIn }: { readonly owner: FoldOwner; r
       {leashes.isLoading && !owner.sample ? <div className="fd-leashes__grid"><div className="m-skel" style={{ height: 260 }} /></div> : null}
       {live.length > 0 ? (
         <div className="fd-leashes__grid">
-          {live.map((l) => <LeashCard key={l.id} l={l} now={now} busy={busyId === l.id} onRevoke={(x) => void revoke(x)} />)}
+          {live.map((l) => <LeashCard key={l.id} l={l} now={now} busy={busyId === l.id} onRevoke={(x) => void revoke(x)} offer={offer.data} />)}
         </div>
       ) : owner.signedIn && !leashes.isLoading ? (
         <p className="fd-leashes__empty m-small">{"No leashes yet. Give a bot $20 a day for a week to pay invoices, or let a trading agent swap small amounts: it gets a key for its leash only, and you sign the limits once."}</p>
@@ -141,7 +149,7 @@ export function LeashSection({ owner, onSignIn }: { readonly owner: FoldOwner; r
       {ended.length > 0 ? (
         <details className="fd-leashes__ended">
           <summary className="m-small">{`${ended.length} ended`}</summary>
-          <div className="fd-leashes__grid">{ended.map((l) => <LeashCard key={l.id} l={l} now={now} busy={false} onRevoke={() => undefined} />)}</div>
+          <div className="fd-leashes__grid">{ended.map((l) => <LeashCard key={l.id} l={l} now={now} busy={false} onRevoke={() => undefined} offer={offer.data} />)}</div>
         </details>
       ) : null}
       {sheetOpen ? <NewLeashSheet key={draftParam ?? "new"} open owner={owner} draft={draft} onClose={closeSheet} onCreated={() => void qc.invalidateQueries({ queryKey: ["leashes"] })} /> : null}

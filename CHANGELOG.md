@@ -7,6 +7,25 @@ own dated version history in [docs/platform/changelog.md](docs/platform/changelo
 
 ### Added
 
+- **Stile: Spend from Gateway balance**, an option inside Leash. A
+  pay-invoices leash with `"spendFrom": "gateway"` spends the owner's Circle
+  Gateway USDC deposited on Arc, on the chains it names, through
+  `LykiaStile` (`packages/contracts/contracts/stile/`), a new ERC-1271
+  contract the owner creates from their own wallet and adds as a Gateway
+  delegate. The agent's key reserves each transfer on the Stile, which
+  checks per-transfer, rolling daily and lifetime caps, payees,
+  destinations, Gateway's fee and Lykia's fee leg and records the EIP-712
+  digest; Gateway's read-only `isValidSignature` check answers only for
+  reserved digests of live sessions. Lykia's fee is a second burn intent in
+  the same attested set. Plan, submit (to Gateway's `/v1/transfer` with
+  `contractSigner: true`), trail (Reserved on Arc, Gateway's record,
+  `AttestationUsed` on the destination) and revoke (`revokeSession`, pause,
+  `removeDelegate`) are the existing leash endpoints. The Fold's leash sheet
+  gains a "Spend from" step with the balance per chain and the chains to
+  pay on; cards show the source and the chains. Off until `LYKIA_STILE` and
+  a reference deployment are set; unaudited, so at most $100 per transfer
+  and $300 a day. Unit, fuzz and invariant tests; owner steps and the
+  staleness window in [docs/stile.md](docs/stile.md).
 - **Staged plans**: a plan whose later step spends what an earlier one
   delivers is signed stage by stage. One plan card in the chat shows "Step 1
   of 2" active and the next step dimmed; after a stage settles, the next

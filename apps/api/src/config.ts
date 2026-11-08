@@ -86,6 +86,12 @@ export interface Config {
   readonly fee: { readonly bps: number; readonly recipient: `0x${string}`; readonly schedule?: FeeSchedule | null; readonly plans?: Readonly<Record<string, FeeSchedule>> };
   /** Mainnet beta cap (USD) that sits above every Fence while the contracts are unaudited; null when switched off. */
   readonly beta: { readonly perStepUsd: string; readonly perDayUsd: string } | null;
+  /**
+   * Stile, a leash that spends from a Circle Gateway balance (LYKIA_STILE, off by default). `environments`
+   * lists where it is switched on; `reference` is the owner's own LykiaStile deployment per environment,
+   * the one the end-to-end check ran against. The Gateway option is offered only where both are set.
+   */
+  readonly stile: { readonly environments: readonly ArcEnvironment[]; readonly reference: Readonly<Partial<Record<ArcEnvironment, `0x${string}`>>> };
   /** x402: paid routes are disabled unless payTo is set. */
   /** ERC-8354 attestations: the address that answers validation requests as Lykia's guard (it signs on its own; the server never does). */
   readonly guardAddress: `0x${string}` | null;
@@ -231,6 +237,9 @@ const EnvSchema = z.object({
   LYKIA_FEE_SCHEDULE_PLANS: optionalString,
   CIRCLE_X402_SELLER_WALLET_ID: optionalString,
   LYKIA_BETA_CAP_USD: optionalString,
+  LYKIA_STILE: optionalString,
+  LYKIA_STILE_REFERENCE_TESTNET: optionalString,
+  LYKIA_STILE_REFERENCE_MAINNET: optionalString,
   LYKIA_FEE_RECIPIENT: optionalString,
   LYKIA_X402_FACILITATOR_URL: optionalString,
   LYKIA_LOG_LEVEL: z.preprocess(
@@ -317,6 +326,8 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
   if (env.LYKIA_BETA_CAP_USD !== undefined && !/^(?:off|\d{1,9}(?:\/\d{1,9})?)$/u.test(env.LYKIA_BETA_CAP_USD)) issues.push("LYKIA_BETA_CAP_USD: 'off', a per-step USD cap such as 1000, or per-step/per-day such as 1000/5000");
   if (env.LYKIA_FEE_BPS !== undefined && !(/^\d{1,3}$/u.test(env.LYKIA_FEE_BPS) && Number(env.LYKIA_FEE_BPS) <= MAX_FEE_BPS)) issues.push(`LYKIA_FEE_BPS: an integer from 0 to ${MAX_FEE_BPS} (100 = 1%)`);
   if (env.LYKIA_FEE_RECIPIENT && !/^0x[0-9a-fA-F]{40}$/u.test(env.LYKIA_FEE_RECIPIENT)) issues.push("LYKIA_FEE_RECIPIENT: must be a 0x address");
+  if (env.LYKIA_STILE !== undefined && stileEnvironments(env.LYKIA_STILE) === null) issues.push('LYKIA_STILE: "off", "on", "testnet", "mainnet" or "testnet,mainnet"');
+  for (const name of ["LYKIA_STILE_REFERENCE_TESTNET", "LYKIA_STILE_REFERENCE_MAINNET"] as const) if (env[name] && !/^0x[0-9a-fA-F]{40}$/u.test(env[name]!)) issues.push(`${name}: must be a 0x address`);
   if (env.LYKIA_FEE_SCHEDULE !== undefined) {
     const parsed = parseFeeSchedule(env.LYKIA_FEE_SCHEDULE);
     if (!parsed.ok) issues.push(`LYKIA_FEE_SCHEDULE: ${parsed.issue}`);
@@ -353,6 +364,13 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
     circle: Object.freeze({ apiKey: env.CIRCLE_API_KEY ?? null, entitySecret: env.CIRCLE_ENTITY_SECRET ?? null, walletSetId: env.CIRCLE_WALLET_SET_ID ?? null, sellerWalletId: env.CIRCLE_X402_SELLER_WALLET_ID ?? null, serverWallets: env.LYKIA_CIRCLE_SERVER_WALLETS === "true" }),
     telegramBotToken: env.TELEGRAM_BOT_TOKEN ?? null,
     beta: betaCap(env.LYKIA_BETA_CAP_USD),
+    stile: Object.freeze({
+      environments: Object.freeze(stileEnvironments(env.LYKIA_STILE) ?? []),
+      reference: Object.freeze({
+        ...(env.LYKIA_STILE_REFERENCE_TESTNET ? { testnet: env.LYKIA_STILE_REFERENCE_TESTNET.toLowerCase() as `0x${string}` } : {}),
+        ...(env.LYKIA_STILE_REFERENCE_MAINNET ? { mainnet: env.LYKIA_STILE_REFERENCE_MAINNET.toLowerCase() as `0x${string}` } : {}),
+      }),
+    }),
     fee: Object.freeze({ bps: env.LYKIA_FEE_BPS !== undefined ? Number(env.LYKIA_FEE_BPS) : DEFAULT_FEE_BPS, recipient: (env.LYKIA_FEE_RECIPIENT ?? DEFAULT_FEE_RECIPIENT).toLowerCase() as `0x${string}`, schedule: feeScheduleOf(env.LYKIA_FEE_SCHEDULE), plans: planSchedules(env.LYKIA_FEE_SCHEDULE_PLANS) ?? {} }),
     guardAddress: (env.LYKIA_GUARD_ADDRESS as `0x${string}` | undefined) ?? null,
     x402: Object.freeze({
@@ -386,6 +404,16 @@ function betaCap(raw: string | undefined): Config["beta"] {
   if (raw === "off") return null;
   const [step = "1000", day] = (raw ?? "1000/5000").split("/");
   return Object.freeze({ perStepUsd: step, perDayUsd: day ?? String(Number(step) * 5) });
+}
+
+/** LYKIA_STILE: unset or "off" = nowhere; "on" = both environments; otherwise a comma list. null = invalid. */
+function stileEnvironments(raw: string | undefined): ArcEnvironment[] | null {
+  const value = (raw ?? "off").trim().toLowerCase();
+  if (value === "off" || value === "") return [];
+  if (value === "on") return ["testnet", "mainnet"];
+  const list = splitList(value);
+  if (list.length === 0 || !list.every((e) => e === "testnet" || e === "mainnet")) return null;
+  return [...new Set(list)] as ArcEnvironment[];
 }
 
 /** Circle's x402 facilitator (verify, settle, supported). Settlement needs CIRCLE_API_KEY. */

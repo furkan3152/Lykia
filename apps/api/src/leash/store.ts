@@ -7,8 +7,10 @@
  *   leash_steps      <id>:<intentId>:<stepId> -> the prepared session transaction
  *   leash_marks      webhook de-duplication (thresholds, expiring)
  *   leash_spend      counters: <id>:d:<UTC day> and <id>:t, USD micro-dollars
+ *   leash_stiles     <environment>:<owner> -> the owner's LykiaStile (Gateway leashes)
  */
-import type { Leash, LeashDenyReason, UnsignedTransaction } from "@lykia/core";
+import type { Address, Leash, LeashDenyReason, UnsignedTransaction } from "@lykia/core";
+import type { Hex } from "viem";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { typedCollection } from "../platform/typed.js";
@@ -21,6 +23,8 @@ export const leashActions = (ctx: AppContext) => typedCollection<LeashAction>(ct
 export const leashSteps = (ctx: AppContext) => typedCollection<LeashStep>(ctx, "leash_steps");
 export const leashMarks = (ctx: AppContext) => ctx.store.collection<{ readonly at: number }>("leash_marks");
 export const leashSpend = (ctx: AppContext) => ctx.store.counters("leash_spend");
+/** The owner's LykiaStile per environment: `<environment>:<owner>` -> its address (predicted until bound). */
+export const typedStiles = (ctx: AppContext) => typedCollection<{ readonly address: Address; readonly predicted: boolean; readonly at: string }>(ctx, "leash_stiles");
 
 export interface LeashAction {
   readonly at: string;
@@ -45,7 +49,19 @@ export interface LeashStep {
   readonly summary: string;
   readonly preparedAt: string;
   readonly txHash?: `0x${string}`;
-  readonly status: "prepared" | "submitted" | "settled" | "failed";
+  /** reserved: a Gateway leash's reservation is on chain, Gateway has not attested it yet. */
+  readonly status: "prepared" | "submitted" | "reserved" | "settled" | "failed";
+  /** Gateway leashes: the burn intents reserved on the Stile and what Gateway answered. */
+  readonly gateway?: {
+    readonly intents: readonly { readonly maxBlockHeight: string; readonly maxFee: string; readonly spec: import("./stile.js").SpecMessage }[];
+    readonly digest: Hex;
+    readonly signature: Hex;
+    readonly transferSpecHash: Hex;
+    readonly destination: string;
+    readonly forward: boolean;
+    readonly transferId?: string | null;
+    readonly attestation?: Hex | null;
+  };
 }
 
 export const LEASH_ID = /^lsh_[a-f0-9]{12}$/u;

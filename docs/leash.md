@@ -19,6 +19,12 @@ has, composed so that each limit is held where it can be held:
 | An optional Tag ([tag.md](tag.md)) | An ERC-8004 registration that pins the leash's Fence hash. |
 | MCP | With a leash key, `/v1/mcp` offers only the leash's tools. |
 
+**Spend from.** A leash spends from the owner's LykiaAccount on Arc (the
+default, everything below) or, with `"spendFrom": "gateway"`, from the
+owner's Circle Gateway balance through the owner's own LykiaStile, an
+ERC-1271 contract that Gateway asks before every transfer. Same endpoints,
+limits, Revoke and trail; see [stile.md](stile.md).
+
 ## Templates
 
 | Template | Step kinds | Tokens | Where | Slippage |

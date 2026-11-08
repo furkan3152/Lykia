@@ -18,7 +18,7 @@
  * lets it through to its own leash's read, plan and submit routes and to
  * MCP, nothing else.
  */
-import { LEASH_ENFORCEMENT, LEASH_LIMITS, LEASH_TEMPLATE_KEYS, LEASH_TEMPLATES, LEASH_TOOLS, type Address, type LeashTemplateKey, type LeashTool } from "@lykia/core";
+import { LEASH_ENFORCEMENT, LEASH_GATEWAY_ENFORCEMENT, LEASH_LIMITS, LEASH_SPEND_FROM, LEASH_TEMPLATE_KEYS, LEASH_TEMPLATES, LEASH_TOOLS, STILE_BETA, type Address, type LeashSpendFrom, type LeashTemplateKey, type LeashTool } from "@lykia/core";
 import type { Request } from "express";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
@@ -26,6 +26,8 @@ import { LykiaHttpError } from "../http/errors.js";
 import type { ApiModule } from "../http/router.js";
 import { evmAddress, parseBody, parseParams, parseQuery, txHash } from "../http/validate.js";
 import { leashService, type LeashCaller } from "../leash/service.js";
+import { DEFAULT_MAX_GATEWAY_FEE_USD, MAX_GATEWAY_FEE_USD, stileFeeBps } from "../leash/gateway.js";
+import { stileAvailability, stileDestinations } from "../leash/stile.js";
 import { keyOf } from "../platform/gate.js";
 import { documentRoutes } from "../platform/openapi/registry.js";
 import { projectOf } from "../platform/projects.js";
@@ -56,26 +58,30 @@ export const createLeashSchema = z
     tools: z.array(toolSchema).max(LEASH_TOOLS.length).optional(),
     maxCalls: z.number().int().min(1).max(LEASH_LIMITS.maxCalls).optional(),
     tag: z.boolean().optional(),
+    spendFrom: z.enum(LEASH_SPEND_FROM as unknown as [LeashSpendFrom, ...LeashSpendFrom[]]).optional().describe('"arc" (default): the owner\'s LykiaAccount on Arc. "gateway": the owner\'s Circle Gateway balance through LykiaStile, where it is switched on (see GET /v1/leashes/templates).'),
+    destinations: z.array(z.string().min(2).max(24)).min(1).max(16).optional().describe('"gateway" only: Gateway chains the agent may pay to, e.g. ["arc", "base"].'),
+    maxGatewayFeeUsd: z.string().max(12).optional().describe(`"gateway" only: Circle's fee per burn intent the session allows (default $${DEFAULT_MAX_GATEWAY_FEE_USD}, at most $${MAX_GATEWAY_FEE_USD}).`),
   })
   .refine((b) => Boolean(b.agent) !== Boolean(b.parentAgentId), "Send either agent (a new root agent) or parentAgentId (a sub-agent).")
+  .refine((b) => b.spendFrom === "gateway" || (b.destinations === undefined && b.maxGatewayFeeUsd === undefined), 'destinations and maxGatewayFeeUsd go with spendFrom "gateway".')
   .refine((b) => !b.fence || b.template === "custom" || b.template === undefined, 'A Fence goes with template "custom".');
 
 const planSchema = z
-  .object({ text: z.string().min(1).max(500).optional(), actions: z.array(z.unknown()).max(12).optional(), dryRun: z.boolean().optional() })
+  .object({ text: z.string().min(1).max(500).optional(), actions: z.array(z.unknown()).max(12).optional(), dryRun: z.boolean().optional(), forward: z.boolean().optional().describe("Gateway leashes: ask Circle's Forwarding Service to submit the mint on the destination (its fee comes from Gateway's estimate).") })
   .refine((b) => (b.text === undefined) !== (b.actions === undefined), "Send either text or actions.");
 const submitSchema = z.object({ intentId: z.string().regex(/^out_[A-Za-z0-9_-]{6,32}$/u), stepId: z.string().regex(/^s\d{1,2}$/u), hash: txHash });
 const renewSchema = z.object({ budget: budget.optional(), expiresAt: z.string().max(40), recipients: z.array(evmAddress).max(LEASH_LIMITS.recipients).optional(), venues: z.array(z.string().min(2).max(48)).max(20).optional(), signer: evmAddress.optional() });
 
 const ok = z.record(z.unknown());
 documentRoutes([
-  { method: "get", path: "/v1/leashes/templates", tag: "Leashes", summary: "Leash templates and the enforcement split", description: "pay-invoices, trade-small, earn and custom, with what LykiaAccount enforces on chain and what the API enforces.", auth: "public", response: ok },
+  { method: "get", path: "/v1/leashes/templates", tag: "Leashes", summary: "Leash templates and the enforcement split", description: "pay-invoices, trade-small, earn and custom, with what LykiaAccount enforces on chain and what the API enforces; and, for spending from a Gateway balance through LykiaStile, where it is available, its destinations, ceilings and enforcement split.", auth: "public", response: ok },
   {
     method: "post",
     path: "/v1/leashes",
     tag: "Leashes",
     summary: "Put an agent on a leash",
     description:
-      "One call: a Pack agent whose Fence is a strict subset of its parent's, a daily budget carved from the parent, the unsigned LykiaAccount session transaction (createSession from the owner, or createSubSession from the parent agent's session key) with per-token caps, payees, call rules, expiry and the Fence hash, a leash key shown once, a ready MCP config and optionally an ERC-8004 Tag registration. Owner only: a Lykia-Session, or a secret key with the agents scope that may act for the owner.",
+      "One call: a Pack agent whose Fence is a strict subset of its parent's, a daily budget carved from the parent, the unsigned LykiaAccount session transaction (createSession from the owner, or createSubSession from the parent agent's session key) with per-token caps, payees, call rules, expiry and the Fence hash, a leash key shown once, a ready MCP config and optionally an ERC-8004 Tag registration. With spendFrom gateway the money is the owner's Circle Gateway balance: the response carries the owner's LykiaStile (its creation when there is none), addDelegate on Gateway Wallet and createSession on the Stile instead of a LykiaAccount session. Owner only: a Lykia-Session, or a secret key with the agents scope that may act for the owner.",
     scope: "agents",
     auth: "secret",
     body: createLeashSchema,
@@ -89,8 +95,8 @@ documentRoutes([
   { method: "post", path: "/v1/leashes/:id/session", tag: "Leashes", summary: "Bind the on-chain session", description: "With txHash: read from its SessionCreated event. Without: found among the session ids issued since the leash was made.", scope: "agents", auth: "secret", params: LeashParams, body: z.object({ txHash: txHash.optional() }), response: ok },
   { method: "post", path: "/v1/leashes/:id/revoke", tag: "Leashes", summary: "Revoke a leash", description: "The leash key stops working at once and the carve returns to the parent. Returns the unsigned revokeSession(id) for the owner's wallet; once signed the session and every sub-session under it end on chain.", scope: "agents", auth: "secret", params: LeashParams, response: ok },
   { method: "post", path: "/v1/leashes/:id/renew", tag: "Leashes", summary: "Renew a leash", description: "A new carve, a new session and a new key; the old leash is revoked. Never an increase in place.", scope: "agents", auth: "secret", params: LeashParams, body: renewSchema, response: ok, status: 201 },
-  { method: "post", path: "/v1/leashes/:id/plan", tag: "Leashes", summary: "Plan inside a leash", description: "For the leash key. The Fence with the leash's own spend, the leash's total, spendable() per token and the session's call rules and payees on chain, then a simulation from the session key. Inside: the intent and its first step as one transaction for the session key. Outside: 422 LEASH_DENIED with reason codes and the remaining budget.", scope: "build", auth: "key", params: LeashParams, body: planSchema, response: ok },
-  { method: "post", path: "/v1/leashes/:id/submit", tag: "Leashes", summary: "Report a signed leash step", description: "The hash of the transaction the session key sent. Checked against the prepared one, settled from its receipt, counted against the leash; the next step comes back prepared.", scope: "execute", auth: "key", params: LeashParams, body: submitSchema, response: ok },
+  { method: "post", path: "/v1/leashes/:id/plan", tag: "Leashes", summary: "Plan inside a leash", description: "For the leash key. The Fence with the leash's own spend, the leash's total, spendable() per token and the session's call rules and payees on chain, then a simulation from the session key. Inside: the intent and its first step as one transaction for the session key. Outside: 422 LEASH_DENIED with reason codes and the remaining budget. A Gateway leash plans one transfer: the burn intents (payment and Lykia's fee leg) and the reserve transaction on the owner's LykiaStile, in prepared.gateway.", scope: "build", auth: "key", params: LeashParams, body: planSchema, response: ok },
+  { method: "post", path: "/v1/leashes/:id/submit", tag: "Leashes", summary: "Report a signed leash step", description: "The hash of the transaction the session key sent. Checked against the prepared one, settled from its receipt, counted against the leash; the next step comes back prepared. For a Gateway leash the reservation is proven from its Reserved event, then the burn intents go to Gateway's /v1/transfer with contractSigner true; the attestation and the unsigned gatewayMint come back (status pending while Gateway cannot see the reservation yet: submit the same hash again).", scope: "execute", auth: "key", params: LeashParams, body: submitSchema, response: ok },
 ]);
 
 async function callerOf(ctx: AppContext, req: Request, owner: string): Promise<LeashCaller> {
@@ -119,7 +125,24 @@ export const leashModule: ApiModule = {
     };
 
     router.get("/leashes/templates", (_req, res) => {
-      res.json({ templates: Object.values(LEASH_TEMPLATES), enforcement: LEASH_ENFORCEMENT, limits: LEASH_LIMITS });
+      const availability = (["testnet", "mainnet"] as const).map((environment) => stileAvailability(ctx, environment));
+      res.json({
+        templates: Object.values(LEASH_TEMPLATES),
+        enforcement: LEASH_ENFORCEMENT,
+        limits: LEASH_LIMITS,
+        gateway: {
+          available: Object.fromEntries(availability.map((a) => [a.environment, a.available])),
+          reasons: Object.fromEntries(availability.filter((a) => !a.available).map((a) => [a.environment, a.reason])),
+          reference: Object.fromEntries(availability.filter((a) => a.reference).map((a) => [a.environment, a.reference])),
+          template: "pay-invoices",
+          destinations: stileDestinations(),
+          ceilings: STILE_BETA,
+          feeBps: stileFeeBps(ctx),
+          maxGatewayFeeUsd: { default: DEFAULT_MAX_GATEWAY_FEE_USD, max: MAX_GATEWAY_FEE_USD },
+          source: "The part of the owner's Gateway balance deposited on Arc.",
+          enforcement: LEASH_GATEWAY_ENFORCEMENT,
+        },
+      });
     });
 
     router.post("/leashes", ctx.limits.heavy, async (req, res) => {
@@ -133,7 +156,7 @@ export const leashModule: ApiModule = {
         ...(body.parentAgentId ? { parentAgentId: body.parentAgentId } : {}),
         ...(body.name ? { name: body.name } : {}),
         ...(body.signer ? { signer: body.signer as Address } : {}),
-        template: body.template ?? (body.fence ? "custom" : "trade-small"),
+        template: body.template ?? (body.fence ? "custom" : body.spendFrom === "gateway" ? "pay-invoices" : "trade-small"),
         ...(body.fence ? { fence: body.fence as never } : {}),
         budget: body.budget,
         expiresAt: body.expiresAt,
@@ -143,6 +166,9 @@ export const leashModule: ApiModule = {
         ...(body.tools ? { tools: body.tools } : {}),
         ...(body.maxCalls ? { maxCalls: body.maxCalls } : {}),
         ...(body.tag ? { tag: true } : {}),
+        ...(body.spendFrom ? { spendFrom: body.spendFrom } : {}),
+        ...(body.destinations ? { destinations: body.destinations } : {}),
+        ...(body.maxGatewayFeeUsd !== undefined ? { maxGatewayFeeUsd: body.maxGatewayFeeUsd } : {}),
         publicBaseUrl: publicBaseUrl(req),
       });
       res.status(201).json(created);
@@ -197,7 +223,7 @@ export const leashModule: ApiModule = {
       const body = parseBody(req, planSchema);
       const leash = await s().get(id);
       await mayRead(req, leash);
-      res.json(await s().plan(leash, { ...(body.text !== undefined ? { text: body.text } : { actions: actionsFrom(body.actions) }), ...(body.dryRun ? { dryRun: true } : {}) }));
+      res.json(await s().plan(leash, { ...(body.text !== undefined ? { text: body.text } : { actions: actionsFrom(body.actions) }), ...(body.dryRun ? { dryRun: true } : {}), ...(body.forward ? { forward: true } : {}) }));
     });
 
     router.post("/leashes/:id/submit", ctx.limits.heavy, async (req, res) => {

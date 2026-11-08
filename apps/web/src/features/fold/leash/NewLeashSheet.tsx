@@ -1,9 +1,12 @@
 /**
- * New leash: who, limits, review, then the keys. A bottom sheet on phones
- * and a stone panel on wider screens (the Fold's sheet).
+ * New leash: who, spend from, limits, review, then the keys. A bottom
+ * sheet on phones and a stone panel on wider screens (the Fold's sheet).
  *
  *   Who      the agent's name, the template, and its session key (made in
  *            this browser and shown once, or the agent's own address)
+ *   From     Arc wallet (the owner's LykiaAccount) or Gateway balance (the
+ *            owner's Circle Gateway USDC through their own LykiaStile), with
+ *            the balance per chain and the chains the leash may pay on
  *   Limits   per day, per step, how many days, and the payees or venues
  *   Review   what the chain holds and what the API holds, then create
  *   Keys     the leash key, the MCP config and the session key, shown once
@@ -12,7 +15,7 @@
  * The leash is created before the wallet opens, so the key is never lost to
  * a rejected signature: it stays pending until the session lands.
  */
-import { LEASH_ENFORCEMENT, LEASH_TEMPLATES, type LeashDraft } from "@lykia/core";
+import { LEASH_ENFORCEMENT, LEASH_GATEWAY_ENFORCEMENT, LEASH_TEMPLATES, type LeashDraft } from "@lykia/core";
 import type { CreateLeashResponse, LeashView } from "@lykia/core/api/leash";
 import { useState } from "react";
 import { createPortal } from "react-dom";
@@ -24,7 +27,8 @@ import { Button, Field, Input, LeashMark, Tag, cx, toast } from "../../../mosaic
 import { useLykiaWallet } from "../../wallet/useLykiaWallet";
 import { useWallet } from "../../wallet/store";
 import type { FoldOwner } from "../data";
-import { budgetOf, emptyForm, formFromDraft, formIssues, LEASH_STEPS, recipientsOf, requestOf, SHEET_TEMPLATES, usdText, withTemplate, type LeashForm, type LeashStep } from "./model";
+import { useGatewayBalance, useGatewayOffer } from "./data";
+import { budgetOf, chainName, SAMPLE_GATEWAY_BALANCE, emptyForm, formFromDraft, formIssues, GATEWAY_CEILINGS, gatewayOptionOf, LEASH_STEPS, recipientsOf, requestOf, SHEET_TEMPLATES, toggleDestination, usdText, withSpendFrom, withTemplate, type LeashForm, type LeashStep } from "./model";
 
 type Phase = LeashStep | "keys";
 
@@ -82,12 +86,17 @@ export function NewLeashSheet({ open, owner, draft, onClose, onCreated }: { read
   const t = LEASH_TEMPLATES[form.template];
   const budget = budgetOf(form);
   const set = (patch: Partial<LeashForm>) => setForm((f) => ({ ...f, ...patch }));
+  const offer = useGatewayOffer();
+  const gateway = gatewayOptionOf(offer.data, owner.environment);
+  const onGateway = form.spendFrom === "gateway";
+  const balance = useGatewayBalance(owner.address, owner.environment, onGateway && !owner.sample);
+  const shownBalance = owner.sample ? SAMPLE_GATEWAY_BALANCE : balance.data;
 
   const next = () => {
     setTouched(true);
     if (issues.length > 0) return;
     setTouched(false);
-    setPhase(step === "who" ? "limits" : "review");
+    setPhase(step === "who" ? "from" : step === "from" ? "limits" : "review");
   };
 
   const create = async () => {
@@ -99,6 +108,10 @@ export function NewLeashSheet({ open, owner, draft, onClose, onCreated }: { read
     }
     setBusy(true);
     try {
+      if (onGateway && !gateway.available) {
+        toast.info("Spending from a Gateway balance is coming soon", { description: "Pick Arc wallet for now.", from: "LYKO" });
+        return;
+      }
       // The session key is made here and never leaves this browser; only its address goes to Lykia.
       const key = form.keyMode === "generate" ? generatePrivateKey() : null;
       const signer = key ? privateKeyToAccount(key).address : form.signer.trim();
@@ -118,7 +131,9 @@ export function NewLeashSheet({ open, owner, draft, onClose, onCreated }: { read
     if (!wallet.connected) return openModal();
     setBusy(true);
     try {
-      const hashes = await wallet.send(created.transactions.map((x) => ({ to: x.to, data: x.data, value: x.value, chainId: x.chainId })));
+      // A Gateway leash may first create the owner's LykiaStile (a creation, no `to`), then the calls, in order.
+      const creation = created.stile?.deployment;
+      const hashes = await wallet.send([...(creation ? [{ data: creation.data, value: creation.value, chainId: creation.chainId, label: creation.label }] : []), ...created.transactions.map((x) => ({ to: x.to, data: x.data, value: x.value, chainId: x.chainId }))]);
       const last = hashes[hashes.length - 1];
       setSigned(last ?? null);
       if (last) await apiPost(`/v1/leashes/${encodeURIComponent(created.leash.id)}/session`, { txHash: last }).catch(() => undefined);
@@ -136,8 +151,10 @@ export function NewLeashSheet({ open, owner, draft, onClose, onCreated }: { read
     onClose();
   };
 
-  const chain = LEASH_ENFORCEMENT.filter((e) => e.enforcedBy !== "api");
-  const api = LEASH_ENFORCEMENT.filter((e) => e.enforcedBy === "api");
+  const enforcement = onGateway ? LEASH_GATEWAY_ENFORCEMENT : LEASH_ENFORCEMENT;
+  const chain = enforcement.filter((e) => e.enforcedBy !== "api");
+  const api = enforcement.filter((e) => e.enforcedBy === "api");
+  const signCount = (created?.transactions.length ?? 0) + (created?.stile?.deployment ? 1 : 0);
 
   // Portalled to the body: the Fold's panels form their own stacking context, and the sheet must sit above the phone dock.
   return createPortal(
@@ -145,7 +162,7 @@ export function NewLeashSheet({ open, owner, draft, onClose, onCreated }: { read
       <div className="fd-newleash">
         <div className="fd-newleash__top">
           <LeashMark scale={2} />
-          <ol className="fd-stepper" aria-label={`Step ${phase === "keys" ? 4 : at + 1} of 4`}>
+          <ol className="fd-stepper" aria-label={`Step ${phase === "keys" ? 5 : at + 1} of 5`}>
             {[...LEASH_STEPS, { id: "keys" as const, label: "Keys" }].map((s, i) => (
               <li key={s.id} data-on={phase === "keys" ? true : i <= at} aria-current={(phase === "keys" ? "keys" : step) === s.id ? "step" : undefined}>
                 <i />
@@ -186,10 +203,66 @@ export function NewLeashSheet({ open, owner, draft, onClose, onCreated }: { read
           </div>
         ) : null}
 
+        {phase === "from" ? (
+          <div className="fd-newleash__body">
+            <fieldset className="fd-newleash__templates">
+              <legend className="m-kick">{"Spend from"}</legend>
+              <label className={cx("fd-tpl m-frame m-frame--thin", !onGateway && "is-on")}>
+                <input type="radio" name="leash-from" value="arc" checked={!onGateway} onChange={() => setForm((f) => withSpendFrom(f, "arc"))} />
+                <b>{"Arc wallet"}</b>
+                <span className="m-small">{"Your LykiaAccount on Arc holds the caps. Every template."}</span>
+              </label>
+              <label className={cx("fd-tpl m-frame m-frame--thin", onGateway && "is-on", !gateway.available && "is-off")} aria-disabled={!gateway.available}>
+                <input type="radio" name="leash-from" value="gateway" checked={onGateway} disabled={!gateway.available} onChange={() => setForm((f) => withSpendFrom(f, "gateway"))} />
+                <b>{"Gateway balance"} {gateway.available ? null : <Tag tone="ghost">{"COMING SOON"}</Tag>}</b>
+                <span className="m-small">{`Your Circle Gateway USDC, through your own LykiaStile contract. Pays named payees on the chains you pick, at most ${usdText(GATEWAY_CEILINGS.perStepUsd)} a transfer and ${usdText(GATEWAY_CEILINGS.perDayUsd)} a day while it is unaudited.`}</span>
+              </label>
+            </fieldset>
+            {onGateway ? (
+              <>
+                <div className="fd-gwbal m-frame m-frame--thin" aria-live="polite">
+                  <span className="m-kick">{owner.sample ? "SAMPLE GATEWAY BALANCE" : "YOUR GATEWAY BALANCE"}</span>
+                  {balance.isLoading && !owner.sample ? (
+                    <div className="m-skel" style={{ height: 44 }} />
+                  ) : shownBalance ? (
+                    <ul className="fd-gwbal__rows">
+                      {(shownBalance.perChain ?? []).filter((r) => Number(r.balance) > 0 || r.chain === "Arc").map((r) => (
+                        <li key={r.chain} data-arc={r.chain === "Arc"}>
+                          <span>{r.chain}</span>
+                          <b className="num">{`${Number(r.balance).toLocaleString("en-US", { maximumFractionDigits: 2 })} USDC`}</b>
+                        </li>
+                      ))}
+                      <li className="fd-gwbal__total"><span>{"Total"}</span><b className="num">{`${Number(shownBalance.total ?? 0).toLocaleString("en-US", { maximumFractionDigits: 2 })} USDC`}</b></li>
+                    </ul>
+                  ) : (
+                    <p className="m-small m-muted">{"Circle's Gateway API did not answer; the balance is checked again before each transfer."}</p>
+                  )}
+                  <p className="m-small m-muted">{"The agent spends the part deposited on Arc. Deposits on other chains stay out of its reach."}</p>
+                </div>
+                <fieldset className="fd-newleash__venues">
+                  <legend className="m-kick">{"It may pay on"}</legend>
+                  <div className="fd-suggest">
+                    {gateway.destinations.map((d) => {
+                      const on = form.destinations.includes(d.key);
+                      return (
+                        <button key={d.key} type="button" className={cx("m-chip", on && "is-on")} aria-pressed={on} onClick={() => setForm((f) => toggleDestination(f, d.key))}>
+                          {on ? "✓ " : ""}{d.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {err("destinations") ? <p className="m-note m-note--bad">{err("destinations")}</p> : null}
+                  <p className="m-small m-muted">{"Lykia's 1% fee is a second transfer in the same Gateway attestation; Circle's own fee comes on top."}</p>
+                </fieldset>
+              </>
+            ) : null}
+          </div>
+        ) : null}
+
         {phase === "limits" ? (
           <div className="fd-newleash__body">
             <div className="fd-newleash__money">
-              <Field label="Per day $" error={err("perDayUsd")}>
+              <Field label="Per day $" error={err("perDayUsd")} {...(onGateway ? { hint: `at most ${usdText(GATEWAY_CEILINGS.perDayUsd)}` } : {})}>
                 <Input inputMode="decimal" value={form.perDayUsd} onChange={(e) => set({ perDayUsd: e.target.value })} />
               </Field>
               <Field label="Per step $" error={err("perStepUsd")} hint="at most the daily cap">
@@ -231,6 +304,8 @@ export function NewLeashSheet({ open, owner, draft, onClose, onCreated }: { read
             <dl className="fd-newleash__summary">
               <div><dt>{"Agent"}</dt><dd>{form.name}</dd></div>
               <div><dt>{"May"}</dt><dd>{t.title}</dd></div>
+              <div><dt>{"Spends from"}</dt><dd>{onGateway ? "Gateway balance (Arc deposit)" : "Arc wallet"}</dd></div>
+              {onGateway ? <div><dt>{"Pays on"}</dt><dd>{form.destinations.map((d) => chainName(d, offer.data)).join(", ")}</dd></div> : null}
               <div><dt>{"Budget"}</dt><dd className="num">{`${usdText(budget.perStepUsd)} a step · ${usdText(budget.perDayUsd)} a day · ${budget.totalUsd ? usdText(budget.totalUsd) : "?"} in total`}</dd></div>
               <div><dt>{"Until"}</dt><dd className="num">{new Date(openedAt + Number(form.days) * 86_400_000).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</dd></div>
               <div><dt>{t.recipients === "allowlist" ? "Payees" : "Venues"}</dt><dd>{t.recipients === "allowlist" ? recipientsOf(form).map((r) => `${r.slice(0, 6)}…${r.slice(-4)}`).join(", ") : form.venues.join(", ")}</dd></div>
@@ -238,7 +313,7 @@ export function NewLeashSheet({ open, owner, draft, onClose, onCreated }: { read
             </dl>
             <div className="fd-newleash__split">
               <div>
-                <span className="m-kick">{"YOUR LYKIAACCOUNT HOLDS"}</span>
+                <span className="m-kick">{onGateway ? "YOUR LYKIASTILE HOLDS" : "YOUR LYKIAACCOUNT HOLDS"}</span>
                 <ul>{chain.map((e) => <li key={e.limit}><b>{e.limit}</b> {e.enforcedBy === "both" ? <Tag tone="sea">CHAIN + API</Tag> : <Tag tone="ok">CHAIN</Tag>}</li>)}</ul>
               </div>
               <div>
@@ -246,7 +321,11 @@ export function NewLeashSheet({ open, owner, draft, onClose, onCreated }: { read
                 <ul>{api.map((e) => <li key={e.limit}><b>{e.limit}</b> <Tag tone="ochre">API</Tag></li>)}</ul>
               </div>
             </div>
-            <p className="m-small m-muted">{"On chain the caps are token units (USDC 1:1, EURC at today's reference rate); dollar caps, venues and slippage are checked by Lykia before anything is prepared. You sign one transaction on your LykiaAccount (two if the account does not exist yet)."}</p>
+            <p className="m-small m-muted">
+              {onGateway
+                ? "Gateway checks every transfer by asking your LykiaStile, which answers only for transfers this leash reserved inside its caps. You sign up to three transactions once: create your LykiaStile (first time only), let it sign for your Gateway deposit (addDelegate), and the leash's session. Revoking reaches Gateway within about 5 minutes."
+                : "On chain the caps are token units (USDC 1:1, EURC at today's reference rate); dollar caps, venues and slippage are checked by Lykia before anything is prepared. You sign one transaction on your LykiaAccount (two if the account does not exist yet)."}
+            </p>
           </div>
         ) : null}
 
@@ -264,7 +343,7 @@ export function NewLeashSheet({ open, owner, draft, onClose, onCreated }: { read
                 <p className="m-note"><b>{"Signed."}</b>{` The session goes live as soon as Arc includes ${signed.slice(0, 10)}…`}</p>
               ) : (
                 <>
-                  <p className="m-small">{`${created.transactions.length} transaction${created.transactions.length === 1 ? "" : "s"} to sign in your wallet: ${created.transactions.map((x) => x.label).join("; ")}.`}</p>
+                  <p className="m-small">{`${signCount} transaction${signCount === 1 ? "" : "s"} to sign in your wallet, in this order: ${[...(created.stile?.deployment ? [created.stile.deployment.label] : []), ...created.transactions.map((x) => x.label)].join("; ")}.`}</p>
                   <Button onClick={() => void sign()} disabled={busy}>{busy ? "WAITING FOR YOUR WALLET…" : wallet.connected ? "SIGN ONCE" : "CONNECT TO SIGN"}</Button>
                 </>
               )}
@@ -274,9 +353,10 @@ export function NewLeashSheet({ open, owner, draft, onClose, onCreated }: { read
 
         <div className="fd-newleash__foot">
           {phase === "who" ? <Button tone="ghost" onClick={close}>{"CANCEL"}</Button> : null}
-          {phase === "limits" ? <Button tone="ghost" onClick={() => setPhase("who")}>{"BACK"}</Button> : null}
+          {phase === "from" ? <Button tone="ghost" onClick={() => setPhase("who")}>{"BACK"}</Button> : null}
+          {phase === "limits" ? <Button tone="ghost" onClick={() => setPhase("from")}>{"BACK"}</Button> : null}
           {phase === "review" ? <Button tone="ghost" onClick={() => setPhase("limits")}>{"BACK"}</Button> : null}
-          {phase === "who" || phase === "limits" ? <Button tone="sea" onClick={next}>{"NEXT"}</Button> : null}
+          {phase === "who" || phase === "from" || phase === "limits" ? <Button tone="sea" onClick={next}>{"NEXT"}</Button> : null}
           {phase === "review" ? (
             <Button tone="sea" onClick={() => void create()} disabled={busy}>{busy ? "MAKING IT…" : owner.sample ? "CONNECT TO CREATE" : "CREATE THE LEASH"}</Button>
           ) : null}
