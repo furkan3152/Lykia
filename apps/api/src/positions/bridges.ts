@@ -45,7 +45,10 @@ const RELAY: SolverBridge = {
   filler: "Relay's solver",
   api: "api.relay.link",
   async status(r, hash) {
-    const res = await r.ctx.fetch(`${RELAY_API}/requests/v2?hash=${hash}`, { signal: AbortSignal.timeout(3_000) });
+    // Relay retires the keyless /requests/v2 lookup on 2026-11-24; with RELAY_API_KEY set, /requests/v3 is used instead.
+    const key = process.env.RELAY_API_KEY?.trim();
+    const url = key ? `${RELAY_API}/requests/v3?hash=${hash}` : `${RELAY_API}/requests/v2?hash=${hash}`;
+    const res = await r.ctx.fetch(url, { ...(key ? { headers: { "x-api-key": key } } : {}), signal: AbortSignal.timeout(3_000) });
     return res.ok ? ((await res.json()) as { requests?: Array<{ status?: string }> }).requests?.[0]?.status : undefined;
   },
 };
