@@ -1,5 +1,5 @@
 // Checks what the embed reads: GET /v1/ecosystem, open to every origin.
-const API = (process.env.LYKIA_API ?? "https://lykia-api-akdogan1.vercel.app").replace(/\/$/u, "");
+const API = (process.env.LYKIA_API ?? "https://api.lykiaai.com").replace(/\/$/u, "");
 const response = await fetch(`${API}/v1/ecosystem?environment=mainnet`, { headers: { origin: "https://example.org" } });
 if (!response.ok) {
   console.log(`GET /v1/ecosystem answered ${response.status}. Is this API version deployed yet?`);

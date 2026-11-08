@@ -343,7 +343,7 @@ earn at a refused venue).
 
 ```sh
 npm run eval:intents -w @lykia/api                                  # offline, the lexicon, mocked state
-BASE=https://lykia-api-akdogan1.vercel.app npm run eval:intents -w @lykia/api   # live, the model path
+BASE=https://api.lykiaai.com npm run eval:intents -w @lykia/api   # live, the model path
 READER=deterministic BASE=http://localhost:3002 npm run eval:intents -w @lykia/api
 ONLY=studio,defensive VERBOSE=1 npm run eval:intents -w @lykia/api
 ```

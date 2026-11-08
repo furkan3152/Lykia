@@ -153,7 +153,7 @@ async function proveAgent(): Promise<void> {
 async function proveTag(): Promise<void> {
   const registry = contractAddress("identityRegistry", "mainnet") as Address;
   try {
-    await client.call({ account: OWNER, to: registry, data: encodeFunctionData({ abi: parseAbi(["function register(string agentURI) returns (uint256)"]), functionName: "register", args: ["https://lykia.app/v1/tags/card/prove.json"] }) });
+    await client.call({ account: OWNER, to: registry, data: encodeFunctionData({ abi: parseAbi(["function register(string agentURI) returns (uint256)"]), functionName: "register", args: ["https://lykiaai.com/v1/tags/card/prove.json"] }) });
     record({ flow: "Tag register (ERC-8004 IdentityRegistry.register)", result: "PASS", detail: `eth_call from the owner to ${registry}` });
   } catch (error) {
     record({ flow: "Tag register (ERC-8004 IdentityRegistry.register)", result: "FAIL", detail: error instanceof Error ? error.message.split("\n")[0]! : String(error) });

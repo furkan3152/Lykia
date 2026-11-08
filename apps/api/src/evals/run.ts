@@ -2,7 +2,7 @@
  * The intent-compiler evaluation runner.
  *
  *   npm run eval:intents -w @lykia/api                      offline: deterministic lexicon, mocked chain state
- *   BASE=https://lykia-api-akdogan1.vercel.app \
+ *   BASE=https://api.lykiaai.com \
  *     npm run eval:intents -w @lykia/api                    live: POST $BASE/v1/ai/compile (model path when the
  *                                                          deployment has a model key), every case
  *   READER=deterministic BASE=... npm run eval:intents ... live, forcing the lexicon

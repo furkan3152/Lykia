@@ -18,7 +18,7 @@ describe("the League", () => {
   let served: Served;
 
   before(async () => {
-    ctx = createContext(testConfig({ LYKIA_SESSION_SECRET: "l".repeat(40), LYKIA_ADMIN_ADDRESSES: admin.address, LYKIA_RATE_LIMIT_AUTH: "500", LYKIA_ROOT_DOMAIN: "lykia.app" }), { chains: new FakeArc().asChains(), pulse: idlePulse });
+    ctx = createContext(testConfig({ LYKIA_SESSION_SECRET: "l".repeat(40), LYKIA_ADMIN_ADDRESSES: admin.address, LYKIA_RATE_LIMIT_AUTH: "500", LYKIA_ROOT_DOMAIN: "lykiaai.com" }), { chains: new FakeArc().asChains(), pulse: idlePulse });
     served = await serve(createApp(ctx));
   });
   after(async () => {
@@ -133,18 +133,18 @@ describe("the League", () => {
     assert.equal((await call("/v1/league/by-slug/shop-front")).status, 404, "unlisted projects are not cities");
     assert.equal((await call("/v1/league/by-host?host=nowhere.example")).status, 404);
 
-    // CORS admits https://<listed slug>.lykia.app only.
+    // CORS admits https://<listed slug>.lykiaai.com only.
     const cors = async (origin: string) => (await call("/v1/league", { headers: { origin } })).headers.get("access-control-allow-origin");
-    assert.equal(await cors("https://pay.lykia.app"), "https://pay.lykia.app");
-    assert.equal(await cors("https://agents.lykia.app"), "https://agents.lykia.app");
-    assert.equal(await cors("https://shop-front.lykia.app"), null, "not listed");
-    assert.equal(await cors("http://pay.lykia.app"), null, "https only");
-    assert.equal(await cors("https://a.pay.lykia.app"), null);
-    assert.equal(await cors("https://pay.lykia.app.evil.example"), null);
+    assert.equal(await cors("https://pay.lykiaai.com"), "https://pay.lykiaai.com");
+    assert.equal(await cors("https://agents.lykiaai.com"), "https://agents.lykiaai.com");
+    assert.equal(await cors("https://shop-front.lykiaai.com"), null, "not listed");
+    assert.equal(await cors("http://pay.lykiaai.com"), null, "https only");
+    assert.equal(await cors("https://a.pay.lykiaai.com"), null);
+    assert.equal(await cors("https://pay.lykiaai.com.evil.example"), null);
 
     // Sign-in from a city names the city's own host.
-    const nonce = (await (await call("/v1/auth/nonce", { headers: { origin: "https://pay.lykia.app" }, body: { address: dev.address, chainId: 5042002 } })).json()) as { message: string };
-    assert.match(nonce.message, /^pay\.lykia\.app wants you to sign in/u);
+    const nonce = (await (await call("/v1/auth/nonce", { headers: { origin: "https://pay.lykiaai.com" }, body: { address: dev.address, chainId: 5042002 } })).json()) as { message: string };
+    assert.match(nonce.message, /^pay\.lykiaai\.com wants you to sign in/u);
     const signature = await dev.signMessage({ message: nonce.message });
     assert.equal((await call("/v1/auth/verify", { body: { message: nonce.message, signature } })).status, 200);
   });

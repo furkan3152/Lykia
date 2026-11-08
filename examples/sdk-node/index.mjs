@@ -6,7 +6,7 @@ import { Lykia } from "@lykia/sdk";
 import { createPublicClient, createWalletClient, defineChain, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
-const API = process.env.LYKIA_API ?? "https://lykia-api-akdogan1.vercel.app";
+const API = process.env.LYKIA_API ?? "https://api.lykiaai.com";
 const arc = defineChain({ id: 5042, name: "Arc", nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 }, rpcUrls: { default: { http: ["https://rpc.mainnet.arc.io"] } } });
 const account = process.env.PRIVATE_KEY ? privateKeyToAccount(process.env.PRIVATE_KEY) : null;
 const owner = account?.address ?? process.env.OWNER ?? "0xada5bb90d0de0bd1b6f3938708f49295a8d1f7cb";

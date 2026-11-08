@@ -46,7 +46,7 @@ const TRANSFER = parseAbiItem("event Transfer(address indexed from, address inde
 const INVOICE_ID = /^inv_[a-z0-9]{12}$/u;
 
 export function payUrl(ctx: AppContext, id: string): string {
-  const origin = ctx.config.webOrigins.find((o) => o.startsWith("https://")) ?? ctx.config.webOrigins[0] ?? "https://lykia.app";
+  const origin = ctx.config.webOrigins.find((o) => o.startsWith("https://")) ?? ctx.config.webOrigins[0] ?? "https://lykiaai.com";
   return `${origin.replace(/\/$/u, "")}/pay/${id}`;
 }
 

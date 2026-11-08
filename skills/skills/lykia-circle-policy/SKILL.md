@@ -10,7 +10,7 @@ requirements:
 
 ## Steps
 
-1. `POST https://lykia-api-akdogan1.vercel.app/v1/circle/policies/compile`
+1. `POST https://api.lykiaai.com/v1/circle/policies/compile`
    with `{ fence | template, wallet, owner }`.
 2. Show the owner `policy.limits`, `policy.rules` and the `coverage` table:
    which rules Circle enforces, which Lykia's preflight enforces, which both.

@@ -6,8 +6,8 @@ no cookies:
 
 ```html
 <div data-lykia-ecosystem data-limit="6"></div>
-<script async src="https://lykia-akdogan1.vercel.app/embed/routed-by-lykia.js"
-        data-api="https://lykia-api-akdogan1.vercel.app"></script>
+<script async src="https://lykiaai.com/embed/routed-by-lykia.js"
+        data-api="https://api.lykiaai.com"></script>
 ```
 
 | Attribute | On | Meaning |

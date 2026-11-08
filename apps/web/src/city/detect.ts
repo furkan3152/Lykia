@@ -2,7 +2,7 @@
  * City mode: which League city, if any, this page is. Pure, so it is tested
  * without a browser. In order:
  *
- *   1. <slug>.<root domain>       pay.lykia.app (VITE_LYKIA_ROOT_DOMAIN)
+ *   1. <slug>.<root domain>       pay.lykiaai.com (VITE_LYKIA_ROOT_DOMAIN)
  *   2. /c/<slug>                  works on any host, before a domain exists
  *   3. ?city=<slug>               the same, as a query
  *   4. a verified custom domain   any other host, once a root domain is set

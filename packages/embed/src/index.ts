@@ -35,7 +35,7 @@ import {
   type HostMessage,
 } from "./protocol.js";
 
-export const DEFAULT_HOST = "https://lykia-akdogan1.vercel.app";
+export const DEFAULT_HOST = "https://lykiaai.com";
 const CONNECT_RETRY_DELAYS = [0, 150, 400, 900, 1800];
 
 interface Eip1193 {

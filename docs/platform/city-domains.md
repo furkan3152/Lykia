@@ -4,8 +4,8 @@ Every city of the League can run on its own subdomain:
 `pay.<domain>`, `agents.<domain>`, `perps.<domain>`.
 Until a domain is bought, the same cities open on the current site:
 
-- `https://lykia-akdogan1.vercel.app/c/pay`
-- `https://lykia-akdogan1.vercel.app/?city=agents`
+- `https://lykiaai.com/c/pay`
+- `https://lykiaai.com/?city=agents`
 
 Nothing below is needed for those two to work.
 
@@ -24,7 +24,7 @@ Nothing below is needed for those two to work.
 
 ## What you do once the domain is bought
 
-Example: the domain is `lykia.app`. Do it from a laptop if you can; each
+Example: the domain is `lykiaai.com`. Do it from a laptop if you can; each
 step is also possible from the phone.
 
 ### 1. Point the domain at Vercel
@@ -37,23 +37,23 @@ ns2.vercel-dns.com
 ```
 
 A wildcard domain on Vercel needs Vercel's nameservers. A plain CNAME is
-not enough for `*.lykia.app`.
+not enough for `*.lykiaai.com`.
 
 ### 2. Add the domains to the web project
 
 Vercel → the **web** project → Settings → Domains → Add:
 
 ```
-lykia.app
-*.lykia.app
+lykiaai.com
+*.lykiaai.com
 ```
 
 Vercel issues the certificates itself (a wildcard certificate for
-`*.lykia.app`). Wait until both show **Valid**.
+`*.lykiaai.com`). Wait until both show **Valid**.
 
 ### 3. Give the API its own name (optional)
 
-Vercel → the **API** project → Settings → Domains → Add `api.lykia.app`.
+Vercel → the **API** project → Settings → Domains → Add `api.lykiaai.com`.
 `api` is reserved, so no city can take it.
 
 ### 4. Set the variables
@@ -61,26 +61,26 @@ Vercel → the **API** project → Settings → Domains → Add `api.lykia.app`.
 Web project → Settings → Environment Variables:
 
 ```
-VITE_LYKIA_ROOT_DOMAIN = lykia.app
-VITE_API_URL           = https://api.lykia.app   (if you did step 3)
+VITE_LYKIA_ROOT_DOMAIN = lykiaai.com
+VITE_API_URL           = https://api.lykiaai.com   (if you did step 3)
 ```
 
 API project → Settings → Environment Variables:
 
 ```
-LYKIA_ROOT_DOMAIN  = lykia.app
-LYKIA_WEB_ORIGIN   = https://lykia.app   (keep the vercel.app origin too, comma-separated)
+LYKIA_ROOT_DOMAIN  = lykiaai.com
+LYKIA_WEB_ORIGIN   = https://lykiaai.com   (keep the vercel.app origin too, comma-separated)
 ```
 
 Redeploy both projects (the web variable is read at build time).
 
 ### 5. Check
 
-- `https://pay.lykia.app` shows Lykia Pay.
-- `https://agents.lykia.app` shows Lykia Agents.
-- `https://perps.lykia.app` shows the coming page.
-- `https://lykia.app` shows the full Lykia app.
-- `https://nothing.lykia.app` says "No city lives here".
+- `https://pay.lykiaai.com` shows Lykia Pay.
+- `https://agents.lykiaai.com` shows Lykia Agents.
+- `https://perps.lykiaai.com` shows the coming page.
+- `https://lykiaai.com` shows the full Lykia app.
+- `https://nothing.lykiaai.com` says "No city lives here".
 
 ## A city on its own domain
 

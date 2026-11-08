@@ -82,6 +82,6 @@ export async function runAnthropicToolUse(executor: LykiaToolExecutor, block: { 
  * Lykia's MCP server. Pass the result as `mcpServers`.
  */
 export function lykiaMcpServer(options: { readonly baseUrl?: string; readonly apiKey?: string } = {}) {
-  const base = (options.baseUrl ?? "https://lykia-api-akdogan1.vercel.app").replace(/\/+$/u, "");
+  const base = (options.baseUrl ?? "https://api.lykiaai.com").replace(/\/+$/u, "");
   return { lykia: { type: "http" as const, url: `${base}/v1/mcp`, ...(options.apiKey ? { headers: { "Lykia-Key": options.apiKey } } : {}) } };
 }

@@ -18,7 +18,7 @@ Fence first; let the Circle wallet sign only what passed.
 ## Steps
 
 1. Describe each step as a fact: `{ id, kind, venue, usd, tokens: [{ symbol, address, listed, acquired }], recipient? }`.
-2. Call `POST https://lykia-api-akdogan1.vercel.app/v1/fence/evaluate` with
+2. Call `POST https://api.lykiaai.com/v1/fence/evaluate` with
    `{ fence, facts: { environment: "mainnet", owner, signer: "agent", steps } }`
    (or the MCP tool on the `lykia` server).
 3. Read the verdict:

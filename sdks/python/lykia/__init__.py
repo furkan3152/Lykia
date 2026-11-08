@@ -1,7 +1,7 @@
 """Lykia: agents and stablecoins on Arc Network through one API.
 
 >>> from lykia import Lykia
->>> lykia = Lykia("lk_test_...", base_url="https://lykia-api-akdogan1.vercel.app")
+>>> lykia = Lykia("lk_test_...", base_url="https://api.lykiaai.com")
 >>> plan = lykia.intents.create(owner="0x...", text="send 5 USDC to alice", environment="testnet")
 """
 from ._operations import OPENAPI_VERSION, OPERATIONS, Operation

@@ -16,7 +16,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync }
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
-export const DEFAULT_BASE_URL = "https://lykia-api-akdogan1.vercel.app";
+export const DEFAULT_BASE_URL = "https://api.lykiaai.com";
 const KEY_PATTERN = /^lk_(?:live|test|sk|pk(?:_live|_test)?)_[a-z0-9]{12}_[A-Za-z0-9_-]{32}$/u;
 
 export function configPath(env = process.env) {

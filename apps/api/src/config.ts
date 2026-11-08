@@ -330,7 +330,7 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
   const siweDomains = splitList(env.LYKIA_SIWE_DOMAINS).map((d) => d.toLowerCase());
   if (siweDomains.some((d) => !/^[a-z0-9.-]+(?::\d{1,5})?$/u.test(d))) issues.push("LYKIA_SIWE_DOMAINS: comma-separated host[:port] entries");
   const rootDomain = env.LYKIA_ROOT_DOMAIN?.trim().toLowerCase().replace(/^\.+|\.+$/gu, "") || null;
-  if (rootDomain && !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/u.test(rootDomain)) issues.push("LYKIA_ROOT_DOMAIN: a bare domain such as lykia.app (no scheme, no path)");
+  if (rootDomain && !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/u.test(rootDomain)) issues.push("LYKIA_ROOT_DOMAIN: a bare domain such as lykiaai.com (no scheme, no path)");
   if (issues.length > 0) throw new ConfigError(issues);
 
   const config: Config = {

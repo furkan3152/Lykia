@@ -11,7 +11,7 @@ only as far as you need.
 ## The ant: one line
 
 ```sh
-curl -s "https://lykia-api-akdogan1.vercel.app/v1/venues?environment=testnet"
+curl -s "https://api.lykiaai.com/v1/venues?environment=testnet"
 ```
 
 Public reads need no key. Add a key when you want your own limits, logs and
@@ -25,7 +25,7 @@ webhooks.
 3. Plan something:
 
 ```sh
-curl -s https://lykia-api-akdogan1.vercel.app/v1/intents \
+curl -s https://api.lykiaai.com/v1/intents \
   -H "Lykia-Key: $LYKIA_KEY" -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
   -d '{"owner":"0xYourWallet","text":"send 5 USDC to 0xFriend","dryRun":true}'
@@ -41,7 +41,7 @@ const { intent } = await lykia.intents.create({ owner, text: "send 5 USDC to 0xF
 
 ```python
 from lykia import Lykia
-lykia = Lykia(os.environ["LYKIA_KEY"], base_url="https://lykia-api-akdogan1.vercel.app", environment="testnet")
+lykia = Lykia(os.environ["LYKIA_KEY"], base_url="https://api.lykiaai.com", environment="testnet")
 plan = lykia.intents.create(owner, "send 5 USDC to 0xFriend")
 ```
 

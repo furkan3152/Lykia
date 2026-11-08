@@ -5,7 +5,7 @@
   "type": "module",
   "license": "MIT",
   "description": "Policy-bound agents and stablecoin routing on Arc Network: intents, route search, the Fence policy engine and a developer platform.",
-  "homepage": "https://lykia-akdogan1.vercel.app",
+  "homepage": "https://lykiaai.com",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/furkan3152/Lykia.git"

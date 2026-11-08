@@ -16,7 +16,7 @@ The plan comes back unsigned, with every step's Lykia fee.
 To use Lykia from any MCP client (an IDE assistant, a desktop chat app or an agent SDK):
 
 ```json
-{ "mcpServers": { "lykia": { "url": "https://lykia-api-akdogan1.vercel.app/v1/mcp" } } }
+{ "mcpServers": { "lykia": { "url": "https://api.lykiaai.com/v1/mcp" } } }
 ```
 
 Add `"headers": { "Lykia-Key": "lk_sk_…" }` with a free developer key from

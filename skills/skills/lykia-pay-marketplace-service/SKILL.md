@@ -10,7 +10,7 @@ requirements:
 
 ## Steps
 
-1. `GET https://lykia-api-akdogan1.vercel.app/v1/circle/marketplace/services?query=<what>&maxUsdPrice=<cap>`.
+1. `GET https://api.lykiaai.com/v1/circle/marketplace/services?query=<what>&maxUsdPrice=<cap>`.
 2. Pick a service whose `arc.priceUsdc` fits the task.
 3. `POST /v1/circle/x402/prepare { resource, owner, signer: "agent" }`.
    If `verdict.signable` is false, stop and report the reasons (caps, payee

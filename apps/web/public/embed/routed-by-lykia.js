@@ -2,8 +2,8 @@
  * "Routed by Lykia": a live strip of the Arc ecosystem for any site.
  *
  *   <div data-lykia-ecosystem data-limit="6"></div>
- *   <script async src="https://lykia-akdogan1.vercel.app/embed/routed-by-lykia.js"
- *           data-api="https://lykia-api-akdogan1.vercel.app"></script>
+ *   <script async src="https://lykiaai.com/embed/routed-by-lykia.js"
+ *           data-api="https://api.lykiaai.com"></script>
  *
  * Reads GET /v1/ecosystem (public, CORS-open). No cookies, no tracking,
  * no dependencies. Every value is written as text, never as HTML.
@@ -11,8 +11,8 @@
 (function () {
   "use strict";
   var script = document.currentScript;
-  var api = (script && script.getAttribute("data-api")) || "https://lykia-api-akdogan1.vercel.app";
-  var site = script && script.src ? new URL(script.src).origin : "https://lykia-akdogan1.vercel.app";
+  var api = (script && script.getAttribute("data-api")) || "https://api.lykiaai.com";
+  var site = script && script.src ? new URL(script.src).origin : "https://lykiaai.com";
 
   function el(tag, style, text) {
     var node = document.createElement(tag);

@@ -6,7 +6,7 @@ with retries, idempotency keys, pagination and webhook verification.
 ```python
 from lykia import Lykia, construct_event
 
-lykia = Lykia("lk_test_…", base_url="https://lykia-api-akdogan1.vercel.app", environment="testnet")
+lykia = Lykia("lk_test_…", base_url="https://api.lykiaai.com", environment="testnet")
 plan = lykia.intents.create("0xOwner", "send 5 USDC to 0xFriend")
 event = construct_event(secret, raw_body, headers["Lykia-Signature"])
 ```

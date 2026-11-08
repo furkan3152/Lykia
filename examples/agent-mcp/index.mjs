@@ -1,5 +1,5 @@
 // An agent that asks Lykia before it moves money, over MCP (JSON-RPC on streamable HTTP).
-const API = (process.env.LYKIA_API ?? "https://lykia-api-akdogan1.vercel.app").replace(/\/$/u, "");
+const API = (process.env.LYKIA_API ?? "https://api.lykiaai.com").replace(/\/$/u, "");
 const OWNER = process.env.OWNER ?? "0xada5bb90d0de0bd1b6f3938708f49295a8d1f7cb";
 const STRANGER = "0x2222222222222222222222222222222222222222";
 const USDC = "0x3600000000000000000000000000000000000000";

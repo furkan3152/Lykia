@@ -7,12 +7,12 @@ const at = (hostname: string, pathname = "/", search = "") => ({ hostname, pathn
 
 describe("city mode", () => {
   it("reads <slug>.<root domain>", () => {
-    assert.deepEqual(detectCity(at("pay.lykia.app"), "lykia.app"), { kind: "slug", slug: "pay", via: "subdomain" });
-    assert.deepEqual(detectCity(at("agents.lykia.app", "/anything"), "lykia.app"), { kind: "slug", slug: "agents", via: "subdomain" });
-    assert.equal(detectCity(at("lykia.app"), "lykia.app"), null, "the root is the full app");
-    for (const own of ["www", "api", "app", "admin", "letoon", "mint"]) assert.equal(detectCity(at(`${own}.lykia.app`), "lykia.app"), null, own);
-    assert.equal(detectCity(at("a.b.lykia.app"), "lykia.app"), null);
-    assert.equal(detectCity(at("pay.lykia.app"), null), null, "no root domain configured");
+    assert.deepEqual(detectCity(at("pay.lykiaai.com"), "lykiaai.com"), { kind: "slug", slug: "pay", via: "subdomain" });
+    assert.deepEqual(detectCity(at("agents.lykiaai.com", "/anything"), "lykiaai.com"), { kind: "slug", slug: "agents", via: "subdomain" });
+    assert.equal(detectCity(at("lykiaai.com"), "lykiaai.com"), null, "the root is the full app");
+    for (const own of ["www", "api", "app", "admin", "letoon", "mint"]) assert.equal(detectCity(at(`${own}.lykiaai.com`), "lykiaai.com"), null, own);
+    assert.equal(detectCity(at("a.b.lykiaai.com"), "lykiaai.com"), null);
+    assert.equal(detectCity(at("pay.lykiaai.com"), null), null, "no root domain configured");
   });
 
   it("reads /c/<slug> and ?city=<slug> on any host, so it works before a domain exists", () => {
@@ -21,18 +21,18 @@ describe("city mode", () => {
     assert.deepEqual(detectCity(at("localhost", "/", "?city=perps"), null), { kind: "slug", slug: "perps", via: "query" });
     assert.equal(detectCity(at("localhost", "/c/X"), null), null);
     assert.equal(detectCity(at("localhost", "/league/pay"), null), null);
-    assert.equal(detectCity(at("lykia-akdogan1.vercel.app"), "lykia.app"), null, "vercel hosts boot the full app");
+    assert.equal(detectCity(at("lykia-akdogan1.vercel.app"), "lykiaai.com"), null, "vercel hosts boot the full app");
   });
 
   it("maps a verified custom domain to its city once a root domain is set", () => {
-    assert.deepEqual(detectCity(at("pay.acme.example"), "lykia.app"), { kind: "host", host: "pay.acme.example" });
-    assert.equal(detectCity(at("localhost"), "lykia.app"), null);
+    assert.deepEqual(detectCity(at("pay.acme.example"), "lykiaai.com"), { kind: "host", host: "pay.acme.example" });
+    assert.equal(detectCity(at("localhost"), "lykiaai.com"), null);
   });
 
   it("builds city and home links", () => {
-    assert.equal(cityUrl("pay", "lykia.app", "https://x.vercel.app"), "https://pay.lykia.app");
+    assert.equal(cityUrl("pay", "lykiaai.com", "https://x.vercel.app"), "https://pay.lykiaai.com");
     assert.equal(cityUrl("pay", null, "https://x.vercel.app"), "https://x.vercel.app/c/pay");
-    assert.equal(lykiaHome("lykia.app", "https://pay.lykia.app", { kind: "slug", slug: "pay", via: "subdomain" }), "https://lykia.app");
+    assert.equal(lykiaHome("lykiaai.com", "https://pay.lykiaai.com", { kind: "slug", slug: "pay", via: "subdomain" }), "https://lykiaai.com");
     assert.equal(lykiaHome(null, "https://x.vercel.app", { kind: "slug", slug: "pay", via: "path" }), "https://x.vercel.app");
   });
 });

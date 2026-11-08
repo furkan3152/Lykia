@@ -40,7 +40,7 @@ export async function runAgent({ model, tools, prompt, maxSteps = 5 }) {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const lykia = createLykiaExecutor({
-    baseUrl: process.env.LYKIA_API ?? "https://lykia-api-akdogan1.vercel.app",
+    baseUrl: process.env.LYKIA_API ?? "https://api.lykiaai.com",
     ...(process.env.LYKIA_SECRET_KEY ? { apiKey: process.env.LYKIA_SECRET_KEY } : {}),
     owner: process.env.LYKIA_OWNER ?? "0x82916bee18fcef517b26c72d7cb5f13694e1db41",
     environment: "mainnet",

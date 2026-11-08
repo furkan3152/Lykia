@@ -28,7 +28,7 @@ import { Card, MeanderBand, Medallion, Stat, Tag } from "../../mosaic";
 import { bay, BAY_H, BAY_W } from "../../mosaic/scenes";
 
 const REPO = "https://github.com/furkan3152/Lykia";
-const API_REFERENCE = "https://lykia-api-akdogan1.vercel.app/v1/reference";
+const API_REFERENCE = "https://api.lykiaai.com/v1/reference";
 
 const CHIPS = ["Put half my USDC to work", "Keep 5000 USDC for payroll, put the rest in the best vault and hedge 20% into EURC", "Convert 200 USDC to EURC", "Bridge 50 USDC to Base"] as const;
 

@@ -8,7 +8,7 @@ import { ToolInputError, toolByName, validateArgs, type ToolDefaults, type ToolN
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 export interface ExecutorOptions extends ToolDefaults {
-  /** API origin (default https://lykia-api-akdogan1.vercel.app). */
+  /** API origin (default https://api.lykiaai.com). */
   readonly baseUrl?: string;
   /** A secret key on a server; a publishable key in a browser. */
   readonly apiKey?: string;
@@ -47,7 +47,7 @@ export function summarizeForModel(tool: string, data: unknown): unknown {
 }
 
 export function createLykiaExecutor(options: ExecutorOptions = {}): LykiaToolExecutor {
-  const baseUrl = (options.baseUrl ?? "https://lykia-api-akdogan1.vercel.app").replace(/\/+$/u, "");
+  const baseUrl = (options.baseUrl ?? "https://api.lykiaai.com").replace(/\/+$/u, "");
   const fetchImpl: FetchLike = options.fetch ?? ((input, init) => fetch(input, init));
   return {
     options,

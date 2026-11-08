@@ -12,7 +12,7 @@ signs. Use them side by side.
 {
   "mcpServers": {
     "circle": { "url": "https://api.circle.com/v1/codegen/mcp" },
-    "lykia": { "url": "https://lykia-api-akdogan1.vercel.app/v1/mcp" }
+    "lykia": { "url": "https://api.lykiaai.com/v1/mcp" }
   }
 }
 ```

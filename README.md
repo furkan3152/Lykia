@@ -13,12 +13,12 @@
 </p>
 
 <p align="center">
-  <a href="https://lykia-akdogan1.vercel.app">App</a> ·
-  <a href="https://lykia-api-akdogan1.vercel.app/v1/reference">API reference</a> ·
+  <a href="https://lykiaai.com">App</a> ·
+  <a href="https://api.lykiaai.com/v1/reference">API reference</a> ·
   <a href="docs/platform/README.md">Developer docs</a> ·
-  <a href="https://lykia-akdogan1.vercel.app/league">The League</a> ·
-  <a href="https://lykia-akdogan1.vercel.app/mint">The Mint</a> ·
-  <a href="https://lykia-akdogan1.vercel.app/stats">Stats</a>
+  <a href="https://lykiaai.com/league">The League</a> ·
+  <a href="https://lykiaai.com/mint">The Mint</a> ·
+  <a href="https://lykiaai.com/stats">Stats</a>
 </p>
 
 ---
@@ -159,7 +159,7 @@ npm test -w @lykia/contracts
 Get a quote for converting 100 USDC to EURC on Arc mainnet:
 
 ```sh
-curl -X POST https://lykia-api-akdogan1.vercel.app/v1/aggregator/quote \
+curl -X POST https://api.lykiaai.com/v1/aggregator/quote \
   -H 'content-type: application/json' \
   -d '{"tokenIn":"USDC","tokenOut":"EURC","amount":"100","taker":"0xYourAddress"}'
 ```
@@ -170,7 +170,7 @@ With the TypeScript SDK:
 import { Lykia } from "@lykia/sdk";
 
 const lykia = new Lykia({
-  baseUrl: "https://lykia-api-akdogan1.vercel.app",
+  baseUrl: "https://api.lykiaai.com",
   apiKey: process.env.LYKIA_API_KEY,
 });
 

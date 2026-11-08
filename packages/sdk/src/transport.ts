@@ -12,7 +12,7 @@ import { readSse, type SseMessage } from "./sse.js";
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 export interface LykiaOptions {
-  /** API origin, e.g. https://lykia-api-akdogan1.vercel.app (default http://localhost:3002). */
+  /** API origin, e.g. https://api.lykiaai.com (default http://localhost:3002). */
   readonly baseUrl?: string;
   /** A secret (server) or publishable (browser) API key. */
   readonly apiKey?: string;
