@@ -59,7 +59,7 @@ export type AnswerBlock =
   /** A quoted conversion rate against the reference rate and the Fence's band. */
   | { readonly kind: "rate"; readonly base: string; readonly quote: string; readonly rate: string; readonly reference: string | null; readonly bandBps: number | null; readonly source: string | null }
   /** Alerts, automations and orders Lyko set up (saved) or drafted (a link to finish). */
-  | { readonly kind: "herded"; readonly items: readonly { readonly kind: "alert" | "automation" | "order"; readonly label: string; readonly saved: boolean; readonly href: string; readonly next: string | null }[] }
+  | { readonly kind: "herded"; readonly items: readonly { readonly kind: "alert" | "automation" | "order" | "watch"; readonly label: string; readonly saved: boolean; readonly href: string; readonly next: string | null }[] }
   /** A step that settled on chain. */
   | { readonly kind: "settled"; readonly summary: string; readonly tx: string }
   /** Where the owner's money is and what it is doing: the largest positions with their state, and the venues that could not be read. */
@@ -160,14 +160,14 @@ export function parseAnswerBlock(raw: unknown): AnswerBlock | null {
       if (!Array.isArray(o.items) || o.items.length === 0 || o.items.length > 6) return null;
       const items = o.items.map((i) => {
         const x = obj(i);
-        const kind = x?.kind === "alert" || x?.kind === "automation" || x?.kind === "order" ? x.kind : null;
+        const kind = x?.kind === "alert" || x?.kind === "automation" || x?.kind === "order" || x?.kind === "watch" ? x.kind : null;
         const label = str(x?.label, 200);
         const href = typeof x?.href === "string" && x.href.length <= 200 && APP_HREF.test(x.href) ? x.href : null;
         const next = nullable(x?.next, (n) => str(n, 80));
         return kind && label && href && typeof x?.saved === "boolean" && next !== undefined ? { kind, label, saved: x.saved, href, next } : null;
       });
       if (items.some((i) => i === null)) return null;
-      return { kind: "herded", items: items as { kind: "alert" | "automation" | "order"; label: string; saved: boolean; href: string; next: string | null }[] };
+      return { kind: "herded", items: items as { kind: "alert" | "automation" | "order" | "watch"; label: string; saved: boolean; href: string; next: string | null }[] };
     }
     case "positions": {
       const netUsd = nullable(o.netUsd, decimal);

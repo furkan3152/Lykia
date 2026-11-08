@@ -58,6 +58,8 @@ import { deliver } from "../compiler/deliver.js";
 import type { LlmTool } from "./llm.js";
 import { readPositions } from "../positions/service.js";
 import { foldInsights } from "../fold/insights.js";
+import { createWatch, listInstructions } from "./instructions.js";
+import { WATCH_KINDS, type PlanPayload, type WatchCondition, type WatchPayload } from "@lykia/core";
 
 export interface ActingAgent {
   readonly name: string;
@@ -91,6 +93,8 @@ export interface ToolContext {
   readonly blocks?: AnswerBlock[];
   /** The actions behind each proposal, for merging specialists' plans into one intent. */
   readonly planned?: { readonly actions: readonly PlanAction[]; readonly proposal: AgentProposal }[];
+  /** The shared thread this turn writes to; hand-offs to Lyko on watch are filed under it. */
+  readonly threadId?: string;
 }
 
 export interface ToolOutcome {
@@ -334,6 +338,62 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
         summary: `Order drafted: ${draft.summary}`,
         data: { summary: draft.summary, hash: draft.hash, executions: draft.order.executions, intervalSeconds: draft.order.interval, perExecution: draft.perExecution, approvalNeeded: draft.approval ? draft.approval.label : null, notes: draft.notes, next: "The owner signs this order (EIP-712) on the Orders page; funds stay in the wallet until a keeper executes it." },
       };
+    },
+  }),
+  spec({
+    name: "watch_position",
+    description:
+      "Hand a watch task to Lyko on watch (the Fold's portfolio assistant) when the owner asks you to watch something or tell them if it happens: health-below (threshold = health factor; venue aave-v4 or morpho-blue, optional), lp-out-of-range (venue optional), idle-above (token USDC or EURC, amount in whole tokens), apy-below (percent, venue optional). It shows in the Fold with a From Ask Lyko chip, can be paused or removed there, and raises an insight when the condition is met. It moves nothing. Use create_alert instead only when the owner wants a notification delivered to the inbox, a webhook or Telegram. Saved only when the owner is signed in.",
+    capability: "propose",
+    schema: z
+      .object({
+        kind: z.enum(WATCH_KINDS as unknown as [WatchCondition["kind"], ...WatchCondition["kind"][]]),
+        threshold: decimal.optional(),
+        venue: z.string().regex(/^[a-z0-9-]{2,40}$/u).optional(),
+        token: z.enum(["USDC", "EURC"]).optional(),
+        amount: decimal.optional(),
+        percent: decimal.optional(),
+      })
+      .strict(),
+    json: obj(
+      {
+        kind: { type: "string", enum: [...WATCH_KINDS] },
+        threshold: { type: "string", description: "health-below: the health factor, e.g. \"1.5\"" },
+        venue: { type: "string", description: "Optional venue id: aave-v4, morpho-blue, uniswap-v3, aerodrome-slipstream" },
+        token: { type: "string", enum: ["USDC", "EURC"], description: "idle-above only" },
+        amount: { type: "string", description: "idle-above only: whole tokens" },
+        percent: { type: "string", description: "apy-below only: a percent, e.g. \"4\"" },
+      },
+      ["kind"],
+    ),
+    async run(input: { kind: WatchCondition["kind"]; threshold?: string; venue?: string; token?: "USDC" | "EURC"; amount?: string; percent?: string }, tc) {
+      const venue = input.venue ? { venue: input.venue } : {};
+      const condition: WatchCondition | null =
+        input.kind === "health-below" ? { kind: "health-below", threshold: input.threshold ?? tc.agent.fence.lending?.minHealthFactor ?? "1.5", ...venue }
+        : input.kind === "lp-out-of-range" ? { kind: "lp-out-of-range", ...venue }
+        : input.kind === "idle-above" ? (input.token && input.amount ? { kind: "idle-above", token: input.token, amount: input.amount } : null)
+        : input.percent ? { kind: "apy-below", percent: input.percent, ...venue } : null;
+      if (!condition) throw new Error("This watch needs its token and amount (idle-above) or its percent (apy-below).");
+      const who = verifiedOwner(tc);
+      if (!who) return { summary: "Watch not saved: the owner is not signed in", data: { saved: false, condition, next: "Nothing was saved: this chat has not proven control of the owner's address. The owner signs in with the wallet (one message, no transaction) and asks again." } };
+      const made = await createWatch(tc.ctx, { owner: who.owner, environment: tc.environment, condition, threadId: tc.threadId ?? null });
+      const label = (made.payload as WatchPayload).label;
+      tc.blocks?.push({ kind: "herded", items: [{ kind: "watch", label, saved: true, href: "/app/fold/herding?show=watch", next: "Lyko on watch checks it each time it reads your Fold" }] });
+      return { summary: `Handed to Lyko on watch: ${label}`, data: { saved: true, id: made.id, label, status: made.status, manage: "/app/fold/herding?show=watch" } };
+    },
+  }),
+  spec({
+    name: "read_instructions",
+    description: "Read the hand-offs between you and Lyko on watch: plans Lyko on watch sent you (from Fold insights, with their status: planned, signed, done) and the watch tasks you handed over (with what each last saw). Owner-only.",
+    capability: "read",
+    schema: z.object({}).strict(),
+    json: obj({}),
+    async run(_input: Record<string, never>, tc) {
+      const who = verifiedOwner(tc);
+      if (!who) return { summary: "Not signed in", data: { instructions: [], note: "Hand-offs are private: the owner signs in first." } };
+      const list = await listInstructions(tc.ctx, who.owner, { environment: tc.environment });
+      const rows = list.slice(0, 12).map((i) => (i.kind === "plan" ? { kind: "plan", from: "Lyko on watch", status: i.status, title: (i.payload as PlanPayload).title, reason: (i.payload as PlanPayload).reason, intentId: (i.payload as PlanPayload).intentId ?? null } : { kind: "watch", to: "Lyko on watch", status: i.status, label: (i.payload as WatchPayload).label, lastSaw: (i.payload as WatchPayload).observation }));
+      return { summary: `${rows.length} hand-off(s)`, data: { instructions: rows } };
     },
   }),
   spec({

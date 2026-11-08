@@ -24,6 +24,7 @@ import { handledInsights, listProposals } from "./proposals.js";
 import { ownerIntents } from "./trails.js";
 import { settle, withTimeout } from "./util.js";
 import { readPositions } from "../positions/service.js";
+import { fireWatches, sentMarks, watchFactsOf } from "../agents/instructions.js";
 
 const usd = (n: number) => `$${n.toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: n > 0 && n < 1 ? 2 : 0 })}`;
 const amount = (n: number) => (n >= 100 ? String(Math.floor(n)) : n.toFixed(2).replace(/\.?0+$/u, ""));
@@ -318,10 +319,15 @@ async function gatherInputs(ctx: AppContext, environment: ArcEnvironment, owner:
 /** The Fold's insights for an address. `personal` (the reader proved control) applies preferences, handled flags and the morning brief. */
 export async function foldInsights(ctx: AppContext, environment: ArcEnvironment, owner: Address, personal: boolean): Promise<FoldInsightsResponse> {
   const inputs = await gatherInputs(ctx, environment, owner, personal);
-  const raw = computeInsights(inputs);
+  const computed = computeInsights(inputs);
+  // Watch tasks Ask Lyko handed over are checked against the same reads; a met one is an insight of its own.
+  const health = inputs.positions ? healthFromPositions(inputs.positions).map((h) => ({ venue: h.venue, label: h.label, factor: h.healthFactor })) : inputs.snapshot.health.map((h) => ({ venue: h.venue, label: h.venue, factor: h.healthFactor }));
+  const watched = personal ? await settle(fireWatches(ctx, owner, environment, watchFactsOf(inputs, health), computed), []) : [];
+  const raw = [...watched, ...computed];
   const hidden = new Set<FoldInsightKind>(personal ? inputs.preferences.insights.hidden : []);
   const done = personal ? await handledInsights(ctx, owner) : new Map<string, string>();
-  const insights: FoldInsight[] = raw.filter((i) => !hidden.has(i.kind)).map((i) => ({ ...i, handled: done.get(i.id) === i.title }));
+  const sent = personal ? await settle(sentMarks(ctx, owner, environment), new Map()) : new Map();
+  const insights: FoldInsight[] = raw.filter((i) => !hidden.has(i.kind)).map((i) => ({ ...i, handled: done.get(i.id) === i.title, ...(sent.get(i.id) && done.get(i.id) === i.title ? { sent: sent.get(i.id) } : {}) }));
   let brief: FoldInsightsResponse["brief"] = { since: null, lines: [] };
   if (personal) {
     const last = (await seen(ctx).get(owner.toLowerCase()).catch(() => null))?.value ?? null;

@@ -8,7 +8,7 @@ import { create } from "zustand";
 
 import { readStorage, writeStorage } from "../../app/state/storage";
 import { streamChat } from "./client";
-import { assistantDraft, EMPTY, reduce, titleOf, userMessage, type Conversation } from "./model";
+import { assistantDraft, EMPTY, reduce, titleOf, userMessage, type ChatMessage, type Conversation } from "./model";
 
 export interface ThreadSummary {
   readonly id: string;
@@ -58,6 +58,8 @@ interface AskState {
   carry(context: string | null): void;
   /** A thread the server opened outside a chat turn (a Fold answer): keep the conversation, take its id. */
   adopt(threadId: string, title: string): void;
+  /** A message the server wrote to the shared thread outside a turn (a hand-off from Lyko on watch). */
+  receive(threadId: string, message: ChatMessage): void;
   stop(): void;
   fresh(): void;
   openThread(id: string): void;
@@ -81,6 +83,11 @@ export const useAsk = create<AskState>()((set, get) => ({
     const threads = [entry, ...get().threads.filter((t) => t.id !== threadId)].slice(0, 40);
     writeStorage(THREADS_KEY, JSON.stringify(threads));
     set({ threads });
+  },
+  receive: (threadId, message) => {
+    const convo = get().convo;
+    if (convo.threadId && convo.threadId !== threadId) return;
+    set({ convo: { ...convo, threadId, messages: [...convo.messages, message] } });
   },
   takePending: () => {
     const p = get().pending;

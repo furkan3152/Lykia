@@ -6,7 +6,7 @@
  * where they help integrators most.
  */
 import { z } from "zod";
-import { createSchema } from "../../modules/intents.js";
+import { createSchema, prepareSchema } from "../../modules/intents.js";
 import { factsSchema } from "../../modules/fence.js";
 import type { DocumentedRoute, HttpMethod } from "./registry.js";
 
@@ -83,7 +83,8 @@ export const EXISTING_ROUTES: readonly DocumentedRoute[] = [
   r("post", "/intents", "Intents", "Plan an outcome (a sentence or actions), checked against the Fence", "key", { scope: "build", body: createSchema, description: "Returns the intent graph, the Fence verdict, the Outrun and the Lykia fee per step. The server never signs." }),
   r("get", "/intents/:id", "Intents", "An intent and its Outrun", "key"),
   r("get", "/intents/:id/outrun", "Intents", "Where the money is: the Outrun", "key"),
-  r("post", "/intents/:id/steps/:sid/prepare", "Intents", "Unsigned calls, binding and memo for one step", "key", { scope: "build", body: z.object({ confirm: z.boolean().optional() }) }),
+  r("post", "/intents/:id/steps/:sid/prepare", "Intents", "Unsigned calls, binding and memo for one step (or its whole stage), rebuilt now", "key", { scope: "build", body: prepareSchema, description: "A step whose amount is what the step before produced is first planned again with the amount that step's receipt shows (net Transfer logs), never the quote; the answer carries `replanned`. The Fence and the beta cap are evaluated again on the plan as it is now. With `stage: true` an EOA's steps that share the stage come back as one Multicall3From transaction (`stepIds`). A refusal (FENCE_DENIED, NO_ROUTE, INSUFFICIENT_BALANCE) is recorded on the step, so the plan reads as paused there until it is retried." }),
+  r("post", "/intents/:id/steps/:sid/retry", "Intents", "Retry a paused step: back to ready with its old calls dropped", "key", { scope: "build", description: "For a step refused at prepare or whose transaction reverted (nothing moved). Settled steps stay settled; nothing is signed." }),
   r("post", "/intents/:id/steps/:sid/submit", "Intents", "Record signed transaction hashes (or a userOpHash) for a step", "key", { scope: "execute", body: z.union([z.object({ hashes: z.array(hash).min(1).max(4) }), z.object({ userOpHash: hash })]) }),
   r("get", "/intents/:id/steps/:sid/attestation", "Intents", "The CCTP attestation of a bridge step", "key"),
   r("post", "/intents/:id/stop", "Intents", "Stop every step that has not started", "key", { scope: "execute" }),

@@ -129,11 +129,12 @@ are in the registry row's `evidence`; entries Lykia does not route carry
 | `unitflow-finance-v3` | `swap-unitflow` (SwapRouter v1, Quoter v1) | docs.unitflow.finance contract page; Swap events with the router as sender | `readUnitflow` |
 | `sushiswap` | `swap-sushi` (api.sushi.com route, RedSnwapper `snwap`) | npm `sushi` config for Arc; RedSnwapper verified on Etherscan; Lykia re-encodes the minimum | `readSushiswap` (SushiSwap V3 positions) |
 | `relay` | `bridge-relay` (RelayDepository `depositErc20`) | api.relay.link chain list; depository source verified on Base at the same address; Relay deposit events on Arc. Cross-chain: delivered on the destination | `readRelay` (owner's Relay transfers in flight) |
+| `across` | `bridge-across` (SpokePool `depositV3`, encoded by Lykia from checked quote fields) | app.across.to/api available-routes and suggested-fees for Arc; the quote must name the registry's SpokePool, Arc USDC in and the route's USDC out, with output = amount - fee; SpokePool code on Arc; FundsDeposited events on Arc. Cross-chain: delivered on the destination | `readAcross` (owner's Across transfers in flight, status from /deposit/status) |
 | `zerox` | `swap-zerox` (AllowanceHolder `exec`) | Canonical AllowanceHolder; keyed API. Routable only when `ZEROX_API_KEY` is set | `readZeroX` (holds nothing) |
 
 Thin venues stay routable but are compared on output after gas like every
 other venue, so route search never prefers one that nets less. API routes
-(Sushi, 0x, Relay) are re-fetched and decoded at build time: the target must
+(Sushi, 0x, Relay, Across) are re-fetched and decoded at build time: the target must
 be the registry contract, and the tokens, amount and recipient must match the
 step before anything is signed.
 

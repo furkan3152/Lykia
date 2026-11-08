@@ -119,6 +119,16 @@ export interface IntentStep {
   references?: readonly `0x${string}`[];
   failure?: StepFailure;
   settledAt?: string;
+  /**
+   * Steps with the same stage are signed together (one Multicall3From
+   * batch when the signer is an EOA). A new stage starts where a step spends
+   * what the step before delivered, or where a step leaves Arc.
+   */
+  readonly stage?: number;
+  /** What the step delivered to the account, read from its receipt (net Transfer logs of the output token). */
+  received?: StepAmount;
+  /** Set when the step was rebuilt at prepare time from what the step before actually delivered. */
+  replanned?: { readonly symbol: string; readonly planned: string; readonly actual: string; readonly at: string };
 }
 
 export interface IntentGraph {

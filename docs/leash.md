@@ -31,7 +31,7 @@ has, composed so that each limit is held where it can be held:
 `trade-small` only uses DEXs whose swap call takes the recipient at a fixed
 ABI word, so the session can pin the output to the account
 (`receiverWords`). Uniswap v4's UniversalRouter, Aerodrome's router, Sushi's
-route processor, Relay and LykiaRouter splits carry the recipient inside
+route processor, Relay, Across and LykiaRouter splits carry the recipient inside
 dynamic bytes or send it elsewhere; a session cannot check that, so a
 leash never routes through them. Session caps exist for stablecoins only
 (USDC, and EURC converted at the Chainlink reference rate when the leash is

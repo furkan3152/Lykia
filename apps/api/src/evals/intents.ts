@@ -17,7 +17,7 @@
 import type { ElementKind, RefusalCode } from "@lykia/core";
 
 export type CaseMode = "both" | "llm";
-export type Category = "treasury" | "payroll" | "savings" | "hedging" | "agents" | "exits" | "dca" | "sweeps" | "cross-chain" | "ambiguity" | "contradiction" | "impossible" | "injection" | "conditional" | "multilingual";
+export type Category = "watch" | "treasury" | "payroll" | "savings" | "hedging" | "agents" | "exits" | "dca" | "sweeps" | "cross-chain" | "ambiguity" | "contradiction" | "impossible" | "injection" | "conditional" | "multilingual";
 
 export interface ElementExpect {
   readonly kind: ElementKind;
@@ -57,6 +57,8 @@ export interface Rubric {
   readonly untrusted?: boolean;
   /** Every automation sentence reads back into its actions. */
   readonly roundTrip?: boolean;
+  /** A watch for Lyko on watch (subset match on the condition), or false when the words must not read as one. */
+  readonly watch?: Record<string, unknown> | false;
 }
 
 export interface EvalCase {
@@ -79,6 +81,14 @@ const A8 = "0x8888888888888888888888888888888888888888";
 const A9 = "0x9999999999999999999999999999999999999999";
 
 export const EVAL_CASES: readonly EvalCase[] = [
+  /* ------------------------------------------------------------ watch tasks (Ask Lyko -> Lyko on watch) */
+  { id: "watch-aave-health", category: "watch", mode: "both", state: "treasury", text: "Watch my Aave position and tell me if health drops below 1.5", expect: { watch: { kind: "health-below", threshold: "1.5", venue: "aave-v4" } } },
+  { id: "watch-alert-health", category: "watch", mode: "both", state: "treasury", text: "Alert me if my health factor goes under 1.4", expect: { watch: { kind: "health-below", threshold: "1.4" } } },
+  { id: "watch-lp", category: "watch", mode: "both", state: "treasury", text: "Keep an eye on my Uniswap LP", expect: { watch: { kind: "lp-out-of-range", venue: "uniswap-v3" } } },
+  { id: "watch-idle", category: "watch", mode: "both", state: "treasury", text: "Let me know when idle USDC is above 500", expect: { watch: { kind: "idle-above", token: "USDC", amount: "500" } } },
+  { id: "watch-rate", category: "watch", mode: "both", state: "treasury", text: "Tell me if the Morpho rate falls below 4%", expect: { watch: { kind: "apy-below", percent: "4", venue: "morpho" } } },
+  { id: "watch-not-an-order", category: "watch", mode: "both", state: "btc", text: "Watch the cirBTC price and sell half if it drops below 90000", expect: { watch: false } },
+  { id: "watch-not-a-plan", category: "watch", mode: "both", state: "treasury", text: "Swap 500 USDC to EURC, then deposit it into Morpho", expect: { watch: false } },
   /* ------------------------------------------------------------ treasury / payroll */
   {
     id: "studio",

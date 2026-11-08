@@ -31,6 +31,8 @@ export function HerdingTab(props: {
   readonly onOpen: (p: FoldProposal) => void;
   readonly onStop: (p: FoldProposal) => void;
   readonly onToggle: (i: FoldInstruction) => void;
+  /** Watch tasks from Ask Lyko are removed here. */
+  readonly onRemove?: (i: FoldInstruction) => void;
   readonly onEdit: (i: FoldInstruction) => void;
   readonly onNew: () => void;
   readonly busyId: string | null;
@@ -107,7 +109,7 @@ export function HerdingTab(props: {
             {list.map((i) => (
               <div key={i.id} className={cx("fd-herd__row", i.status === "paused" && "fd-herd__row--paused")} role="row">
                 <span role="cell" className="fd-herd__name">
-                  <Tag tone="ghost">{i.sourceLabel}</Tag>
+                  <Tag tone={i.source === "watch" ? "ochre" : "ghost"}>{i.sourceLabel}</Tag>
                   <b>{i.name}</b>
                   <small>{i.trigger}</small>
                 </span>
@@ -122,7 +124,11 @@ export function HerdingTab(props: {
                   {i.controllable && (i.status === "active" || i.status === "paused") ? (
                     <Button size="sm" tone="ghost" disabled={props.busyId === i.id || props.sample} onClick={() => props.onToggle(i)}>{i.status === "paused" ? "RESUME" : "PAUSE"}</Button>
                   ) : null}
-                  <Button size="sm" tone="ghost" onClick={() => props.onEdit(i)}>{"EDIT VIA LYKO"}</Button>
+                  {i.source === "watch" && props.onRemove ? (
+                    <Button size="sm" tone="ghost" disabled={props.busyId === i.id || props.sample} onClick={() => props.onRemove!(i)}>{"REMOVE"}</Button>
+                  ) : (
+                    <Button size="sm" tone="ghost" onClick={() => props.onEdit(i)}>{"EDIT VIA LYKO"}</Button>
+                  )}
                 </span>
               </div>
             ))}

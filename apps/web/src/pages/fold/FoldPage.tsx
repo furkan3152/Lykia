@@ -184,10 +184,22 @@ export default function FoldPage() {
     if (needWallet()) return;
     setBusyId(i.id);
     try {
-      await control.mutateAsync({ id: i.id, action: i.status === "paused" ? "resume" : "pause" });
+      await control.mutateAsync({ id: i.id, action: i.status === "paused" ? "resume" : "pause", source: i.source });
       toast.success(i.status === "paused" ? "Resumed" : "Paused", { description: i.name, from: "LYKO" });
     } catch (e) {
       toast.error("No change", { description: describeError(e), from: "LYKO" });
+    } finally {
+      setBusyId(null);
+    }
+  };
+  const remove = async (i: FoldInstruction) => {
+    if (needWallet()) return;
+    setBusyId(i.id);
+    try {
+      await control.mutateAsync({ id: i.id, action: "remove", source: i.source });
+      toast.success("Watch removed", { description: i.name, from: "LYKO" });
+    } catch (e) {
+      toast.error("Not removed", { description: describeError(e), from: "LYKO" });
     } finally {
       setBusyId(null);
     }
@@ -254,7 +266,7 @@ export default function FoldPage() {
           <div className="fd-panel" role="tabpanel" aria-label={meta ? `${meta.label} · ${meta.sub}` : "Lyko on watch"}>
             {effectiveTab === "flock" ? <FlockTab snapshot={snapshot} map={positions} minHealth={minHealth} signedIn={owner.signedIn} onSignIn={() => void siwe.signIn()} onAction={onPosition} busy={draft.isPending} openWhatIf={whatifOpen} /> : null}
             {effectiveTab === "trails" ? <TrailsTab now={mountedAt} items={trailItems} totals={trails.data?.totals ?? (owner.sample ? { settled: 2, failed: 0, refused: 1, feesUsd: "54.00" } : undefined)} explain={explain.data ?? (owner.sample ? { kind: "yield", title: "Where your yield comes from", summary: "$6,600 earns about $372 a year (2.95% on the whole Flock); $5,616 rests in the wallet.", lines: [{ label: "Galaxy USDC · morpho-vaults", value: "$4,200", note: "6.10% a year ≈ $256" }, { label: "USDC · aave-v4", value: "$2,400", note: "4.80% a year ≈ $115" }, { label: "Borrowed USDC · aave-v4", value: "−$600", note: "interest accrues against your yield" }, { label: "Resting in the wallet", value: "$5,616", note: "earns nothing; kept liquid" }, { label: "Lykia fees, last 30 days", value: "$54.00", note: "1% of what moved" }], sources: ["sample"], at: new Date(mountedAt).toISOString() } : undefined)} explainLoading={explain.isLoading} sample={owner.sample} signedIn={owner.signedIn} onSignIn={() => void siwe.signIn()} /> : null}
-            {effectiveTab === "herding" ? <HerdingTab instructions={instructionList} waiting={waiting} sample={owner.sample} signedIn={owner.signedIn} initialFilter={show} onSignIn={() => void siwe.signIn()} onOpen={setOpenDraft} onStop={(p) => void stopP(p)} onToggle={(i) => void toggle(i)} onEdit={(i) => openInAsk(i.editSentence, `Herding item ${i.id}: ${i.name} (${i.trigger}; ${i.status}; next ${i.nextRunLabel}).`)} onNew={() => openInAsk("Every Friday at 17:00, pay ", "A new standing instruction from Herding.")} busyId={busyId} /> : null}
+            {effectiveTab === "herding" ? <HerdingTab instructions={instructionList} waiting={waiting} sample={owner.sample} signedIn={owner.signedIn} initialFilter={show} onSignIn={() => void siwe.signIn()} onOpen={setOpenDraft} onStop={(p) => void stopP(p)} onToggle={(i) => void toggle(i)} onRemove={(i) => void remove(i)} onEdit={(i) => openInAsk(i.editSentence, `Herding item ${i.id}: ${i.name} (${i.trigger}; ${i.status}; next ${i.nextRunLabel}).`)} onNew={() => openInAsk("Every Friday at 17:00, pay ", "A new standing instruction from Herding.")} busyId={busyId} /> : null}
             {effectiveTab === "pack" ? <LeashSection owner={owner} onSignIn={() => void siwe.signIn()} /> : null}
             {effectiveTab === "pack" ? <PackTab agents={pack.data?.agents} sample={owner.sample} busyId={busyId} onWhistle={(a) => void whistleAgent(a)} onNew={() => openInAsk("Create a payroll agent with a 500 USDC daily budget", "A new agent from the Pack.")} onAsk={(a) => openInAsk(`How is ${a.name} doing, and what did it do today?`, `Agent ${a.name} (${a.role}), ${a.status}; daily cap ${a.budget.caps.dailyUsd ?? "none"}, spent today ${a.budget.spent.dayUsd}.`)} /> : null}
             {effectiveTab === "fence" ? <FenceTab fence={fence} headroom={room} verdicts={trailItems ?? []} onSuggest={onFenceSuggest} onAsk={() => openInAsk("Change my Fence: ", "A Fence edit from the Fold.")} onWhistle={whistleAll} busy={draft.isPending} /> : null}

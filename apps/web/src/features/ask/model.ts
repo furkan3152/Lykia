@@ -34,6 +34,8 @@ export interface ChatMessage {
   /** When the turn started and ended (client clock), for "Checked 4 things · 1.8s". */
   readonly startedAt?: number;
   readonly endedAt?: number;
+  /** A hand-off between Lyko on watch and Ask Lyko this message carries (who sent what). */
+  readonly instruction?: ThreadMessage["instruction"];
 }
 
 export interface Conversation {
@@ -57,7 +59,7 @@ export function assistantDraft(now: number = Date.now()): ChatMessage {
 
 /** A message read back from a saved thread, shaped for the thread renderer (its cards are validated again). */
 export function storedMessage(m: ThreadMessage, id: string): ChatMessage {
-  return { id, role: m.role, text: m.text, trail: [], proposals: m.proposals ?? [], blocks: parseAnswerBlocks(m.blocks), clarify: null, streaming: false };
+  return { id, role: m.role, text: m.text, trail: [], proposals: m.proposals ?? [], blocks: parseAnswerBlocks(m.blocks), clarify: null, streaming: false, ...(m.instruction ? { instruction: m.instruction } : {}) };
 }
 
 /** Upserts a step by id: a start adds it, its end replaces it in place. */
@@ -134,6 +136,12 @@ function draftLinkOk(d: ChatDraftLink): boolean {
   if (!d || (d.kind !== "alert" && d.kind !== "automation") || typeof d.href !== "string" || typeof d.label !== "string") return false;
   const page = d.kind === "alert" ? "/app/alerts" : "/app/automations";
   return d.href === page || (d.href.startsWith(`${page}?draft=`) && /^[A-Za-z0-9_-]+$/u.test(d.href.slice(page.length + 7)));
+}
+
+/** "Lyko on watch → Ask Lyko · plan": the compact line over a hand-off message. */
+export function handoffLine(i: NonNullable<ChatMessage["instruction"]>): string {
+  const name = { watch: "Lyko on watch", ask: "Ask Lyko" } as const;
+  return `${name[i.from]} → ${name[i.to]} · ${i.kind === "plan" ? "plan" : "watch task"}`;
 }
 
 /** Plain-language reasons from failed steps, de-duplicated, for the reply bubble. */

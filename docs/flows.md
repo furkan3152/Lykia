@@ -2,10 +2,14 @@
 
 The money flows Lykia offers, each with its exact prepared calldata
 simulated on Arc mainnet by `eth_call`. Nothing was signed or broadcast.
-The matrix was recorded before the Archery, Unitflow Finance V3, SushiSwap
-and Relay adapters were added; those venues are covered by the API's tests
-(`apps/api/src/__tests__/venues-added.test.ts`) and not yet by a recorded
-`npm run prove` run.
+The matrix was recorded before the Archery, Unitflow Finance V3, SushiSwap,
+Relay and Across adapters were added; those venues are covered by the API's
+tests (`apps/api/src/__tests__/venues-added.test.ts`) and not yet by a
+recorded `npm run prove` run. Across was simulated on its own on 2026-11-08:
+the planner's bridge of 100 USDC to Base (99 USDC after Lykia's fee) chose
+Across, which delivers 98.986265 USDC against CCTP's 98.945337 and Relay's
+98.929596, and approve + Lykia's fee + Memo(depositV3) through Multicall3From
+passed at block 30,189,577. `npm run prove` now includes an Across line.
 
 Run it yourself:
 

@@ -7,7 +7,7 @@
  */
 import { useLykiaWallet } from "../../features/wallet/useLykiaWallet";
 import type { ThreadView } from "@lykia/core/api/agents";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { navigate } from "../../app/routes/history";
@@ -23,11 +23,11 @@ import type { AgentProposal } from "@lykia/core/api/agents";
 import { useAsk } from "../../features/ask/store";
 import { RouteArtifact } from "../../features/route/RouteArtifact";
 import { ReviewModal } from "../../features/route/ReviewModal";
-import { apiGet } from "../../lib/api";
+import { apiGet, apiPost, describeError } from "../../lib/api";
 import { useEnvironment } from "../../lib/environment";
 import { useLykiaStore } from "../../lib/lykiaStore";
 import { useLamp } from "../../lib/pulseStore";
-import { Button, LykoFace, MosaicCanvas, Tag, cx } from "../../mosaic";
+import { Button, LykoFace, MosaicCanvas, Tag, cx, toast } from "../../mosaic";
 import { strip, STRIP_H, STRIP_W } from "../../mosaic/scenes";
 import { handleLine } from "../../shell/palette";
 import { useSession } from "../../lib/session";
@@ -47,6 +47,7 @@ const QUICK = [
 
 export default function AskPage({ reviewId = null }: { readonly reviewId?: string | null } = {}) {
   const environment = useEnvironment();
+  const qc = useQueryClient();
   const { address } = useLykiaWallet();
   const fence = useLykiaStore((s) => s.fence);
   const night = fence.mode === "whistle";
@@ -160,6 +161,24 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
     openReview: (p) => {
       if (p.intentId) setReview({ intentId: p.intentId, proposal: p });
     },
+    stopPlan: async (intentId) => {
+      try {
+        await apiPost(`/v1/intents/${encodeURIComponent(intentId)}/stop`, {});
+        await qc.invalidateQueries({ queryKey: ["intent", intentId] });
+      } catch (error) {
+        toast.error("The plan could not be stopped", { description: describeError(error), from: "LYKO" });
+      }
+    },
+    // Hand-offs are the owner's own: only offered once the wallet is signed in.
+    ...(signedIn && address
+      ? {
+          watchPosition: async (intentId: string) => {
+            await apiPost("/v1/agent/instructions", { owner: address, environment, kind: "watch", from: "ask", to: "watch", intentId, ...(convo.threadId ? { threadId: convo.threadId } : {}) });
+            await qc.invalidateQueries({ queryKey: ["fold-instructions"] });
+            toast.success("Lyko on watch has it", { description: "It shows in the Fold under Herding, marked From Ask Lyko.", from: "LYKO" });
+          },
+        }
+      : {}),
   };
   const empty = convo.messages.length === 0 && !serverThread.data;
   const firstUser = convo.messages.findIndex((m) => m.role === "user");

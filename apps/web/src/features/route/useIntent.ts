@@ -7,7 +7,9 @@ import { useEffect } from "react";
 import { apiGet, apiUrl } from "../../lib/api";
 import { openEventStream } from "../../lib/sse";
 
-export function useIntent(id: string | null) {
+/** `stream: false` reads the plan once (a finished plan in the thread's history needs no live stream). */
+export function useIntent(id: string | null, options: { readonly stream?: boolean } = {}) {
+  const stream = options.stream !== false;
   const qc = useQueryClient();
   const query = useQuery({
     queryKey: ["intent", id],
@@ -21,7 +23,7 @@ export function useIntent(id: string | null) {
     },
   });
   useEffect(() => {
-    if (!id) return undefined;
+    if (!id || !stream) return undefined;
     const s = openEventStream<{ intent: IntentGraph; outrun: Outrun }>({
       url: apiUrl(`/v1/intents/${encodeURIComponent(id)}/stream`),
       parsers: { intent: (d) => (d && typeof d === "object" && "steps" in (d as object) ? (d as IntentGraph) : null), outrun: (d) => (d && typeof d === "object" && "waypoints" in (d as object) ? (d as Outrun) : null) },
@@ -30,7 +32,7 @@ export function useIntent(id: string | null) {
       maxAttempts: 4,
     });
     return () => s.close();
-  }, [id, qc]);
+  }, [id, qc, stream]);
   return query;
 }
 

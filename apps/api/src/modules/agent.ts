@@ -128,12 +128,12 @@ export const agentModule: ApiModule = {
         if (client) {
           const seen = await perceive(ctx, { environment, owner, fence, pack, emit, personal: proven !== null });
           const appContext = project ? projectPromptBlock(project) : "";
-          const result = await runTurn({ ctx, client, environment, owner, ownerVerified: proof !== null, ...(proof ? { actor: proof } : {}), fence, pack, history, message, stateLine: seen.line, emit, ...(appContext ? { appContext } : {}) });
+          const result = await runTurn({ ctx, client, environment, owner, ownerVerified: proof !== null, ...(proof ? { actor: proof } : {}), fence, pack, history, message, stateLine: seen.line, emit, threadId: thread.id, ...(appContext ? { appContext } : {}) });
           text = result.text;
           proposals = result.proposals;
           stopReason = result.stopReason;
         } else {
-          const result = await runDeterministicTurn({ ctx, environment, owner, fence, pack, message, emit, ownerVerified: proof !== null, ...(proof ? { actor: proof } : {}) });
+          const result = await runDeterministicTurn({ ctx, environment, owner, fence, pack, message, emit, ownerVerified: proof !== null, threadId: thread.id, ...(proof ? { actor: proof } : {}) });
           text = result.text;
           proposals = result.proposals;
           stopReason = result.stopReason;

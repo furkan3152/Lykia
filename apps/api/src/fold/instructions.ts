@@ -13,6 +13,8 @@ import { ownerInstructionSources, type StoredAutomation } from "../devflows/auto
 import { automations, listOwned } from "../devflows/stores.js";
 import { services } from "../services.js";
 import { listProposals } from "./proposals.js";
+import { listInstructions } from "../agents/instructions.js";
+import type { WatchPayload } from "@lykia/core";
 
 const iso = (ms: number) => new Date(ms).toISOString();
 
@@ -161,6 +163,27 @@ export async function instructionsFor(ctx: AppContext, owner: Address): Promise<
       controllable: false,
       editSentence: `Change my order "${o.summary}": `,
       environment,
+    });
+  }
+
+  // Watch tasks Ask Lyko handed to Lyko on watch: checked each time Lyko on watch reads the Fold.
+  for (const w of await listInstructions(ctx, owner, { kind: "watch" }).catch(() => [])) {
+    const p = w.payload as WatchPayload;
+    out.push({
+      id: w.id,
+      source: "watch",
+      sourceLabel: "From Ask Lyko",
+      name: p.label,
+      status: w.status === "paused" ? "paused" : "active",
+      trigger: `watch task · ${p.condition.kind.replace(/-/gu, " ")}`,
+      nextRunAt: null,
+      nextRunLabel: w.status === "paused" ? "paused" : "on each Fold read",
+      lastRunAt: p.lastFiredAt,
+      lastResult: p.observation ?? "Not checked yet",
+      nextVerdict: { decision: "allow", reason: "A watch only raises an insight; it moves nothing." },
+      controllable: true,
+      editSentence: `Change my watch "${p.label}": `,
+      environment: w.environment,
     });
   }
 

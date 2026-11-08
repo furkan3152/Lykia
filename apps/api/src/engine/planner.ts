@@ -56,6 +56,7 @@ import { systemClock } from "../clock.js";
 import { ERC4626_ABI, morphoVaults } from "../flock/flock.js";
 import { cctpFeeBps, manifestStep, noRoute, stepKindOf, stepVenue, type AdapterId, type StepPlan } from "./adapters.js";
 import { quoteRelay } from "./venues/relay.js";
+import { quoteAcross } from "./venues/across.js";
 import { PRACTICE_LENDING_ABI } from "./abis.js";
 import { forwardedRouteFee } from "../circle/cctp.js";
 import { VenueRouter, type Candidate, type VenuePrefs } from "./router.js";
@@ -108,6 +109,8 @@ export interface PlanInput {
   readonly integrator?: IntegratorFeePolicy;
   /** Digest of the compiled program (lykia.program/v1) this plan came from; pinned in the Fence facts. */
   readonly program?: `sha256:${string}`;
+  /** What "the step before" produced, for a step planned again on its own (`replanStep`). */
+  readonly carry?: { readonly symbol: string; readonly units: bigint };
 }
 
 export interface PlanResult {
@@ -115,6 +118,30 @@ export interface PlanResult {
   readonly plans: Record<string, StepPlan>;
   readonly facts: FenceFacts;
   readonly fence: Fence;
+  /** The action each step came from, so a step that spends "it" can be rebuilt from what the step before delivered. */
+  readonly sources: Record<string, StepSource>;
+}
+
+export interface StepSource {
+  readonly action: PlanAction;
+  /** The action's amount is "what the step before produced". */
+  readonly previous: boolean;
+  /** Steps the action became (only a one-step action is rebuilt). */
+  readonly drafts: number;
+}
+
+/** Steps in one stage at most (one Multicall3From batch). */
+const MAX_STAGE_STEPS = 4;
+
+/** The token an action's amount is counted in. */
+export function amountSymbol(action: PlanAction): string | null {
+  const a = action as { token?: string; from?: string };
+  return a.from ?? a.token ?? null;
+}
+
+function spendsPrevious(action: PlanAction): boolean {
+  const amount = (action as { amount?: unknown }).amount;
+  return typeof amount === "object" && amount !== null && (amount as { previous?: unknown }).previous === true;
 }
 
 interface Draft {
@@ -266,6 +293,7 @@ export class Planner {
     symbols.forEach((s, i) => start.set(s, reads[i]?.status === "success" ? (reads[i].result as bigint) : 0n));
     const prices = await this.deps.prices.prices(symbols);
     const ledger: Ledger = { env, account, owner: input.owner, fence, dryRun: input.dryRun === true, start, balances: new Map(start), reserved: new Map(), prices, warnings: [], fee: this.deps.fee ?? DEFAULT_FEE_POLICY, intentId: input.id, ...(input.preferences ? { prefs: input.preferences } : {}), ...integratorOf(input.integrator) };
+    if (input.carry) ledger.last = input.carry;
     const book = new Book(ledger);
 
     // Reserves apply to the whole plan, wherever they appear in the sentence.
@@ -286,17 +314,34 @@ export class Planner {
     if (actions.length === 0) throw new LykiaHttpError("NO_ROUTE", 422, "Nothing to do: the flock is already where you want it.");
 
     const drafts: Draft[] = [];
+    const origin: { action: PlanAction; first: boolean; drafts: number }[] = [];
     for (const action of actions) {
       const before = ledger.last;
-      drafts.push(...(await this.draft(action, book)));
+      const made = await this.draft(action, book);
+      drafts.push(...made);
+      made.forEach((_, j) => origin.push({ action, first: j === 0, drafts: made.length }));
       // A step that produced nothing (a send, a bridge) leaves nothing for "it" to refer to.
       if (ledger.last === before) delete ledger.last;
     }
 
+    // Stages: steps go out together until one spends what the step before delivered (it is rebuilt from the
+    // receipt first), or a step settles off Arc, or the stage is full.
+    const stages: number[] = [];
+    drafts.forEach((d, i) => {
+      if (i === 0) return void stages.push(1);
+      const prev = drafts[i - 1] as Draft;
+      const o = origin[i]!;
+      const inStage = stages.filter((n) => n === stages[i - 1]).length;
+      const split = (o.first && spendsPrevious(o.action)) || prev.settlement.kind !== "receipt" || d.settlement.kind !== "receipt" || inStage >= MAX_STAGE_STEPS;
+      stages.push(split ? (stages[i - 1] as number) + 1 : (stages[i - 1] as number));
+    });
+
     const plans: Record<string, StepPlan> = {};
+    const sources: Record<string, StepSource> = {};
     const steps: IntentStep[] = drafts.map((d, i) => {
       const id = `s${i + 1}`;
       plans[id] = { adapter: d.adapter, params: d.params };
+      sources[id] = { action: origin[i]!.action, previous: origin[i]!.first && spendsPrevious(origin[i]!.action), drafts: origin[i]!.drafts };
       return {
         id,
         kind: d.adapter === "manifest" ? manifestStep(d.params, d.fx).kind : stepKindOf(d.adapter, d.fx),
@@ -311,6 +356,7 @@ export class Planner {
         ...(d.route ? { route: d.route } : {}),
         ...(d.fee ? { fee: d.fee } : {}),
         status: i === 0 ? "ready" : "blocked",
+        stage: stages[i] as number,
       };
     });
     const facts: FenceFacts = {
@@ -336,7 +382,27 @@ export class Planner {
       verdict,
       warnings: [...ledger.warnings, ...drafts.flatMap((d) => d.warnings)],
     };
-    return { graph, plans, facts, fence };
+    return { graph, plans, facts, fence, sources };
+  }
+
+  /**
+   * One action planned again for exactly `units` of its token (what the
+   * step before delivered, read from its receipt), with live balances and
+   * quotes, Lykia's fee on the new amount and the owner's preferences.
+   */
+  async replanStep(input: Omit<PlanInput, "actions" | "source" | "dryRun">, action: PlanAction, units: bigint): Promise<{ readonly step: IntentStep; readonly plan: StepPlan; readonly fact: FenceFacts["steps"][number]; readonly warnings: readonly string[] }> {
+    const symbol = amountSymbol(action);
+    const token = symbol ? getToken(symbol) : undefined;
+    if (!token) throw new LykiaHttpError("NO_ROUTE", 422, "This step cannot be rebuilt: its amount has no token.");
+    // The action keeps its own amount ("it"); what "it" is now comes from the receipt, so fees and amounts mean what they meant.
+    const result = await this.plan({ ...input, actions: [action], source: "replan", carry: { symbol: token.symbol, units } });
+    if (result.graph.steps.length !== 1) throw new LykiaHttpError("NO_ROUTE", 422, "This step became more than one step when rebuilt; plan it again.");
+    return { step: result.graph.steps[0]!, plan: result.plans.s1!, fact: result.facts.steps[0]!, warnings: result.graph.warnings };
+  }
+
+  /** The Fence and the beta cap, evaluated again on the plan's facts as they are now. */
+  recheck(fence: Fence, facts: FenceFacts) {
+    return evaluateFence(fence, facts, this.deps.beta ? { beta: this.deps.beta } : {});
   }
 
   /** Target weights -> the fewest fx/swap actions (USD values from Chainlink). */
@@ -400,34 +466,49 @@ export class Planner {
         const maxFee = forwarded ? forwarded.maxFee : feeBps ? (units * BigInt(Math.ceil(feeBps * 100)) + 999_999n) / 1_000_000n : 0n;
         const amount = book.amount("USDC", units);
         const display = book.display("USDC", units);
-        // Relay (intent bridge, mainnet) is quoted beside CCTP: it wins only by delivering more, or when named.
+        // Relay and Across (intent bridges, mainnet) are quoted beside CCTP: one wins only by delivering more, or when named.
         const named = action.venue?.split(":")[0];
         const chainId = dest.chainIds[env];
-        const relay = env === "mainnet" && chainId !== null && named !== "cctp" && units > 0n ? await quoteRelay(this.deps.fetch, env, { user: book.l.account, recipient: recipient as Address, usdc: amount.token as Address, amount: units, destinationChainId: chainId }) : null;
+        const solverQuotes = env === "mainnet" && chainId !== null && named !== "cctp" && units > 0n;
+        const quoteInput = { user: book.l.account, recipient: recipient as Address, usdc: amount.token as Address, amount: units, destinationChainId: chainId ?? 0 };
+        const [relay, across] = await Promise.all([
+          solverQuotes && named !== "across" ? quoteRelay(this.deps.fetch, env, quoteInput) : Promise.resolve(null),
+          solverQuotes && named !== "relay" ? quoteAcross(this.deps.fetch, env, quoteInput) : Promise.resolve(null),
+        ]);
         if (named === "relay" && !relay) throw noRoute(`Relay did not quote ${display} to ${dest.name}.`);
+        if (named === "across" && !across) throw noRoute(`Across did not quote ${display} to ${dest.name}.`);
         const cctpOk = maxFee < units;
-        const cctpOption = { venue: "cctp", label: `CCTP to ${dest.name}`, amountOut: (cctpOk ? units - maxFee : 0n).toString(), netAmountOut: (cctpOk ? units - maxFee : 0n).toString(), risk: "low" as const, executable: cctpOk, notes: [forwarded ? "Burn and mint; Circle forwards the mint." : "Burn and mint after Circle's attestation."] };
-        const relayOption = relay ? { venue: "relay", label: `Relay to ${dest.name}`, amountOut: relay.amountOut.toString(), netAmountOut: relay.amountOut.toString(), risk: "medium" as const, executable: true, notes: ["Cross-chain: a Relay solver delivers on the destination chain; unfilled deposits are refunded on Arc.", `Relay's fee ${book.display("USDC", relay.feeUnits)}.`] } : null;
-        const useRelay = relay !== null && (named === "relay" || !cctpOk || relay.amountOut > units - maxFee);
-        if (!useRelay && !cctpOk) throw noRoute(`Bridging ${display} costs at least ${book.display("USDC", maxFee)} in CCTP fees; send more.`);
-        if (useRelay && relay && relayOption) {
-          const minOut = (relay.amountOut * BigInt(10_000 - DEFAULT_SLIPPAGE_BPS)) / 10_000n;
-          const reason = named === "relay" ? `You named Relay; it delivers ${book.display("USDC", relay.amountOut)} on ${dest.name}.` : `Relay delivers ${book.display("USDC", relay.amountOut)} on ${dest.name}, more than CCTP's ${cctpOk ? book.display("USDC", units - maxFee) : "nothing (fee above the amount)"}.`;
+        const cctpOut = cctpOk ? units - maxFee : 0n;
+        const cctpOption = { venue: "cctp", label: `CCTP to ${dest.name}`, amountOut: cctpOut.toString(), netAmountOut: cctpOut.toString(), risk: "low" as const, executable: cctpOk, notes: [forwarded ? "Burn and mint; Circle forwards the mint." : "Burn and mint after Circle's attestation."] };
+        const solvers = [
+          relay ? { venue: "relay", name: "Relay", adapter: "bridge-relay" as const, amountOut: relay.amountOut, feeUnits: relay.feeUnits, seconds: relay.timeEstimateSeconds, who: "a Relay solver", refund: "Relay refunds the USDC on Arc" } : null,
+          across ? { venue: "across", name: "Across", adapter: "bridge-across" as const, amountOut: across.amountOut, feeUnits: across.feeUnits, seconds: across.timeEstimateSeconds, who: "an Across relayer", refund: "Across refunds the USDC on Arc after the fill deadline" } : null,
+        ].filter((x): x is NonNullable<typeof x> => x !== null);
+        const optionOf = (x: (typeof solvers)[number]) => ({ venue: x.venue, label: `${x.name} to ${dest.name}`, amountOut: x.amountOut.toString(), netAmountOut: x.amountOut.toString(), risk: "medium" as const, executable: true, notes: [`Cross-chain: ${x.who} delivers on the destination chain; unfilled deposits are refunded on Arc.`, `${x.name}'s fee ${book.display("USDC", x.feeUnits)}.`] });
+        // The best solver delivers the most; on a tie the earlier one (Relay) keeps it.
+        const best = named === "relay" || named === "across" ? solvers.find((x) => x.venue === named) ?? null : solvers.reduce<(typeof solvers)[number] | null>((a, b) => (a === null || b.amountOut > a.amountOut ? b : a), null);
+        const useSolver = best !== null && (named === best.venue || !cctpOk || best.amountOut > cctpOut);
+        if (!useSolver && !cctpOk) throw noRoute(`Bridging ${display} costs at least ${book.display("USDC", maxFee)} in CCTP fees; send more.`);
+        if (useSolver && best) {
+          const minOut = (best.amountOut * BigInt(10_000 - DEFAULT_SLIPPAGE_BPS)) / 10_000n;
+          const others = solvers.filter((x) => x !== best);
+          const beaten = [cctpOk ? `CCTP's ${book.display("USDC", cctpOut)}` : "CCTP (fee above the amount)", ...others.map((x) => `${x.name}'s ${book.display("USDC", x.amountOut)}`)].join(" and ");
+          const reason = named === best.venue ? `You named ${best.name}; it delivers ${book.display("USDC", best.amountOut)} on ${dest.name}.` : `${best.name} delivers ${book.display("USDC", best.amountOut)} on ${dest.name}, more than ${beaten}.`;
           return [{
-            adapter: "bridge-relay",
+            adapter: best.adapter,
             fx: false,
-            summary: `Bridge ${display} to ${dest.name} over Relay (cross-chain: delivered on ${dest.name}, min ${fromBaseUnits(minOut, 6)} USDC)`,
+            summary: `Bridge ${display} to ${dest.name} over ${best.name} (cross-chain: delivered on ${dest.name}, min ${fromBaseUnits(minOut, 6)} USDC)`,
             params: { token: amount.token, amount: units.toString(), recipient, chainId: String(chainId), minOut: minOut.toString(), destinationName: dest.name, destination: dest.key, display, decimals: "6", ...feeParams(fee) },
             inputs: [book.amount("USDC", gross)],
-            outputs: [{ ...book.amount("USDC", relay.amountOut, minOut), symbol: `USDC@${dest.key}` }],
+            outputs: [{ ...book.amount("USDC", best.amountOut, minOut), symbol: `USDC@${dest.key}` }],
             fee,
             fact: { usd: book.amount("USDC", gross).usd, tokens: [book.fact("USDC", false)], recipient, destination: dest.key, ...feeFact(fee) },
             settlement: { kind: "receipt" },
-            warnings: [`Cross-chain: Relay's solver delivers on ${dest.name}${relay.timeEstimateSeconds !== null ? ` in about ${relay.timeEstimateSeconds} s` : ""}; if it does not fill, Relay refunds the USDC on Arc.`],
-            route: { chosen: relayOption, alternatives: [cctpOption], reason },
+            warnings: [`Cross-chain: ${best.who} delivers on ${dest.name}${best.seconds !== null ? ` in about ${best.seconds} s` : ""}; if it does not fill, ${best.refund}.`],
+            route: { chosen: optionOf(best), alternatives: [cctpOption, ...others.map(optionOf)], reason },
           }];
         }
-        const route = relayOption ? { chosen: cctpOption, alternatives: [relayOption], reason: `CCTP delivers ${book.display("USDC", units - maxFee)} on ${dest.name}, at least as much as Relay's ${book.display("USDC", BigInt(relayOption.amountOut))}; CCTP stays the default for USDC.` } : undefined;
+        const route = solvers.length > 0 ? { chosen: cctpOption, alternatives: solvers.map(optionOf), reason: `CCTP delivers ${book.display("USDC", cctpOut)} on ${dest.name}, at least as much as ${solvers.map((x) => `${x.name}'s ${book.display("USDC", x.amountOut)}`).join(" and ")}; CCTP stays the default for USDC.` } : undefined;
         return [{
           adapter: "bridge",
           fx: false,

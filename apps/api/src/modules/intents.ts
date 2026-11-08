@@ -5,7 +5,11 @@
  *   POST /intents                                plan (+ store unless dryRun)
  *   GET  /intents/:id                            graph + outrun
  *   GET  /intents/:id/outrun                     where the money is
- *   POST /intents/:id/steps/:sid/prepare         unsigned calls + binding + memo
+ *   POST /intents/:id/steps/:sid/prepare         unsigned calls + binding + memo; a step that spends what the
+ *                                                step before delivered is rebuilt from its receipt first, and
+ *                                                the Fence and the beta cap are checked again ({ stage: true }
+ *                                                batches the steps of the stage into one transaction)
+ *   POST /intents/:id/steps/:sid/retry           a paused step (refused at prepare, or reverted) back to ready
  *   POST /intents/:id/steps/:sid/submit          hashes, or a userOpHash for smart accounts -> verified on Arc
  *   GET  /intents/:id/steps/:sid/attestation     CCTP attestation once complete
  *   POST /intents/:id/stop                       stop every unstarted step
@@ -52,6 +56,13 @@ export const createSchema = z
     proposedByAgent: z.boolean().optional(),
   })
   .refine((b) => (b.text === undefined) !== (b.actions === undefined), "Send either text or actions.");
+
+export const prepareSchema = z
+  .object({
+    confirm: z.boolean().optional(),
+    stage: z.boolean().optional().describe("Batch the steps that share this step's stage into one Multicall3From transaction (EOA signers)."),
+  })
+  .default({});
 
 const pollers = new WeakMap<AppContext, NodeJS.Timeout>();
 
@@ -150,9 +161,15 @@ export const intentsModule: ApiModule = {
 
     router.post("/intents/:id/steps/:sid/prepare", ctx.limits.heavy, async (req, res) => {
       const { id, sid } = parseParams(req, StepParams);
-      const body = parseBody(req, z.object({ confirm: z.boolean().optional() }).default({}));
-      const prepared = await services(ctx).intents.prepare(id, sid, body.confirm ? { confirm: true } : {});
+      const body = parseBody(req, prepareSchema);
+      const prepared = await services(ctx).intents.prepare(id, sid, { ...(body.confirm ? { confirm: true } : {}), ...(body.stage ? { stage: true } : {}) });
       res.json({ ...prepared, security: await securityPreflight(ctx, { intentId: id, stepId: sid, prepared }) });
+    });
+
+    // Retrying never signs or sends: it drops the step's old calls so the next prepare rebuilds them.
+    router.post("/intents/:id/steps/:sid/retry", async (req, res) => {
+      const { id, sid } = parseParams(req, StepParams);
+      res.json(await services(ctx).intents.retry(id, sid));
     });
 
     router.post("/intents/:id/steps/:sid/submit", ctx.limits.heavy, async (req, res) => {

@@ -11,6 +11,11 @@ import { AssistantMessage, UserMessage } from "../../features/ask/Answer";
 import { ChatActionsContext, type ChatActions } from "../../features/ask/actions";
 import { assistantDraft, EMPTY, reduce, userMessage, type ChatMessage, type Conversation } from "../../features/ask/model";
 import { Tag, toast } from "../../mosaic";
+import { useQueryClient } from "@tanstack/react-query";
+import { LykoOnWatch } from "../../features/fold/LykoOnWatch";
+import { HerdingTab } from "../../features/fold/tabs/HerdingTab";
+import { RouteArtifact } from "../../features/route/RouteArtifact";
+import { acrossGraph, FOLD_INSIGHTS, FOLD_INSTRUCTIONS, HANDOFF_IDS, HANDOFF_PROPOSAL, intentResponse, KIT_OWNER, proposalFor, repayGraph, stagedGraph } from "./stagedFixtures";
 
 const ADDR = "0x7a3f9c21b4e8d05f6a1c3e9b2d4f6a8c0e1b3d5f";
 const TX = "0x9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
@@ -23,7 +28,14 @@ const base = (id: string, over: Partial<ChatMessage>): ChatMessage => ({ id, rol
 const fxProposal: AgentProposal = { intentId: "out_sample01", title: "fx", steps: ["Convert 198 USDC -> 176.22 EURC on Aerodrome Slipstream USDC/EURC (min 175.69)"], decision: "allow", reasons: [], warnings: ["Routed on-chain and checked against Chainlink EURC/USD."], attribution: [{ agent: "FX hedger", role: "fx-hedger", part: "fx" }], rationale: "" };
 const denyProposal: AgentProposal = { intentId: null, title: "send", steps: ["Send 5,000 USDC to 0x7a3f…3d5f"], decision: "deny", reasons: ["5,000 USD is above the per-step cap of 1,000 USD."], warnings: [], attribution: [{ agent: "Payroll", role: "payroll", part: "send" }], rationale: "" };
 
+const STAGED_TEXT = "Ready to sign: 2 steps, one after the other.\n\n- Swap 500 USDC → EURC on Uniswap v4 (min 440.4 EURC)\n- Deposit it into Morpho Galaxy EURC, rebuilt from what the swap delivers\n\n**Next:** review and sign step 1.";
 const SAMPLES: readonly { readonly id: string; readonly kick: string; readonly title: string; readonly user: string; readonly m: ChatMessage }[] = [
+  { id: "staged-start", kick: "PLAN · STEP BY STEP", title: "A staged plan: step 1 active, step 2 next", user: "Swap 500 USDC to EURC, then deposit it into Morpho", m: base("staged-start", { text: STAGED_TEXT, proposals: [proposalFor(stagedGraph("start"))] }) },
+  { id: "staged-after", kick: "PLAN · STEP BY STEP", title: "After step 1 settled: step 2 rebuilt from what arrived", user: "Swap 500 USDC to EURC, then deposit it into Morpho", m: base("staged-after", { text: STAGED_TEXT, proposals: [proposalFor(stagedGraph("after"))] }) },
+  { id: "staged-paused", kick: "PLAN · PAUSED", title: "A paused step, with the reason and the way on", user: "Swap 500 USDC to EURC, then deposit it into Morpho", m: base("staged-paused", { text: STAGED_TEXT, proposals: [proposalFor(stagedGraph("paused"))] }) },
+  { id: "handoff", kick: "FROM LYKO ON WATCH", title: "An insight sent to Ask Lyko, planned", user: "", m: base("handoff", { text: "From Lyko on watch: repay a quarter. Planned step by step; review and sign it here.", proposals: [HANDOFF_PROPOSAL], instruction: { id: HANDOFF_IDS.handoff, from: "watch", to: "ask", kind: "plan", label: "Repay a quarter" } }) },
+  { id: "watch", kick: "TO LYKO ON WATCH", title: "A watch task handed to Lyko on watch", user: "Watch my Aave position and tell me if health drops below 1.5", m: base("watch", { text: "Lyko on watch has it: health factor below 1.5 on Aave V4.\n\n- **Where:** the Fold, under Herding, marked From Ask Lyko\n- **When it is met:** an insight in the Fold, with a move ready if there is one\n\n**Next:** nothing to sign; pause or remove it in the Fold any time.", blocks: [{ kind: "herded", items: [{ kind: "watch", label: "Health factor below 1.5 on Aave V4", saved: true, href: "/app/fold/herding?show=watch", next: "Lyko on watch checks it each time it reads your Fold" }] }] }) },
+  { id: "bridge", kick: "PLAN · BRIDGE", title: "The bridge choice: Across beat CCTP and Relay", user: "Bridge 100 USDC to Base", m: base("bridge", { text: "Ready to sign: 1 step, inside your Fence.\n\n- Bridge 99 USDC to Base over Across (cross-chain: delivered on Base, min 98.491333 USDC)\n- **Why Across:** it delivers 98.986265 USDC on Base, more than CCTP's 98.945337 USDC and Relay's 98.929596 USDC.\n\n**Next:** review the route and sign it in your wallet.", proposals: [proposalFor(acrossGraph(), { title: "bridge" })] }) },
   {
     id: "working",
     kick: "THINKING · LIVE",
@@ -188,13 +200,25 @@ function Replay() {
   );
 }
 
+/** Plans the kit cards read, put in the query cache before they mount (no API call is needed to draw them). */
+function useKitPlans(): void {
+  const qc = useQueryClient();
+  useState(() => {
+    for (const g of [stagedGraph("start"), stagedGraph("after"), stagedGraph("paused"), acrossGraph(), repayGraph()]) qc.setQueryData(["intent", g.id], intentResponse(g));
+    return true;
+  });
+}
+
 export default function ChatKitPage() {
+  useKitPlans();
   const actions: ChatActions = {
     environment: "mainnet",
     prefill: (text) => toast.info("Would fill the composer", { description: text, from: "KIT" }),
     ask: (text) => toast.info("Would ask", { description: text, from: "KIT" }),
     retry: () => toast.info("Would ask again", { from: "KIT" }),
     openRoute: (p) => toast.info("Would open the route", { description: p.title, from: "KIT" }),
+    openReview: (p) => toast.info("Would open the review for the current step", { description: p.title, from: "KIT" }),
+    stopPlan: async () => void toast.info("Would stop every step not started", { from: "KIT" }),
   };
   return (
     <ChatActionsContext.Provider value={actions}>
@@ -216,11 +240,30 @@ export default function ChatKitPage() {
             <span className="m-kick">{s.kick}</span>
             <h2 className="m-chatkit__h">{s.title}</h2>
             <div className="m-convo__col" style={{ width: "100%" }}>
-              <UserMessage text={s.user} />
+              {s.user ? <UserMessage text={s.user} /> : null}
               <AssistantMessage m={s.m} onChoose={(o) => toast.info("Would ask", { description: o, from: "KIT" })} />
             </div>
           </section>
         ))}
+        <section className="m-chatkit__sec" id="bridge-route" data-testid="kit-bridge-route">
+          <span className="m-kick">ROUTE · WHY ACROSS</span>
+          <h2 className="m-chatkit__h">The route panel for the bridge</h2>
+          <div className="m-frame" style={{ maxWidth: 480 }}>
+            <RouteArtifact intentId={acrossGraph().id} onReview={() => undefined} />
+          </div>
+        </section>
+        <section className="m-chatkit__sec" id="fold-watch" data-testid="kit-fold-watch">
+          <span className="m-kick">THE FOLD · LYKO ON WATCH</span>
+          <h2 className="m-chatkit__h">Sent to Ask Lyko, and a watch task from Ask Lyko</h2>
+          <div style={{ maxWidth: 420 }}>
+            <LykoOnWatch variant="tab" owner={{ address: KIT_OWNER, signedIn: true, own: true, sample: false, environment: "mainnet" }} insights={{ owner: KIT_OWNER, environment: "mainnet", at: "2026-11-08T09:12:00Z", insights: FOLD_INSIGHTS, brief: { since: null, lines: [] }, personal: true }} loading={false} instructions={FOLD_INSTRUCTIONS} snapshot={undefined} minHealth={1.5} busy={false} onDraft={() => undefined} onOpenInAsk={() => undefined} />
+          </div>
+        </section>
+        <section className="m-chatkit__sec" id="fold-herding" data-testid="kit-fold-herding">
+          <span className="m-kick">THE FOLD · HERDING</span>
+          <h2 className="m-chatkit__h">Watch tasks from Ask Lyko in Herding</h2>
+          <HerdingTab instructions={FOLD_INSTRUCTIONS} waiting={[]} sample={false} signedIn initialFilter="watch" onSignIn={() => undefined} onOpen={() => undefined} onStop={() => undefined} onToggle={() => undefined} onRemove={() => undefined} onEdit={() => undefined} onNew={() => undefined} busyId={null} />
+        </section>
       </div>
     </ChatActionsContext.Provider>
   );

@@ -20,6 +20,8 @@ import { isGoalLanguage } from "../compiler/lexicon.js";
 import { compileIntent } from "../compiler/service.js";
 import { deliver } from "../compiler/deliver.js";
 import { planActions } from "./engine.js";
+import { createWatch } from "./instructions.js";
+import { readWatchRequest } from "@lykia/core";
 import { mergeProposals, specialistFor, type Emit, type SpecialistRole, type TurnResult } from "./orchestrator.js";
 
 function roleForAction(action: PlanAction): SpecialistRole {
@@ -66,6 +68,32 @@ export interface DeterministicInput {
   /** Proven control of the owner (SIWE session or secret key): compiled drafts are saved, not only linked. */
   readonly ownerVerified?: boolean;
   readonly actor?: { readonly developer: string; readonly via: "session" | "secret"; readonly projectId?: string };
+  /** The shared thread this turn is written to; a watch request is filed under it. */
+  readonly threadId?: string;
+}
+
+/** "Watch my Aave position and tell me if health drops below 1.5": a watch task for Lyko on watch. */
+async function watchTurn(input: DeterministicInput, request: NonNullable<ReturnType<typeof readWatchRequest>>): Promise<TurnResult> {
+  const { emit } = input;
+  const steps = stepsFor(emit);
+  steps.start("intent", "Reading your request").end("ok", "A watch for Lyko on watch", request.label);
+  const done = (text: string) => {
+    emit("text", { text });
+    return { text, proposals: [], stopReason: "end_turn" as const, delegations: 0, modelCalls: 0 };
+  };
+  if (!input.owner || input.owner.toLowerCase() === SAMPLE) return done(`That is a watch: ${request.label.toLowerCase()}.\n\n**Next:** connect a wallet and sign in, and I will hand it to Lyko on watch.`);
+  if (input.ownerVerified !== true) return done(`That is a watch: ${request.label.toLowerCase()}. Nothing was saved: this chat has not proven control of the address.\n\n**Next:** sign in with your wallet (one message, no transaction) and ask again.`);
+  const handing = steps.start("delegate", "Handing it to Lyko on watch", "Lyko");
+  const made = await createWatch(input.ctx, { owner: input.owner, environment: input.environment, condition: request.condition, threadId: input.threadId ?? null }).catch((error: unknown) => error as Error);
+  if (made instanceof Error) {
+    handing.end("fail", "Not set", made.message);
+    return done(`I couldn't set that watch: ${made.message}\n\n**Next:** change the condition and ask again.`);
+  }
+  handing.end("ok", "Watching", request.label);
+  emit("tool", { agent: "Lyko", name: "watch_position", ok: true, summary: `Handed to Lyko on watch: ${request.label}` });
+  emitBlock(emit, { kind: "herded", items: [{ kind: "watch", label: request.label, saved: true, href: "/app/fold/herding?show=watch", next: "Lyko on watch checks it each time it reads your Fold" }] });
+  const defaulted = request.defaulted ? `\n- **Threshold:** ${(request.condition as { threshold?: string }).threshold ?? ""}, your Fence's health floor (say another number to change it)` : "";
+  return done(`Lyko on watch has it: ${request.label.charAt(0).toLowerCase()}${request.label.slice(1)}.\n\n- **Where:** the Fold, under Herding, marked From Ask Lyko${defaulted}\n- **When it is met:** an insight in the Fold, with a move ready if there is one\n\n**Next:** nothing to sign; pause or remove it in the Fold any time.`);
 }
 
 /** Goal language without a model: the intent compiler's lexicon, one plan for now, drafts for later. */
@@ -189,6 +217,9 @@ async function infoTurn(input: DeterministicInput, question: InfoQuestion): Prom
 export async function runDeterministicTurn(input: DeterministicInput): Promise<TurnResult> {
   const { emit } = input;
   const steps = stepsFor(emit);
+  // A watch request goes to Lyko on watch before anything is planned.
+  const watch = readWatchRequest(input.message, input.fence.lending?.minHealthFactor ?? "1.5");
+  if (watch) return watchTurn(input, watch);
   const question = infoQuestion(input.message);
   if (question) return infoTurn(input, question);
   if (input.owner && isGoalLanguage(input.message)) return compiledTurn(input);

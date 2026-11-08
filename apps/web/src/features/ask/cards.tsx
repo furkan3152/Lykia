@@ -7,6 +7,9 @@
  */
 import { gasShortfall } from "@lykia/core/api/answer";
 import type { AgentProposal, AnswerBlock } from "@lykia/core/api/agents";
+import { planStages, watchForPlan } from "@lykia/core";
+import type { CreateIntentResponse } from "@lykia/core/api/intents";
+import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
 import { Link } from "../../app/routes/Link";
@@ -19,6 +22,7 @@ import { planTitle, ruleName, type HerdItem } from "./cardModel";
 import { HashChip, RichLine } from "./Markdown";
 import { memoryBadges } from "./memoryRefs";
 import { StateIcon } from "../fold/positions/art";
+import { useIntent } from "../route/useIntent";
 import { STATE_COLOR, stateLabel } from "../fold/positionsModel";
 import type { PositionState } from "@lykia/core";
 
@@ -303,11 +307,11 @@ const SHEEP = ["..cccc.....", ".cccccccckk", "cccccccckwk", "ccccccccckk", ".ccc
 
 
 
-const KIND_WORD: Readonly<Record<HerdItem["kind"], string>> = { alert: "BARK · ALERT", automation: "ROUND · AUTOMATION", order: "ORDER" };
+const KIND_WORD: Readonly<Record<HerdItem["kind"], string>> = { alert: "BARK · ALERT", automation: "ROUND · AUTOMATION", order: "ORDER", watch: "WATCH · LYKO ON WATCH" };
 
 export function HerdedCard({ items }: { readonly items: readonly HerdItem[] }) {
   const saved = items.filter((i) => i.saved).length;
-  const show = items.every((i) => i.kind === "alert") ? "alerts" : items.every((i) => i.kind === "order") ? "orders" : "rounds";
+  const show = items.every((i) => i.kind === "alert") ? "alerts" : items.every((i) => i.kind === "order") ? "orders" : items.every((i) => i.kind === "watch") ? "watch" : "rounds";
   return (
     <CardShell kind="herded" tone="olive" kick={saved === items.length ? "HERDED · IN YOUR FOLD" : saved > 0 ? "HERDED · SOME NEED YOU" : "DRAFTED · ONE STEP LEFT"} title={saved === items.length ? `${items.length === 1 ? "It's" : "They're"} in the Fold` : "Ready for your signature"}>
       <div className="m-herding" aria-hidden="true">
@@ -373,50 +377,121 @@ function SettledSeal({ block }: { readonly block: Extract<AnswerBlock, { kind: "
 /* ---------------------------------------------------------------- plan */
 
 
-export function ProposalCard({ p, compact = false }: { readonly p: AgentProposal; readonly compact?: boolean }) {
-  const { openRoute, openReview, environment } = useChatActions();
-  const badges = memoryBadges(p);
+const STAGE_WORD: Readonly<Record<string, string>> = { done: "done", active: "sign now", settling: "settling", paused: "paused", next: "next", stopped: "stopped" };
+
+/** One plan's stages, live from its intent: the current one active, the rest dimmed until it settles. */
+function StagedPlan({ p, part, live }: { readonly p: AgentProposal; readonly part: string | null; readonly live: boolean }) {
+  const { openReview, openRoute, environment, stopPlan, watchPosition } = useChatActions();
+  // A finished plan (from the cache once read) needs no live stream.
+  const cached = useQueryClient().getQueryData<CreateIntentResponse>(["intent", p.intentId]);
+  const finished = cached ? ((c) => c.done || c.stopped)(planStages(cached.intent)) : false;
+  const query = useIntent(p.intentId, { stream: live && !finished });
+  const graph = query.data?.intent ?? null;
+  const plan = graph ? planStages(graph) : null;
+  const [watching, setWatching] = useState<"idle" | "busy" | "set" | "failed">("idle");
+  const watchable = plan?.done && graph && watchPosition ? watchForPlan(graph) : null;
+  const rows = plan
+    ? plan.stages.map((st) => ({ key: st.stepIds.join(","), n: st.n, text: st.summary, state: st.state as string, note: st.state === "done" && st.received ? `Received ${st.received}` : st.state === "paused" ? st.reason : st.replanned }))
+    : p.steps.map((text, i) => ({ key: `${i}`, n: i + 1, text, state: p.intentId ? (i === 0 ? "active" : "next") : "preview", note: null as string | null }));
+  const total = rows.length;
   return (
-    <CardShell kind="route" tone={p.decision === "deny" ? "terra" : p.decision === "confirm" ? "ochre" : "sea"} kick={p.intentId ? "PLAN · READY TO REVIEW" : "PLAN · DRY RUN"} title={planTitle(p.title)}>
-      <div className="m-plan__seal">
-        <Seal decision={p.decision} />
-      </div>
-      {badges.length > 0 ? <div className="flex gap-1 flex-wrap">{badges.map((b) => <Tag key={b} tone="sea">FROM MEMORY · {b}</Tag>)}</div> : null}
-      <ol className="m-waypoints">
-        {p.steps.slice(0, compact ? 3 : 12).map((s, i) => (
-          <li key={`${s}${i}`} style={{ "--i": i } as React.CSSProperties}>
-            <span className="m-waypoints__n" aria-hidden="true">{i + 1}</span>
-            <span><RichLine text={s} environment={environment} /></span>
+    <div className="m-stageplan">
+      {part ? <span className="m-card2__kick">{part}</span> : null}
+      {plan && (plan.done || plan.stopped) && total > 1 ? <p className="m-stageplan__head" aria-live="polite">{plan.headline}</p> : null}
+      <ol className="m-waypoints m-stages">
+        {rows.map((r, i) => (
+          <li key={r.key} data-state={r.state} style={{ "--i": i } as React.CSSProperties}>
+            <span className="m-waypoints__n" aria-hidden="true">{r.state === "done" ? <Mark name="check" size={10} /> : r.n}</span>
+            <span>
+              {total > 1 ? <span className="m-stages__of">{`Step ${r.n} of ${total}`} · {STAGE_WORD[r.state] ?? "preview"}</span> : null}
+              <RichLine text={r.text} environment={environment} />
+              {r.note ? <small className="m-stages__note" data-tone={r.state === "paused" ? "bad" : undefined}>{r.note}</small> : null}
+            </span>
           </li>
         ))}
       </ol>
-      {p.warnings.length > 0 && !compact ? (
-        <ul className="m-plan__warn">
-          {p.warnings.slice(0, 3).map((w) => (
-            <li key={w}>{w}</li>
-          ))}
-        </ul>
-      ) : null}
-      {p.attribution.length > 0 ? <p className="m-card2__note">By {[...new Set(p.attribution.map((a) => a.agent))].join(", ")}</p> : null}
       <div className="m-card2__acts">
         {openRoute ? (
           <button type="button" className="m-mini" onClick={() => openRoute(p)}>
             Open the route
           </button>
         ) : null}
-        {p.intentId && openReview ? (
-          <button type="button" className="m-mini m-mini--solid" onClick={() => openReview(p)}>
-            Review and sign
+        {p.intentId && !plan?.done && !plan?.stopped ? (
+          openReview ? (
+            <button type="button" className="m-mini m-mini--solid" onClick={() => openReview(p)}>
+              {plan?.paused ? "Retry this step" : plan && plan.total > 1 && plan.current ? `Review and sign step ${plan.current.n}` : "Review and sign"}
+            </button>
+          ) : (
+            // Outside Ask Lyko the old review route opens the modal over Ask Lyko.
+            <Link to={`/app/outrun/${encodeURIComponent(p.intentId)}`} className="m-mini">
+              Review and sign
+            </Link>
+          )
+        ) : null}
+        {plan?.paused && p.intentId && stopPlan ? (
+          <button type="button" className="m-mini" onClick={() => void stopPlan(p.intentId!)}>
+            Stop here
           </button>
-        ) : p.intentId ? (
-          // Outside Ask Lyko the old review route opens the modal over Ask Lyko.
-          <Link to={`/app/outrun/${encodeURIComponent(p.intentId)}`} className="m-mini">
-            Review and sign
-          </Link>
+        ) : null}
+        {watchable && p.intentId ? (
+          <button
+            type="button"
+            className="m-mini"
+            disabled={watching === "busy" || watching === "set"}
+            onClick={() => {
+              setWatching("busy");
+              void watchPosition!(p.intentId!).then(() => setWatching("set"), () => setWatching("failed"));
+            }}
+          >
+            {watching === "set" ? "Lyko on watch has it" : watching === "failed" ? "Could not set the watch" : "Watch this position"}
+          </button>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The plan card: one card for everything a turn planned, signed stage by
+ * stage. The current stage is active, later ones wait dimmed as "next";
+ * after a stage settles the next is rebuilt from what it delivered.
+ */
+export function PlanCard({ proposals, compact = false, live = true }: { readonly proposals: readonly AgentProposal[]; readonly compact?: boolean; readonly live?: boolean }) {
+  const first = proposals[0];
+  if (!first) return null;
+  const decision = proposals.some((p) => p.decision === "deny") ? "deny" : proposals.some((p) => p.decision === "confirm") ? "confirm" : "allow";
+  const badges = proposals.flatMap((p) => memoryBadges(p));
+  const fromWatch = proposals.find((p) => p.from?.agent === "watch");
+  const title = proposals.length === 1 ? planTitle(first.title) : `${proposals.length} plans, one after another`;
+  const shown = compact ? proposals.slice(0, 1) : proposals;
+  return (
+    <CardShell kind="route" tone={decision === "deny" ? "terra" : decision === "confirm" ? "ochre" : "sea"} kick={first.intentId ? "PLAN · STEP BY STEP" : "PLAN · DRY RUN"} title={title}>
+      <div className="m-plan__seal">
+        <Seal decision={decision} />
+      </div>
+      {fromWatch || badges.length > 0 ? (
+        <div className="flex gap-1 flex-wrap">
+          {fromWatch ? <Tag tone="ochre">From Lyko on watch</Tag> : null}
+          {[...new Set(badges)].map((b) => <Tag key={b} tone="sea">FROM MEMORY · {b}</Tag>)}
+        </div>
+      ) : null}
+      {fromWatch?.rationale ? <p className="m-card2__note">{fromWatch.rationale}</p> : null}
+      {shown.map((p, i) => <StagedPlan key={`${p.intentId ?? p.title}${i}`} p={p} part={shown.length > 1 ? `Plan ${i + 1} of ${shown.length} · ${planTitle(p.title)}` : null} live={live} />)}
+      {first.warnings.length > 0 && !compact ? (
+        <ul className="m-plan__warn">
+          {[...new Set(proposals.flatMap((p) => p.warnings))].slice(0, 3).map((w) => (
+            <li key={w}>{w}</li>
+          ))}
+        </ul>
+      ) : null}
+      {first.attribution.length > 0 ? <p className="m-card2__note">By {[...new Set(proposals.flatMap((p) => p.attribution.map((a) => a.agent)))].join(", ")}</p> : null}
     </CardShell>
   );
+}
+
+/** One proposal as a plan card (kept for callers that show a single plan). */
+export function ProposalCard({ p, compact = false }: { readonly p: AgentProposal; readonly compact?: boolean }) {
+  return <PlanCard proposals={[p]} compact={compact} />;
 }
 
 /* ------------------------------------------------------------- clarify */

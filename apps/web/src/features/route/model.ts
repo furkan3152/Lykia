@@ -2,7 +2,7 @@
  * The route artifact's view model (pure): what the panel and the outrun
  * page draw from an intent graph and its outrun.
  */
-import type { IntentGraph, Outrun, RouteChoice, VerdictReason } from "@lykia/core";
+import { fromBaseUnits, type IntentGraph, type Outrun, type RouteChoice, type VerdictReason } from "@lykia/core";
 
 import { memoryBadges } from "../ask/memoryRefs";
 
@@ -21,6 +21,8 @@ export interface StopView {
   readonly memory: readonly string[];
   /** "Lykia fee 1% · 2 USDC", or null on fee-free steps. */
   readonly fee: string | null;
+  /** The token route options' amounts are counted in (base units), for display. */
+  readonly out: { readonly symbol: string; readonly decimals: number } | null;
 }
 
 export interface ArtifactView {
@@ -56,6 +58,7 @@ export function artifactView(graph: IntentGraph, outrun: Outrun): ArtifactView {
     leavesArc: w.leavesArc,
     memory: memoryBadges(byId.get(w.stepId)),
     fee: w.fee ?? null,
+    out: ((o) => (o ? { symbol: o.symbol.split("@")[0] ?? o.symbol, decimals: o.decimals } : null))(byId.get(w.stepId)?.outputs[0]),
   }));
   const next = stops.find((s) => s.turn === "signer")?.id ?? null;
   return {
@@ -74,6 +77,13 @@ export function artifactView(graph: IntentGraph, outrun: Outrun): ArtifactView {
     next,
     fenceHash: graph.verdict.fenceHash,
   };
+}
+
+/** A route option's output in whole tokens ("98.986265 USDC"), or the raw figure when its token is unknown. */
+export function optionOut(units: string | undefined, out: StopView["out"]): string {
+  if (!units) return "—";
+  if (!out || !/^\d+$/u.test(units)) return units;
+  return `${fromBaseUnits(units, out.decimals)} ${out.symbol}`;
 }
 
 /** "6.12%" for a decimal-fraction APY string, "n/a" otherwise. */

@@ -7,11 +7,11 @@
 import { cx } from "../../mosaic/cx";
 import { useChatActions } from "./actions";
 import { herdFromDrafts } from "./cardModel";
-import { BlockCard, ChoiceCard, HerdedCard, ProposalCard, TroubleCard } from "./cards";
+import { BlockCard, ChoiceCard, HerdedCard, PlanCard, TroubleCard } from "./cards";
 import { clarifyLabel } from "./clarify";
 import { Markdown } from "./Markdown";
 import { displayText } from "./richText";
-import { failureReasons, type ChatMessage } from "./model";
+import { failureReasons, handoffLine, type ChatMessage } from "./model";
 import { ProgramCard } from "./ProgramCard";
 import { LykoAvatar, Trail } from "./Trail";
 import { avatarState, elapsedOf, trailSteps } from "./workTrail";
@@ -46,6 +46,7 @@ export function AssistantMessage({ m, compact = false, onChoose }: AssistantMess
         <LykoAvatar state={state} size={compact ? 32 : 40} />
       </div>
       <div className="m-answer">
+        {m.instruction ? <span className="m-msg__handoff">{handoffLine(m.instruction)}</span> : null}
         <Trail steps={steps} streaming={m.streaming} elapsedMs={elapsedOf(m)} notes={(m.notes ?? []).filter((n) => n.trim() !== m.text.trim())} compact={compact} />
         {text ? (
           <div className={cx("m-bubble m-bubble--lyko", m.streaming && "m-caret")}>
@@ -75,7 +76,7 @@ export function AssistantMessage({ m, compact = false, onChoose }: AssistantMess
         {compact && (m.program || m.proposals.length > 0) ? (
           <p className="m-answer__more">{`${m.proposals.length || 1} plan${m.proposals.length > 1 ? "s" : ""} ready: open in Ask Lyko to review and sign`}</p>
         ) : (
-          m.proposals.map((p, i) => <ProposalCard key={`${p.intentId ?? p.title}${i}`} p={p} />)
+          m.proposals.length > 0 ? <PlanCard proposals={m.proposals} /> : null
         )}
         {m.clarify && onChoose ? <ChoiceCard question={m.clarify.question} options={m.clarify.options} label={clarifyLabel} onChoose={onChoose} /> : null}
       </div>

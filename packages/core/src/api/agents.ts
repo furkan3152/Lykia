@@ -1,4 +1,5 @@
 /** Contract types: Lyko's chat, the Pack (sub-agents), insights and automations. */
+import type { AgentInstructionKind, AgentRole } from "../agentInstructions.js";
 import type { Address } from "../contracts.js";
 import type { Decision } from "../fenceEvaluate.js";
 import type { Fence } from "../fence.js";
@@ -99,6 +100,8 @@ export interface AgentProposal {
   /** Which agents contributed which part. */
   readonly attribution: readonly { readonly agent: string; readonly role: PackRole; readonly part: string }[];
   readonly rationale: string;
+  /** Planned from an instruction the other agent handed over ("From Lyko on watch"). */
+  readonly from?: { readonly agent: AgentRole; readonly instructionId: string };
 }
 
 export interface ChatRequest {
@@ -122,6 +125,8 @@ export interface ThreadMessage {
   readonly blocks?: readonly AnswerBlock[];
   /** Where it was written: Ask Lyko (default) or Lyko on watch in the Fold. Both share one thread. */
   readonly origin?: "ask" | "fold";
+  /** A hand-off between the two agents this message carries: who sent what to whom. */
+  readonly instruction?: { readonly id: string; readonly from: AgentRole; readonly to: AgentRole; readonly kind: AgentInstructionKind; readonly label: string };
 }
 
 export interface ThreadView {

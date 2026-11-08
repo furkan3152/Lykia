@@ -1,4 +1,5 @@
 /** Contract types: the Fold (insights, proposals, instructions, trails, preferences, threads). */
+import type { AgentInstructionStatus, AgentRole } from "../agentInstructions.js";
 import type { Address } from "../contracts.js";
 import type { Decision } from "../fenceEvaluate.js";
 import type { FoldInsightKind, FoldPreferenceEffect, FoldPreferences, FoldShocks, ShockResult } from "../fold.js";
@@ -30,6 +31,10 @@ export interface FoldInsight {
   readonly draft: FoldDraft | null;
   /** True once a proposal was made from it (or it was dismissed) and the condition has not changed. */
   readonly handled: boolean;
+  /** A watch task Ask Lyko handed to Lyko on watch raised this insight. */
+  readonly origin?: { readonly agent: AgentRole; readonly instructionId: string };
+  /** Handed to Ask Lyko ("Sent to Ask Lyko · planned"), with the plan it became. */
+  readonly sent?: { readonly instructionId: string; readonly status: AgentInstructionStatus; readonly intentId: string | null; readonly threadId: string | null };
 }
 
 export interface FoldInsightsResponse {
@@ -80,7 +85,7 @@ export interface FoldFeedEntry {
   readonly note: string | null;
 }
 
-export type InstructionSource = "automation" | "standing" | "alert" | "agent" | "order" | "recurring";
+export type InstructionSource = "automation" | "standing" | "alert" | "agent" | "order" | "recurring" | "watch";
 
 /** One standing instruction, whatever created it, in one shape. */
 export interface FoldInstruction {

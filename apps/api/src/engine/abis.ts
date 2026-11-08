@@ -180,3 +180,6 @@ export const RED_SNWAPPER_ABI = parseAbi([
 
 /** 0x AllowanceHolder: exec pulls `amount` of `token` for `target` within one call. */
 export const ALLOWANCE_HOLDER_ABI = parseAbi(["function exec(address operator, address token, uint256 amount, address target, bytes data) payable returns (bytes result)"]);
+
+/** Across SpokePool (Arc proxy 0x9b4A…4A84; implementation exposes depositV3 at selector 0x7b939232). */
+export const ACROSS_SPOKE_POOL_ABI = parseAbi(["function depositV3(address depositor, address recipient, address inputToken, address outputToken, uint256 inputAmount, uint256 outputAmount, uint256 destinationChainId, address exclusiveRelayer, uint32 quoteTimestamp, uint32 fillDeadline, uint32 exclusivityDeadline, bytes message) payable"]);

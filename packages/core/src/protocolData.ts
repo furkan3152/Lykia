@@ -671,6 +671,24 @@ export const PROTOCOL_ROWS: ProtocolDescriptor[] = [
     notes: ["Cross-chain: delivery happens on the destination chain, filled by Relay's solver; the Arc side is a deposit Lykia can check and simulate.", "CCTP stays the default for USDC; Relay is picked only when its delivered amount beats CCTP after fees, or when the owner names it."],
   },
   {
+    id: "across",
+    name: "Across",
+    category: "bridge",
+    summary: "Intent-based bridging: USDC deposited into Across's SpokePool on Arc is delivered on the destination chain by an Across relayer. Cross-chain: the money arrives on the other chain, not on Arc.",
+    website: "https://across.to",
+    docs: "https://docs.across.to",
+    deployments: {
+      mainnet: {
+        status: "live",
+        contracts: { spokePool: "0x9b4A302A548c7e313c2b74C461db7b84d3074A84" },
+        evidence: "app.across.to/api/available-routes?originChainId=5042 lists Arc USDC (0x3600…) to USDC on Ethereum, Optimism, Polygon, Arbitrum, Avalanche, Base, Linea and more (2026-11-08); /suggested-fees names spokePoolAddress 0x9b4A…4A84; SpokePool code on Arc (ERC-1967 proxy, implementation 0x011a76d5ca7f537b4877d0fb6475065a90638478, 23,729 bytes, exposes depositV3 0x7b939232 and deposit 0xad5425c6); 12 FundsDeposited events on Arc in the last 9,000 blocks, /deposit/status reads one as filled; 100 USDC Arc to Base quote: fee 0.013837 USDC, estimated fill 2 s; approve + Memo(depositV3) through Multicall3From simulated (99 USDC to Base after Lykia's fee: Across delivers 98.986265 USDC, fee 0.013735, against CCTP 98.945337 and Relay 98.929596; passed at block 30,189,577)",
+      },
+    },
+    verbs: ["bridge", "approve"],
+    tags: ["intents", "crosschain"],
+    notes: ["Cross-chain: delivery happens on the destination chain, filled by an Across relayer; the Arc side is a depositV3 Lykia encodes from checked quote fields and simulates.", "CCTP stays the default for USDC; Across is picked only when its delivered amount beats CCTP and Relay after fees, or when the owner names it."],
+  },
+  {
     id: "layerzero-v2",
     name: "LayerZero V2",
     category: "bridge",

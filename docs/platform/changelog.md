@@ -2,6 +2,17 @@
 
 ## Unreleased (additive, under `2026-11-01`)
 
+- Staged plans: `POST /v1/intents/:id/steps/:sid/prepare` takes `stage: true`
+  (a stage's steps as one transaction, `stepIds`) and answers `replanned` when
+  a step was rebuilt from what the step before delivered; steps carry
+  `stage`, `received` and `replanned`. `POST /v1/intents/:id/steps/:sid/retry`
+  puts a paused step back to ready. Prepare refusals `FENCE_DENIED`,
+  `NO_ROUTE` and `INSUFFICIENT_BALANCE` are recorded on the step.
+- Agent instructions: `GET|POST /v1/agent/instructions`,
+  `POST /v1/agent/instructions/:id/(pause|resume|remove)`; Fold insights may
+  carry `origin` and `sent`; Herding lists watch tasks (`source: "watch"`).
+- Venue `across` (adapter `bridge-across`) and its position reader.
+
 - Leashes: `POST /v1/leashes`, `GET /v1/leashes`, `GET /v1/leashes/templates`,
   `GET /v1/leashes/:id`, `GET /v1/leashes/:id/trail`,
   `POST /v1/leashes/:id/(session|revoke|renew|plan|submit)`

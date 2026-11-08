@@ -31,6 +31,7 @@ import {
   fenceHash,
   KNOWLEDGE_ROWS,
   programHash,
+  readWatchRequest,
   projectFence,
   tightenFence,
   venueFactsFrom,
@@ -42,6 +43,7 @@ import {
   type Program,
   type ProgramState,
   type ScheduledDraft,
+  type WatchCondition,
 } from "@lykia/core";
 import type { Request } from "express";
 import type { AppContext } from "../context.js";
@@ -124,6 +126,14 @@ export interface CompileResult {
   readonly questions: CompiledProgram["questions"];
   /** Binds program, resolution, Fence and verdict: the same digest goes into the plan's Fence facts. */
   readonly pin: { readonly programHash: string; readonly resolutionHash: string; readonly fenceHash: string | null; readonly verdictDigest: string | null; readonly digest: string };
+  /** Set when the words ask for a watch rather than a move: Ask Lyko hands it to Lyko on watch (core/agentInstructions). */
+  readonly watch?: { readonly condition: WatchCondition; readonly label: string };
+}
+
+/** The watch the words ask for, if any, in the compile result's shape. */
+function watchOf(text: string): { watch?: { condition: WatchCondition; label: string } } {
+  const w = readWatchRequest(text);
+  return w ? { watch: { condition: w.condition, label: w.label } } : {};
 }
 
 /**
@@ -253,6 +263,7 @@ export function compileOffline(text: string, state: ProgramState, options: { rea
   const pin = { programHash: compiled.programHash, resolutionHash: compiled.resolutionHash, fenceHash: null, verdictDigest: null };
   return {
     schema: "lykia.compile-result/v1",
+    ...watchOf(text),
     status: compiled.status,
     source: options.program ? "llm" : "deterministic",
     note: null,
@@ -351,6 +362,7 @@ export async function compileIntent(ctx: AppContext, input: CompileInput, http: 
   const pin = { programHash: compiled.programHash, resolutionHash: compiled.resolutionHash, fenceHash: fenceHash(fence), verdictDigest: now?.verdict.digest ?? null };
   return {
     schema: "lykia.compile-result/v1",
+    ...watchOf(input.text),
     status: compiled.status,
     source: read.source,
     note: read.note,

@@ -273,7 +273,7 @@ export function mergeThreads(local: readonly { readonly id: string; readonly tit
 
 /* ------------------------------------------------------- herding, trails */
 
-export type HerdingFilter = "all" | "rounds" | "orders" | "alerts" | "recurring" | "paused";
+export type HerdingFilter = "all" | "rounds" | "orders" | "alerts" | "recurring" | "watch" | "paused";
 
 export const HERDING_FILTERS: readonly { readonly id: HerdingFilter; readonly label: string }[] = [
   { id: "all", label: "All" },
@@ -281,6 +281,7 @@ export const HERDING_FILTERS: readonly { readonly id: HerdingFilter; readonly la
   { id: "orders", label: "Orders" },
   { id: "alerts", label: "Barks" },
   { id: "recurring", label: "Recurring" },
+  { id: "watch", label: "Watch tasks" },
   { id: "paused", label: "Paused" },
 ];
 
@@ -298,6 +299,8 @@ export function filterInstructions(list: readonly FoldInstruction[], filter: Her
       return list.filter((i) => i.source === "alert");
     case "recurring":
       return list.filter((i) => i.source === "recurring");
+    case "watch":
+      return list.filter((i) => i.source === "watch");
     case "paused":
       return list.filter((i) => i.status === "paused");
     default:

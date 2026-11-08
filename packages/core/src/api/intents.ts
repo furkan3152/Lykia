@@ -19,6 +19,10 @@ export interface PrepareStepResponse {
   readonly memo: string;
   /** What the security layer checked before returning these calls ("What you will sign"). */
   readonly security?: SecurityReport;
+  /** Every step these transactions carry: more than one when a stage's steps go out as one Multicall3From batch. */
+  readonly stepIds?: readonly string[];
+  /** Set when the step was rebuilt from what the step before actually delivered (base units). */
+  readonly replanned?: { readonly symbol: string; readonly planned: string; readonly actual: string };
 }
 
 export interface SubmitStepResponse {

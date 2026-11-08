@@ -20,7 +20,7 @@ import { VenueUnavailable, type ReadContext, type Reader, type ReaderOutput } fr
 import { readOrders, readPayments } from "./herding.js";
 import { readAave, readMorphoBlue } from "./lending.js";
 import { readArchery, readSlipstream, readSushiswap, readUniswapV3, readUniswapV4, readUnitflow } from "./lp.js";
-import { readRelay, readZeroX } from "./bridges.js";
+import { readAcross, readRelay, readZeroX } from "./bridges.js";
 import { readMorphoVaults, readPractice } from "./vaults.js";
 import { readUsyc, readWallet } from "./wallet.js";
 
@@ -41,6 +41,7 @@ export const READERS: Readonly<Record<string, Reader>> = {
   "unitflow-finance-v3": readUnitflow,
   sushiswap: readSushiswap,
   relay: readRelay,
+  across: readAcross,
   zerox: readZeroX,
   "morpho-blue": readMorphoBlue,
   "uniswap-v3": readUniswapV3,

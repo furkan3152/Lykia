@@ -135,6 +135,12 @@ A two-column workspace: the Fold bar and five tabs on the left (keys 1 to
   thread as Ask Lyko; follow-up chips are answered from live reads and written
   to that thread; "Open in Ask Lyko" carries the insight as context. A short
   "new since" brief appears when something changed since the last visit.
+  The two agents hand each other work on that thread: "Send to Ask Lyko" on
+  an actionable insight becomes a staged plan in Ask Lyko marked "From Lyko
+  on watch" (the insight then reads "Sent to Ask Lyko · planned", then
+  "· signed"), and a watch request in Ask Lyko ("tell me if health drops
+  below 1.5") becomes a watch task here, marked "From Ask Lyko", that can be
+  paused or removed and raises an insight when it is met.
 
 **Your Lyko** (`/app/you`) is the preferences page the memory never had: risk
 profile, liquidity floor, target mix with a band, gas floor, which insights to

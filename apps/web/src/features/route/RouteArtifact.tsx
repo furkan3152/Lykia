@@ -13,7 +13,7 @@ import { Button, Seal, Skeleton, Tag, cx } from "../../mosaic";
 import { harbor, HARBOR_H, HARBOR_W } from "../../mosaic/scenes";
 import { BetaRibbon } from "../ecosystem/BetaRibbon";
 import { SceneFrame } from "../scenes/SceneFrame";
-import { artifactView, pct } from "./model";
+import { artifactView, optionOut, pct } from "./model";
 import { useIntent } from "./useIntent";
 import { ReviewModal } from "./ReviewModal";
 
@@ -105,7 +105,7 @@ export function RouteArtifact({ proposal, intentId, onClose, onReview }: { propo
                         {[s.route.chosen, ...s.route.alternatives].map((o, k) => (
                           <tr key={o.label} className={k === 0 ? "win" : undefined}>
                             <td>{o.label}{o.executable ? "" : " (read-only)"}</td>
-                            <td className="r num">{o.apy !== undefined ? pct(o.apy) : o.netAmountOut ?? o.amountOut ?? "—"}</td>
+                            <td className="r num">{o.apy !== undefined ? pct(o.apy) : optionOut(o.netAmountOut ?? o.amountOut, s.out)}</td>
                             <td>{o.risk}</td>
                           </tr>
                         ))}

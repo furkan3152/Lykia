@@ -3,8 +3,8 @@
  * resolves to the labelled sample; with a wallet, public reads are live;
  * signed in (SIWE), the personal ones are too.
  */
-import { DEFAULT_FOLD_PREFERENCES, POSITION_VENUES, summarizePositions, type ArcEnvironment, type FoldPreferences, type PositionsResponse, type PositionsSummary, type PositionVenueInfo, type VenueRead } from "@lykia/core";
-import type { PackAgentView } from "@lykia/core/api/agents";
+import { DEFAULT_FOLD_PREFERENCES, POSITION_VENUES, summarizePositions, type AgentInstruction, type ArcEnvironment, type FoldPreferences, type PositionsResponse, type PositionsSummary, type PositionVenueInfo, type VenueRead } from "@lykia/core";
+import type { AgentProposal, PackAgentView } from "@lykia/core/api/agents";
 import type { FlockSnapshot } from "@lykia/core/api/flock";
 import type { FoldAnswerResponse, FoldExplainArtifact, FoldInsightsResponse, FoldInstructionsResponse, FoldProposal, FoldQuestion, FoldSummaryResponse, FoldTrailsResponse, PreferencesResponse } from "@lykia/core/api/fold";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -83,7 +83,7 @@ export const POSITION_GROUPS: readonly (readonly string[])[] = [
   ["wallet", "aave-v4", "morpho-vaults", "galaxy-curation", "keyrock", "steakhouse-financial", "gauntlet", "bitwise", "usyc", "gateway", "lykia-practice"],
   ["uniswap-v3", "aerodrome-slipstream", "archery", "unitflow-finance-v3", "sushiswap"],
   ["uniswap-v4", "morpho-blue"],
-  ["cctp", "relay", "lykia-orders", "arc-transfer"],
+  ["cctp", "relay", "across", "lykia-orders", "arc-transfer"],
 ];
 
 export function usePositions(o: FoldOwner): PositionMap {
@@ -239,7 +239,26 @@ export function useMarkSeen(o: FoldOwner) {
 export function useInstructionControl(o: FoldOwner) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { id: string; action: "pause" | "resume" }) => apiPost(`/v1/automations/${encodeURIComponent(input.id)}/${input.action}`, {}, { query: { owner: o.address } }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["fold-instructions"] }),
+    // Watch tasks from Ask Lyko live with the agent instructions; everything else is an automation.
+    mutationFn: (input: { id: string; action: "pause" | "resume" | "remove"; source?: string }) =>
+      input.source === "watch" || input.id.includes(":ins_")
+        ? apiPost(`/v1/agent/instructions/${encodeURIComponent(input.id)}/${input.action}`, { owner: o.address })
+        : apiPost(`/v1/automations/${encodeURIComponent(input.id)}/${input.action}`, {}, { query: { owner: o.address } }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["fold-instructions"] });
+      void qc.invalidateQueries({ queryKey: ["fold-insights"] });
+    },
+  });
+}
+
+/** "Send to Ask Lyko": the insight becomes a staged plan on the shared thread, marked From Lyko on watch. */
+export function useSendToAsk(o: FoldOwner) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { insightId: string; threadId: string | null }) =>
+      apiPost<{ instruction: AgentInstruction; proposal: AgentProposal; threadId: string }>("/v1/agent/instructions", { owner: o.address, environment: o.environment, kind: "plan", from: "watch", to: "ask", insightId: input.insightId, ...(input.threadId ? { threadId: input.threadId } : {}) }),
+    onSuccess: () => {
+      for (const k of ["fold-insights", "fold-instructions", "fold-proposals", "me-threads"]) void qc.invalidateQueries({ queryKey: [k] });
+    },
   });
 }

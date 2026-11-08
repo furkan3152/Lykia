@@ -292,6 +292,7 @@ Executable venues (`EXECUTABLE_VENUES` in `src/engine/adapters.ts`): 13 protocol
 | `unitflow-finance-v3` (Uniswap v3 fork router) | yes | no deployment |
 | `sushiswap` (Sushi swap API, settled by RedSnwapper with Lykia's minimum) | yes | no deployment |
 | `relay` (Relay depository deposit, filled on the destination chain) | yes | no deployment |
+| `across` (Across SpokePool `depositV3`, filled on the destination chain by an Across relayer) | yes | no deployment |
 | `zerox` (0x Swap API through AllowanceHolder) | only with `ZEROX_API_KEY` | no deployment |
 | `lykia-practice` (Lykia's own vault, USDC/EURC swap and cirBTC lending) | testnet only | once deployed from the contracts package |
 

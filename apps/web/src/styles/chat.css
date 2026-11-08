@@ -383,3 +383,15 @@ html[data-night="on"] .m-work__head { background: #1d3150; color: #c9d3e6; box-s
 .fd-lyko .m-herd li { grid-template-columns: 10px minmax(0, 1fr) auto auto; gap: 8px; font-size: 13px; }
 .fd-lyko .m-work__strip { max-width: none; }
 .fd-bubble .m-md { gap: 6px; }
+
+/* Staged plan card: the active step stands out, later steps wait dimmed, paused steps say why. */
+.m-stageplan { display: grid; gap: 8px; }
+.m-stageplan__head { margin: 0; font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+.m-stages li[data-state="next"] { opacity: 0.5; }
+.m-stages li[data-state="done"] .m-waypoints__n { background: var(--ok); }
+.m-stages li[data-state="paused"] .m-waypoints__n { background: var(--bad); }
+.m-stages li[data-state="active"] > span:last-child { box-shadow: inset 3px 0 0 var(--tone); padding-left: 8px; }
+.m-stages__of { display: block; font-family: Silkscreen, monospace; font-size: 9.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3, var(--ink-2)); }
+.m-stages__note { display: block; margin-top: 2px; font-size: 12.5px; color: var(--ink-2); }
+.m-stages__note[data-tone="bad"] { color: var(--bad); }
+.m-msg__handoff { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 6px; font-family: Silkscreen, monospace; font-size: 9.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); }

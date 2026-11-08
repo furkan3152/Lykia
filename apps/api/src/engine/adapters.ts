@@ -18,6 +18,7 @@
  *   swap-sushi               Sushi swap API, settled by RedSnwapper                mainnet
  *   swap-zerox               0x Swap API, AllowanceHolder (needs ZEROX_API_KEY)    mainnet
  *   bridge-relay             Relay depository deposit, filled on the destination   mainnet
+ *   bridge-across            Across SpokePool depositV3, filled on the destination  mainnet
  *   vault-deposit/withdraw   also serve the curators' Morpho vaults (params.venue = the curator)
  *   practice-*               Lykia practice vault, swap and lending                testnet (once deployed)
  * Listed, not executable: StableFX RFQ (Circle credentials and a taker
@@ -51,6 +52,7 @@ import { aerodromeCalls, quoteCl } from "./venues/aerodrome.js";
 import { archeryContracts, forkCalls, quoteArchery, quoteUnitflow, unitflowContracts } from "./venues/forks.js";
 import { quoteZeroX, sushiCall, zeroXConfigured, zeroXKey } from "./venues/aggregators.js";
 import { quoteRelay, relayCalls } from "./venues/relay.js";
+import { acrossCalls, quoteAcross } from "./venues/across.js";
 import { approveCall, feeCall, type RawCall } from "./calls.js";
 import { lykiaRouterAddress, routerRunCall, type RouterLeg } from "./lykiaRouter.js";
 import { encodeManifestStep } from "../integrations/runtime.js";
@@ -70,6 +72,7 @@ export type AdapterId =
   | "swap-sushi"
   | "swap-zerox"
   | "bridge-relay"
+  | "bridge-across"
   | "aave-supply"
   | "aave-withdraw"
   | "aave-borrow"
@@ -108,6 +111,7 @@ export const EXECUTABLE_VENUES: Readonly<Record<ArcEnvironment, ReadonlySet<stri
     "unitflow-finance-v3",
     "sushiswap",
     "relay",
+    "across",
     // 0x routes only with the owner's API key (ZEROX_API_KEY); without it the entry stays read-only.
     ...(zeroXConfigured() ? ["zerox"] : []),
   ]),
@@ -147,7 +151,7 @@ export interface BuildContext {
   readonly environment: ArcEnvironment;
   readonly chains: ArcChains;
   readonly account: Address;
-  /** For venues whose calldata comes from their API (Sushi, 0x, Relay); defaults to the global fetch. */
+  /** For venues whose calldata comes from their API (Sushi, 0x, Relay, Across); defaults to the global fetch. */
   readonly fetch?: FetchLike;
 }
 
@@ -324,6 +328,16 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
         calls: [relayCalls.deposit(quote.depository, ctx.account, p.token as Address, amount, quote.depositId, `Bridge ${p.display} to ${p.destinationName} over Relay (filled on ${p.destinationName})`)],
       };
     }
+    case "bridge-across": {
+      const amount = big("amount");
+      const chainId = Number(p.chainId);
+      const quote = await quoteAcross(ctx.fetch ?? fetch, ctx.environment, { user: ctx.account, recipient: p.recipient as Address, usdc: p.token as Address, amount, destinationChainId: chainId });
+      if (!quote || quote.amountOut < big("minOut")) throw new LykiaHttpError("NO_ROUTE", 422, "Across's quote moved past the planned minimum or did not answer; plan again.");
+      return {
+        approvals: await needApproval(p.token as Address, quote.spokePool, amount, "USDC", "Across"),
+        calls: [acrossCalls.deposit(quote, ctx.account, p.recipient as Address, p.token as Address, chainId, `Bridge ${p.display} to ${p.destinationName} over Across (filled on ${p.destinationName})`)],
+      };
+    }
     case "router-split": {
       const router = lykiaRouterAddress(ctx.environment);
       if (!router) throw noRoute("LykiaRouter is not deployed on this environment.");
@@ -449,6 +463,7 @@ export const ADAPTER_VENUE: Readonly<Record<AdapterId, string>> = {
   "swap-sushi": "sushiswap",
   "swap-zerox": "zerox",
   "bridge-relay": "relay",
+  "bridge-across": "across",
   "aave-supply": "aave-v4",
   "aave-withdraw": "aave-v4",
   "aave-borrow": "aave-v4",
@@ -488,6 +503,7 @@ export function stepKindOf(adapter: AdapterId, fx: boolean): StepKind {
       return "transfer";
     case "bridge":
     case "bridge-relay":
+    case "bridge-across":
       return "bridge";
     case "gateway":
       return "gateway-deposit";

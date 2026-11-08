@@ -10,13 +10,16 @@ import { describe, it } from "node:test";
 import { DEFAULT_FENCE, evaluateFence, getProtocol, isLive, POSITION_VENUES, registryCoverage, venueFamily, type Address, type FenceFacts } from "@lykia/core";
 import { decodeFunctionData, encodeFunctionData, type Hex } from "viem";
 import { EXECUTABLE_VENUES, stepVenue } from "../engine/adapters.js";
-import { RED_SNWAPPER_ABI, RELAY_DEPOSITORY_ABI } from "../engine/abis.js";
+import { ACROSS_SPOKE_POOL_ABI, RED_SNWAPPER_ABI, RELAY_DEPOSITORY_ABI } from "../engine/abis.js";
 import { VenueRouter, type Candidate } from "../engine/router.js";
 import { checkSnwap, quoteZeroX, sushiCall } from "../engine/venues/aggregators.js";
 import { quoteRelay } from "../engine/venues/relay.js";
+import { acrossCalls, quoteAcross } from "../engine/venues/across.js";
+import { createContext } from "../context.js";
+import { services } from "../services.js";
 import { morphoVaults, vaultVenue } from "../flock/flock.js";
 import { READERS } from "../positions/service.js";
-import { FakeArc } from "./support.js";
+import { FakeArc, testConfig } from "./support.js";
 
 const USDC = "0x3600000000000000000000000000000000000000" as Address;
 const EURC = "0xbEf5f6d51CB62b58e6A8f77868681825C6fe21c1" as Address;
@@ -179,5 +182,78 @@ describe("added venues: API calldata is checked, never trusted", () => {
     assert.equal(await quoteRelay(relayFetch({ amount: 99_000000n }) as never, "mainnet", input), null);
     assert.equal(await quoteRelay(relayFetch({ recipient: "0x00000000000000000000000000000000000000bb" }) as never, "mainnet", input), null);
     assert.equal(await quoteRelay(relayFetch({}) as never, "testnet", input), null);
+  });
+});
+
+describe("added venues: Across", () => {
+  const SPOKE = "0x9b4A302A548c7e313c2b74C461db7b84d3074A84";
+  const BASE_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+  const ZERO = "0x0000000000000000000000000000000000000000";
+  const NOW = Math.floor(Date.now() / 1000);
+  /** Across's API as it answered for Arc on 2026-11-08, with the fee in base units and fields to override. */
+  const acrossFetch = (feeUnits: bigint, over: Record<string, unknown> = {}) => async (url: string) => {
+    if (url.includes("/available-routes")) return new Response(JSON.stringify([{ originChainId: 5042, originToken: USDC, destinationChainId: 8453, destinationToken: BASE_USDC, originTokenSymbol: "USDC", destinationTokenSymbol: "USDC", isNative: false }]), { status: 200 });
+    if (url.includes("/suggested-fees")) {
+      const amount = BigInt(new URL(url).searchParams.get("amount") ?? "0");
+      return new Response(JSON.stringify({ spokePoolAddress: SPOKE, outputAmount: (amount - feeUnits).toString(), totalRelayFee: { total: feeUnits.toString() }, timestamp: String(NOW), fillDeadline: String(NOW + 7200), exclusiveRelayer: ZERO, exclusivityDeadline: 0, isAmountTooLow: false, estimatedFillTimeSec: 2, limits: { minDeposit: "500234", maxDeposit: "824883873172" }, inputToken: { address: USDC, chainId: 5042 }, outputToken: { address: BASE_USDC, chainId: 8453 }, ...over }), { status: 200 });
+    }
+    if (url.includes("iris-api.circle.com/v2/burn/USDC/fees")) return new Response(JSON.stringify([{ finalityThreshold: 2000, minimumFee: 2 }]), { status: 200 });
+    throw new TypeError(`fetch failed: ${url}`);
+  };
+  const input = { user: OWNER, recipient: OWNER, usdc: USDC, amount: 100_000000n, destinationChainId: 8453 };
+
+  it("is live and routable on mainnet, with the SpokePool and the simulation block in its evidence", () => {
+    const p = getProtocol("across");
+    assert.ok(p && isLive(p, "mainnet"));
+    assert.ok(EXECUTABLE_VENUES.mainnet.has("across"));
+    assert.equal(p!.deployments.mainnet!.contracts.spokePool, SPOKE);
+    assert.match(p!.deployments.mainnet!.evidence, /block 30,189,577/u);
+    assert.equal(stepVenue("bridge-across", {}), "across");
+    assert.ok(READERS.across);
+  });
+
+  it("accepts a quote only for the registry SpokePool, Arc USDC in, the route's USDC out and output = amount - fee", async () => {
+    const good = await quoteAcross(acrossFetch(13_837n) as never, "mainnet", input, NOW);
+    assert.equal(good?.amountOut, 99_986_163n);
+    assert.equal(good?.feeUnits, 13_837n);
+    assert.equal(good?.spokePool, SPOKE);
+    const refuse = async (over: Record<string, unknown>) => assert.equal(await quoteAcross(acrossFetch(13_837n, over) as never, "mainnet", input, NOW), null, JSON.stringify(over));
+    await refuse({ spokePoolAddress: "0x0000000000000000000000000000000000000001" });
+    await refuse({ inputToken: { address: EURC, chainId: 5042 } });
+    await refuse({ outputToken: { address: BASE_USDC, chainId: 10 } });
+    await refuse({ outputAmount: "99999999" });
+    await refuse({ isAmountTooLow: true });
+    await refuse({ timestamp: String(NOW - 3600) });
+    await refuse({ fillDeadline: String(NOW - 1) });
+    await refuse({ limits: { minDeposit: "200000000" } });
+    assert.equal(await quoteAcross(acrossFetch(13_837n) as never, "testnet", input, NOW), null);
+  });
+
+  it("encodes depositV3 itself from the checked fields", async () => {
+    const q = (await quoteAcross(acrossFetch(13_837n) as never, "mainnet", input, NOW))!;
+    const call = acrossCalls.deposit(q, OWNER, OWNER, USDC, 8453, "x");
+    assert.equal(call.to, SPOKE);
+    const d = decodeFunctionData({ abi: ACROSS_SPOKE_POOL_ABI, data: call.data });
+    assert.equal(d.functionName, "depositV3");
+    assert.deepEqual(d.args.slice(0, 7).map((a) => String(a).toLowerCase()), [OWNER, OWNER, USDC, BASE_USDC.toLowerCase(), "100000000", "99986163", "8453"]);
+    assert.equal(d.args[11], "0x");
+  });
+
+  it("route search picks Across only when it delivers more; CCTP stays the default when equal or better", async () => {
+    const plan = async (feeUnits: bigint) => {
+      const arc = new FakeArc();
+      arc.setBalance(USDC, OWNER, 1_000_000_000n);
+      const ctx = createContext(testConfig(), { chains: arc.asChains(), fetch: acrossFetch(feeUnits) as never });
+      const r = await services(ctx).planner.plan({ id: "out_acrosstest1", environment: "mainnet", owner: OWNER, signer: "wallet", actions: [{ verb: "bridge", token: "USDC", amount: { exact: "100" }, destination: "base" }], fence: DEFAULT_FENCE, source: "t", now: Date.now(), spent: { dayUsd: "0", weekUsd: "0" }, dryRun: true });
+      return r.graph.steps[0]!;
+    };
+    // CCTP at 2 bps on 99 USDC: 0.0198 USDC. Across at 0.013837 delivers more.
+    const cheaper = await plan(13_837n);
+    assert.equal(cheaper.venue, "across");
+    assert.match(cheaper.route!.reason, /Across delivers 98\.986163 USDC on Base, more than CCTP's 98\.9802 USDC/u);
+    // The same fee as CCTP: CCTP stays.
+    const tie = await plan(19_800n);
+    assert.equal(tie.venue, "cctp");
+    assert.ok(tie.route!.alternatives.some((a) => a.venue === "across"));
   });
 });

@@ -49,6 +49,7 @@ How you work
 - Alerts (EURC or cirBTC price above/below, health factor below, incoming or outgoing transfers, Scent warnings, executed orders; delivered to the inbox, webhooks or Telegram): create them with create_alert. Never say you cannot create alerts.
 - Recurring automations (on a schedule, a price feed, a token balance or a payout/invoice event: re-plan one English sentence under the Fence, or notify webhooks): set them up with draft_automation. Never say you cannot set them up. "Every Friday, sweep idle USDC above 1 into the best vault" becomes a weekly schedule on fri with the plan sentence "keep 1 USDC liquid and earn the rest". If the time or time zone is missing, ask once with ask_owner. Each fire is only a proposal checked by the Fence that the owner signs; say so.
 - Cards: when the answer is about gas, balances, where the money is or a conversion rate, call show_card once (gas, balance, positions or rate) so the owner sees a gauge, a holdings mosaic, the position map or a rate tile. The server fills every number from the wallet and the oracles; you only pick the card. Plans, Fence refusals and drafts get their cards automatically.
+- Lyko on watch (the Fold's portfolio assistant) shares this thread. When the owner asks you to watch a position or tell them if something happens (health factor below a number, liquidity out of range, idle USDC above an amount, a rate below a percent), hand it to Lyko on watch with watch_position. Plans Lyko on watch sent you arrive in the thread marked as from Lyko on watch; read_instructions lists them and the watches you handed over.
 - When create_alert or draft_automation returns saved: false, nothing was saved because this chat has not proven control of the owner's address. The chat shows the link from the result as a button; tell the owner to open it, sign in with their wallet (one message, no transaction), check the prefilled form and save it there. Never claim it was saved.
 
 Hard rules (also enforced in code)
@@ -125,6 +126,8 @@ export interface TurnInput {
   readonly emit: Emit;
   /** An embedding project's sanitised context block (projectPromptBlock); it follows Lyko's rules, never replaces them. */
   readonly appContext?: string;
+  /** The shared thread this turn is written to. */
+  readonly threadId?: string;
 }
 
 export interface TurnResult {
@@ -234,7 +237,7 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
   const planned: { actions: readonly PlanAction[]; proposal: AgentProposal }[] = [];
   const fence = input.fence ?? DEFAULT_FENCE;
   const lyko = lykoAgent(fence);
-  const tc: ToolContext = { ctx, environment: input.environment, owner: input.owner, ownerVerified: input.ownerVerified === true && input.owner !== null, ...(input.actor ? { actor: input.actor } : {}), agent: lyko, proposals, planned, drafts: [], programs: [], blocks: [] };
+  const tc: ToolContext = { ctx, environment: input.environment, owner: input.owner, ownerVerified: input.ownerVerified === true && input.owner !== null, ...(input.actor ? { actor: input.actor } : {}), agent: lyko, proposals, planned, drafts: [], programs: [], blocks: [], ...(input.threadId ? { threadId: input.threadId } : {}) };
   const shown = new Set<string>();
   let delegations = 0;
   let modelCalls = 0;

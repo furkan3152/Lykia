@@ -3,7 +3,7 @@
  * steps with their venue and Arc Memo, the fees, the Fence verdict and the
  * step to sign next, from an intent graph and its outrun.
  */
-import { fromBaseUnits, getProtocol, memoString, verdictTag, type IntentGraph, type IntentStep, type Outrun, type StepAmount } from "@lykia/core";
+import { fromBaseUnits, getProtocol, memoString, planStages, verdictTag, type IntentGraph, type IntentStep, type Outrun, type StagedPlan, type StepAmount } from "@lykia/core";
 
 export interface Figure {
   readonly symbol: string;
@@ -28,6 +28,8 @@ export interface ReviewStep {
   readonly fee: string | null;
   readonly why: string | null;
   readonly tx: `0x${string}` | null;
+  /** Why the step paused (refused when it was rebuilt, or reverted), if it did. */
+  readonly failure: string | null;
 }
 
 export type ReviewStage = "dry-run" | "denied" | "ready" | "running" | "settled" | "failed";
@@ -51,6 +53,8 @@ export interface ReviewView {
   readonly settledCount: number;
   readonly lastTx: `0x${string}` | null;
   readonly warnings: readonly string[];
+  /** The plan by stage: the modal signs the current stage only, then moves to the next. */
+  readonly staged: StagedPlan;
 }
 
 /** "1234.5" -> "1,234.5"; at most 6 decimals, never scientific. */
@@ -100,6 +104,12 @@ export function reviewView(graph: IntentGraph, outrun: Outrun | null): ReviewVie
       .filter((s) => !consumed.has(s.id))
       .flatMap((s) => s.outputs.map((a) => ({ a, output: true, where: a.symbol.includes("@") ? `in ${venueLabel(s)}` : s.kind === "transfer" ? "to the recipient" : s.kind === "bridge" ? `on ${s.settlement.kind === "cctp" ? s.settlement.destination : "the destination"}` : null }))),
   );
+  const staged = planStages(graph);
+  // A staged plan shows the current stage's own figures: what this signature sends and what it gets.
+  const scope = staged.total > 1 && staged.current ? new Set(staged.current.stepIds) : null;
+  const stageSteps = scope ? graph.steps.filter((s) => scope.has(s.id)) : null;
+  const stageSend = stageSteps ? sum(stageSteps.flatMap((s) => s.inputs.map((a) => ({ a, output: false, where: null })))) : null;
+  const stageGet = stageSteps ? sum(stageSteps.flatMap((s) => s.outputs.map((a) => ({ a, output: true, where: a.symbol.includes("@") ? `in ${venueLabel(s)}` : s.kind === "transfer" ? "to the recipient" : null })))) : null;
   const tag = verdictTag(graph.verdict.digest);
   const reviewSteps: ReviewStep[] = steps.map((s, i) => ({
     id: s.id,
@@ -112,6 +122,7 @@ export function reviewView(graph: IntentGraph, outrun: Outrun | null): ReviewVie
     fee: s.fee ? `${(s.fee.bps / 100).toFixed(s.fee.bps % 100 === 0 ? 0 : 2)}% · ${displayAmount(s.fee.amount, s.fee.decimals)} ${s.fee.symbol}` : null,
     why: s.route?.reason ?? null,
     tx: s.references?.[s.references.length - 1] ?? null,
+    failure: s.failure?.message ?? null,
   }));
   const feeTotals = new Map<string, { units: bigint; decimals: number }>();
   for (const s of graph.steps) {
@@ -136,8 +147,8 @@ export function reviewView(graph: IntentGraph, outrun: Outrun | null): ReviewVie
     decision,
     signable: graph.verdict.signable,
     reasons: graph.verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message),
-    send,
-    get,
+    send: stageSend ?? send,
+    get: stageGet ?? get,
     steps: reviewSteps,
     fees,
     feeBps,
@@ -147,6 +158,7 @@ export function reviewView(graph: IntentGraph, outrun: Outrun | null): ReviewVie
     settledCount,
     lastTx,
     warnings: graph.warnings,
+    staged,
   };
 }
 

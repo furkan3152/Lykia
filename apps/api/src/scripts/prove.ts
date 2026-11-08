@@ -276,6 +276,7 @@ await proveRaw("Morpho Blue: post 0.01 cirBTC, borrow 200 USDC, repay 200 USDC (
 ], [{ symbol: "cirBTC", units: 1_000_000n }]);
 await provePlan("Borrow 1000 USDC on cirBTC and put it to work (health ≥ 1.8)", [{ verb: "borrow", token: "USDC", amount: { exact: "1000" }, collateral: { token: "cirBTC" }, minHealth: "1.8" }, { verb: "earn", token: "USDC", amount: { previous: true } }]);
 await provePlan("CCTP V2 out: bridge 50 USDC to Base (standard; Circle's Forwarding Service mints on Base)", [{ verb: "bridge", token: "USDC", amount: { exact: "50" }, destination: "base" }]);
+await provePlan("Across out: bridge 50 USDC to Base (depositV3 into the SpokePool, filled on Base by an Across relayer)", [{ verb: "bridge", token: "USDC", amount: { exact: "50" }, destination: "base", venue: "across" }]);
 await provePlan("Gateway: deposit 40 USDC into the unified balance", [{ verb: "unify", amount: { exact: "40" } }]);
 await provePlan("Complex intent: 40% best vault, 20% to EURC, bridge the rest to Base (of 500 USDC kept as base)", [{ verb: "earn", token: "USDC", amount: { exact: "200" } }, { verb: "fx", from: "USDC", to: "EURC", amount: { exact: "100" } }, { verb: "bridge", token: "USDC", amount: { exact: "195" }, destination: "base" }]);
 await provePlan("Convert 500 USDC to EURC, then pay 200 EURC for invoice 7", [{ verb: "fx", from: "USDC", to: "EURC", amount: { exact: "500" } }, { verb: "send", token: "EURC", amount: { exact: "200" }, to: PAYEE, memo: "invoice 7" }], { fence: PAYEE_FENCE });

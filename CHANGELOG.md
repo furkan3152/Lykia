@@ -7,6 +7,30 @@ own dated version history in [docs/platform/changelog.md](docs/platform/changelo
 
 ### Added
 
+- **Staged plans**: a plan whose later step spends what an earlier one
+  delivers is signed stage by stage. One plan card in the chat shows "Step 1
+  of 2" active and the next step dimmed; after a stage settles, the next
+  step is rebuilt at prepare time from the amount its receipt shows (net
+  Transfer logs, never the quote), and the Fence and the beta cap are
+  checked again. A refusal or a revert pauses the plan at that step, says
+  why, and offers "Retry this step" (`POST /v1/intents/:id/steps/:sid/retry`)
+  or "Stop here". Independent steps of a stage go out as one Multicall3From
+  transaction (`prepare` with `stage: true`). A reload resumes at the right
+  stage.
+- **Agent instructions** between Lyko on watch and Ask Lyko on the shared
+  thread (`GET|POST /v1/agent/instructions`, `POST
+  /v1/agent/instructions/:id/(pause|resume|remove)`): "Send to Ask Lyko" on an
+  insight plans it as a staged plan marked "From Lyko on watch"; a watch
+  request in Ask Lyko ("tell me if health drops below 1.5", "keep an eye on
+  this LP") or "Watch this position" after a plan settles becomes a watch
+  task in the Fold, marked "From Ask Lyko", that raises an insight when it is
+  met. Lyko's tools `watch_position` and `read_instructions`; eval cases for
+  the watch reader.
+- **Across** as a bridge-out venue beside CCTP and Relay: quote from
+  app.across.to, every field checked, `depositV3` encoded by Lykia, simulated
+  on Arc mainnet; route search compares what each delivers and keeps CCTP
+  when it delivers as much; a position reader for Across transfers in flight.
+
 - **Leash**: a budget an outside agent cannot exceed. `POST /v1/leashes`
   makes a Pack agent whose Fence is a strict subset of its parent's, carves
   its daily budget from the parent (or, for a root leash, from the owner's

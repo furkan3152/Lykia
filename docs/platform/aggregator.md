@@ -20,7 +20,7 @@ Fence and security layer the Lykia app uses. Built on Arc Network.
 - `route.steps`: each step's venue, summary and the reason it won;
 - `best` and `alternatives`: every venue the router priced (Uniswap v3/v4,
   Aerodrome Slipstream, Archery, Unitflow Finance V3, SushiSwap, Morpho,
-  Aave V4, Relay, 0x with `ZEROX_API_KEY`, routable adapter manifests);
+  Aave V4, Relay, Across, 0x with `ZEROX_API_KEY`, routable adapter manifests);
 - `priceImpactBps`: input value after fees against output value, at
   Chainlink prices (negative = better than the reference);
 - `gas`: units, price and the cost in USDC (Arc's gas token);

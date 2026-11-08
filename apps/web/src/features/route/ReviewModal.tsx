@@ -13,7 +13,7 @@
 import type { AgentProposal } from "@lykia/core/api/agents";
 import type { SecurityReport } from "@lykia/core/security/index";
 import { networkFor, type ArcEnvironment } from "@lykia/core";
-import React, { useEffect, useId, useMemo, useRef, useState } from "react";
+import React, { useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
 
 import { usePulse } from "../../lib/pulseStore";
 import { Seal, Skeleton, Tag, cx } from "../../mosaic";
@@ -25,6 +25,7 @@ import { bpsLabel, reviewView, type ReviewView } from "./reviewModel";
 import type { TxFailure } from "./txErrors";
 import { useIntent } from "./useIntent";
 import { useReviewFlow, type ReviewPhase } from "./useReviewFlow";
+import { STAGE_START, stageHeadline, stageReduce, type StageState } from "./stagedFlow";
 
 const TILE_COLS = 12;
 const TILE_ROWS = 8;
@@ -53,6 +54,10 @@ export interface ReviewDialogProps {
   /** Transactions in the prepared step (approvals included), when known. */
   readonly txCount: number | null;
   readonly transferCostUsd?: string | null;
+  /** The staged plan's stage on screen (one signature per stage). */
+  readonly stage?: StageState;
+  /** "Stop here": stop every step not started yet. */
+  readonly onStop?: () => void;
 }
 
 /** Focus stays inside the dialog; Escape closes; focus returns where it came from. */
@@ -99,12 +104,16 @@ function useDialogFocus(ref: React.RefObject<HTMLElement | null>, open: boolean,
 function phaseBanner(p: ReviewDialogProps): { tone: "sea" | "ochre" | "ok" | "bad" | "ghost"; text: string } | null {
   const v = p.view;
   if (!v) return { tone: "ghost", text: "Loading the plan…" };
+  const st = p.stage;
+  if (st?.mode === "paused" && st.pause) return { tone: "bad", text: `Paused at step ${st.stage} of ${st.total}. ${st.pause.reason} Done steps stay done.` };
+  if (st && st.total > 1 && st.settled && (st.mode === "advancing" || p.phase === "quoting")) return { tone: "sea", text: `Step ${st.settled.n} settled${st.settled.received ? `: ${st.settled.received} arrived` : ""}. Rebuilding step ${st.stage} with exactly what arrived…` };
   if (v.stage === "denied") return { tone: "bad", text: "Your Fence refused this plan. Nothing can be signed." };
   if (v.stage === "dry-run") return { tone: "ghost", text: "Dry run: this plan is a preview for a sample address. Connect a wallet and plan again to sign." };
   switch (p.phase) {
     case "quoting":
       return { tone: "sea", text: p.refreshes > 0 || p.quotedAt ? "Refreshing the quote from Arc…" : "Loading a fresh quote from Arc…" };
     case "quoted":
+      if (st && st.total > 1 && st.replanned) return { tone: "ok", text: `${st.replanned}. Checked against your Fence again; sign step ${st.stage} of ${st.total}.` };
       return { tone: "ok", text: `Quote refreshed${p.quotedAt ? ` at ${new Date(p.quotedAt).toLocaleTimeString("en-GB")}` : ""}: rebuilt from Arc just now, checked against your Fence. It is rebuilt again if you wait more than 30 seconds.` };
     case "switching":
       return { tone: "ochre", text: `Asking your wallet to switch to Arc ${v.environment}…` };
@@ -129,6 +138,8 @@ function primaryOf(p: ReviewDialogProps): { label: string; disabled: boolean; ac
   if (v.stage === "denied") return { label: "Refused by your Fence", disabled: true, action: p.onSign };
   if (v.stage === "dry-run") return { label: "Dry run · nothing to sign", disabled: true, action: p.onSign };
   if (v.stage === "settled" && p.phase !== "failed") return { label: "Done", disabled: false, action: p.onClose };
+  if (p.stage?.mode === "stopped") return { label: "Stopped", disabled: true, action: p.onClose };
+  if (p.stage?.mode === "paused" && (p.phase !== "failed" || !p.failure || p.failure.retry === "sign-again" || p.failure.retry === "switch-chain")) return { label: "Retry this step", disabled: p.stage.pause?.retryable === false, action: p.onRetry };
   if (p.phase === "failed" && p.failure) {
     if (p.failure.retry === "replan") return { label: p.failure.retryLabel ?? "Plan again", disabled: !p.onReplan, action: p.onReplan ?? p.onClose };
     if (p.failure.retry === "none") return { label: "Sign with wallet", disabled: true, action: p.onSign };
@@ -136,7 +147,7 @@ function primaryOf(p: ReviewDialogProps): { label: string; disabled: boolean; ac
   }
   if (!p.connected) return { label: "Connect wallet to sign", disabled: false, action: p.onConnect };
   const busy = p.phase === "quoting" || p.phase === "switching" || p.phase === "signing" || p.phase === "submitting";
-  const label = p.phase === "signing" || p.phase === "switching" ? "Waiting for wallet…" : p.phase === "submitting" ? "Checking Arc…" : p.phase === "quoting" ? "Loading quote…" : v.settledCount > 0 && v.nextStepId ? `Sign step ${v.steps.findIndex((s) => s.id === v.nextStepId) + 1} with wallet` : "Sign with wallet";
+  const label = p.phase === "signing" || p.phase === "switching" ? "Waiting for wallet…" : p.phase === "submitting" ? "Checking Arc…" : p.phase === "quoting" ? "Loading quote…" : p.stage && p.stage.total > 1 ? `Sign step ${p.stage.stage} of ${p.stage.total}` : v.settledCount > 0 && v.nextStepId ? `Sign step ${v.steps.findIndex((s) => s.id === v.nextStepId) + 1} with wallet` : "Sign with wallet";
   return { label, disabled: busy || !v.nextStepId || (v.decision === "confirm" && !p.confirmed), action: p.onSign };
 }
 
@@ -224,7 +235,7 @@ export function ReviewDialog(p: ReviewDialogProps) {
         <header className="rv-head rv-lay" style={{ "--k": 0 } as React.CSSProperties}>
           <span className="m-kick">{`REVIEW · ${network}${v ? ` · ${v.id}` : ""}`}</span>
           <h2 id={`${uid}-t`} ref={titleRef} tabIndex={-1}>
-            {p.title}
+            {p.stage && p.stage.total > 1 && v?.staged.current ? stageHeadline(p.stage, v.staged.current.summary) : p.title}
           </h2>
           <p id={`${uid}-d`} className="m-small m-muted">
             {"Check what leaves your wallet and what you get. Nothing moves until you confirm in your wallet."}
@@ -236,7 +247,7 @@ export function ReviewDialog(p: ReviewDialogProps) {
 
         <div className="rv-body">
           {v ? (
-            <section className="rv-swap rv-lay" style={{ "--k": 1 } as React.CSSProperties} aria-label="What you send and what you get">
+            <section key={`stage-${p.stage?.stage ?? 0}`} className={cx("rv-swap rv-lay", p.stage && p.stage.total > 1 && p.stage.stage > 1 && "rv-stagein")} style={{ "--k": 1 } as React.CSSProperties} aria-label={p.stage && p.stage.total > 1 ? `What step ${p.stage.stage} sends and gets` : "What you send and what you get"}>
               <Figures title="YOU SEND" list={v.send} tone="send" />
               <span className="rv-arrow" aria-hidden="true">
                 <Mark name="arrow" size={18} />
@@ -268,7 +279,7 @@ export function ReviewDialog(p: ReviewDialogProps) {
                         <b>{s.summary}</b>
                         <div className="rv-step__meta">
                           <Tag tone="sea">{s.venue}</Tag>
-                          <Tag tone={s.status === "settled" ? "ok" : s.status === "failed" ? "bad" : "ghost"}>{s.status === "awaiting-signature" ? "ready to sign" : s.status === "blocked" ? `waits for step ${s.n - 1}` : s.status}</Tag>
+                          <Tag tone={s.status === "settled" ? "ok" : s.status === "failed" ? "bad" : "ghost"}>{s.status === "awaiting-signature" ? "ready to sign" : s.status === "blocked" ? "next" : s.failure ? "paused" : s.status}</Tag>
                         </div>
                         <code className="rv-memo" title="The Arc Memo this step's value-moving call carries">
                           <span className="m-kick">{"ARC MEMO"}</span> {s.memo}
@@ -369,6 +380,11 @@ export function ReviewDialog(p: ReviewDialogProps) {
           <button type="button" className="m-btn m-btn--ghost" onClick={p.onClose}>
             {"Back"}
           </button>
+          {p.stage?.mode === "paused" && p.onStop ? (
+            <button type="button" className="m-btn m-btn--ghost" onClick={p.onStop}>
+              {"Stop here"}
+            </button>
+          ) : null}
           <button type="button" className="m-btn m-btn--lg rv-primary" onClick={primary.action} disabled={primary.disabled} data-busy={p.phase === "signing" || p.phase === "submitting" || p.phase === "quoting" || undefined}>
             {primary.label}
           </button>
@@ -387,7 +403,8 @@ export function ReviewModal({ intentId, proposal, open, onClose, onReplan }: { r
   const transferCostUsd = usePulse((s) => s.pulse?.transferCostUsd ?? null);
   const [confirmed, setConfirmed] = useState(false);
   const next = view?.nextStepId ?? null;
-  const quotable = Boolean(open && view && view.signable && next && (view.decision !== "confirm" || confirmed));
+  // A step the server paused waits for "Retry this step"; it is never re-quoted on its own.
+  const quotable = Boolean(open && view && view.signable && next && !view.staged.paused && (view.decision !== "confirm" || confirmed));
 
   // A fresh quote for the next step as soon as the modal opens, and after each step settles.
   useEffect(() => {
@@ -396,6 +413,18 @@ export function ReviewModal({ intentId, proposal, open, onClose, onReplan }: { r
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quotable, next, flow.phase]);
 
+  // The stage on screen: rebuilt from the plan on every update (a reload resumes at the right stage) and from the wallet flow.
+  const [stage, dispatch] = useReducer(stageReduce, STAGE_START);
+  useEffect(() => {
+    if (query.data && view) dispatch({ type: "graph", plan: view.staged, decision: view.decision, signable: view.signable });
+  }, [query.data, view]);
+  useEffect(() => {
+    if (flow.phase !== "idle" && flow.phase !== "failed") dispatch({ type: "phase", phase: flow.phase });
+  }, [flow.phase]);
+  useEffect(() => {
+    if (flow.phase === "failed" && flow.failure) dispatch({ type: "failed", reason: `${flow.failure.title}. ${flow.failure.detail}`, retryable: flow.failure.retry !== "none" });
+  }, [flow.phase, flow.failure]);
+  const serverPaused = Boolean(view?.staged.paused);
   const title = proposal?.title ?? (view && view.steps.length === 1 ? view.steps[0]!.summary : "Review and sign");
   return (
     <ReviewDialog
@@ -417,7 +446,17 @@ export function ReviewModal({ intentId, proposal, open, onClose, onReplan }: { r
         if (value && next && flow.phase === "idle") void flow.quote(next, true);
       }}
       onSign={() => next && void flow.sign(next, confirmed)}
-      onRetry={() => (flow.stepId ?? next) && void flow.retry((flow.stepId ?? next) as string, confirmed)}
+      onRetry={() => {
+        const sid = (flow.stepId ?? next) as string | null;
+        if (!sid) return;
+        dispatch({ type: "retry" });
+        void (serverPaused ? flow.resume(sid, confirmed) : flow.retry(sid, confirmed));
+      }}
+      onStop={() => {
+        dispatch({ type: "stop" });
+        void flow.stopPlan();
+      }}
+      stage={stage}
       {...(onReplan ? { onReplan } : {})}
       onConnect={flow.connect}
       txCount={flow.prepared?.response.transactions.length ?? null}

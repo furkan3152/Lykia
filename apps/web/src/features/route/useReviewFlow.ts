@@ -32,6 +32,10 @@ export interface ReviewFlow {
   quote(stepId: string, confirmed: boolean): Promise<void>;
   sign(stepId: string, confirmed: boolean): Promise<void>;
   retry(stepId: string, confirmed: boolean): Promise<void>;
+  /** "Retry this step" for a step the server paused (refused at prepare, or reverted): back to ready, then a fresh quote. */
+  resume(stepId: string, confirmed: boolean): Promise<void>;
+  /** "Stop here": every step not started is stopped; settled steps stay settled. */
+  stopPlan(): Promise<void>;
   connect(): void;
 }
 
@@ -55,7 +59,8 @@ export function useReviewFlow(intentId: string | null, network: string): ReviewF
   // State belongs to one intent: callers key the modal by intent id, so a new plan starts clean.
   const effects = (): StepEffects => ({
       prepare: async (sid, confirmed) => {
-        const response = await apiPost<PrepareStepResponse & { readonly security?: unknown }>(`/v1/intents/${encodeURIComponent(intentId!)}/steps/${encodeURIComponent(sid)}/prepare`, { confirm: confirmed });
+        // `stage`: the steps of this stage come back as one transaction; a step that spends what the one before delivered is rebuilt from its receipt.
+        const response = await apiPost<PrepareStepResponse & { readonly security?: unknown }>(`/v1/intents/${encodeURIComponent(intentId!)}/steps/${encodeURIComponent(sid)}/prepare`, { confirm: confirmed, stage: true });
         setSecurity((response.security as SecurityReport | undefined) ?? null);
         return response;
       },
@@ -84,6 +89,8 @@ export function useReviewFlow(intentId: string | null, network: string): ReviewF
     qc.setQueryData<CreateIntentResponse>(["intent", intentId], (old) => (old ? { ...old, outrun: r.outrun, intent: { ...old.intent, steps: old.intent.steps.map((s) => (s.id === r.step.id ? r.step : s)) } } : old));
     const refs = r.step.references;
     if (refs && refs.length > 0) setLastTx(refs[refs.length - 1]!);
+    // A batched stage settles several steps at once, and the next one may be rebuilt: read the plan again.
+    void qc.invalidateQueries({ queryKey: ["intent", intentId] });
   };
 
   const onError = (error: unknown) => {
@@ -145,5 +152,30 @@ export function useReviewFlow(intentId: string | null, network: string): ReviewF
     return sign(sid, confirmed);
   };
 
-  return { phase, stepId, prepared, security, failure, refreshes, lastTx, connected: Boolean(wallet.address), walletKind: wallet.kind, quote, sign, retry, connect: openModal };
+  const resume = async (sid: string, confirmed: boolean) => {
+    if (!intentId) return;
+    try {
+      await apiPost(`/v1/intents/${encodeURIComponent(intentId)}/steps/${encodeURIComponent(sid)}/retry`, {});
+    } catch {
+      /* not paused on the server (a wallet refusal): the retry below signs a fresh quote */
+    }
+    await qc.invalidateQueries({ queryKey: ["intent", intentId] });
+    setPrepared(null);
+    delete sentRef.current[sid];
+    setFailure(null);
+    setPhase("idle");
+    await quote(sid, confirmed);
+  };
+
+  const stopPlan = async () => {
+    if (!intentId) return;
+    try {
+      await apiPost(`/v1/intents/${encodeURIComponent(intentId)}/stop`, {});
+      await qc.invalidateQueries({ queryKey: ["intent", intentId] });
+    } catch (error) {
+      onError(error);
+    }
+  };
+
+  return { phase, stepId, prepared, security, failure, refreshes, lastTx, connected: Boolean(wallet.address), walletKind: wallet.kind, quote, sign, retry, resume, stopPlan, connect: openModal };
 }

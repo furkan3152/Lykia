@@ -89,6 +89,11 @@ export function scoreResult(c: EvalCase, result: unknown): CaseScore {
     const autos = scheduled.filter((s) => s.kind === "automation" && s.roundTrip !== undefined);
     add("automation sentences round-trip", autos.length > 0 && autos.every((s) => s.roundTrip === "ok"), `got ${autos.map((s) => String(s.roundTrip)).join(", ") || "none"}`);
   }
+  if (e.watch !== undefined) {
+    const watch = (r.watch ?? null) as Json | null;
+    if (e.watch === false) add("no watch", watch === null, `got ${JSON.stringify(watch)}`);
+    else add(`watch ${JSON.stringify(e.watch)}`, watch !== null && matches(watch.condition, e.watch), `got ${JSON.stringify(watch)}`);
+  }
   const passed = checks.every((x) => x.ok);
   return { id: c.id, category: c.category, passed, checks, score: checks.length === 0 ? 1 : checks.filter((x) => x.ok).length / checks.length };
 }

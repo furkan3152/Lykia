@@ -177,8 +177,11 @@ describe("review view model", () => {
   it("shows what you send, what you get, memos, fees and the next step", () => {
     const g = plan();
     const v = reviewView(g, outrunOf(g));
-    assert.deepEqual(v.send.map((f) => `${f.amount} ${f.symbol}`), ["1 USDC"]);
+    // Step 1 settled: the modal shows the stage being signed now, step 2, with its own figures.
+    assert.deepEqual(v.send.map((f) => `${f.amount} ${f.symbol}`), ["0.885278 EURC"]);
     assert.deepEqual(v.get.map((f) => `${f.amount} ${f.symbol} ${f.where}`), ["0.872042 EURC in Aave V4 Main Spoke EURC"]);
+    const fresh = reviewView({ ...g, steps: g.steps.map((st, i) => ({ ...st, status: i === 0 ? "ready" : "blocked", references: undefined })) } as IntentGraph, null);
+    assert.deepEqual(fresh.send.map((f) => `${f.amount} ${f.symbol}`), ["1 USDC"]);
     assert.equal(v.steps.length, 2);
     assert.match(v.steps[0]!.memo, /^lykia:1:out_rv1:s1:[0-9a-f]{16}$/u);
     assert.deepEqual(v.fees, ["0.01 USDC", "0.008852 EURC"]);

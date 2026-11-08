@@ -748,6 +748,61 @@
           }
         },
         {
+          "name": "The owner's hand-offs between Lyko on watch and Ask Lyko (plans and watch tasks), newest first; plan statuses follow their plans",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/agent/instructions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "agent",
+                "instructions"
+              ],
+              "query": [
+                {
+                  "key": "owner",
+                  "value": "",
+                  "disabled": false
+                },
+                {
+                  "key": "environment",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "kind",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "The owner's hand-offs between Lyko on watch and Ask Lyko (plans and watch tasks), newest first; plan statuses follow their plans\n\nAuth: session."
+          }
+        },
+        {
           "name": "List agents",
           "request": {
             "method": "GET",
@@ -928,6 +983,194 @@
               }
             },
             "description": "Reconfigure an agent\n\nAuth: secret, scope: agents."
+          }
+        },
+        {
+          "name": "Hand work to the other agent: a plan from an insight (Lyko on watch to Ask Lyko, planned under the owner's Fence as a staged plan and written to the shared thread), or a watch task (Ask Lyko to Lyko on watch) from a condition or from a settled plan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/agent/instructions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "agent",
+                "instructions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"\",\n  \"kind\": \"plan\",\n  \"from\": \"watch\",\n  \"to\": \"watch\",\n  \"insightId\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Hand work to the other agent: a plan from an insight (Lyko on watch to Ask Lyko, planned under the owner's Fence as a staged plan and written to the shared thread), or a watch task (Ask Lyko to Lyko on watch) from a condition or from a settled plan\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Pause a watch task",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/agent/instructions/:id/pause",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "agent",
+                "instructions",
+                ":id",
+                "pause"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Pause a watch task\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Remove a watch task",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/agent/instructions/:id/remove",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "agent",
+                "instructions",
+                ":id",
+                "remove"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Remove a watch task\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Resume a watch task",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/agent/instructions/:id/resume",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "agent",
+                "instructions",
+                ":id",
+                "resume"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Resume a watch task\n\nAuth: session."
           }
         },
         {
@@ -6531,7 +6774,7 @@
           }
         },
         {
-          "name": "Unsigned calls, binding and memo for one step",
+          "name": "Unsigned calls, binding and memo for one step (or its whole stage), rebuilt now",
           "request": {
             "method": "POST",
             "header": [
@@ -6585,7 +6828,52 @@
                 }
               }
             },
-            "description": "Unsigned calls, binding and memo for one step\n\nAuth: key, scope: build."
+            "description": "A step whose amount is what the step before produced is first planned again with the amount that step's receipt shows (net Transfer logs), never the quote; the answer carries `replanned`. The Fence and the beta cap are evaluated again on the plan as it is now. With `stage: true` an EOA's steps that share the stage come back as one Multicall3From transaction (`stepIds`). A refusal (FENCE_DENIED, NO_ROUTE, INSUFFICIENT_BALANCE) is recorded on the step, so the plan reads as paused there until it is retried.\n\nAuth: key, scope: build."
+          }
+        },
+        {
+          "name": "Retry a paused step: back to ready with its old calls dropped",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/intents/:id/steps/:sid/retry",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "intents",
+                ":id",
+                "steps",
+                ":sid",
+                "retry"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                },
+                {
+                  "key": "sid",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "For a step refused at prepare or whose transaction reverted (nothing moved). Settled steps stay settled; nothing is signed.\n\nAuth: key, scope: build."
           }
         },
         {

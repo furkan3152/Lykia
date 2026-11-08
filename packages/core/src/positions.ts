@@ -206,6 +206,7 @@ export const POSITION_VENUES: Readonly<Record<ArcEnvironment, readonly PositionV
     { id: "gateway", name: "Circle Gateway", kind: "gateway", personal: false },
     { id: "cctp", name: "CCTP transfers", kind: "bridge", personal: true },
     { id: "relay", name: "Relay transfers", kind: "bridge", personal: true },
+    { id: "across", name: "Across transfers", kind: "bridge", personal: true },
     { id: "lykia-orders", name: "LykiaOrders", kind: "orders", personal: true },
     { id: "arc-transfer", name: "Scheduled payments", kind: "payments", personal: true },
   ],

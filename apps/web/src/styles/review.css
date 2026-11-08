@@ -155,3 +155,14 @@ html[data-motion="off"] .rv-scrim, html[data-motion="off"] .rv-dialog, html[data
 html[data-night="on"] .rv-head, html[data-night="on"] .rv-foot, html[data-night="on"] .rv-card { background: #1b2b47; color: #f2ead7; }
 html[data-night="on"] .rv-fig, html[data-night="on"] .rv-step, html[data-night="on"] .rv-banner { background: #20335a; color: #f2ead7; }
 html[data-night="on"] .rv-memo { background: #16243f; color: #cfc4ad; }
+
+/* Staged plans: the next stage slides in after the one before settles; waiting stages read dimmed. */
+.rv-step[data-status="blocked"] { opacity: 0.55; }
+.rv-stagein { animation: rv-stagein 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes rv-stagein {
+  from { opacity: 0; transform: translateX(18px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rv-stagein { animation: none; }
+}

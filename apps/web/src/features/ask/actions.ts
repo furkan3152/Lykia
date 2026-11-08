@@ -14,6 +14,10 @@ export interface ChatActions {
   readonly openRoute?: (p: AgentProposal) => void;
   /** Open the review-and-sign modal over the conversation. */
   readonly openReview?: (p: AgentProposal) => void;
+  /** "Stop here" on a paused plan: stop every step not started yet. */
+  readonly stopPlan?: (intentId: string) => Promise<void>;
+  /** "Watch this position" once a plan settled: hand a watch task to Lyko on watch. */
+  readonly watchPosition?: (intentId: string) => Promise<void>;
   readonly environment: ArcEnvironment;
 }
 

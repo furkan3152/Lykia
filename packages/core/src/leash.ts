@@ -83,7 +83,7 @@ export interface LeashTemplate {
 /**
  * DEX venues whose swap call takes the recipient at a fixed ABI word, so the
  * LykiaAccount can pin the output to itself (`receiverWords`). Uniswap v4's
- * UniversalRouter, Aerodrome's router, Sushi's route processor, Relay and
+ * UniversalRouter, Aerodrome's router, Sushi's route processor, Relay, Across and
  * LykiaRouter splits carry the recipient inside dynamic bytes or route
  * elsewhere: a session cannot check them, so a leash never uses them.
  */
