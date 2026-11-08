@@ -42,7 +42,7 @@ it, and every payout from it passes the Fence and the beta cap first).
 | Pillar | In one line |
 |---|---|
 | Outcomes, not transactions | A sentence, a form or one API call becomes a scored, simulated route sent as one transaction with an Arc Memo. |
-| Rules that hold | The Fence is checked before signing, compiled into a Circle Agent Wallet policy and enforced on chain; agents carry a Tag (ERC-8004) that pins it. |
+| Rules that hold | The Fence is checked before every signature, enforced on chain for Lykia smart accounts, and its verdict digest rides in the Arc Memo; agents carry a Tag (ERC-8004) that pins it. |
 | One engine for every builder | REST and SSE, MCP, TypeScript and Python SDKs, a CLI and components, all on the engine the app uses. |
 
 The League hosts cities: Lykia's own products, each a real project built in
@@ -112,9 +112,10 @@ mainnet in [docs/flows.md](docs/flows.md).
 
 USDC, CCTP V2 and Gateway are routes in the engine. Circle Wallets, the
 Compliance Engine, the x402 facilitator, StableFX (RFQ taker endpoints) and
-the USYC Teller (entitled wallets) are integrated beside it. A Fence can be
-compiled into a Circle Agent Wallet policy, so agents can run on a Circle
-wallet with Lykia's checks on top. See [docs/circle](docs/circle/README.md).
+the USYC Teller (entitled wallets) are integrated beside it. A Fence can also be
+exported as a Circle Agent Wallet spending policy: Lykia prints the Circle
+CLI commands and the owner applies them; Lykia never applies it on their
+behalf. See [docs/circle](docs/circle/README.md).
 
 ## How it works
 

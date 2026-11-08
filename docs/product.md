@@ -23,7 +23,7 @@ which rules an agent was held to.
 | Pillar | What it means | Where it lives |
 |---|---|---|
 | **Outcomes, not transactions** | A sentence (or a form, or one API call) becomes a route across the protocols Lykia can route through on Arc and Circle's CCTP and Gateway. The route is scored on the net result, simulated on Arc, and sent as one transaction with an Arc Memo. Orders and automations re-plan under the same rules while the owner is away. | Ask Lyko, Flock, Herding |
-| **Rules that hold** | The Fence is a typed policy (caps, recipients, protocols, tokens, slippage, health factor, FX band, an emergency stop). It is checked off chain before signing, compiled into a Circle Agent Wallet policy, and enforced on chain by the Lykia smart account. Sub-agents get a Fence inside their parent's. A Tag (ERC-8004 identity) pins the hash of the Fence an agent obeys. | Fence |
+| **Rules that hold** | The Fence is a typed policy (caps, recipients, protocols, tokens, slippage, health factor, FX band, an emergency stop). It is checked off chain before signing and enforced on chain by the Lykia smart account; it can also be exported as a Circle Agent Wallet spending policy that the owner applies with the Circle CLI. Sub-agents get a Fence inside their parent's. A Tag (ERC-8004 identity) pins the hash of the Fence an agent obeys. | Fence |
 | **One engine for every builder** | The planner, router and Fence behind the app are a public REST and SSE API, an MCP server, TypeScript and Python SDKs, a CLI and drop-in components. A protocol becomes routable with one typed adapter. An app built on it can be listed as a city of the League. | The Mint, the League |
 
 The server never holds user keys, and plans come back unsigned. Two optional
