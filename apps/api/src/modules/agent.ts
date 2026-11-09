@@ -150,7 +150,7 @@ export const agentModule: ApiModule = {
         ctx.log.warn("agent turn failed", { code: failure.code, error: error instanceof Error ? error.message.slice(0, 200) : String(error) });
         emit("error", failure);
       }
-      if (sample && text && !watching) text = `Sample plan (no wallet connected, dry run): ${text}`;
+      if (sample && text && !watching && proposals.length > 0) text = `Sample plan (no wallet connected, dry run): ${text}`;
       await appendMessages(ctx, thread, [
         { role: "user", text: message, origin: body.origin ?? "ask" },
         { role: "assistant", text: text || "(no answer)", proposals: proposals as never, blocks: blocks as never, origin: body.origin ?? "ask" },
