@@ -183,7 +183,7 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
     schema: z.object({}).strict(),
     json: obj({}),
     async run(_input, tc) {
-      const snap = await foldSnapshot(tc.ctx, tc.environment, needOwner(tc));
+      const snap = await foldSnapshot(tc.ctx, tc.environment, needOwner(tc), { fixture: tc.readOnly === true });
       return { summary: `Flock read: total ${snap.totalUsd === null ? "partly unpriced" : `$${snap.totalUsd}`}, ${snap.holdings.length} holdings`, data: snap };
     },
   }),
@@ -194,7 +194,7 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
     schema: z.object({}).strict(),
     json: obj({}),
     async run(_input, tc) {
-      const res = await foldPositions(tc.ctx, tc.environment, needOwner(tc), { personal: tc.ownerVerified });
+      const res = await foldPositions(tc.ctx, tc.environment, needOwner(tc), { personal: tc.ownerVerified, fixture: tc.readOnly === true });
       const all = res.venues.flatMap((v) => v.positions);
       if (tc.readOnly && !tc.blocks?.some((b) => b.kind === "facts")) tc.blocks?.push(positionsFacts(res, undefined, { sample: isSampleOwner(tc.owner) }));
       return {

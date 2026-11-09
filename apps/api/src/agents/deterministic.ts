@@ -154,7 +154,7 @@ async function infoTurn(input: DeterministicInput, question: InfoQuestion): Prom
   if (question.kind === "positions") {
     if (!input.owner) return done("Connect a wallet so I can read where its money is.");
     const reading = steps.start("wallet", "Reading every venue");
-    const res = await foldPositions(input.ctx, input.environment, input.owner, { personal: input.ownerVerified === true }).catch(() => null);
+    const res = await foldPositions(input.ctx, input.environment, input.owner, { personal: input.ownerVerified === true, fixture: false }).catch(() => null);
     if (!res) {
       reading.end("fail", "The venues could not be read");
       return done("I couldn't read your positions just now.\n\n**Next:** try again in a moment.");
@@ -189,7 +189,7 @@ async function infoTurn(input: DeterministicInput, question: InfoQuestion): Prom
   if (!input.owner) return done("Connect a wallet so I can read it.");
   const sample = input.owner.toLowerCase() === SAMPLE;
   const reading = steps.start("wallet", "Reading the wallet");
-  const snap = await foldSnapshot(input.ctx, input.environment, input.owner).catch(() => null);
+  const snap = await foldSnapshot(input.ctx, input.environment, input.owner, { fixture: false }).catch(() => null);
   if (!snap) {
     reading.end("fail", "The wallet could not be read");
     return done("I couldn't read the wallet just now.\n\n**Next:** try again in a moment.");

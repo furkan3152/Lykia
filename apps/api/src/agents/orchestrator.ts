@@ -306,10 +306,10 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
         const quote = String(args.quote ?? "EURC").toUpperCase().slice(0, 10);
         block = await rateCard(ctx, base, quote, fence);
       } else if (card === "positions" && input.owner) {
-        const res = await foldPositions(ctx, input.environment, input.owner, { personal: input.ownerVerified === true }).catch(() => null);
+        const res = await foldPositions(ctx, input.environment, input.owner, { personal: input.ownerVerified === true, fixture: readOnly }).catch(() => null);
         if (res) block = positionsCard(res);
       } else if ((card === "gas" || card === "balance") && input.owner) {
-        const snap = await foldSnapshot(ctx, input.environment, input.owner).catch(() => null);
+        const snap = await foldSnapshot(ctx, input.environment, input.owner, { fixture: readOnly }).catch(() => null);
         if (snap) block = card === "gas" ? await gasCard(ctx, input.environment, input.owner, snap, input.owner.toLowerCase() === "0x000000000000000000000000000000000000dead") : balanceCard(snap);
       }
       const sent = emitBlock(emit, block);
