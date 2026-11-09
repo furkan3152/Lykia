@@ -9,6 +9,7 @@
  *                                                step before delivered is rebuilt from its receipt first, and
  *                                                the Fence and the beta cap are checked again ({ stage: true }
  *                                                batches the steps of the stage into one transaction)
+ *   GET  /intents/:id/preflight                  what will go wrong before signing, read again now
  *   POST /intents/:id/steps/:sid/retry           a paused step (refused at prepare, or reverted) back to ready
  *   POST /intents/:id/steps/:sid/submit          hashes, or a userOpHash for smart accounts -> verified on Arc
  *   GET  /intents/:id/steps/:sid/attestation     CCTP attestation once complete
@@ -22,7 +23,7 @@ import { LykiaHttpError } from "../http/errors.js";
 import type { ApiModule } from "../http/router.js";
 import { openSse } from "../http/sse.js";
 import { evmAddress, parseBody, parseParams, txHash } from "../http/validate.js";
-import { fenceForProfile, projectFence, tightenFence } from "@lykia/core";
+import { fenceForProfile, preflightGate, projectFence, tightenFence } from "@lykia/core";
 import { countProject, integratorFeeOf, projectOf } from "../platform/projects.js";
 import { memoryService } from "../personal/memory.js";
 import { screenAddress } from "../circle/compliance.js";
@@ -61,6 +62,7 @@ export const prepareSchema = z
   .object({
     confirm: z.boolean().optional(),
     stage: z.boolean().optional().describe("Batch the steps that share this step's stage into one Multicall3From transaction (EOA signers)."),
+    acknowledge: z.union([z.boolean(), z.array(z.string().max(120)).max(40)]).optional().describe("The owner read the plan's preflight warnings (intent.preflight, severity warn): true for all of them, or the ids of the ones shown. Without it a plan with warnings answers 409 PREFLIGHT_ACK_REQUIRED; a block always answers 409 PREFLIGHT_BLOCKED."),
   })
   .default({});
 
@@ -154,6 +156,13 @@ export const intentsModule: ApiModule = {
       res.json(await services(ctx).intents.get(id));
     });
 
+    router.get("/intents/:id/preflight", ctx.limits.heavy, async (req, res) => {
+      const { id } = parseParams(req, IdParams);
+      const { findings, acknowledged } = await services(ctx).intents.preflight(id);
+      const gate = preflightGate(findings, acknowledged);
+      res.json({ intentId: id, at: new Date(ctx.clock.now()).toISOString(), findings, gate: { blocked: gate.blocked, needsAck: gate.needsAck } });
+    });
+
     router.get("/intents/:id/outrun", async (req, res) => {
       const { id } = parseParams(req, IdParams);
       res.json((await services(ctx).intents.get(id)).outrun);
@@ -162,7 +171,7 @@ export const intentsModule: ApiModule = {
     router.post("/intents/:id/steps/:sid/prepare", ctx.limits.heavy, async (req, res) => {
       const { id, sid } = parseParams(req, StepParams);
       const body = parseBody(req, prepareSchema);
-      const prepared = await services(ctx).intents.prepare(id, sid, { ...(body.confirm ? { confirm: true } : {}), ...(body.stage ? { stage: true } : {}) });
+      const prepared = await services(ctx).intents.prepare(id, sid, { ...(body.confirm ? { confirm: true } : {}), ...(body.stage ? { stage: true } : {}), ...(body.acknowledge ? { acknowledge: body.acknowledge } : {}), requireAck: true });
       res.json({ ...prepared, security: await securityPreflight(ctx, { intentId: id, stepId: sid, prepared }) });
     });
 

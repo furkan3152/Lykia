@@ -625,10 +625,13 @@ export function withTrailFees<T extends { readonly lines: readonly { readonly la
  * - a draft Lyko can write here (owner signed in): write it now and open the sign sheet in place;
  * - otherwise (the sample, or reading another address): Ask Lyko with the sentence written out.
  */
-export type InsightAction = { readonly kind: "thread"; readonly label: string } | { readonly kind: "herding"; readonly label: string } | { readonly kind: "draft"; readonly label: string } | { readonly kind: "ask"; readonly label: string };
+export type InsightAction = { readonly kind: "thread"; readonly label: string } | { readonly kind: "herding"; readonly label: string } | { readonly kind: "draft"; readonly label: string } | { readonly kind: "ask"; readonly label: string } | { readonly kind: "receive"; readonly label: string; readonly address: string } | { readonly kind: "link"; readonly label: string; readonly href: string };
 
 export function insightAction(insight: FoldInsight, canDraft: boolean): InsightAction {
   if (insight.sent) return { kind: "thread", label: "Open the plan" };
+  // A fix that needs no transaction from this wallet (adding USDC to it, opening a page) is never a draft to sign.
+  if (insight.draft?.receive) return { kind: "receive", label: insight.draft.label, address: insight.draft.receive };
+  if (insight.draft?.href && !insight.draft.sentence) return { kind: "link", label: insight.draft.label, href: insight.draft.href };
   if (insight.handled) return { kind: "herding", label: "Sign it in Herding" };
   if (insight.draft && canDraft) return { kind: "draft", label: insight.draft.label };
   if (insight.draft) return { kind: "ask", label: `${insight.draft.label} in Ask` };

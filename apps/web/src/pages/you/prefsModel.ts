@@ -54,8 +54,8 @@ export interface WatchGroup {
 export const WATCH_GROUPS: readonly WatchGroup[] = [
   { id: "risk", title: "Money at risk", line: "Loans near liquidation, ranges that stopped earning, a mix that drifted.", kinds: ["health-factor", "lp-out-of-range", "fx-drift", "scent-warning", "near-threshold"] },
   { id: "idle", title: "Money sitting idle", line: "Cash above your floor, a better low-risk rate, something to claim.", kinds: ["idle-usdc", "idle-position", "yield-change", "unclaimed"] },
-  { id: "running", title: "Things running", line: "Orders near their price, agents near their budget, payments coming up.", kinds: ["order-near-trigger", "order-expiring", "agent-budget", "watch-task", "runway", "unsettled", "expiring"] },
-  { id: "safety", title: "Safety", line: "Old token approvals, gas running low, the daily cap close.", kinds: ["approval-hygiene", "gas-floor", "beta-headroom"] },
+  { id: "running", title: "Things running", line: "Orders near their price, agents near their budget, payments coming up.", kinds: ["order-near-trigger", "order-expiring", "agent-budget", "watch-task", "runway", "obligations", "unsettled", "bridge-stuck", "expiring"] },
+  { id: "safety", title: "Safety", line: "Old token approvals, gas running low, tokens stuck without gas, the daily cap close.", kinds: ["approval-hygiene", "gas-floor", "stranded", "dust", "beta-headroom"] },
 ];
 
 /** How many of a group's kinds are shown. */

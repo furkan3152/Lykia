@@ -17,7 +17,7 @@ import { LykiaHttpError } from "../http/errors.js";
 import { typedCollection } from "../platform/typed.js";
 import { flags } from "../platform/admin.js";
 import { randomHex } from "../platform/crypto.js";
-import { planSentence } from "./engine.js";
+import { planSentence, preflightOf } from "./engine.js";
 import { insightsFor } from "./insights.js";
 import type { PackService } from "./pack.js";
 
@@ -140,7 +140,7 @@ export async function runAutomations(ctx: AppContext, pack: PackService, owner: 
       steps: intent.steps.map((s) => s.summary),
       decision: intent.verdict.decision,
       reasons: intent.verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message),
-      warnings: intent.warnings,
+      warnings: intent.warnings, ...preflightOf(intent),
       attribution: [{ agent: agent?.name ?? "Lyko", role: agent?.role ?? "orchestrator", part: a.sentence }],
       rationale: "insight" in a.when ? `Fired on the ${a.when.insight} insight.` : `Runs every ${a.when.everyMinutes} minutes.`,
     };

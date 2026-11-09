@@ -4,7 +4,8 @@
  * under the Fence of the agent that asks, and get back a stored intent (or
  * a dry run) with the Fence's verdict.
  */
-import type { Address, ArcEnvironment, Fence, PlanAction } from "@lykia/core";
+import { bridgeRefusal, type Address, type ArcEnvironment, type Fence, type Finding, type PlanAction } from "@lykia/core";
+import { LykiaHttpError } from "../http/errors.js";
 import type { CreateIntentResponse } from "@lykia/core/api/intents";
 import type { AppContext } from "../context.js";
 import { readWithMemory } from "../personal/reader.js";
@@ -25,7 +26,7 @@ export interface PlanRequest {
 export type PlanOutcome =
   | { readonly kind: "planned"; readonly result: CreateIntentResponse; readonly actions: readonly PlanAction[] }
   | { readonly kind: "clarify"; readonly questions: readonly string[]; readonly reply: string }
-  | { readonly kind: "refused"; readonly message: string };
+  | { readonly kind: "refused"; readonly message: string; readonly findings?: readonly Finding[] };
 
 export async function planSentence(ctx: AppContext, sentence: string, request: PlanRequest): Promise<PlanOutcome> {
   const parsed = await readWithMemory(ctx, request.owner, sentence);
@@ -56,8 +57,9 @@ function fitToFence(actions: readonly PlanAction[], fence: Fence): PlanAction[] 
 
 export async function planActions(ctx: AppContext, rawActions: readonly PlanAction[], source: string, request: PlanRequest): Promise<PlanOutcome> {
   const actions = fitToFence(rawActions, request.fence);
-  try {
-    const result = await services(ctx).intents.create({
+  const preferences = await getProfile(ctx, request.owner).then((p) => ({ favorites: p.venues.favorites, blocked: p.venues.blocked, maxRisk: p.risk })).catch(() => ({}));
+  const create = (dryRun: boolean) =>
+    services(ctx).intents.create({
       environment: request.environment,
       owner: request.owner,
       actions,
@@ -65,13 +67,27 @@ export async function planActions(ctx: AppContext, rawActions: readonly PlanActi
       fence: request.fence,
       ...(request.signer ? { signer: request.signer } : {}),
       ...(request.agent ? { agent: request.agent } : {}),
-      ...(request.fence.mode === "dry-run" || request.owner.toLowerCase() === SAMPLE_OWNER ? { dryRun: true } : {}),
+      ...(dryRun ? { dryRun: true } : {}),
       ...(request.proposedByAgent ? { proposedByAgent: true } : {}),
       ...(request.program ? { program: request.program } : {}),
-      preferences: await getProfile(ctx, request.owner).then((p) => ({ favorites: p.venues.favorites, blocked: p.venues.blocked, maxRisk: p.risk })).catch(() => ({})),
+      preferences,
     });
-    return { kind: "planned", result, actions };
+  const dry = request.fence.mode === "dry-run" || request.owner.toLowerCase() === SAMPLE_OWNER;
+  try {
+    return { kind: "planned", result: await create(dry), actions };
   } catch (error) {
-    return { kind: "refused", message: error instanceof Error ? error.message : "The planner refused." };
+    const message = error instanceof Error ? error.message : "The planner refused.";
+    // Short of funds: plan it as a dry run anyway, so preflight can say exactly what is missing and what fits.
+    if (error instanceof LykiaHttpError && error.code === "INSUFFICIENT_BALANCE" && !dry) {
+      const preview = await create(true).catch(() => null);
+      if (preview && (preview.intent.preflight ?? []).some((f) => f.severity === "block")) return { kind: "planned", result: preview, actions };
+    }
+    if (error instanceof LykiaHttpError && error.code === "NO_ROUTE" && /CCTP destination|token account as the mint recipient|in CCTP fees/iu.test(message)) return { kind: "refused", message, findings: [bridgeRefusal(request.environment, message)] };
+    return { kind: "refused", message };
   }
+}
+
+/** The proposal's preflight: what will go wrong before it is signed. */
+export function preflightOf(intent: { readonly preflight?: readonly Finding[] }): { preflight?: readonly Finding[] } {
+  return intent.preflight && intent.preflight.length > 0 ? { preflight: intent.preflight } : {};
 }

@@ -97,6 +97,10 @@ export function classifyTxError(error: unknown, stage: TxStage, context: { reado
       return failure("quote", "The transaction does not match the plan", "Arc has a transaction that is not the one Lykia prepared, so the step was not recorded. Plan again for fresh calls.", "replan", sent, raw);
     if (error.code === "CONFIRMATION_REQUIRED")
       return failure("fence", "Your Fence asks you to confirm", "Read the Fence's lines above, tick the confirmation and sign.", "confirm", false, raw);
+    if (error.code === "PREFLIGHT_ACK_REQUIRED")
+      return failure("fence", "Lyko found something to check first", `${msg} Read "Before you sign", tick it and sign.`, "confirm", false, raw);
+    if (error.code === "PREFLIGHT_BLOCKED")
+      return failure("fence", "Lyko stopped this one", `${msg} Pick a fix under "Before you sign", or plan again.`, "replan", false, raw);
     if (error.code === "NOT_SIGNABLE")
       return failure("fence", "Nothing to sign", `${msg} Change the request or your Fence and plan again.`, "replan", false, raw);
     if (error.code === "INSUFFICIENT_BALANCE")

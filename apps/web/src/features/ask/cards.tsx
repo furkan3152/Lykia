@@ -28,6 +28,9 @@ import { useEnvironment } from "../../lib/environment";
 import { STATE_COLOR, stateLabel } from "../fold/positionsModel";
 import { OrderReviewModal } from "../route/OrderReview";
 import { CreateCard } from "./createCards";
+import { PreflightPanel } from "../route/Preflight";
+import { preflightView, usePreflightAcks } from "../route/preflightModel";
+import { runFix } from "../route/preflightActions";
 import type { PositionState } from "@lykia/core";
 
 
@@ -400,7 +403,7 @@ const STAGE_WORD: Readonly<Record<string, string>> = { done: "done", active: "si
 
 /** One plan's stages, live from its intent: the current one active, the rest dimmed until it settles. */
 function StagedPlan({ p, part, live }: { readonly p: AgentProposal; readonly part: string | null; readonly live: boolean }) {
-  const { openReview, openRoute, environment, stopPlan, watchPosition } = useChatActions();
+  const { openReview, openRoute, environment, stopPlan, watchPosition, ask } = useChatActions();
   // A finished plan (from the cache once read) needs no live stream.
   const cached = useQueryClient().getQueryData<CreateIntentResponse>(["intent", p.intentId]);
   const finished = cached ? ((c) => c.done || c.stopped)(planStages(cached.intent)) : false;
@@ -413,6 +416,13 @@ function StagedPlan({ p, part, live }: { readonly p: AgentProposal; readonly par
     ? plan.stages.map((st) => ({ key: st.stepIds.join(","), n: st.n, text: st.summary, state: st.state as string, note: st.state === "done" && st.received ? `Received ${st.received}` : st.state === "paused" ? st.reason : st.replanned }))
     : p.steps.map((text, i) => ({ key: `${i}`, n: i + 1, text, state: p.intentId ? (i === 0 ? "active" : "next") : "preview", note: null as string | null }));
   const total = rows.length;
+  // Preflight: a block hides Sign; a warning shows its fixes first and "Use all anyway" before Sign. Once signing started, it has had its say.
+  const acked = usePreflightAcks((st) => (p.intentId ? Boolean(st.acked[p.intentId]) : false));
+  const ack = usePreflightAcks((st) => st.ack);
+  const started = Boolean(plan?.stages.some((st) => st.state === "done" || st.state === "settling" || st.state === "paused"));
+  const pf = preflightView(p.preflight, acked);
+  const holding = !started && pf.needsOwner;
+  const open = !plan?.done && !plan?.stopped;
   return (
     <div className="m-stageplan">
       {part ? <span className="m-card2__kick">{part}</span> : null}
@@ -429,13 +439,27 @@ function StagedPlan({ p, part, live }: { readonly p: AgentProposal; readonly par
           </li>
         ))}
       </ol>
+      {pf.list.length > 0 && open && !started ? (
+        <PreflightPanel
+          findings={p.preflight}
+          mode="chat"
+          acknowledged={acked}
+          onAcknowledge={() => {
+            if (!p.intentId) return;
+            ack(p.intentId);
+            openReview?.(p);
+          }}
+          onFix={(fix) => void runFix(fix, ask ? { ask } : {})}
+          {...(p.intentId && stopPlan ? { onCancel: () => void stopPlan(p.intentId!) } : {})}
+        />
+      ) : null}
       <div className="m-card2__acts">
         {openRoute ? (
           <button type="button" className="m-mini" onClick={() => openRoute(p)}>
             Open the route
           </button>
         ) : null}
-        {p.intentId && !plan?.done && !plan?.stopped ? (
+        {p.intentId && !plan?.done && !plan?.stopped && !holding ? (
           openReview ? (
             <button type="button" className="m-mini m-mini--solid" onClick={() => openReview(p)}>
               {plan?.paused ? "Retry this step" : plan && plan.total > 1 && plan.current ? `Review and sign step ${plan.current.n}` : "Review and sign"}
@@ -483,8 +507,11 @@ export function PlanCard({ proposals, compact = false, live = true }: { readonly
   const fromWatch = proposals.find((p) => p.from?.agent === "watch");
   const title = proposals.length === 1 ? planTitle(first.title) : `${proposals.length} plans, one after another`;
   const shown = compact ? proposals.slice(0, 1) : proposals;
+  const checks = proposals.flatMap((p) => p.preflight ?? []);
+  const blocked = checks.some((f) => f.severity === "block");
+  const warned = checks.some((f) => f.severity === "warn");
   return (
-    <CardShell kind="route" tone={decision === "deny" ? "terra" : decision === "confirm" ? "ochre" : "sea"} kick={first.intentId ? "PLAN · STEP BY STEP" : "PLAN · DRY RUN"} title={title}>
+    <CardShell kind="route" tone={decision === "deny" || blocked ? "terra" : decision === "confirm" || warned ? "ochre" : "sea"} kick={blocked && !first.intentId ? "PLAN · CAN'T SIGN YET" : first.intentId ? "PLAN · STEP BY STEP" : "PLAN · DRY RUN"} title={title}>
       <div className="m-plan__seal">
         <Seal decision={decision} />
       </div>

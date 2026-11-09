@@ -17,6 +17,7 @@ import { PageHead } from "../../mosaic";
 import { planStages } from "@lykia/core";
 import { STAGE_START, stageReduce, type StageState } from "../../features/route/stagedFlow";
 import { stagedGraph } from "./stagedFixtures";
+import { gasPlan, poisonedPlan } from "./preflightFixtures";
 
 /** The stage machine as the modal holds it for a staged kit state: step 1, step 2 after step 1 settled, or paused. */
 function kitStage(state: string): StageState | undefined {
@@ -33,7 +34,7 @@ const EURC = "0xbEf5f6d51CB62b58e6A8f77868681825C6fe21c1";
 const TX = "0x9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
 const FEE = "0x1111111111111111111111111111111111111111";
 
-const STATES = ["loading", "quoting", "quoted", "refreshed", "confirm", "signing", "submitted", "settled", "failed", "failed-chain", "denied", "stage-1", "stage-2", "stage-paused"] as const;
+const STATES = ["loading", "quoting", "quoted", "refreshed", "confirm", "signing", "submitted", "settled", "failed", "failed-chain", "denied", "stage-1", "stage-2", "stage-paused", "preflight-warn", "preflight-block"] as const;
 type KitState = (typeof STATES)[number];
 
 function sampleGraph(state: KitState): IntentGraph {
@@ -104,11 +105,12 @@ export default function ReviewKitPage() {
   const state: KitState = (STATES as readonly string[]).includes(param ?? "") ? (param as KitState) : "quoted";
   const [open, setOpen] = useState(true);
   const [confirmed, setConfirmed] = useState(false);
-  const graph = useMemo(() => (state === "stage-1" ? stagedGraph("start") : state === "stage-2" ? stagedGraph("after") : state === "stage-paused" ? stagedGraph("paused") : sampleGraph(state)), [state]);
+  const [acked, setAcked] = useState(false);
+  const graph = useMemo(() => (state === "preflight-warn" ? gasPlan().graph : state === "preflight-block" ? poisonedPlan().graph : state === "stage-1" ? stagedGraph("start") : state === "stage-2" ? stagedGraph("after") : state === "stage-paused" ? stagedGraph("paused") : sampleGraph(state)), [state]);
   const stage = useMemo(() => kitStage(state), [state]);
   const view = useMemo(() => (state === "loading" ? null : reviewView(graph, outrunOf(graph))), [graph, state]);
   const phase: ReviewPhase = (
-    { loading: "idle", quoting: "quoting", quoted: "quoted", refreshed: "quoted", confirm: "idle", signing: "signing", submitted: "settled", settled: "settled", failed: "failed", "failed-chain": "failed", denied: "idle", "stage-1": "quoted", "stage-2": "quoted", "stage-paused": "idle" } as const
+    { loading: "idle", quoting: "quoting", quoted: "quoted", refreshed: "quoted", confirm: "idle", signing: "signing", submitted: "settled", settled: "settled", failed: "failed", "failed-chain": "failed", denied: "idle", "stage-1": "quoted", "stage-2": "quoted", "stage-paused": "idle", "preflight-warn": "idle", "preflight-block": "idle" } as const
   )[state];
   const failure =
     state === "failed"
@@ -129,11 +131,11 @@ export default function ReviewKitPage() {
       <ReviewDialog
         open={open}
         onClose={() => setOpen(false)}
-        title={stage ? "Swap 500 USDC to EURC, then deposit it into Morpho" : "Buy EURC with 200 USDC and lend it at the best yield"}
+        title={state === "preflight-warn" ? "Buy EURC with 2 USDC" : state === "preflight-block" ? "Send 250 USDC to 0xabcd…1234" : stage ? "Swap 500 USDC to EURC, then deposit it into Morpho" : "Buy EURC with 200 USDC and lend it at the best yield"}
         view={view}
         phase={phase}
         failure={failure}
-        security={state === "quoting" || state === "loading" || state === "confirm" || state === "denied" || state.startsWith("stage-") ? null : SECURITY}
+        security={state === "quoting" || state === "loading" || state === "confirm" || state === "denied" || state.startsWith("stage-") || state.startsWith("preflight-") ? null : SECURITY}
         refreshes={state === "refreshed" ? 1 : 0}
         quotedAt={state === "quoted" || state === "refreshed" || state === "signing" || state === "stage-1" || state === "stage-2" ? Date.UTC(2026, 10, 6, 9, 0, 4) : null}
         lastTx={state === "settled" || state === "submitted" ? TX : null}
@@ -148,6 +150,7 @@ export default function ReviewKitPage() {
         txCount={state === "loading" || state === "quoting" ? null : 2}
         transferCostUsd="0.0021"
         {...(stage ? { stage, onStop: () => undefined } : {})}
+        {...(graph.preflight ? { preflight: graph.preflight, preflightAcked: acked, onPreflightAck: setAcked, onFix: () => undefined } : {})}
       />
     </div>
   );

@@ -299,6 +299,7 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
           proposal={review.proposal}
           open
           onClose={closeReview}
+          askFix={(sentence) => { closeReview(); ask(sentence); }}
           {...(lastUser && status !== "streaming" ? { onReplan: () => { closeReview(); ask(lastUser); } } : {})}
         />
       ) : null}

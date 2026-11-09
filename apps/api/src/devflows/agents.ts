@@ -33,7 +33,7 @@ import type { AgentProposal } from "@lykia/core/api/agents";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { agentServices } from "../agents/index.js";
-import { planActions, planSentence, type PlanOutcome } from "../agents/engine.js";
+import { planActions, planSentence, preflightOf, type PlanOutcome } from "../agents/engine.js";
 import type { LlmClient } from "../agents/llm.js";
 import { runTurn, type Emit } from "../agents/orchestrator.js";
 import { perceive } from "../agents/perception.js";
@@ -233,7 +233,7 @@ export interface RunResult {
 function proposalOf(outcome: PlanOutcome, agent: StoredAgent, message: string): AgentProposal | null {
   if (outcome.kind !== "planned") return null;
   const intent = outcome.result.intent;
-  return { intentId: outcome.result.stored ? intent.id : null, title: message.slice(0, 120), steps: intent.steps.map((s) => s.summary), decision: intent.verdict.decision, reasons: intent.verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message), warnings: intent.warnings, attribution: [{ agent: agent.name, role: "custom", part: message.slice(0, 120) }], rationale: "Planned by the reader under the agent's Fence." };
+  return { intentId: outcome.result.stored ? intent.id : null, title: message.slice(0, 120), steps: intent.steps.map((s) => s.summary), decision: intent.verdict.decision, reasons: intent.verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message), warnings: intent.warnings, ...preflightOf(intent), attribution: [{ agent: agent.name, role: "custom", part: message.slice(0, 120) }], rationale: "Planned by the reader under the agent's Fence." };
 }
 
 export async function runAgent(ctx: AppContext, caller: FlowCaller, id: string, input: RunInput): Promise<RunResult> {

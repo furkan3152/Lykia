@@ -28,6 +28,16 @@ import { FOLLOW_UPS, insightAction, openingLine } from "./model";
 
 const SEVERITY: Readonly<Record<FoldInsight["severity"], { label: string; tone: "bad" | "ochre" | "ghost" }>> = { act: { label: "Act", tone: "bad" }, watch: { label: "Watch", tone: "ochre" }, info: { label: "FYI", tone: "ghost" } };
 
+/** "Add USDC to this wallet": the address on the clipboard, with how to use it. */
+async function copyAddress(address: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(address);
+    toast.success("Address copied", { description: `Send USDC on Arc to ${address}. Receiving needs no gas from this wallet.`, from: "LYKO" });
+  } catch {
+    toast.info("Send USDC on Arc to this address", { description: address, from: "LYKO" });
+  }
+}
+
 const SENT_WORD: Readonly<Record<string, string>> = { planned: "planned", signed: "signed", done: "signed", refused: "refused by your Fence", stopped: "stopped", pending: "sent" };
 
 function InsightCard({ insight, canDraft, busy, onAsk, onDraft, onOpenThread, onOpenHerding }: { readonly insight: FoldInsight; readonly canDraft: boolean; readonly busy: boolean; readonly onAsk: (i: FoldInsight) => void; readonly onDraft: (i: FoldInsight) => void; readonly onOpenThread: (threadId: string | null) => void; readonly onOpenHerding: () => void }) {
@@ -62,15 +72,16 @@ function InsightCard({ insight, canDraft, busy, onAsk, onDraft, onOpenThread, on
       <div className="fd-insight__acts">
         <Button
           size="sm"
-          tone={action.kind === "draft" || (action.kind === "ask" && insight.draft) ? "terra" : "ghost"}
+          tone={action.kind === "draft" || action.kind === "receive" || action.kind === "link" || (action.kind === "ask" && insight.draft) ? "terra" : "ghost"}
           disabled={busy && action.kind === "draft"}
-          onClick={() => (action.kind === "thread" ? onOpenThread(insight.sent!.threadId) : action.kind === "herding" ? onOpenHerding() : action.kind === "draft" ? onDraft(insight) : onAsk(insight))}
+          onClick={() => (action.kind === "thread" ? onOpenThread(insight.sent!.threadId) : action.kind === "herding" ? onOpenHerding() : action.kind === "draft" ? onDraft(insight) : action.kind === "receive" ? void copyAddress(action.address) : action.kind === "link" ? navigate(action.href) : onAsk(insight))}
           title={insight.draft?.sentence ?? undefined}
         >
           {action.label.toUpperCase()}
         </Button>
         {action.kind === "draft" ? <button type="button" className="fd-why-btn" onClick={() => onAsk(insight)}>{"or talk it through in Ask"}</button> : null}
         {action.kind === "draft" ? <small className="fd-insight__note">{"Lyko drafts it here; you review and sign. Nothing moves before."}</small> : null}
+        {action.kind === "receive" ? <small className="fd-insight__note">{`Copies ${action.address.slice(0, 6)}…${action.address.slice(-4)}: send USDC on Arc to it. Receiving needs no gas from this wallet.`}</small> : null}
       </div>
     </li>
   );

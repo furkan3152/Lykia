@@ -120,6 +120,8 @@ export interface PlanResult {
   readonly fence: Fence;
   /** The action each step came from, so a step that spends "it" can be rebuilt from what the step before delivered. */
   readonly sources: Record<string, StepSource>;
+  /** The balances the plan started from (base units by symbol) and the prices it used, for preflight. */
+  readonly reads?: { readonly balances: Readonly<Record<string, string>>; readonly prices: Readonly<Record<string, { readonly usd: string | null; readonly source: string; readonly updatedAt: string | null }>>; readonly at: number };
 }
 
 export interface StepSource {
@@ -382,7 +384,7 @@ export class Planner {
       verdict,
       warnings: [...ledger.warnings, ...drafts.flatMap((d) => d.warnings)],
     };
-    return { graph, plans, facts, fence, sources };
+    return { graph, plans, facts, fence, sources, reads: { balances: Object.fromEntries([...start].map(([k, v]) => [k, v.toString()])), prices: prices as Record<string, { usd: string | null; source: string; updatedAt: string | null }>, at: input.now } };
   }
 
   /**

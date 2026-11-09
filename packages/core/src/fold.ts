@@ -49,6 +49,10 @@ export const FOLD_INSIGHT_KINDS = [
   "unclaimed",
   "expiring",
   "idle-position",
+  "stranded",
+  "dust",
+  "obligations",
+  "bridge-stuck",
 ] as const;
 export type FoldInsightKind = (typeof FOLD_INSIGHT_KINDS)[number];
 
@@ -73,6 +77,10 @@ export const FOLD_INSIGHT_NAMES: Readonly<Record<FoldInsightKind, string>> = {
   "unclaimed": "Something to claim",
   "expiring": "Something about to expire",
   "idle-position": "Money sitting idle",
+  stranded: "Tokens stuck without gas",
+  dust: "Dust left in the wallet",
+  obligations: "Payments due this week not covered",
+  "bridge-stuck": "Bridges taking too long",
 };
 
 export type FoldRisk = "careful" | "balanced" | "bold";

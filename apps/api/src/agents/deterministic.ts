@@ -18,9 +18,9 @@ import { readWithMemory } from "../personal/reader.js";
 import { isGoalLanguage } from "../compiler/lexicon.js";
 import { compileIntent } from "../compiler/service.js";
 import { deliver } from "../compiler/deliver.js";
-import { planActions } from "./engine.js";
+import { planActions, preflightOf } from "./engine.js";
 import { createWatch } from "./instructions.js";
-import { readAssist, readWatchRequest } from "@lykia/core";
+import { preflightLead, readAssist, readWatchRequest } from "@lykia/core";
 import { capabilityMap } from "../capabilities/map.js";
 import { assistTurn } from "./assist.js";
 import { mergeProposals, specialistFor, type Emit, type SpecialistRole, type TurnResult } from "./orchestrator.js";
@@ -267,6 +267,7 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
   }
 
   const proposals: AgentProposal[] = [];
+  const refusedCards: AgentProposal[] = [];
   const failures: string[] = [];
   const planned: { actions: readonly PlanAction[]; proposal: AgentProposal }[] = [];
   const intents: IntentGraph[] = [];
@@ -280,6 +281,7 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
     if (outcome.kind !== "planned") {
       const why = outcome.kind === "refused" ? outcome.message : outcome.reply;
       failures.push(why);
+      if (outcome.kind === "refused" && outcome.findings && outcome.findings.length > 0) refusedCards.push({ intentId: null, title: part, steps: [], decision: "deny", reasons: [why], warnings: [], preflight: outcome.findings, attribution: [{ agent: specialist.name, role: specialist.role, part }], rationale: "" });
       routing.end("fail", "No route", why);
       emit("tool", { agent: specialist.name, name: "plan_intent", ok: false, summary: why });
       continue;
@@ -301,7 +303,7 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
       steps: intent.steps.map((st) => st.summary),
       decision: intent.verdict.decision,
       reasons: intent.verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message),
-      warnings: intent.warnings,
+      warnings: intent.warnings, ...preflightOf(intent),
       attribution: [{ agent: specialist.name, role: specialist.role, part }],
       rationale: "",
     };
@@ -313,6 +315,8 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
   const denied = final.find((p) => p.decision === "deny");
   if (final.length === 0) {
     const reasons = [...new Set(failures)];
+    const refusedLead = preflightLead(refusedCards.flatMap((p) => p.preflight ?? []));
+    if (refusedLead) return done(`${refusedLead}\n\n**Next:** pick one of the options, or ask another way.`, refusedCards);
     const testnetGap = input.environment === "testnet" && failures.some(practiceGap);
     if (testnetGap) {
       const options = [`${PREVIEW_ON_MAINNET}${input.message}`, "Deploy the practice venues from the owner console"];
@@ -336,7 +340,13 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
   // Earn steps say which venues were compared, from the route's own reason (core/routes.ts comparedLine).
   const compared = intents.flatMap((i) => i.steps.filter((st) => st.route && /Compared \d+ venues?:/u.test(st.route.reason)).map((st) => `- **Why ${st.route!.chosen.label}:** ${st.route!.reason}`));
   const stepsList = [...final.flatMap((p) => p.steps).map((st) => `- ${st}`), ...compared].join("\n");
-  const text = denied
+  // Preflight leads: a block or a warning comes first, in code's own sentence, with its fixes as chips under the plan.
+  const allFindings = final.flatMap((p) => p.preflight ?? []);
+  const lead = preflightLead(allFindings);
+  const blocked = allFindings.some((f) => f.severity === "block");
+  const text = lead && !denied
+    ? `${lead}\n\n${stepsList}\n\n**Next:** ${blocked ? "pick a fix below; this can't be signed as it is." : "pick a fix below, or review and sign it as it is."}`
+    : denied
     ? `The Fence said no.\n\n${refusals(denied).map((r) => `- ${r}`).join("\n")}\n\n**Next:** ask for less, or change the rule in your Fence.`
     : final.some((p) => p.decision === "confirm")
       ? `Ready, with one confirmation.\n\n${stepsList}\n\n**Next:** review the route, confirm, and sign it in your wallet.`

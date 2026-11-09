@@ -47,3 +47,4 @@ export * from "./autopilot.js";
 export * from "./plain.js";
 export * from "./positionKinds.js";
 export * from "./capabilities.js";
+export * from "./preflight/index.js";

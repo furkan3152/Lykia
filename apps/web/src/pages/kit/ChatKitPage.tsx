@@ -15,6 +15,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { LykoOnWatch } from "../../features/fold/LykoOnWatch";
 import { HerdingTab } from "../../features/fold/tabs/HerdingTab";
 import { RouteArtifact } from "../../features/route/RouteArtifact";
+import { gasEmptyInsight, gasPlan, poisonedPlan } from "./preflightFixtures";
 import { acrossGraph, FOLD_INSIGHTS, FOLD_INSTRUCTIONS, HANDOFF_IDS, HANDOFF_PROPOSAL, intentResponse, KIT_OWNER, proposalFor, repayGraph, stagedGraph } from "./stagedFixtures";
 
 const ADDR = "0x7a3f9c21b4e8d05f6a1c3e9b2d4f6a8c0e1b3d5f";
@@ -29,7 +30,11 @@ const fxProposal: AgentProposal = { intentId: "out_sample01", title: "fx", steps
 const denyProposal: AgentProposal = { intentId: null, title: "send", steps: ["Send 5,000 USDC to 0x7a3f…3d5f"], decision: "deny", reasons: ["5,000 USD is above the per-step cap of 1,000 USD."], warnings: [], attribution: [{ agent: "Payroll", role: "payroll", part: "send" }], rationale: "" };
 
 const STAGED_TEXT = "Ready to sign: 2 steps, one after the other.\n\n- Swap 500 USDC → EURC on Uniswap v4 (min 440.4 EURC)\n- Deposit it into Morpho Galaxy EURC, rebuilt from what the swap delivers\n\n**Next:** review and sign step 1.";
+const GAS = gasPlan();
+const POISON = poisonedPlan();
 const SAMPLES: readonly { readonly id: string; readonly kick: string; readonly title: string; readonly user: string; readonly m: ChatMessage }[] = [
+  { id: "preflight-gas", kick: "PREFLIGHT · GAS", title: "2 of 2.01 USDC to EURC: Lyko warns before the sign button", user: "Buy EURC with 2 USDC", m: base("preflight-gas", { text: GAS.text, proposals: [GAS.proposal], steps: [step("p1", "intent", "Reading your request", "ok", "1 action: fx", 30), step("p2", "route", "Searching routes", "ok", "Uniswap v4 · 1 step", 480), step("p3", "fence", "Checking your Fence", "ok", "Allowed", 4)] }) },
+  { id: "preflight-poisoned", kick: "PREFLIGHT · ADDRESS", title: "A lookalike of a past payee: blocked, with Did you mean", user: "Send 250 USDC to 0xabcd03e1f2a4b5c6d7e8f9a0b1c2d3e4f5a61234", m: base("preflight-poisoned", { text: POISON.text, proposals: [POISON.proposal] }) },
   { id: "create-leash", kick: "ASK STARTS · A LEASH", title: "A leash drafted in Ask: the review sheet is one tap away", user: "Give my bot $20 a day for a week to pay invoices", m: base("create-leash", { text: "Your plan is drafted for later.\n\n- **Later:** Leash for Invoice bot: $20 a day for 7 days, to pay invoices\n\n**Next:** review the leash on its card; you sign once there.", blocks: [{"kind": "leash-draft", "title": "A leash for Invoice bot", "note": "It pays only payees you name: add them in the review.", "draft": {"name": "Invoice bot", "template": "pay-invoices", "perDayUsd": "20", "days": 7}}] }) },
   { id: "create-agent", kick: "ASK STARTS · AN AGENT", title: "An agent drafted in Ask: it holds a leash", user: "Create a payroll agent with a 500 USDC daily budget", m: base("create-agent", { text: "Payroll: a payroll agent with $500 a day.\n\nReview it on the card: it holds a leash with its own Fence inside yours, and you can pause or revoke it in the Fold.\n\n**Next:** open the card to review.", blocks: [{ kind: "agent-draft", name: "Payroll", role: "payroll", dailyUsd: "500", mission: null, environment: "mainnet" }] }) },
   { id: "create-autopilot", kick: "ASK STARTS · AUTOPILOT", title: "Autopilot drafted in Ask, with the limits the owner picked", user: "Turn on Autopilot with $50 a step and $150 a day for 30 days", m: base("create-autopilot", { text: "Autopilot: up to $50 a step and $150 a day for 30 days.\n\nReview it on the card: you read what Autopilot holds, tick, and sign its session once. Stop ends it at once.\n\n**Next:** open the card to review.", blocks: [{ kind: "autopilot-draft", perStepUsd: "50", perDayUsd: "150", days: 30, payees: [], environment: "mainnet" }, { kind: "autopilot-task", label: "Repay 50 USDC on Aave when health drops below 1.5", task: { kind: "repay", amountUsd: "50", floor: "1.5" }, environment: "mainnet", autopilot: "on" }] }) },
@@ -238,7 +243,7 @@ function Replay() {
 function useKitPlans(): void {
   const qc = useQueryClient();
   useState(() => {
-    for (const g of [stagedGraph("start"), stagedGraph("after"), stagedGraph("paused"), acrossGraph(), repayGraph()]) qc.setQueryData(["intent", g.id], intentResponse(g));
+    for (const g of [stagedGraph("start"), stagedGraph("after"), stagedGraph("paused"), acrossGraph(), repayGraph(), GAS.graph, POISON.graph]) qc.setQueryData(["intent", g.id], intentResponse(g));
     return true;
   });
 }
@@ -290,7 +295,7 @@ export default function ChatKitPage() {
           <span className="m-kick">THE FOLD · LYKO ON WATCH</span>
           <h2 className="m-chatkit__h">Sent to Ask Lyko, and a watch task from Ask Lyko</h2>
           <div style={{ maxWidth: 420 }}>
-            <LykoOnWatch variant="tab" owner={{ address: KIT_OWNER, signedIn: true, own: true, sample: false, environment: "mainnet" }} insights={{ owner: KIT_OWNER, environment: "mainnet", at: "2026-11-08T09:12:00Z", insights: FOLD_INSIGHTS, brief: { since: null, lines: [] }, personal: true }} loading={false} instructions={FOLD_INSTRUCTIONS} snapshot={undefined} minHealth={1.5} busy={false} onDraft={() => undefined} onOpenInAsk={() => undefined} />
+            <LykoOnWatch variant="tab" owner={{ address: KIT_OWNER, signedIn: true, own: true, sample: false, environment: "mainnet" }} insights={{ owner: KIT_OWNER, environment: "mainnet", at: "2026-11-08T09:12:00Z", insights: [gasEmptyInsight(), ...FOLD_INSIGHTS], brief: { since: null, lines: [] }, personal: true }} loading={false} instructions={FOLD_INSTRUCTIONS} snapshot={undefined} minHealth={1.5} busy={false} onDraft={() => undefined} onOpenInAsk={() => undefined} />
           </div>
         </section>
         <section className="m-chatkit__sec" id="fold-herding" data-testid="kit-fold-herding">

@@ -125,7 +125,7 @@ describe("security layer: API", () => {
   it("enforces velocity limits from the owner's policy", async () => {
     assert.equal((await call("PUT", "/v1/security/policy", { txPerMinute: 1 }, OWNER)).status, 200);
     const id = await planSend();
-    const res = await call("POST", `/v1/intents/${id}/steps/s1/prepare`, { confirm: true });
+    const res = await call("POST", `/v1/intents/${id}/steps/s1/prepare`, { confirm: true, acknowledge: true });
     assert.equal(res.status, 409);
     const body = (await res.json()) as { error: { code: string; details: { security: SecurityReport } } };
     assert.equal(body.error.code, "SECURITY_BLOCKED");
@@ -140,7 +140,7 @@ describe("security layer: API", () => {
     assert.equal(status.halted, true);
     assert.equal(status.layers.find((l) => l.id === "breakers")?.status, "alert");
     const id = await planSend();
-    const blocked = await call("POST", `/v1/intents/${id}/steps/s1/prepare`, { confirm: true });
+    const blocked = await call("POST", `/v1/intents/${id}/steps/s1/prepare`, { confirm: true, acknowledge: true });
     assert.equal(blocked.status, 409);
     assert.equal(((await blocked.json()) as { error: { code: string } }).error.code, "SECURITY_BLOCKED");
     await call("POST", "/v1/security/halt", { halt: false, reason: "drill over" }, ADMIN);

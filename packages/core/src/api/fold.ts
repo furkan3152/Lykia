@@ -18,6 +18,10 @@ export interface FoldDraft {
   readonly label: string;
   readonly sentence: string | null;
   readonly transactions?: readonly UnsignedTransaction[];
+  /** "Add USDC to this wallet": the address to send USDC to on Arc. Needs no gas from this wallet. */
+  readonly receive?: Address;
+  /** Open a page instead (the plan in flight, Herding). */
+  readonly href?: string;
 }
 
 export interface FoldInsight {

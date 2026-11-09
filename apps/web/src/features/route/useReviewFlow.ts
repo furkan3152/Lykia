@@ -7,7 +7,7 @@
 import type { CreateIntentResponse, PrepareStepResponse, SubmitStepResponse } from "@lykia/core/api/intents";
 import type { SecurityReport } from "@lykia/core/security/index";
 import { useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { apiPost } from "../../lib/api";
 import { reportFromError } from "../security/model";
@@ -29,6 +29,9 @@ export interface ReviewFlow {
   readonly lastTx: `0x${string}` | null;
   readonly connected: boolean;
   readonly walletKind: "browser" | "passkey" | null;
+  /** The chain the wallet is on (preflight's network check). */
+  readonly chainId: number | null;
+  switchNetwork(): Promise<void>;
   quote(stepId: string, confirmed: boolean): Promise<void>;
   sign(stepId: string, confirmed: boolean): Promise<void>;
   retry(stepId: string, confirmed: boolean): Promise<void>;
@@ -41,7 +44,7 @@ export interface ReviewFlow {
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-export function useReviewFlow(intentId: string | null, network: string): ReviewFlow {
+export function useReviewFlow(intentId: string | null, network: string, acknowledge: readonly string[] = []): ReviewFlow {
   const wallet = useLykiaWallet();
   const openModal = useWallet((s) => s.openModal);
   const qc = useQueryClient();
@@ -56,11 +59,16 @@ export function useReviewFlow(intentId: string | null, network: string): ReviewF
   const sentRef = useRef<Record<string, Sent>>({});
   const busy = useRef(false);
   const quotedOnce = useRef(false);
+  // The preflight warnings the owner ticked, read at the moment prepare is called.
+  const acked = useRef<readonly string[]>(acknowledge);
+  useEffect(() => {
+    acked.current = acknowledge;
+  }, [acknowledge]);
   // State belongs to one intent: callers key the modal by intent id, so a new plan starts clean.
   const effects = (): StepEffects => ({
       prepare: async (sid, confirmed) => {
         // `stage`: the steps of this stage come back as one transaction; a step that spends what the one before delivered is rebuilt from its receipt.
-        const response = await apiPost<PrepareStepResponse & { readonly security?: unknown }>(`/v1/intents/${encodeURIComponent(intentId!)}/steps/${encodeURIComponent(sid)}/prepare`, { confirm: confirmed, stage: true });
+        const response = await apiPost<PrepareStepResponse & { readonly security?: unknown }>(`/v1/intents/${encodeURIComponent(intentId!)}/steps/${encodeURIComponent(sid)}/prepare`, { confirm: confirmed, stage: true, ...(acked.current.length > 0 ? { acknowledge: acked.current } : {}) });
         setSecurity((response.security as SecurityReport | undefined) ?? null);
         return response;
       },
@@ -97,6 +105,8 @@ export function useReviewFlow(intentId: string | null, network: string): ReviewF
     const blocked = reportFromError(error instanceof StepFlowError ? error.original : error);
     if (blocked) setSecurity(blocked);
     setFailure(error instanceof StepFlowError ? error.failure : { kind: "unknown", title: "The step did not go through", detail: String(error), retry: "sign-again", retryLabel: "Try again", sent: false, raw: String(error) });
+    // Preflight read the wallet again and found something new: show it.
+    if (/PREFLIGHT_/u.test(String((error instanceof StepFlowError ? (error.original as { code?: string } | null)?.code : null) ?? ""))) void qc.invalidateQueries({ queryKey: ["intent", intentId] });
     setPhase("failed");
   };
 
@@ -177,5 +187,5 @@ export function useReviewFlow(intentId: string | null, network: string): ReviewF
     }
   };
 
-  return { phase, stepId, prepared, security, failure, refreshes, lastTx, connected: Boolean(wallet.address), walletKind: wallet.kind, quote, sign, retry, resume, stopPlan, connect: openModal };
+  return { phase, stepId, prepared, security, failure, refreshes, lastTx, connected: Boolean(wallet.address), walletKind: wallet.kind, chainId: wallet.chainId ?? null, switchNetwork: () => wallet.switchToArc(), quote, sign, retry, resume, stopPlan, connect: openModal };
 }

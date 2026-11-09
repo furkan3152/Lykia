@@ -18,6 +18,7 @@ import { capableProtocols, PROTOCOLS, registryCoverage, type ProtocolDescriptor 
 import type { StepKind } from "./intent.js";
 import type { PackRole } from "./pack.js";
 import type { AutopilotTaskInput } from "./autopilot.js";
+import { PREFLIGHT_CHECKS } from "./preflight/index.js";
 
 export const CAPABILITIES_SCHEMA = "lykia.capabilities/v1" as const;
 
@@ -77,6 +78,8 @@ export interface CapabilityMap {
   readonly bridges: readonly BridgeRoute[];
   readonly tokens: readonly TokenCapability[];
   readonly features: readonly CapabilityFeature[];
+  /** What Lyko checks before anything is signed (preflight), and warns about with fixes computed by code. */
+  readonly checks: readonly { readonly id: string; readonly name: string; readonly plain: string }[];
   readonly coverage: { readonly routable: number; readonly routableVia: number; readonly mapped: number };
 }
 
@@ -164,7 +167,7 @@ export function buildCapabilityMap(input: CapabilityInputs): CapabilityMap {
     .map((t) => ({ symbol: t.symbol, name: t.name, can: t.symbol === "USYC" ? [] : can(t.symbol), bridgeTo: t.symbol === "USDC" ? bridgeTo : [] }));
 
   const cov = registryCoverage(environment, executable);
-  return { schema: CAPABILITIES_SCHEMA, environment, actions, bridges, tokens, features: FEATURES, coverage: { routable: cov.routable, routableVia: cov.routableVia, mapped: cov.protocols } };
+  return { schema: CAPABILITIES_SCHEMA, environment, actions, bridges, tokens, features: FEATURES, checks: PREFLIGHT_CHECKS.map((c) => ({ id: c.id, name: c.name, plain: c.plain })), coverage: { routable: cov.routable, routableVia: cov.routableVia, mapped: cov.protocols } };
 }
 
 /** Every venue the map routes through (for the test that keeps it complete). */
@@ -184,6 +187,7 @@ export function capabilitySummary(map: CapabilityMap): string {
     ...map.actions.map((a) => `- ${a.label}: ${a.venues.map((v) => v.name).slice(0, 8).join(", ")}${a.venues.length > 8 ? ` and ${a.venues.length - 8} more` : ""}`),
     ...map.bridges.map((b) => `- Bridge ${b.name}: ${b.destinations.map((d) => d.name).join(", ")}. ${b.when}`),
     `- Features: ${map.features.map((f) => `${f.name} (${f.when})`).join("; ")}`,
+    `- Before anything is signed, code checks: ${map.checks.map((c) => c.name).join(", ")}. A plan carries its findings (preflight); when one blocks or warns, lead with it in one sentence and offer its fixes, never the sign button first.`,
     "Proactive: when the owner's words match a feature, offer it or start it instead of explaining it. When an essential detail is missing (destination chain, amount, which position), ask one short question with ask_owner and 2 to 4 options taken from this map; never guess.",
   ];
   return lines.join("\n");

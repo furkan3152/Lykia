@@ -28,6 +28,8 @@ import { readPositions } from "../positions/service.js";
 import { fireWatches, sentMarks, watchFactsOf } from "../agents/instructions.js";
 import { blockOf, isoOf } from "../agents/cards.js";
 import type { BlockSource } from "@lykia/core/api/answer";
+import type { Finding } from "@lykia/core";
+import { watchPreflight } from "../preflight/service.js";
 
 const usd = (n: number) => `$${n.toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: n > 0 && n < 1 ? 2 : 0 })}`;
 const amount = (n: number) => (n >= 100 ? String(Math.floor(n)) : n.toFixed(2).replace(/\.?0+$/u, ""));
@@ -52,6 +54,36 @@ export interface InsightInputs {
   readonly heldApy: { readonly name: string; readonly apy: number; readonly usd: number } | null;
   /** The position map, when it could be read: health factors, LP ranges and orders come from it. */
   readonly positions?: PositionsResponse | null;
+  /** Preflight's watch findings (gas nearly empty, stranded tokens, dust, what is due, a stuck bridge); they replace the plain gas-floor line. */
+  readonly watch?: readonly Finding[] | null;
+}
+
+const WATCH_KIND: Readonly<Record<string, FoldInsightKind>> = { "gas-empty": "gas-floor", stranded: "stranded", dust: "dust" };
+
+/** A preflight watch finding as a Fold insight: one primary fix, never one that needs gas the wallet lacks (watch.ts decides). */
+export function insightFromFinding(f: Finding): Omit<FoldInsight, "handled"> {
+  const kind: FoldInsightKind = WATCH_KIND[f.id] ?? (f.id.startsWith("obligations") ? "obligations" : f.id.startsWith("bridge-stuck") ? "bridge-stuck" : "gas-floor");
+  const fix = f.fixes[0];
+  const draft = !fix
+    ? null
+    : fix.kind === "add-funds"
+      ? { label: fix.label, sentence: null, ...(fix.address ? { receive: fix.address as Address } : {}) }
+      : fix.kind === "replan"
+        ? { label: fix.label, sentence: fix.sentence ?? null }
+        : fix.kind === "pause"
+          ? { label: fix.label, sentence: null, href: "/app/fold/herding" }
+          : { label: fix.label, sentence: null, ...(fix.path ? { href: fix.path } : {}) };
+  const first = f.figures[0];
+  return {
+    id: kind === "gas-floor" ? "gas-floor" : f.id.slice(0, 80),
+    kind,
+    severity: f.severity === "block" || f.id === "gas-empty" ? "act" : f.severity === "warn" ? "watch" : "info",
+    title: f.title,
+    explain: f.why,
+    figures: f.figures.map((x) => ({ label: x.label, value: x.value })),
+    draft,
+    ...(first ? { from: { source: first.source, readAt: isoOf(first.readAt), block: null } } : {}),
+  };
 }
 
 /** One health factor per lending account (an Aave Spoke, a Morpho market) from the position map. */
@@ -180,8 +212,10 @@ export function computeInsights(input: InsightInputs): Omit<FoldInsight, "handle
     out.push({ id: `scent-${h.token.toLowerCase()}`, kind: "scent-warning", severity: trust.status === "lookalike" ? "act" : "watch", title: `${h.symbol} has red flags`, explain: `${trust.warning} Lyko keeps it out of every plan unless your Fence allows unlisted tokens.`, figures: figures(["Token", h.symbol], ["Address", `${h.token.slice(0, 8)}…${h.token.slice(-4)}`], ["Check", trust.status]), draft: null });
   }
 
-  // gas-floor: native USDC for gas under the owner's floor.
-  try {
+  // Preflight's watch side: gas nearly empty, stranded tokens, dust, what is due this week, a stuck bridge.
+  if (input.watch) out.push(...input.watch.map(insightFromFinding));
+  // gas-floor (when preflight could not run): native USDC for gas under the owner's floor.
+  if (!input.watch) try {
     const gas = Number(fromBaseUnits(BigInt(snap.native.usdc18), 18));
     const gasFloor = Number(prefs.gasFloorUsdc);
     if (gas < gasFloor && (total ?? 0) > 0) out.push({ id: "gas-floor", kind: "gas-floor", severity: gas < gasFloor / 4 ? "act" : "watch", title: `Gas is down to ${gas.toFixed(3)} USDC`, explain: `Arc pays gas in USDC. Below your floor of ${gasFloor} USDC a plan may stop halfway. Keep a little USDC in the wallet itself.`, figures: figures(["Gas balance", `${gas.toFixed(4)} USDC`], ["Your gas floor", `${gasFloor} USDC`]), draft: null });
@@ -319,6 +353,7 @@ async function gatherInputs(ctx: AppContext, environment: ArcEnvironment, owner:
     bestLowRiskApy: lowRisk ? { name: lowRisk.name || "A Morpho vault", apy: Number(lowRisk.apy) * 100 } : null,
     heldApy,
     positions,
+    watch: await settle(watchPreflight(ctx, environment, owner, snap, intents.filter((g) => g.environment === environment), personal), null),
   };
 }
 

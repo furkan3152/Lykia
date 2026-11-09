@@ -25,6 +25,9 @@ import {
   type PlanAction,
   type UnsignedTransaction,
   type IntegratorFeePolicy,
+  preflightGate,
+  unlimitedApprovalFindings,
+  type Finding,
 } from "@lykia/core";
 import type { CreateIntentResponse, PrepareStepResponse, SubmitStepResponse } from "@lykia/core/api/intents";
 import type { VenuePrefs } from "./router.js";
@@ -61,6 +64,25 @@ export interface StoredIntent {
   readonly planInput?: { readonly signer: "wallet" | "agent"; readonly agent?: { readonly address: Address; readonly agentId?: string }; readonly preferences?: VenuePrefs; readonly integrator?: IntegratorFeePolicy; readonly program?: `sha256:${string}` };
   /** Steps prepared together as one transaction, by the step that leads them. */
   readonly batches?: Record<string, readonly string[]>;
+  /** The actions the plan was made from (reserves included), so preflight fixes can re-plan them. */
+  readonly actions?: readonly PlanAction[];
+  /** Preflight warnings the owner acknowledged (by finding id). */
+  readonly acknowledged?: readonly string[];
+}
+
+/** What preflight is given for a stored or fresh plan (see preflight/service.ts). */
+export interface PreflightHookInput {
+  readonly graph: IntentGraph;
+  readonly facts: FenceFacts;
+  readonly plans: Readonly<Record<string, StepPlan>>;
+  readonly sources?: Readonly<Record<string, StepSource>>;
+  readonly actions: readonly PlanAction[];
+  readonly fence: Fence;
+  readonly account: "eoa" | "smart";
+  readonly dryRun: boolean;
+  readonly reads?: { readonly balances: Readonly<Record<string, string>>; readonly prices: Readonly<Record<string, { readonly usd: string | null; readonly source: string; readonly updatedAt: string | null }>>; readonly at: number };
+  /** Read balances and prices again now (prepare). */
+  readonly fresh?: boolean;
 }
 
 /** Prepare refusals that pause the plan at this step until the owner retries or stops. */
@@ -188,6 +210,8 @@ export class IntentService {
       readonly bus: EventBus;
       readonly fetch: FetchLike;
       readonly log: Logger;
+      /** Preflight: what will go wrong before anything is signed. Absent = no findings. */
+      readonly preflight?: (input: PreflightHookInput) => Promise<Finding[]>;
     },
   ) {}
 
@@ -238,9 +262,30 @@ export class IntentService {
       ...(input.program ? { program: input.program } : {}),
     });
     const planInput: StoredIntent["planInput"] = { signer: input.signer ?? "wallet", ...(input.agent ? { agent: input.agent } : {}), ...(input.preferences ? { preferences: input.preferences } : {}), ...(input.integrator ? { integrator: input.integrator } : {}), ...(input.program ? { program: input.program } : {}) };
-    const stored: StoredIntent = { ...result, account: input.account ?? "eoa", confirmed: false, planInput };
+    const account = input.account ?? "eoa";
+    const preflight = this.deps.preflight ? await this.deps.preflight({ graph: result.graph, facts: result.facts, plans: result.plans, sources: result.sources, actions: input.actions, fence: result.fence, account, dryRun: input.dryRun === true, ...(result.reads ? { reads: result.reads } : {}) }).catch(() => []) : [];
+    const graph: IntentGraph = { ...result.graph, preflight };
+    const { reads: _reads, ...rest } = result;
+    const stored: StoredIntent = { ...rest, graph, account, confirmed: false, planInput, actions: input.actions };
     if (!input.dryRun) await this.intents().put(result.graph.id, stored as unknown as JsonValue, { ttlMs: INTENT_TTL_MS });
-    return { intent: result.graph, outrun: outrunOf(result.graph), stored: !input.dryRun };
+    return { intent: graph, outrun: outrunOf(graph), stored: !input.dryRun };
+  }
+
+  /** Preflight read again now, stored on the plan. */
+  async preflight(id: string): Promise<{ intent: IntentGraph; findings: Finding[]; acknowledged: readonly string[] }> {
+    const { doc, version } = await this.load(id);
+    const findings = await this.freshPreflight(doc);
+    if (!findings) return { intent: doc.graph, findings: [...(doc.graph.preflight ?? [])], acknowledged: doc.acknowledged ?? [] };
+    const graph = { ...doc.graph, preflight: findings };
+    await this.save(id, version, { ...doc, graph }).catch(() => undefined);
+    return { intent: graph, findings, acknowledged: doc.acknowledged ?? [] };
+  }
+
+  /** Preflight with balances read now; null when there is no hook or a step already left the wallet (later steps spend what arrives). */
+  private async freshPreflight(doc: StoredIntent): Promise<Finding[] | null> {
+    if (!this.deps.preflight || !doc.actions) return null;
+    if (doc.graph.steps.some((s) => s.status === "submitted" || s.status === "settling" || s.status === "settled")) return null;
+    return this.deps.preflight({ graph: doc.graph, facts: doc.facts, plans: doc.plans, ...(doc.sources ? { sources: doc.sources } : {}), actions: doc.actions, fence: doc.fence, account: doc.account, dryRun: !doc.graph.verdict.signable, fresh: true }).catch(() => null);
   }
 
   async load(id: string): Promise<{ doc: StoredIntent; version: number }> {
@@ -269,7 +314,7 @@ export class IntentService {
    * step's stage go out as one Multicall3From batch. A refusal here pauses
    * the plan at this step (recorded on the step) until it is retried.
    */
-  async prepare(id: string, stepId: string, options: { readonly confirm?: boolean; readonly stage?: boolean } = {}): Promise<PrepareStepResponse> {
+  async prepare(id: string, stepId: string, options: { readonly confirm?: boolean; readonly stage?: boolean; readonly acknowledge?: boolean | readonly string[]; readonly requireAck?: boolean } = {}): Promise<PrepareStepResponse> {
     const loaded = await this.load(id);
     let doc = loaded.doc;
     const version = loaded.version;
@@ -293,6 +338,24 @@ export class IntentService {
       if (check.decision === "confirm" && doc.graph.verdict.decision === "allow" && !doc.confirmed && !options.confirm) {
         throw new LykiaHttpError("CONFIRMATION_REQUIRED", 409, "The plan changed enough that your Fence asks you to confirm this step.", { reasons: check.reasons.filter((r) => r.decision === "confirm").map((r) => r.message) });
       }
+      // Preflight, read again with the wallet as it is now: a block refuses, a warning needs the owner's acknowledgement.
+      const fresh = await this.freshPreflight(doc);
+      if (fresh) doc = { ...doc, graph: { ...doc.graph, preflight: fresh } };
+      const findings = doc.graph.preflight ?? [];
+      // `true` acknowledges every warning now on the plan; a list acknowledges only the ones the owner was shown.
+      const warns = findings.filter((f) => f.severity === "warn").map((f) => f.id);
+      const acknowledged = options.acknowledge === true ? warns : [...(doc.acknowledged ?? []), ...(Array.isArray(options.acknowledge) ? options.acknowledge : [])];
+      const gate = preflightGate(findings, acknowledged);
+      if (gate.blocked) {
+        await this.save(id, version, doc).catch(() => undefined);
+        const blocks = findings.filter((f) => f.severity === "block");
+        throw new LykiaHttpError("PREFLIGHT_BLOCKED", 409, `This can't be signed yet: ${blocks.map((f) => f.title).join("; ")}.`, { findings: blocks });
+      }
+      if (options.requireAck && gate.needsAck.length > 0) {
+        await this.save(id, version, doc).catch(() => undefined);
+        throw new LykiaHttpError("PREFLIGHT_ACK_REQUIRED", 409, `Read the warnings first, then prepare with acknowledge: true. ${findings.filter((f) => gate.needsAck.includes(f.id)).map((f) => f.title).join("; ")}.`, { findings: findings.filter((f) => gate.needsAck.includes(f.id)) });
+      }
+      if (options.acknowledge) doc = { ...doc, acknowledged: [...new Set([...(doc.acknowledged ?? []), ...acknowledged.filter((a) => warns.includes(a))])] };
       const graph = doc.graph;
       const step = graph.steps.find((s) => s.id === stepId) as IntentStep;
       const members = options.stage && doc.account === "eoa" ? stageMembers(graph, step) : [step];
@@ -308,6 +371,9 @@ export class IntentService {
         const built = await buildCalls(plan, { environment: graph.environment, chains: this.deps.chains, account: step.account });
         transactions = shape(built.calls, built.approvals, { environment: graph.environment, chainId: network.chainId, from: step.account, memo, account: doc.account });
       }
+      // Lykia never builds an unlimited approval; if one ever appears in the calls, nothing is handed out.
+      const unlimited = unlimitedApprovalFindings(transactions);
+      if (unlimited.length > 0) throw new LykiaHttpError("PREFLIGHT_BLOCKED", 409, unlimited[0]!.why, { findings: unlimited });
       const binding = bindingOf(transactions);
       for (const m of members) {
         m.transactions = transactions;
@@ -321,7 +387,7 @@ export class IntentService {
       else delete batches[stepId];
       await this.save(id, version, { ...doc, graph, confirmed: doc.confirmed || options.confirm === true, batches });
       const memoText = `lykia:1:${memo.intentId}:${memo.stepId}:${memo.verdict}${memo.note ? `|${memo.note}` : ""}`;
-      return { stepId, transactions, binding, memo: memoText, ...(members.length > 1 ? { stepIds: members.map((m) => m.id) } : {}), ...(replanned ? { replanned } : {}) };
+      return { stepId, transactions, binding, memo: memoText, ...(members.length > 1 ? { stepIds: members.map((m) => m.id) } : {}), ...(replanned ? { replanned } : {}), preflight: findings };
     } catch (error) {
       if (error instanceof LykiaHttpError && PAUSES.has(error.code)) {
         const step = doc.graph.steps.find((s) => s.id === stepId);
@@ -433,6 +499,7 @@ export class IntentService {
     const members = graph.steps.filter((s) => batch.members.includes(s.id) && s.status === "awaiting-signature" && s.binding === step.binding);
     for (const m of members) {
       m.references = hashes as `0x${string}`[];
+      m.submittedAt = new Date(this.deps.clock.now()).toISOString();
       transition(m, "submitted");
     }
     const receipts = await Promise.all(hashes.map((h) => this.deps.chains.getTxReceipt(env, h)));
@@ -489,6 +556,7 @@ export class IntentService {
       if (owner?.intent !== id || owner.step !== stepId) throw new LykiaHttpError("REFERENCE_CLAIMED", 409, "That UserOperation is attached to another step.", { userOpHash });
     }
     step.references = [op.transactionHash];
+    step.submittedAt = new Date(this.deps.clock.now()).toISOString();
     transition(step, "submitted");
     if (!op.success) {
       transition(step, "failed");

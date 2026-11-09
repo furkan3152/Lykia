@@ -47,3 +47,17 @@ export const INTENT_ART = {
   have: ["............", "..uuuuuuuu..", ".uBBBBBBBBu.", "..uuuuuuuu..", ".yyyyyyyyyy.", "yYYYYYYYYYYy", ".yyyyyyyyyy.", "..uuuuuuuu..", ".uBBBBBBBBu.", "..uuuuuuuu..", ".gggggggggg.", "............"],
   can: ["......y.....", "......y.....", ".....yYy....", "....yYYYy...", "yyyyYYwYYyyy", "....yYYYy...", ".....yYy....", "......y.....", "......y.....", "............", "............", "............"],
 } as const;
+
+/** Preflight: one hand-laid stone per check family (12 x 12, INTENT_PAL). */
+export const PREFLIGHT_ART = {
+  gas: ["..kkkkkk....", "..kwwwwk....", "..kwwwwk.k..", "..kkkkkk..k.", "..kttttk..k.", "..kttttkk.k.", "..kttttk.kk.", "..kttttk..k.", "..kttttk..k.", "..kttttk.kk.", ".kkkkkkkk...", ".kkkkkkkk..."],
+  money: ["............", "....yyyy....", "..yyYYYYyy..", ".yYYyyyyYYy.", ".yYyyYYyyYy.", "yYyyYyyyyyYy", "yYyyyYYyyyYy", "yYyyyyyYyyYy", ".yYyyYYyyYy.", ".yYYyyyyYYy.", "..yyYYYYyy..", "....yyyy...."],
+  cost: ["............", "....yyyy....", "..yyYYYYyy..", ".yYYyyyyYYy.", ".yYyyyyyyYy.", "yYytttttyyYy", "yYytttttyyYy", "yYyyyyyyyyYy", ".yYyyyyyyYy.", ".yYYyyyyYYy.", "..yyYYYYyy..", "....yyyy...."],
+  risk: ["..kkkkkkkk..", ".kSSSSSSSSk.", ".kSBBSSBBSk.", ".kSBBSSBBSk.", ".kSSSSSSSSk.", ".kSBBSSBBSk.", ".kSBBSSBBSk.", "..kSSSSSSk..", "..kSSSSSSk..", "...kSSSSk...", "....kSSk....", ".....kk....."],
+  time: ["....kkkk....", "..kkwwwwkk..", ".kwwwwkwwwk.", ".kwwwwkwwwk.", "kwwwwwkwwwwk", "kwwwwwkwwwwk", "kwwwwwkkkkwk", "kwwwwwwwwwwk", ".kwwwwwwwwk.", ".kwwwwwwwwk.", "..kkwwwwkk..", "....kkkk...."],
+  address: ["......kkkkk.", ".....kyyyyk.", "....kyyyyyk.", "...kyyyykyk.", "..kyyyyyyyk.", ".kyyyyyyyk..", "kyyyyyyyk...", ".kyyyyyk....", "..kyyyk.....", "...kyk......", "....k.......", "............"],
+  bridge: ["............", "rrrrrrrrrrrr", "RrRrRrRrRrRr", "rrrr....rrrr", "rrr......rrr", "rr........rr", "rr........rr", "rr........rr", "rrssssssssrr", "ssSsssSsssSs", "ssssssssssss", "............"],
+  network: ["............", ".........ss.", ".........ss.", "......ss.ss.", "......ss.ss.", "...ss.ss.ss.", "...ss.ss.ss.", "ss.ss.ss.ss.", "ss.ss.ss.ss.", "ss.ss.ss.ss.", "kkkkkkkkkkkk", "............"],
+  approval: ["............", ".yyyy.......", "yYYYYy......", "yY..Yy......", "yY..Yyyyyyyy", "yYYYYyYYYYYy", ".yyyy....yYy", ".........y.y", "............", "............", "............", "............"],
+  limits: ["..k...k...k.", ".kyk.kyk.kyk", ".kyk.kyk.kyk", "kkkkkkkkkkkk", ".kyk.kyk.kyk", ".kyk.kyk.kyk", "kkkkkkkkkkkk", ".kyk.kyk.kyk", ".kyk.kyk.kyk", ".kyk.kyk.kyk", "gggggggggggg", "............"],
+} as const;

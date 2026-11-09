@@ -7,6 +7,7 @@ import type { ArcEnvironment } from "../networks.js";
 import type { PackAgent, PackBudget, PackRole, SessionLimits, SubFenceViolation } from "../pack.js";
 import type { UnsignedTransaction } from "../intent.js";
 import type { AnswerBlock, ChatStep } from "./answer.js";
+import type { Finding } from "../preflight/types.js";
 
 export type { AnswerBlock, AnswerBlockKind, ChatStep, ChatStepKind, ChatStepState } from "./answer.js";
 
@@ -97,6 +98,8 @@ export interface AgentProposal {
   readonly decision: Decision;
   readonly reasons: readonly string[];
   readonly warnings: readonly string[];
+  /** What will go wrong before it is signed: blocks, warnings and notes with code-computed fixes (lykia.preflight/v1). */
+  readonly preflight?: readonly Finding[];
   /** Which agents contributed which part. */
   readonly attribution: readonly { readonly agent: string; readonly role: PackRole; readonly part: string }[];
   readonly rationale: string;

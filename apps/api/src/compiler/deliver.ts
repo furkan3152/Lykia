@@ -17,7 +17,7 @@ import { ordersService } from "../orders/service.js";
 import { orderVerdict, quoteOf } from "../orders/verdict.js";
 import type { AppContext } from "../context.js";
 import { alertsService } from "../alerts/service.js";
-import { planActions } from "../agents/engine.js";
+import { planActions, preflightOf } from "../agents/engine.js";
 import { createAutomation } from "../devflows/automations.js";
 import type { CompileResult } from "./service.js";
 
@@ -86,7 +86,7 @@ async function proposalOf(d: DeliverContext, result: CompileResult): Promise<{ p
       steps: intent.steps.map((s) => s.summary),
       decision: intent.verdict.decision,
       reasons: intent.verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message),
-      warnings: intent.warnings,
+      warnings: intent.warnings, ...preflightOf(intent),
       attribution: [{ agent: d.agent.name, role: d.agent.role, part: "compiled program" }],
       rationale: result.now.parts.map((p) => p.rationale).join(" "),
     },

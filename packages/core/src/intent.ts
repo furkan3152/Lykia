@@ -20,6 +20,7 @@ import type { ArcEnvironment } from "./networks.js";
 import type { FenceVerdict } from "./fenceEvaluate.js";
 import type { RouteChoice } from "./routes.js";
 import type { StepFee } from "./fee.js";
+import type { Finding } from "./preflight/types.js";
 
 export const INTENT_SPEC_VERSION = "lykia.intent/v1" as const;
 
@@ -119,6 +120,8 @@ export interface IntentStep {
   references?: readonly `0x${string}`[];
   failure?: StepFailure;
   settledAt?: string;
+  /** When the client reported the step's transaction (submit); a cross-chain leg is judged stuck against it. */
+  submittedAt?: string;
   /**
    * Steps with the same stage are signed together (one Multicall3From
    * batch when the signer is an EOA). A new stage starts where a step spends
@@ -144,6 +147,13 @@ export interface IntentGraph {
   readonly steps: IntentStep[];
   readonly verdict: FenceVerdict;
   readonly warnings: readonly string[];
+  /**
+   * What will go wrong before anything is signed (lykia.preflight/v1):
+   * blocks, warnings and notes computed by code, each with its figures and
+   * fixes. Read again at prepare time; a block refuses prepare and a
+   * warning needs `acknowledge: true`.
+   */
+  preflight?: readonly Finding[];
 }
 
 export type IntentStatus = "planned" | "running" | "settled" | "failed" | "stopped" | "denied";

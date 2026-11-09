@@ -18042,7 +18042,11 @@
                               "near-threshold",
                               "unclaimed",
                               "expiring",
-                              "idle-position"
+                              "idle-position",
+                              "stranded",
+                              "dust",
+                              "obligations",
+                              "bridge-stuck"
                             ]
                           },
                           "severity": {
@@ -21389,7 +21393,7 @@
       "post": {
         "operationId": "postIntents",
         "summary": "Plan an outcome (a sentence or actions), checked against the Fence",
-        "description": "Returns the intent graph, the Fence verdict, the Outrun and the Lykia fee per step. The server never signs.",
+        "description": "Returns the intent graph, the Fence verdict, the Outrun and the Lykia fee per step. The server never signs. `intent.preflight` lists what will go wrong before anything is signed (lykia.preflight/v1): each finding has a severity (block, warn, note), the figures it used with their source and read time, and fixes computed by code (a `replan` fix carries the sentence and the actions to plan instead). Example: 2 of 2.01 USDC to EURC on Arc leaves no USDC for gas, so a `gas-reserve` warning offers \"Use 1.50 USDC\".",
         "tags": [
           "Intents"
         ],
@@ -21421,7 +21425,240 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "intent": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "preflight": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "Stable for the same condition"
+                              },
+                              "check": {
+                                "type": "string",
+                                "enum": [
+                                  "gas-reserve",
+                                  "cash-floor",
+                                  "obligations",
+                                  "dust",
+                                  "insufficient",
+                                  "cost-ratio",
+                                  "price-impact",
+                                  "fx-band",
+                                  "price-stale",
+                                  "quote-age",
+                                  "round-trip",
+                                  "loan-health",
+                                  "vault-state",
+                                  "lp-range",
+                                  "approvals",
+                                  "recipient",
+                                  "bridge-destination",
+                                  "network",
+                                  "duplicate",
+                                  "fence-room",
+                                  "budget",
+                                  "conflict",
+                                  "unpriced",
+                                  "plan-refused"
+                                ]
+                              },
+                              "family": {
+                                "type": "string",
+                                "enum": [
+                                  "gas",
+                                  "money",
+                                  "cost",
+                                  "risk",
+                                  "time",
+                                  "address",
+                                  "bridge",
+                                  "network",
+                                  "approval",
+                                  "limits"
+                                ]
+                              },
+                              "severity": {
+                                "type": "string",
+                                "enum": [
+                                  "block",
+                                  "warn",
+                                  "note"
+                                ],
+                                "description": "block: cannot be prepared; warn: prepare needs acknowledge: true; note: for the record"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "why": {
+                                "type": "string"
+                              },
+                              "say": {
+                                "type": "string"
+                              },
+                              "figures": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "label": {
+                                      "type": "string"
+                                    },
+                                    "value": {
+                                      "type": "string"
+                                    },
+                                    "source": {
+                                      "type": "string"
+                                    },
+                                    "readAt": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "description": "ISO time of the read; null for a schedule or a preference"
+                                    }
+                                  },
+                                  "required": [
+                                    "label",
+                                    "value",
+                                    "source",
+                                    "readAt"
+                                  ]
+                                }
+                              },
+                              "change": {
+                                "type": "object",
+                                "properties": {
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "before": {
+                                    "type": "string"
+                                  },
+                                  "after": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "label",
+                                  "before",
+                                  "after"
+                                ]
+                              },
+                              "fixes": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "replan",
+                                        "wait",
+                                        "pause",
+                                        "switch-network",
+                                        "change-fence",
+                                        "add-funds",
+                                        "open"
+                                      ]
+                                    },
+                                    "label": {
+                                      "type": "string",
+                                      "description": "The chip, e.g. \"Use 1.50 USDC\""
+                                    },
+                                    "detail": {
+                                      "type": "string"
+                                    },
+                                    "question": {
+                                      "type": "string"
+                                    },
+                                    "sentence": {
+                                      "type": "string",
+                                      "description": "replan: the sentence to plan instead (POST /v1/intents with text)"
+                                    },
+                                    "actions": {
+                                      "type": "array",
+                                      "items": {},
+                                      "description": "replan: the same plan as typed actions (POST /v1/intents with actions)"
+                                    },
+                                    "path": {
+                                      "type": "string"
+                                    },
+                                    "method": {
+                                      "type": "string",
+                                      "enum": [
+                                        "get",
+                                        "post"
+                                      ]
+                                    },
+                                    "etaSeconds": {
+                                      "type": "number"
+                                    },
+                                    "address": {
+                                      "type": "string"
+                                    },
+                                    "chainId": {
+                                      "type": "number"
+                                    },
+                                    "needsGas": {
+                                      "type": "boolean",
+                                      "description": "True when the fix is itself a transaction from this wallet"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "kind",
+                                    "label",
+                                    "needsGas"
+                                  ]
+                                }
+                              },
+                              "step": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "check",
+                              "family",
+                              "severity",
+                              "title",
+                              "why",
+                              "say",
+                              "figures",
+                              "fixes"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ]
+                    },
+                    "outrun": {
+                      "type": "object",
+                      "properties": {}
+                    },
+                    "stored": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "intent",
+                    "outrun",
+                    "stored"
+                  ]
                 }
               }
             }
@@ -21567,7 +21804,240 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "intent": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "preflight": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "Stable for the same condition"
+                              },
+                              "check": {
+                                "type": "string",
+                                "enum": [
+                                  "gas-reserve",
+                                  "cash-floor",
+                                  "obligations",
+                                  "dust",
+                                  "insufficient",
+                                  "cost-ratio",
+                                  "price-impact",
+                                  "fx-band",
+                                  "price-stale",
+                                  "quote-age",
+                                  "round-trip",
+                                  "loan-health",
+                                  "vault-state",
+                                  "lp-range",
+                                  "approvals",
+                                  "recipient",
+                                  "bridge-destination",
+                                  "network",
+                                  "duplicate",
+                                  "fence-room",
+                                  "budget",
+                                  "conflict",
+                                  "unpriced",
+                                  "plan-refused"
+                                ]
+                              },
+                              "family": {
+                                "type": "string",
+                                "enum": [
+                                  "gas",
+                                  "money",
+                                  "cost",
+                                  "risk",
+                                  "time",
+                                  "address",
+                                  "bridge",
+                                  "network",
+                                  "approval",
+                                  "limits"
+                                ]
+                              },
+                              "severity": {
+                                "type": "string",
+                                "enum": [
+                                  "block",
+                                  "warn",
+                                  "note"
+                                ],
+                                "description": "block: cannot be prepared; warn: prepare needs acknowledge: true; note: for the record"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "why": {
+                                "type": "string"
+                              },
+                              "say": {
+                                "type": "string"
+                              },
+                              "figures": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "label": {
+                                      "type": "string"
+                                    },
+                                    "value": {
+                                      "type": "string"
+                                    },
+                                    "source": {
+                                      "type": "string"
+                                    },
+                                    "readAt": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "description": "ISO time of the read; null for a schedule or a preference"
+                                    }
+                                  },
+                                  "required": [
+                                    "label",
+                                    "value",
+                                    "source",
+                                    "readAt"
+                                  ]
+                                }
+                              },
+                              "change": {
+                                "type": "object",
+                                "properties": {
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "before": {
+                                    "type": "string"
+                                  },
+                                  "after": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "label",
+                                  "before",
+                                  "after"
+                                ]
+                              },
+                              "fixes": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "replan",
+                                        "wait",
+                                        "pause",
+                                        "switch-network",
+                                        "change-fence",
+                                        "add-funds",
+                                        "open"
+                                      ]
+                                    },
+                                    "label": {
+                                      "type": "string",
+                                      "description": "The chip, e.g. \"Use 1.50 USDC\""
+                                    },
+                                    "detail": {
+                                      "type": "string"
+                                    },
+                                    "question": {
+                                      "type": "string"
+                                    },
+                                    "sentence": {
+                                      "type": "string",
+                                      "description": "replan: the sentence to plan instead (POST /v1/intents with text)"
+                                    },
+                                    "actions": {
+                                      "type": "array",
+                                      "items": {},
+                                      "description": "replan: the same plan as typed actions (POST /v1/intents with actions)"
+                                    },
+                                    "path": {
+                                      "type": "string"
+                                    },
+                                    "method": {
+                                      "type": "string",
+                                      "enum": [
+                                        "get",
+                                        "post"
+                                      ]
+                                    },
+                                    "etaSeconds": {
+                                      "type": "number"
+                                    },
+                                    "address": {
+                                      "type": "string"
+                                    },
+                                    "chainId": {
+                                      "type": "number"
+                                    },
+                                    "needsGas": {
+                                      "type": "boolean",
+                                      "description": "True when the fix is itself a transaction from this wallet"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "kind",
+                                    "label",
+                                    "needsGas"
+                                  ]
+                                }
+                              },
+                              "step": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "check",
+                              "family",
+                              "severity",
+                              "title",
+                              "why",
+                              "say",
+                              "figures",
+                              "fixes"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ]
+                    },
+                    "outrun": {
+                      "type": "object",
+                      "properties": {}
+                    },
+                    "stored": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "intent",
+                    "outrun",
+                    "stored"
+                  ]
                 }
               }
             }
@@ -21638,6 +22108,317 @@
               "application/json": {
                 "schema": {
                   "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "key",
+        "security": [
+          {
+            "LykiaKey": []
+          },
+          {}
+        ]
+      }
+    },
+    "/v1/intents/{id}/preflight": {
+      "get": {
+        "operationId": "getIntentsByIdPreflight",
+        "summary": "Preflight read again now: blocks, warnings and notes with their fixes",
+        "description": "Balances, gas, prices, Herding and recipients are read again; the findings are stored on the plan. `gate.blocked` means prepare refuses; `gate.needsAck` lists the warnings prepare wants acknowledged.",
+        "tags": [
+          "Intents"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "intentId": {
+                      "type": "string"
+                    },
+                    "at": {
+                      "type": "string"
+                    },
+                    "findings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Stable for the same condition"
+                          },
+                          "check": {
+                            "type": "string",
+                            "enum": [
+                              "gas-reserve",
+                              "cash-floor",
+                              "obligations",
+                              "dust",
+                              "insufficient",
+                              "cost-ratio",
+                              "price-impact",
+                              "fx-band",
+                              "price-stale",
+                              "quote-age",
+                              "round-trip",
+                              "loan-health",
+                              "vault-state",
+                              "lp-range",
+                              "approvals",
+                              "recipient",
+                              "bridge-destination",
+                              "network",
+                              "duplicate",
+                              "fence-room",
+                              "budget",
+                              "conflict",
+                              "unpriced",
+                              "plan-refused"
+                            ]
+                          },
+                          "family": {
+                            "type": "string",
+                            "enum": [
+                              "gas",
+                              "money",
+                              "cost",
+                              "risk",
+                              "time",
+                              "address",
+                              "bridge",
+                              "network",
+                              "approval",
+                              "limits"
+                            ]
+                          },
+                          "severity": {
+                            "type": "string",
+                            "enum": [
+                              "block",
+                              "warn",
+                              "note"
+                            ],
+                            "description": "block: cannot be prepared; warn: prepare needs acknowledge: true; note: for the record"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "why": {
+                            "type": "string"
+                          },
+                          "say": {
+                            "type": "string"
+                          },
+                          "figures": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "label": {
+                                  "type": "string"
+                                },
+                                "value": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                },
+                                "readAt": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "ISO time of the read; null for a schedule or a preference"
+                                }
+                              },
+                              "required": [
+                                "label",
+                                "value",
+                                "source",
+                                "readAt"
+                              ]
+                            }
+                          },
+                          "change": {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string"
+                              },
+                              "before": {
+                                "type": "string"
+                              },
+                              "after": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "before",
+                              "after"
+                            ]
+                          },
+                          "fixes": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "replan",
+                                    "wait",
+                                    "pause",
+                                    "switch-network",
+                                    "change-fence",
+                                    "add-funds",
+                                    "open"
+                                  ]
+                                },
+                                "label": {
+                                  "type": "string",
+                                  "description": "The chip, e.g. \"Use 1.50 USDC\""
+                                },
+                                "detail": {
+                                  "type": "string"
+                                },
+                                "question": {
+                                  "type": "string"
+                                },
+                                "sentence": {
+                                  "type": "string",
+                                  "description": "replan: the sentence to plan instead (POST /v1/intents with text)"
+                                },
+                                "actions": {
+                                  "type": "array",
+                                  "items": {},
+                                  "description": "replan: the same plan as typed actions (POST /v1/intents with actions)"
+                                },
+                                "path": {
+                                  "type": "string"
+                                },
+                                "method": {
+                                  "type": "string",
+                                  "enum": [
+                                    "get",
+                                    "post"
+                                  ]
+                                },
+                                "etaSeconds": {
+                                  "type": "number"
+                                },
+                                "address": {
+                                  "type": "string"
+                                },
+                                "chainId": {
+                                  "type": "number"
+                                },
+                                "needsGas": {
+                                  "type": "boolean",
+                                  "description": "True when the fix is itself a transaction from this wallet"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "kind",
+                                "label",
+                                "needsGas"
+                              ]
+                            }
+                          },
+                          "step": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "check",
+                          "family",
+                          "severity",
+                          "title",
+                          "why",
+                          "say",
+                          "figures",
+                          "fixes"
+                        ]
+                      }
+                    },
+                    "gate": {
+                      "type": "object",
+                      "properties": {
+                        "blocked": {
+                          "type": "boolean"
+                        },
+                        "needsAck": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "blocked",
+                        "needsAck"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "intentId",
+                    "at",
+                    "findings",
+                    "gate"
+                  ]
                 }
               }
             }
@@ -21749,7 +22530,7 @@
       "post": {
         "operationId": "postIntentsByIdStepsBySidPrepare",
         "summary": "Unsigned calls, binding and memo for one step (or its whole stage), rebuilt now",
-        "description": "A step whose amount is what the step before produced is first planned again with the amount that step's receipt shows (net Transfer logs), never the quote; the answer carries `replanned`. The Fence and the beta cap are evaluated again on the plan as it is now. With `stage: true` an EOA's steps that share the stage come back as one Multicall3From transaction (`stepIds`). A refusal (FENCE_DENIED, NO_ROUTE, INSUFFICIENT_BALANCE) is recorded on the step, so the plan reads as paused there until it is retried.",
+        "description": "Preflight is read again first (while no step has left the wallet): a `block` finding answers 409 PREFLIGHT_BLOCKED with the findings in details; `warn` findings answer 409 PREFLIGHT_ACK_REQUIRED until the call carries `acknowledge: true`; the answer carries `preflight`. A step whose amount is what the step before produced is first planned again with the amount that step's receipt shows (net Transfer logs), never the quote; the answer carries `replanned`. The Fence and the beta cap are evaluated again on the plan as it is now. With `stage: true` an EOA's steps that share the stage come back as one Multicall3From transaction (`stepIds`). A refusal (FENCE_DENIED, NO_ROUTE, INSUFFICIENT_BALANCE) is recorded on the step, so the plan reads as paused there until it is retried.",
         "tags": [
           "Intents"
         ],
@@ -21797,7 +22578,239 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "stepId": {
+                      "type": "string"
+                    },
+                    "transactions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {}
+                      }
+                    },
+                    "binding": {
+                      "type": "string"
+                    },
+                    "memo": {
+                      "type": "string"
+                    },
+                    "preflight": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Stable for the same condition"
+                          },
+                          "check": {
+                            "type": "string",
+                            "enum": [
+                              "gas-reserve",
+                              "cash-floor",
+                              "obligations",
+                              "dust",
+                              "insufficient",
+                              "cost-ratio",
+                              "price-impact",
+                              "fx-band",
+                              "price-stale",
+                              "quote-age",
+                              "round-trip",
+                              "loan-health",
+                              "vault-state",
+                              "lp-range",
+                              "approvals",
+                              "recipient",
+                              "bridge-destination",
+                              "network",
+                              "duplicate",
+                              "fence-room",
+                              "budget",
+                              "conflict",
+                              "unpriced",
+                              "plan-refused"
+                            ]
+                          },
+                          "family": {
+                            "type": "string",
+                            "enum": [
+                              "gas",
+                              "money",
+                              "cost",
+                              "risk",
+                              "time",
+                              "address",
+                              "bridge",
+                              "network",
+                              "approval",
+                              "limits"
+                            ]
+                          },
+                          "severity": {
+                            "type": "string",
+                            "enum": [
+                              "block",
+                              "warn",
+                              "note"
+                            ],
+                            "description": "block: cannot be prepared; warn: prepare needs acknowledge: true; note: for the record"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "why": {
+                            "type": "string"
+                          },
+                          "say": {
+                            "type": "string"
+                          },
+                          "figures": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "label": {
+                                  "type": "string"
+                                },
+                                "value": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                },
+                                "readAt": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "ISO time of the read; null for a schedule or a preference"
+                                }
+                              },
+                              "required": [
+                                "label",
+                                "value",
+                                "source",
+                                "readAt"
+                              ]
+                            }
+                          },
+                          "change": {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string"
+                              },
+                              "before": {
+                                "type": "string"
+                              },
+                              "after": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "before",
+                              "after"
+                            ]
+                          },
+                          "fixes": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "replan",
+                                    "wait",
+                                    "pause",
+                                    "switch-network",
+                                    "change-fence",
+                                    "add-funds",
+                                    "open"
+                                  ]
+                                },
+                                "label": {
+                                  "type": "string",
+                                  "description": "The chip, e.g. \"Use 1.50 USDC\""
+                                },
+                                "detail": {
+                                  "type": "string"
+                                },
+                                "question": {
+                                  "type": "string"
+                                },
+                                "sentence": {
+                                  "type": "string",
+                                  "description": "replan: the sentence to plan instead (POST /v1/intents with text)"
+                                },
+                                "actions": {
+                                  "type": "array",
+                                  "items": {},
+                                  "description": "replan: the same plan as typed actions (POST /v1/intents with actions)"
+                                },
+                                "path": {
+                                  "type": "string"
+                                },
+                                "method": {
+                                  "type": "string",
+                                  "enum": [
+                                    "get",
+                                    "post"
+                                  ]
+                                },
+                                "etaSeconds": {
+                                  "type": "number"
+                                },
+                                "address": {
+                                  "type": "string"
+                                },
+                                "chainId": {
+                                  "type": "number"
+                                },
+                                "needsGas": {
+                                  "type": "boolean",
+                                  "description": "True when the fix is itself a transaction from this wallet"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "kind",
+                                "label",
+                                "needsGas"
+                              ]
+                            }
+                          },
+                          "step": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "check",
+                          "family",
+                          "severity",
+                          "title",
+                          "why",
+                          "say",
+                          "figures",
+                          "fixes"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "stepId",
+                    "transactions",
+                    "binding",
+                    "memo"
+                  ]
                 }
               }
             }
@@ -21843,6 +22856,22 @@
                   "stage": {
                     "type": "boolean",
                     "description": "Batch the steps that share this step's stage into one Multicall3From transaction (EOA signers)."
+                  },
+                  "acknowledge": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "maxLength": 120
+                        },
+                        "maxItems": 40
+                      }
+                    ],
+                    "description": "The owner read the plan's preflight warnings (intent.preflight, severity warn): true for all of them, or the ids of the ones shown. Without it a plan with warnings answers 409 PREFLIGHT_ACK_REQUIRED; a block always answers 409 PREFLIGHT_BLOCKED."
                   }
                 },
                 "default": {}

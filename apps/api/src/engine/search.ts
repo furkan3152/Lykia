@@ -462,7 +462,7 @@ export function externalInputs(steps: readonly IntentStep[]): { symbol: string; 
   return [...need.entries()].map(([symbol, units]) => ({ symbol, units }));
 }
 
-function gasFor(adapter: AdapterId | undefined): number {
+export function gasFor(adapter: AdapterId | undefined): number {
   if (!adapter) return STEP_OVERHEAD_GAS;
   const venue = ADAPTER_VENUE[adapter];
   const row = venueKnowledge(venue);

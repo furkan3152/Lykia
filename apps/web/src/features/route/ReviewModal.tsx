@@ -12,7 +12,7 @@
  */
 import type { AgentProposal } from "@lykia/core/api/agents";
 import type { SecurityReport } from "@lykia/core/security/index";
-import { MEANINGS, networkFor, type ArcEnvironment } from "@lykia/core";
+import { MEANINGS, networkFor, preflightGate, quoteAgeFinding, walletNetworkFinding, type ArcEnvironment, type Finding, type FindingFix } from "@lykia/core";
 import React, { useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
 
 import { usePulse } from "../../lib/pulseStore";
@@ -27,6 +27,9 @@ import type { TxFailure } from "./txErrors";
 import { useIntent } from "./useIntent";
 import { useReviewFlow, type ReviewPhase } from "./useReviewFlow";
 import { STAGE_START, stageHeadline, stageReduce, type StageState } from "./stagedFlow";
+import { PreflightPanel } from "./Preflight";
+import { usePreflightAcks } from "./preflightModel";
+import { runFix } from "./preflightActions";
 
 const TILE_COLS = 12;
 const TILE_ROWS = 8;
@@ -59,6 +62,11 @@ export interface ReviewDialogProps {
   readonly stage?: StageState;
   /** "Stop here": stop every step not started yet. */
   readonly onStop?: () => void;
+  /** "Before you sign": preflight's findings for the step on screen (server and wallet checks). */
+  readonly preflight?: readonly Finding[];
+  readonly preflightAcked?: boolean;
+  readonly onPreflightAck?: (value: boolean) => void;
+  readonly onFix?: (fix: FindingFix) => void;
 }
 
 /** Focus stays inside the dialog; Escape closes; focus returns where it came from. */
@@ -136,6 +144,10 @@ function phaseBanner(p: ReviewDialogProps): { tone: "sea" | "ochre" | "ok" | "ba
 function primaryOf(p: ReviewDialogProps): { label: string; disabled: boolean; action: () => void } {
   const v = p.view;
   if (!v) return { label: "Sign with wallet", disabled: true, action: p.onSign };
+  const gate = preflightGate(p.preflight, p.preflightAcked === true);
+  const open = v.stage !== "settled" && v.stage !== "denied" && v.stage !== "dry-run" && v.settledCount === 0;
+  if (open && gate.blocked) return { label: "Fix it first", disabled: true, action: p.onSign };
+  if (open && gate.needsAck.length > 0 && p.phase !== "failed") return { label: "Tick the warnings first", disabled: true, action: p.onSign };
   if (v.stage === "denied") return { label: "Refused by your Fence", disabled: true, action: p.onSign };
   if (v.stage === "dry-run") return { label: "Dry run · nothing to sign", disabled: true, action: p.onSign };
   if (v.stage === "settled" && p.phase !== "failed") return { label: "Done", disabled: false, action: p.onClose };
@@ -268,6 +280,12 @@ export function ReviewDialog(p: ReviewDialogProps) {
               <Skeleton h={72} />
             </section>
           )}
+
+          {v && (p.preflight?.length ?? 0) > 0 && v.stage !== "settled" ? (
+            <div className="rv-card rv-pf rv-lay" style={{ "--k": 1 } as React.CSSProperties}>
+              <PreflightPanel findings={p.preflight} mode="review" acknowledged={p.preflightAcked === true} {...(p.onPreflightAck ? { onAcknowledge: p.onPreflightAck } : {})} {...(p.onFix ? { onFix: p.onFix } : {})} actionable={v.settledCount === 0} />
+            </div>
+          ) : null}
 
           <div className="rv-cols">
             <section className="rv-card rv-lay" style={{ "--k": 2 } as React.CSSProperties} aria-labelledby={`${uid}-steps`}>
@@ -402,16 +420,35 @@ export function ReviewDialog(p: ReviewDialogProps) {
 }
 
 /** The live modal: the intent, the next step's quote and the wallet. */
-export function ReviewModal({ intentId, proposal, open, onClose, onReplan }: { readonly intentId: string | null; readonly proposal?: AgentProposal | null; readonly open: boolean; readonly onClose: () => void; readonly onReplan?: () => void }) {
+export function ReviewModal({ intentId, proposal, open, onClose, onReplan, askFix }: { readonly intentId: string | null; readonly proposal?: AgentProposal | null; readonly open: boolean; readonly onClose: () => void; readonly onReplan?: () => void; readonly askFix?: (sentence: string) => void }) {
   const query = useIntent(open ? intentId : null);
   const view = useMemo(() => (query.data ? reviewView(query.data.intent, query.data.outrun) : null), [query.data]);
   const network = view ? networkFor(view.environment).name : "Arc";
-  const flow = useReviewFlow(intentId, network);
+  // Before you sign: the plan's preflight (read again at each quote), plus the wallet's network and the quote's age.
+  const chatAcked = usePreflightAcks((s) => (intentId ? Boolean(s.acked[intentId]) : false));
+  const [ticked, setTicked] = useState<string | null>(null);
+  // The plan's preflight: prepare reads it again and stores it on the plan, so the plan's copy is the one to show.
+  const serverFindings = query.data?.intent.preflight ?? [];
+  const warnIds = serverFindings.filter((f) => f.severity === "warn").map((f) => f.id);
+  const warnKey = warnIds.join("|");
+  // "Use all anyway" in the chat ticks the warnings the chat showed, and only those: a new one needs a new tick.
+  const [chatKey] = useState(() => (chatAcked ? (query.data?.intent.preflight ?? []).filter((f) => f.severity === "warn").map((f) => f.id).join("|") : null));
+  const preflightAcked = warnKey !== "" && (ticked === null ? chatKey === warnKey : ticked === warnKey);
+  const flow = useReviewFlow(intentId, network, preflightAcked ? warnIds : []);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 5_000);
+    return () => clearInterval(t);
+  }, []);
+  const clientFindings = [view && flow.connected ? walletNetworkFinding(flow.chainId, view.environment) : null, quoteAgeFinding(flow.prepared?.at ?? null, now)].filter((f): f is Finding => f !== null);
+  const findings = [...clientFindings.filter((f) => f.severity === "block"), ...serverFindings, ...clientFindings.filter((f) => f.severity !== "block")];
+  const gate = preflightGate(findings, preflightAcked);
   const transferCostUsd = usePulse((s) => s.pulse?.transferCostUsd ?? null);
   const [confirmed, setConfirmed] = useState(false);
   const next = view?.nextStepId ?? null;
   // A step the server paused waits for "Retry this step"; it is never re-quoted on its own.
-  const quotable = Boolean(open && view && view.signable && next && !view.staged.paused && (view.decision !== "confirm" || confirmed));
+  const fresh = (view?.settledCount ?? 0) === 0;
+  const quotable = Boolean(open && view && view.signable && next && !view.staged.paused && (view.decision !== "confirm" || confirmed) && (!fresh || (!gate.blocked && gate.needsAck.length === 0)));
 
   // A fresh quote for the next step as soon as the modal opens, and after each step settles.
   useEffect(() => {
@@ -464,6 +501,13 @@ export function ReviewModal({ intentId, proposal, open, onClose, onReplan }: { r
         void flow.stopPlan();
       }}
       stage={stage}
+      preflight={findings}
+      preflightAcked={preflightAcked}
+      onPreflightAck={(value) => setTicked(value ? warnKey : "")}
+      onFix={(fix) => {
+        if (fix.kind === "replan" || fix.kind === "open" || fix.kind === "change-fence") onClose();
+        void runFix(fix, { switchNetwork: flow.switchNetwork, ...(askFix ? { ask: askFix } : {}) });
+      }}
       {...(onReplan ? { onReplan } : {})}
       onConnect={flow.connect}
       txCount={flow.prepared?.response.transactions.length ?? null}

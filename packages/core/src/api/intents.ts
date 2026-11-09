@@ -3,6 +3,7 @@ import type { SecurityReport } from "../security/types.js";
 import type { IntentGraph, UnsignedTransaction, IntentStep } from "../intent.js";
 import type { Outrun } from "../outrun.js";
 import type { ProtocolDescriptor } from "../protocols.js";
+import type { Finding } from "../preflight/types.js";
 
 export interface CreateIntentResponse {
   readonly intent: IntentGraph;
@@ -23,6 +24,15 @@ export interface PrepareStepResponse {
   readonly stepIds?: readonly string[];
   /** Set when the step was rebuilt from what the step before actually delivered (base units). */
   readonly replanned?: { readonly symbol: string; readonly planned: string; readonly actual: string };
+  /** Preflight as read now, before these calls are signed (warnings were acknowledged to get here). */
+  readonly preflight?: readonly Finding[];
+}
+
+export interface PreflightResponse {
+  readonly intentId: string;
+  readonly at: string;
+  readonly findings: readonly Finding[];
+  readonly gate: { readonly blocked: boolean; readonly needsAck: readonly string[] };
 }
 
 export interface SubmitStepResponse {

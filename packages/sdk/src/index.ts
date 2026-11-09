@@ -22,6 +22,8 @@ export { projectsApi, type ProjectsApi, type OriginChallenge, type ProjectUsage 
 export type { AgentProposal, ChatEvent, PackAgentView, InsightsResponse, ThreadView, Automation, SessionTxResponse } from "@lykia/core/api/agents";
 export type { WebhookEvent, ApiKeyView, CreatedApiKey, SessionView, ApiKeyScope, ApiKeyMode, WebhookEnvelope, WebhookDelivery, RequestLogEntry, BillingPlan, BillingUsageView } from "@lykia/core/api/platform";
 export type { Project, ProjectInput, ProjectPublicView, ProjectModule, ProjectBrand } from "@lykia/core";
+export type { Finding, FindingFix, FindingFigure, FindingSeverity, PreflightCheckId } from "@lykia/core";
+export type { PreflightResponse } from "@lykia/core/api/intents";
 export { aggregatorApi, type AggregatorApi, type ActionKind, type ActionParams, type BuildOptions, type Quote, type Build } from "./aggregator.js";
 export { buildApi, type BuildApi } from "./build.js";
 export { integrationsApi, type IntegrationsApi } from "./integrations.js";

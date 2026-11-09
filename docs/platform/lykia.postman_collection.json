@@ -7049,6 +7049,41 @@
           }
         },
         {
+          "name": "Preflight read again now: blocks, warnings and notes with their fixes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/intents/:id/preflight",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "intents",
+                ":id",
+                "preflight"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Balances, gas, prices, Herding and recipients are read again; the findings are stored on the plan. `gate.blocked` means prepare refuses; `gate.needsAck` lists the warnings prepare wants acknowledged.\n\nAuth: key."
+          }
+        },
+        {
           "name": "The CCTP attestation of a bridge step",
           "request": {
             "method": "GET",
@@ -7165,7 +7200,7 @@
                 }
               }
             },
-            "description": "Returns the intent graph, the Fence verdict, the Outrun and the Lykia fee per step. The server never signs.\n\nAuth: key, scope: build."
+            "description": "Returns the intent graph, the Fence verdict, the Outrun and the Lykia fee per step. The server never signs. `intent.preflight` lists what will go wrong before anything is signed (lykia.preflight/v1): each finding has a severity (block, warn, note), the figures it used with their source and read time, and fixes computed by code (a `replan` fix carries the sentence and the actions to plan instead). Example: 2 of 2.01 USDC to EURC on Arc leaves no USDC for gas, so a `gas-reserve` warning offers \"Use 1.50 USDC\".\n\nAuth: key, scope: build."
           }
         },
         {
@@ -7223,7 +7258,7 @@
                 }
               }
             },
-            "description": "A step whose amount is what the step before produced is first planned again with the amount that step's receipt shows (net Transfer logs), never the quote; the answer carries `replanned`. The Fence and the beta cap are evaluated again on the plan as it is now. With `stage: true` an EOA's steps that share the stage come back as one Multicall3From transaction (`stepIds`). A refusal (FENCE_DENIED, NO_ROUTE, INSUFFICIENT_BALANCE) is recorded on the step, so the plan reads as paused there until it is retried.\n\nAuth: key, scope: build."
+            "description": "Preflight is read again first (while no step has left the wallet): a `block` finding answers 409 PREFLIGHT_BLOCKED with the findings in details; `warn` findings answer 409 PREFLIGHT_ACK_REQUIRED until the call carries `acknowledge: true`; the answer carries `preflight`. A step whose amount is what the step before produced is first planned again with the amount that step's receipt shows (net Transfer logs), never the quote; the answer carries `replanned`. The Fence and the beta cap are evaluated again on the plan as it is now. With `stage: true` an EOA's steps that share the stage come back as one Multicall3From transaction (`stepIds`). A refusal (FENCE_DENIED, NO_ROUTE, INSUFFICIENT_BALANCE) is recorded on the step, so the plan reads as paused there until it is retried.\n\nAuth: key, scope: build."
           }
         },
         {

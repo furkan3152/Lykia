@@ -166,3 +166,64 @@ html[data-night="on"] .rv-memo { background: #16243f; color: #cfc4ad; }
 @media (prefers-reduced-motion: reduce) {
   .rv-stagein { animation: none; }
 }
+
+/*
+ * Preflight: what Lyko saw before you sign. Each finding is a tessera card
+ * whose border tells the weight (terra: can't sign yet, ochre: check this,
+ * sea: good to know), with the family's pixel stone, the before -> after
+ * figures in mono digits and the fixes as tessera chips that press down on
+ * tap. The cards drop in one after another; reduced motion lays them at once.
+ */
+.pf { display: grid; gap: var(--sp-2, 8px); min-width: 0; }
+.pf__h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 15px; margin: 2px 0 0; }
+.pf__h .m-kick, .pf .rv-h .m-kick { color: var(--ink-2); }
+.pf[data-worst="block"] .pf__h { color: var(--terra-2); }
+.pf__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pf-card { --tone: var(--sea); --tint: #eef7f8; position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; padding: 10px 12px 10px 10px; background: var(--tint); box-shadow: inset 0 0 0 2px var(--tone), inset 6px 0 0 var(--tone), 0 3px 0 var(--grout); animation: pf-in 320ms steps(4, end) both; animation-delay: calc(var(--i, 0) * 70ms); }
+.pf-card[data-severity="block"] { --tone: var(--terra); --tint: #fbe9e3; }
+.pf-card[data-severity="warn"] { --tone: var(--ochre); --tint: #fdf3dc; }
+.pf-card--compact { padding: 6px 10px 6px 8px; box-shadow: inset 0 0 0 2px var(--grout), inset 4px 0 0 var(--tone); background: var(--cream); }
+@keyframes pf-in { from { opacity: 0; transform: translateY(-6px); } }
+.pf-card__stone { display: grid; place-items: center; width: 38px; height: 38px; background-color: var(--cream); background-image: linear-gradient(rgba(19, 35, 58, 0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(19, 35, 58, 0.08) 1px, transparent 1px); background-size: 4px 4px; box-shadow: inset 0 0 0 2px var(--tone); }
+.pf-card--compact .pf-card__stone { width: 28px; height: 28px; }
+.pf-card__body { display: grid; gap: 4px; min-width: 0; }
+.pf-card__kick { font-family: Silkscreen, monospace; font-size: 10px; letter-spacing: 0.12em; color: var(--tone); filter: brightness(0.82); }
+.pf-card__title { font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }
+.pf-card__why { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--ink-2); }
+.pf-change { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 2px 0 0; font-size: 13px; }
+.pf-change__label { color: var(--ink-2); }
+.pf-change__fig { padding: 1px 6px; background: var(--cream); box-shadow: inset 0 0 0 2px var(--grout); font-weight: 600; }
+.pf-change__fig--after { box-shadow: inset 0 0 0 2px var(--tone); }
+.pf-change__arrow { font-family: "JetBrains Mono Variable", monospace; color: var(--tone); font-weight: 700; }
+.pf-why { justify-self: start; padding: 0; border: 0; background: none; cursor: pointer; font-size: 12.5px; color: var(--navy); text-decoration: underline dotted; text-underline-offset: 3px; }
+.pf-figs { display: grid; gap: 6px; margin: 2px 0 0; padding: 8px 10px; background: var(--cream); box-shadow: inset 0 0 0 2px var(--grout); }
+.pf-figs > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; }
+.pf-figs dt { font-size: 12.5px; color: var(--ink-2); }
+.pf-figs dd { margin: 0; font-size: 12.5px; font-weight: 600; text-align: right; }
+.pf-figs small { grid-column: 1 / -1; font-size: 11px; color: var(--ink-3); }
+.pf__more summary { cursor: pointer; font-size: 13px; color: var(--navy); padding: 2px 0; }
+.pf__more[open] summary { margin-bottom: 6px; }
+.pf-chips { display: flex; flex-wrap: wrap; gap: 10px; padding: 4px 0 6px; }
+.pf-chip { --chip: var(--sea); display: inline-grid; gap: 1px; justify-items: start; min-height: 44px; padding: 6px 12px; border: 0; cursor: pointer; text-align: left; background: var(--cream); color: var(--navy); box-shadow: inset 0 0 0 2px var(--navy), 0 4px 0 var(--chip); margin-bottom: 4px; transition: transform 90ms steps(2, end), box-shadow 90ms steps(2, end); animation: pf-in 300ms steps(4, end) both; animation-delay: calc(140ms + var(--i, 0) * 50ms); }
+.pf-chip[data-role="fix"]:first-child { --chip: var(--olive); background: #eef3e4; }
+.pf-chip[data-role="proceed"] { --chip: var(--ochre); }
+.pf-chip[data-role="cancel"] { --chip: var(--grout); }
+.pf-chip__label { font-family: "Pixelify Sans", monospace; font-size: 15px; font-weight: 700; }
+.pf-chip__detail { font-size: 11.5px; color: var(--ink-2); }
+.pf-chip:hover, .pf-chip:focus-visible { outline: none; transform: translateY(-2px); box-shadow: inset 0 0 0 2px var(--navy), 0 6px 0 var(--chip); }
+.pf-chip:active { transform: translateY(4px); box-shadow: inset 0 0 0 2px var(--navy), 0 0 0 var(--chip); }
+.pf-tick { margin-top: 2px; }
+.pf-blocked { margin: 0; color: var(--terra-2); }
+.rv-pf { box-shadow: inset 0 0 0 2px var(--grout), inset 0 4px 0 var(--ochre); }
+.rv-pf .rv-h { margin-bottom: 4px; }
+.m-stageplan .pf { margin-top: 10px; }
+html[data-night="on"] .pf-card { background: #1b2b47; color: #f2ead7; }
+html[data-night="on"] .pf-card__why, html[data-night="on"] .pf-change__label, html[data-night="on"] .pf-chip__detail { color: #c9bfa8; }
+html[data-night="on"] .pf-chip, html[data-night="on"] .pf-change__fig, html[data-night="on"] .pf-figs { background: #22355a; color: #f2ead7; }
+@media (max-width: 640px) {
+  .pf-chips { gap: 8px; }
+  .pf-chip { flex: 1 1 calc(50% - 8px); }
+  .pf-chip[data-role="cancel"] { flex: 0 1 auto; }
+}
+@media (prefers-reduced-motion: reduce) { .pf-card, .pf-chip { animation: none; transition: none; } }
+html[data-motion="off"] .pf-card, html[data-motion="off"] .pf-chip { animation: none; transition: none; }

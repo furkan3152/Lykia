@@ -1,6 +1,6 @@
 /** `@lykia/sdk/intents`: plan a sentence or actions, prepare and submit steps, follow an intent. */
 import type { Address, ArcEnvironment, Fence, IntentGraph, Outrun, PlanAction } from "@lykia/core";
-import type { CreateIntentResponse, PrepareStepResponse, SubmitStepResponse } from "@lykia/core/api/intents";
+import type { CreateIntentResponse, PreflightResponse, PrepareStepResponse, SubmitStepResponse } from "@lykia/core/api/intents";
 import type { ParseResponse } from "@lykia/core/api/language";
 import type { LykiaTransport, RequestOptions } from "./transport.js";
 
@@ -24,7 +24,13 @@ export function intentsApi(t: LykiaTransport) {
     },
     get: (id: string) => t.request<{ intent: IntentGraph; outrun: Outrun }>("GET", `/v1/intents/${id}`),
     outrun: (id: string) => t.request<Outrun>("GET", `/v1/intents/${id}/outrun`),
-    prepare: (id: string, stepId: string, options: { confirm?: boolean } = {}) => t.request<PrepareStepResponse>("POST", `/v1/intents/${id}/steps/${stepId}/prepare`, options),
+    /**
+     * Unsigned calls for one step. `intent.preflight` lists what will go wrong first: a `block` finding refuses
+     * (PREFLIGHT_BLOCKED); `warn` findings need `acknowledge: true` once the user has read them (PREFLIGHT_ACK_REQUIRED).
+     */
+    prepare: (id: string, stepId: string, options: { confirm?: boolean; stage?: boolean; acknowledge?: boolean | readonly string[] } = {}) => t.request<PrepareStepResponse>("POST", `/v1/intents/${id}/steps/${stepId}/prepare`, options),
+    /** Preflight read again now: findings with their figures and fixes, and whether prepare would refuse or ask for an acknowledgement. */
+    preflight: (id: string) => t.request<PreflightResponse>("GET", `/v1/intents/${id}/preflight`),
     submit: async (id: string, stepId: string, hashes: readonly `0x${string}`[]) => {
       t.emit("step-signed", { intentId: id, stepId, hashes });
       const result = await t.request<SubmitStepResponse>("POST", `/v1/intents/${id}/steps/${stepId}/submit`, { hashes });
@@ -41,4 +47,4 @@ export function intentsApi(t: LykiaTransport) {
 }
 
 export type IntentsApi = ReturnType<typeof intentsApi>;
-export type { CreateIntentResponse, PrepareStepResponse, SubmitStepResponse };
+export type { CreateIntentResponse, PreflightResponse, PrepareStepResponse, SubmitStepResponse };

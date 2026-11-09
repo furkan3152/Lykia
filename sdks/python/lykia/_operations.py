@@ -113,6 +113,7 @@ OPERATIONS: Dict[str, Operation] = {
     "getIntegrationsManifest": Operation("GET", "/v1/integrations/manifest", "Integrations", "The adapter manifest spec and an example", "read", False),
     "getIntentsById": Operation("GET", "/v1/intents/{id}", "Intents", "An intent and its Outrun", None, False),
     "getIntentsByIdOutrun": Operation("GET", "/v1/intents/{id}/outrun", "Intents", "Where the money is: the Outrun", None, False),
+    "getIntentsByIdPreflight": Operation("GET", "/v1/intents/{id}/preflight", "Intents", "Preflight read again now: blocks, warnings and notes with their fixes", None, False),
     "getIntentsByIdStepsBySidAttestation": Operation("GET", "/v1/intents/{id}/steps/{sid}/attestation", "Intents", "The CCTP attestation of a bridge step", None, False),
     "getIntentsByIdStream": Operation("GET", "/v1/intents/{id}/stream", "Intents", "Server-sent events: intent and Outrun updates", None, False),
     "getInvoices": Operation("GET", "/v1/invoices", "Invoices", "List invoices", "read", False),

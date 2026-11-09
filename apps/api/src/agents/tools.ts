@@ -52,7 +52,7 @@ import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { EXECUTABLE_VENUES } from "../engine/adapters.js";
 import { services } from "../services.js";
-import { planActions } from "./engine.js";
+import { planActions, preflightOf } from "./engine.js";
 import { knowledgePaths } from "../engine/search.js";
 import { ordersService } from "../orders/service.js";
 import { alertInputIssue, alertsService } from "../alerts/service.js";
@@ -661,7 +661,11 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
       }
       const outcome = await planActions(tc.ctx, actions, input.sentence, { environment: tc.environment, owner, fence: tc.agent.fence, proposedByAgent: true });
       if (outcome.kind === "clarify") return { summary: "Needs a detail", data: { clarify: outcome.questions } };
-      if (outcome.kind === "refused") return { summary: `Refused: ${outcome.message}`, data: { refused: outcome.message } };
+      if (outcome.kind === "refused") {
+        // A refusal preflight could name (an unsupported chain, a bridge minimum) still reaches the owner as a card with its reason.
+        if (outcome.findings && outcome.findings.length > 0) tc.proposals.push({ intentId: null, title: input.sentence, steps: [], decision: "deny", reasons: [outcome.message], warnings: [], preflight: outcome.findings, attribution: [{ agent: tc.agent.name, role: tc.agent.role, part: input.sentence }], rationale: "" });
+        return { summary: `Refused: ${outcome.message}`, data: { refused: outcome.message, ...(outcome.findings ? { preflight: outcome.findings.map((f) => ({ severity: f.severity, say: f.say })) } : {}) } };
+      }
       const { intent } = outcome.result;
       const proposal: AgentProposal = {
         intentId: outcome.result.stored ? intent.id : null,
@@ -669,7 +673,7 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
         steps: intent.steps.map((s) => s.summary),
         decision: intent.verdict.decision,
         reasons: intent.verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message),
-        warnings: intent.warnings,
+        warnings: intent.warnings, ...preflightOf(intent),
         attribution: [{ agent: tc.agent.name, role: tc.agent.role, part: input.sentence }],
         rationale: [input.why ?? "", ...notes, routeLine ?? ""].filter(Boolean).join(" ").slice(0, 600),
       };
@@ -683,7 +687,7 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
       // The protocol fee explains why a step moves a little less (or a send costs a little more) than the sentence said.
       const fees = intent.steps.flatMap((st) => (st.fee ? [{ step: st.id, fee: `${fromBaseUnits(st.fee.amount, st.fee.decimals)} ${st.fee.symbol}`, bps: st.fee.bps, basis: FEE_BASIS[st.fee.basis] }] : []));
       const compared = intent.steps.map((st) => st.route?.reason).filter((r): r is string => Boolean(r));
-      return { summary: `Planned (${intent.verdict.decision}): ${proposal.steps.join(" → ")}`, data: { intentId: proposal.intentId, steps: proposal.steps, decision: proposal.decision, reasons: proposal.reasons, warnings: proposal.warnings, ...(notes.length > 0 ? { grounding: notes } : {}), ...(routeLine ? { route: routeLine } : {}), ...(compared.length > 0 ? { why: compared } : {}), ...(fees.length > 0 ? { lykiaFees: fees } : {}) } };
+      return { summary: `Planned (${intent.verdict.decision}): ${proposal.steps.join(" → ")}`, data: { intentId: proposal.intentId, steps: proposal.steps, decision: proposal.decision, reasons: proposal.reasons, warnings: proposal.warnings, ...(notes.length > 0 ? { grounding: notes } : {}), ...(routeLine ? { route: routeLine } : {}), ...(compared.length > 0 ? { why: compared } : {}), ...(fees.length > 0 ? { lykiaFees: fees } : {}), ...(intent.preflight && intent.preflight.length > 0 ? { preflight: intent.preflight.map((f) => ({ severity: f.severity, title: f.title, say: f.say, fixes: f.fixes.length })), preflightRule: "A block or warn finding leads the answer (the code writes that sentence first); the chat shows its fixes as chips the owner picks. Never apply a fix yourself, and never present a blocked plan as ready to sign." } : {}) } };
     },
   }),
   spec({

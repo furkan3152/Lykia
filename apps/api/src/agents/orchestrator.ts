@@ -21,7 +21,7 @@ import { ENGLISH_REPLY_RULE } from "../language/english.js";
 import { DEFAULT_FENCE, intersectFence, ROLE_TEMPLATES, type Address, type ArcEnvironment, type Fence, type PackAgent, type PackRole, type PlanAction } from "@lykia/core";
 import type { AgentProposal } from "@lykia/core/api/agents";
 import type { AppContext } from "../context.js";
-import { planActions } from "./engine.js";
+import { planActions, preflightOf } from "./engine.js";
 import { textOf, toolCallsOf, type LlmClient, type LlmMessage } from "./llm.js";
 import { runTool, toolDefinitions, toolsFor, wrapUntrusted, type ActingAgent, type ToolContext } from "./tools.js";
 import { newGround } from "./grounding.js";
@@ -30,7 +30,7 @@ import type { AnswerBlock } from "@lykia/core/api/answer";
 import { balanceCard, emitBlock, gasCard, positionsCard, rateCard, stepsFor } from "./cards.js";
 import { foldPositions, foldSnapshot } from "../fold/sample.js";
 import type { ChatStepKind } from "@lykia/core/api/agents";
-import { capabilitySummary } from "@lykia/core";
+import { capabilitySummary, preflightLead } from "@lykia/core";
 import { capabilityMap } from "../capabilities/map.js";
 
 const MAX_DELEGATIONS = 4;
@@ -367,7 +367,9 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
   for (const b of tc.blocks ?? []) if (!shownBlocks.includes(b)) shownBlocks.push(b);
   const guarded = guardNumbers(main.text, ground, shownBlocks);
   if (guarded.removed.length > 0) ctx.log.info("number guard removed figures", { count: guarded.removed.length });
-  const text = guarded.text;
+  // Preflight leads: a block or a warning is said first, in code's own sentence, before anything about signing.
+  const lead = preflightLead(final.flatMap((p) => p.preflight ?? []));
+  const text = lead ? `${lead}\n\n${guarded.text}`.trim() : guarded.text;
   if (text) emit("text", { text });
   return { text, proposals: final, stopReason: main.stop, delegations, modelCalls };
 }
@@ -396,7 +398,7 @@ export async function mergeProposals(
     steps: intent.steps.map((s) => s.summary),
     decision: intent.verdict.decision,
     reasons: intent.verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message),
-    warnings: intent.warnings,
+    warnings: intent.warnings, ...preflightOf(intent),
     attribution: passing.flatMap((p) => p.proposal.attribution),
     rationale: passing.map((p) => p.proposal.rationale).filter(Boolean).join(" "),
   };
