@@ -1,7 +1,7 @@
 /**
  * Trails: the owner's timeline. Settled steps with their Arc Memo, the Fence
  * verdict and its digest, plans still running, failed and refused attempts,
- * the fees paid, orders, alerts that barked and every proposal transition.
+ * the fees paid, orders, watches that fired and every proposal transition.
  */
 import { deriveIntentStatus, formatUsdMicros, memoString, usdMicros, verdictTag, type Address, type IntentGraph } from "@lykia/core";
 import type { FoldTrailEntry, FoldTrailsResponse } from "@lykia/core/api/fold";

@@ -41,7 +41,7 @@ describe("chat tools that save for the owner", () => {
     assert.equal(rules.length, 1);
     assert.equal(rules[0]!.token, "EURC");
     assert.deepEqual(rules[0]!.channels, ["inbox", "telegram"]);
-    assert.deepEqual(tc.drafts, [{ kind: "alert", saved: true, label: "EURC below $1.05", href: "/app/alerts" }]);
+    assert.deepEqual(tc.drafts, [{ kind: "alert", saved: true, label: "EURC below $1.05", href: "/app/fold/herding?show=watches" }]);
   });
 
   it("create_alert saves nothing for an unverified owner and returns a prefilled link", async () => {
@@ -84,7 +84,7 @@ describe("chat tools that save for the owner", () => {
     assert.deepEqual(saved.fence, DEFAULT_FENCE);
     assert.deepEqual(saved.trigger, FRIDAY_SWEEP.trigger);
     assert.equal(saved.action.type, "plan");
-    assert.equal(tc.drafts[0]?.href, "/app/automations");
+    assert.equal(tc.drafts[0]?.href, "/app/fold/herding?show=automations");
   });
 
   it("draft_automation saves nothing for an unverified owner and returns a prefilled link", async () => {

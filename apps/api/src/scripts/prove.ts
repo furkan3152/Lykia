@@ -281,7 +281,7 @@ await provePlan("Gateway: deposit 40 USDC into the unified balance", [{ verb: "u
 await provePlan("Complex intent: 40% best vault, 20% to EURC, bridge the rest to Base (of 500 USDC kept as base)", [{ verb: "earn", token: "USDC", amount: { exact: "200" } }, { verb: "fx", from: "USDC", to: "EURC", amount: { exact: "100" } }, { verb: "bridge", token: "USDC", amount: { exact: "195" }, destination: "base" }]);
 await provePlan("Convert 500 USDC to EURC, then pay 200 EURC for invoice 7", [{ verb: "fx", from: "USDC", to: "EURC", amount: { exact: "500" } }, { verb: "send", token: "EURC", amount: { exact: "200" }, to: PAYEE, memo: "invoice 7" }], { fence: PAYEE_FENCE });
 await provePlan("Beta cap: send 1500 USDC under a loose Fence", [{ verb: "send", token: "USDC", amount: { exact: "1500" }, to: PAYEE }], { fence: { ...PAYEE_FENCE, caps: { perStepUsd: "1000000", perIntentUsd: "1000000", dailyUsd: "1000000", weeklyUsd: "1000000" }, confirm: { aboveUsd: "1000000", when: [] } }, expectRefusal: /beta|cap/iu });
-await provePlan("Fence: Shepherd refuses a stranger", [{ verb: "send", token: "USDC", amount: { exact: "10" }, to: PAYEE }], { expectRefusal: /not the owner|recipient/iu });
+await provePlan("Fence: Balanced refuses a stranger", [{ verb: "send", token: "USDC", amount: { exact: "10" }, to: PAYEE }], { expectRefusal: /not the owner|recipient/iu });
 await proveTag();
 await proveAggregator(ctx, OWNER, record);
 await proveCircle(ctx, OWNER, record);

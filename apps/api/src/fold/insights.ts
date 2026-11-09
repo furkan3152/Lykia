@@ -6,6 +6,7 @@
  * when there is a sensible move, a one-tap draft that goes through the
  * proposal system. Unpriced holdings are flagged, never counted as zero.
  */
+import { ownerFence } from "../personal/fence.js";
 import { assessToken, currentMix, genericPositionInsights, fenceForProfile, fromBaseUnits, riskTierOf, type Address, type ArcEnvironment, type FoldInsightKind, type FoldPreferences, type IntentGraph, type Position, type PositionsResponse } from "@lykia/core";
 import type { PackAgentView } from "@lykia/core/api/agents";
 import type { FlockSnapshot } from "@lykia/core/api/flock";
@@ -274,7 +275,7 @@ function sendUsdOf(actions: readonly { readonly verb: string; readonly token?: s
 async function gatherInputs(ctx: AppContext, environment: ArcEnvironment, owner: Address, personal: boolean, snapshot?: FlockSnapshot): Promise<InsightInputs> {
   const snap = snapshot ?? (await services(ctx).flock.snapshot(environment, owner));
   const [prefs, profile] = await Promise.all([personal ? getPreferences(ctx, owner) : getPreferences(ctx, null), personal ? getProfile(ctx, owner) : getProfile(ctx, null)]);
-  const fence = fenceForProfile({ ...profile, risk: riskTierOf(prefs.risk) });
+  const fence = personal ? await ownerFence(ctx, owner) : fenceForProfile({ ...profile, risk: riskTierOf(prefs.risk) });
   const [approvals, instructions, standing, pack, spent, intents, rates, positions] = await Promise.all([
     settle(staleApprovals(ctx, environment, owner), []),
     personal ? settle(instructionsFor(ctx, owner), []) : Promise.resolve([]),

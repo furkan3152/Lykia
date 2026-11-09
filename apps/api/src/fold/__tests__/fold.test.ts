@@ -183,11 +183,12 @@ describe("fold API", () => {
     assert.equal(alert.status, 201);
     const view = await call<FoldInstructionsResponse>("GET", `/v1/fold/instructions?owner=${OWNER}`);
     assert.equal(view.status, 200);
-    const bark = view.body.instructions.find((i) => i.source === "alert");
-    assert.ok(bark);
-    assert.equal(bark.sourceLabel, "Alert");
-    assert.equal(bark.nextVerdict?.decision, "allow");
-    assert.match(bark.editSentence, /^Change my alert/u);
+    const watch = view.body.instructions.find((i) => i.source === "alert");
+    assert.ok(watch);
+    assert.equal(watch.sourceLabel, "Watch");
+    assert.equal(watch.kind, "watch");
+    assert.equal(watch.nextVerdict?.decision, "allow");
+    assert.match(watch.editSentence, /^Change my watch/u);
     assert.equal(view.body.counts.waitingSignature, view.body.waiting.length);
     assert.ok(view.body.waiting.every((p) => p.status === "proposed" || p.status === "approved"));
     assert.equal((await call("GET", `/v1/fold/instructions?owner=${OWNER}`, undefined, false)).status, 401);

@@ -12,15 +12,14 @@
  * secret key with the agents scope). Nothing here signs or moves funds: a
  * plan is planned under the owner's Fence for the owner to sign.
  */
-import { DEFAULT_FENCE, fenceForProfile, riskTierOf, type Address, type WatchCondition } from "@lykia/core";
+import { ownerFence as ownerFenceStored } from "../personal/fence.js";
+import { type Address, type WatchCondition } from "@lykia/core";
 import { z } from "zod";
 import type { ApiModule } from "../http/router.js";
 import { evmAddress, parseBody, parseParams, parseQuery } from "../http/validate.js";
 import { assertRouting, createWatch, getInstruction, handInsightToAsk, listInstructions, moveWatch } from "../agents/instructions.js";
-import { getPreferences } from "../fold/preferences.js";
-import { getProfile } from "../personal/profile.js";
 import { documentRoutes } from "../platform/openapi/registry.js";
-import { authorizeOwner, environmentOf, environmentSchema, fenceFrom } from "./common.js";
+import { authorizeOwner, environmentOf, environmentSchema } from "./common.js";
 
 const role = z.enum(["watch", "ask"]);
 const decimal = z.string().max(20).regex(/^(?:0|[1-9]\d*)(?:\.\d+)?$/u);
@@ -88,10 +87,9 @@ export const instructionsModule: ApiModule = {
       assertRouting(body);
       const owner = body.owner as Address;
       const environment = environmentOf(ctx, body.environment);
-      const [profile, prefs] = await Promise.all([getProfile(ctx, owner), getPreferences(ctx, owner)]);
-      const ownerFence = fenceForProfile({ ...profile, risk: riskTierOf(prefs.risk) }, DEFAULT_FENCE);
+      const ownerFence = await ownerFenceStored(ctx, owner);
       if (body.kind === "plan") {
-        const fence = fenceFrom(body.fence) ?? ownerFence;
+        const fence = ownerFence;
         const handed = await handInsightToAsk(ctx, { owner, environment, insightId: body.insightId, fence, threadId: body.threadId ?? null });
         return void res.status(201).json(handed);
       }

@@ -5,6 +5,7 @@
  * Owner-only venues (Lykia's own records) are "private" for anyone else.
  * Each venue's result is cached briefly per address in the store.
  */
+import { ownerFence } from "../personal/fence.js";
 import { fenceForProfile, POSITION_VENUES, riskTierOf, summarizePositions, type Address, type ArcEnvironment, type IntentGraph, type PositionsResponse, type PositionVenueInfo, type VenueRead } from "@lykia/core";
 import type { AppContext } from "../context.js";
 import type { PriceQuote } from "../arc/prices.js";
@@ -88,7 +89,7 @@ export interface ReadOptions {
 /** Builds the shared read context once per request: prices, rates and history are fetched at most once. */
 export async function readContext(ctx: AppContext, environment: ArcEnvironment, owner: Address, personal: boolean): Promise<ReadContext> {
   const [profile, prefs] = await Promise.all([getProfile(ctx, personal ? owner : null).catch(() => null), getPreferences(ctx, personal ? owner : null).catch(() => null)]);
-  const fence = profile && prefs ? fenceForProfile({ ...profile, risk: riskTierOf(prefs.risk) }) : null;
+  const fence = personal ? await ownerFence(ctx, owner).catch(() => null) : profile && prefs ? fenceForProfile({ ...profile, risk: riskTierOf(prefs.risk) }) : null;
   const healthFloor = Number(fence?.lending?.minHealthFactor ?? "1.2");
   const priceCache = new Map<string, Promise<PriceQuote>>();
   let rates: Promise<RatesSnapshot | null> | null = null;

@@ -35,23 +35,30 @@ accessible name. The navigation lives in `apps/web/src/shell/nav.ts` (see
 Lyko's voice in chat: the verdict first, in one short, confident line; then at
 most three facts with numbers; then one next step. No greeting, no filler.
 
+One noun per idea, and two places with one rule: **Ask Lyko** starts things,
+**The Fold** shows and manages them, **The Forge** is for developers. Anything
+started in Ask is one row in the Fold's Running list (Herding), and can be
+paused, stopped or cancelled there; changing it goes back to Ask.
+
 | Word | Meaning | In the UI |
 |---|---|---|
-| Ask Lyko | Your agent: say the outcome, get a checked plan. Every action happens here. | Ask Lyko · your agent |
+| Ask Lyko | Your agent: say the outcome, get a checked plan. Everything starts here: plans, automations, orders, watches, leashes, agents and Autopilot. | Ask Lyko · your agent |
 | The Fold | Everything the owner holds and everything in motion, with Lyko on watch beside it. | The Fold · everything you own and everything in motion |
-| Lyko on watch | The portfolio assistant docked in the Fold: it proposes, you sign. | Lyko on watch · proposes, you sign |
+| Lyko on watch | The portfolio assistant docked in the Fold: it reads, explains and hands you to Ask. "Lyko on watch" is the assistant; "Watches" are the things it keeps an eye on. | Lyko on watch |
 | Your Lyko | How Lyko decides, speaks and remembers for the owner. | Your Lyko · preferences and memory |
 | Flock | Everything the owner holds on Arc (a tab of the Fold). | Flock · holdings |
-| Pastures | Where stablecoins earn: lending markets and vaults. | Pastures · yields |
-| Fence | The rules around an agent or an owner. | Fence · rules |
-| Pack | The owner's agents and sub-agents (pups). | Pack · agents |
+| Fence | The owner's rules, kept on the server: one per owner. The word "rules" is reserved for it. Its preset (Careful, Balanced or Bold) is the same control as Your Lyko's risk profile. | Fence · your spending rules |
+| Safety | Approvals, token checks and pauses, as a section of the Fence tab. | Safety |
+| Pack | The owner's agents and the leashes they hold: one card per agent. | Pack · your agents and their leashes |
+| Leash | A budget an agent cannot go past: per step, per day and in total, until a date. An agent is what holds a leash; a Pack agent and an outside bot's leash are the same idea. | Leash · a budget for a bot |
+| Automation | Something that repeats or fires on a trigger, with who signs: "You sign each time" or "Autopilot signs". Standing orders, recurring payments, agent automations and Autopilot tasks are all automations. | Automation |
+| Watch | Something Lykia keeps an eye on and tells you about, in-app, by webhook or on Telegram. Alerts and watch tasks are both watches. | Watch |
+| Autopilot | Lyko signs your own automations inside a leash on your own LykiaAccount. | Autopilot · Lyko signs for you |
 | Tag | An agent's on-chain identity: its ERC-8004 identity plus the hash of the Fence it follows. | Tag · agent identity |
 | Scent | What can be proven about a token before anyone touches it. | Scent · token check |
-| Watch | The six security layers between a plan and the wallet. | Watch · security |
 | Whistle | The emergency stop: stops every new risk. Moves that bring value home still pass. | Whistle (the kill switch) |
-| Herding | Every standing instruction, and the drafts waiting for a signature (a tab of the Fold). | Herding · instructions |
+| Herding | Everything in motion, one row each (the Running list), and the drafts waiting for a signature (a tab of the Fold). Its rows are "instructions". | Herding · everything running |
 | Trails | The timeline of everything that happened (a tab of the Fold). | Trails · activity |
-| Rounds, Barks | Automations and alerts, as Herding labels them. | Rounds · automations, Barks · alerts |
 | Outrun | The path of a plan, drawn as an arc. | Outrun · plan |
 | The Forge | The developer portal, where builders strike projects. | The Forge · build |
 | League | Lykia's products and approved community apps, shown together. | The League · Lykia's cities |
@@ -60,8 +67,15 @@ most three facts with numbers; then one next step. No greeting, no filler.
 | Letoon | The Lykia team's console (admins only). Named after the sanctuary of Leto, where the league met. | Letoon · team console |
 | Harbour, Ledger | The ecosystem of Arc protocols, and Lykia in numbers. | Harbour · ecosystem, Ledger · stats |
 
-API paths, SDK names and core types (`scent`, `pack`, `whistle`, `outrun`)
-are part of the public API and do not change with the labels.
+API paths, SDK names and core types (`scent`, `pack`, `whistle`, `outrun`,
+`alerts`, `automations`, `standing`) are part of the public API and do not
+change with the labels.
+
+Words that are gone from the interface: Rounds and Barks (they are
+automations and watches), Pastures (yields are an answer in Ask Lyko),
+"Watch · security" (Safety is a section of the Fence tab), Shepherd as a
+Fence name (the presets are Careful, Balanced and Bold; the developer
+template key `shepherd` stays in the API as the Balanced default).
 
 The interface is English only, and so is Lyko: it always replies in English,
 whatever language the owner writes in. The model reads any language; the

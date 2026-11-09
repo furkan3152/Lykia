@@ -9,6 +9,7 @@
 import { DEFAULT_FOLD_PREFERENCES, FOLD_CARDS, FOLD_INSIGHT_KINDS, FOLD_INSIGHT_NAMES, FOLD_TABS, foldPreferenceEffects, type FoldCard, type FoldInsightKind, type FoldPreferences, type FoldRisk, type FoldTab } from "@lykia/core";
 import React, { useEffect, useMemo, useState } from "react";
 
+import { Link } from "../../app/routes/Link";
 import { navigate } from "../../app/routes/history";
 import { useSearchParam } from "../../app/routes/useRoute";
 import { usePreferences, useSavePreferences } from "../../features/fold/data";
@@ -78,7 +79,8 @@ function Preferences() {
   const submit = async () => {
     if (!siwe.signedIn) return void siwe.signIn();
     try {
-      const { updatedAt: _u, schema: _s, ...patch } = draft;
+      // The risk profile is the Fence preset: it changes in the Fence tab only.
+      const { updatedAt: _u, schema: _s, risk: _r, ...patch } = draft;
       await save.mutateAsync(patch);
       setDirty(false);
       toast.success("Lyko knows", { description: "Saved to your account. The Fold and Ask Lyko use it now.", from: "LYKO" });
@@ -98,17 +100,18 @@ function Preferences() {
       ) : null}
       <div className="yl-grid">
         <section className="fd-card m-frame m-frame--thin yl-span2" aria-labelledby="risk-h">
-          <header className="fd-card__head"><h3 id="risk-h">{"How careful Lyko is"}</h3><span className="m-small m-muted">{"Sets your default spending rules and how risky a place Lyko may suggest."}</span></header>
-          <div className="yl-risks" role="radiogroup" aria-label="Risk profile">
+          <header className="fd-card__head"><h3 id="risk-h">{"How careful Lyko is"}</h3><span className="m-small m-muted">{"This is your Fence preset: one control, kept in the Fold's Fence tab, where a looser choice is signed by your wallet."}</span></header>
+          <div className="yl-risks" role="list" aria-label="Fence preset">
             {RISKS.map((r) => (
-              <button key={r.id} type="button" role="radio" aria-checked={draft.risk === r.id} className={cx("yl-risk", draft.risk === r.id && "yl-risk--on")} onClick={() => set("risk", r.id)}>
+              <div key={r.id} role="listitem" aria-current={draft.risk === r.id ? "true" : undefined} className={cx("yl-risk", draft.risk === r.id && "yl-risk--on")}>
                 <LykoFace mood={r.mood} scale={2} />
-                <b>{r.title}</b>
+                <b>{r.title}{draft.risk === r.id ? " · now" : ""}</b>
                 <span className="m-small">{r.line}</span>
-              </button>
+              </div>
             ))}
           </div>
           <Effect text={effects.risk} />
+          <div><Link to="/app/fold/fence" className="m-btn m-btn--sm m-btn--ghost">{"CHANGE IT IN THE FENCE"}</Link></div>
         </section>
 
         <section className="fd-card m-frame m-frame--thin" aria-labelledby="floor-h">

@@ -11,11 +11,12 @@
  *   THE FOLD   everything you own and everything in motion  holdings, activity, instructions, agents, rules + Lyko on watch
  *   THE FORGE  build                                        the developer portal, the League, the harbour, Circle, the ledger
  *
- * If the agent can do something, there is no separate manual page for it:
- * the old Move, Orders, Alerts, Automations, Activity, What-if, Fence and
- * Flock pages redirect to Ask Lyko with a prefilled intent or to the
- * matching Fold tab (see app/routes/aliases.ts). A form survives only as the
- * "edit the details" step a route card or a draft link opens.
+ * Two places, one rule: Ask Lyko starts things, the Fold shows and manages
+ * them. If the agent can do something, there is no separate page for it: the
+ * old Move, Orders, Alerts, Automations, Activity, What-if, Fence, Pack,
+ * Security and Flock pages redirect to Ask Lyko with a prefilled intent or to
+ * the matching Fold tab, and Pastures, Discover and Markets became answers
+ * in Ask (see app/routes/aliases.ts). No form page is left.
  *
  * Everything else is secondary: Your Lyko (preferences, voice and memory) in
  * the avatar menu, a short "More" list, and Letoon, the team console, which
@@ -82,7 +83,7 @@ export const AREAS: readonly NavArea[] = [
     tab: "Fold",
     href: "/app/fold",
     blurb: "Holdings, activity, instructions, agents and rules, with Lyko on watch.",
-    sections: [{ id: "fold", href: "/app/fold", label: "The Fold", sub: "everything you own and everything in motion", also: ["pack", "tag", "scent", "security", "pastures"] }],
+    sections: [{ id: "fold", href: "/app/fold", label: "The Fold", sub: "everything you own and everything in motion", also: ["tag", "scent"] }],
   },
   {
     id: "forge",
@@ -112,8 +113,6 @@ export const ACCOUNT: readonly NavSection[] = [{ id: "you", href: "/app/you", la
 
 /** Secondary pages: real and working, but not part of the core story. */
 export const MORE: readonly NavLink[] = [
-  { id: "markets", href: "/app/markets", label: "Perps markets", blurb: "Read-only perpetuals data from Extended." },
-  { id: "discover", href: "/app/discover", label: "New pools", blurb: "Fresh pools on Arc's exchanges, each token checked." },
   { id: "legal", href: "/legal/notice", label: "Notice and risks", blurb: "Software notice, risk disclosure and privacy." },
 ];
 
@@ -123,9 +122,9 @@ export const ADMIN: readonly NavLink[] = [{ id: "letoon", href: "/letoon", label
 /**
  * Old addresses of pages whose work the agent or the Fold now does. They
  * redirect (with the details they carried) and keep working as links; a
- * `?draft=` or `?edit=` link still opens the form as an "edit the details" step.
+ * `?draft=` or `?edit=` link opens Ask Lyko with what it carried.
  */
-export const REDIRECTED: readonly RouteId[] = ["move", "flock", "orders", "alerts", "automations", "activity", "whatif", "fence", "memory"];
+export const REDIRECTED: readonly RouteId[] = ["move", "flock", "orders", "alerts", "automations", "activity", "whatif", "fence", "pack", "security", "pastures", "discover", "markets", "memory"];
 
 /** Routes deliberately outside every menu. `owner` is an alias of Letoon; `chatKit` and `reviewKit` are the development-only galleries. */
 export const UNLISTED: readonly RouteId[] = ["landing", "pay", "kit", "chatKit", "reviewKit", "lykaion", "owner", "appNotFound", "notFound"];

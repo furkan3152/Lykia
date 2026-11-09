@@ -75,18 +75,24 @@ placed exactly once, no manual page for agent work in any menu, and every old
 address redirecting.
 
 ```
-ASK LYKO · your agent        /app                 every action: send, convert, earn, borrow, bridge,
-                                                  orders, automations, the goal compiler (a plan: /app/outrun/:id)
+ASK LYKO · your agent        /app                 everything starts here: send, convert, earn, borrow, bridge,
+                                                  orders, automations, watches, leashes, agents, Autopilot, the goal
+                                                  compiler (a plan: /app/outrun/:id), and the answers that were pages
+                                                  (yields, new pools, perps markets)
 THE FOLD · everything you own and everything in motion
-                             /app/fold/:tab       Flock · holdings, Trails · activity, Herding · instructions,
-                                                  Pack · agents, Fence · rules, and Lyko on watch docked beside them
+                             /app/fold/:tab       Flock · holdings, Trails · history, Herding · everything running,
+                                                  Pack · your agents and their leashes, Fence · your spending rules (with
+                                                  Safety), and Lyko on watch docked beside them
 THE FORGE · build             /forge/:section       The Forge · The League · Harbour · Circle · Ledger
 
-Avatar menu   Your Lyko (preferences, voice and look, memory) │ More: Perps markets · New pools · Notice and risks │ Team: Letoon (admins only)
-Inside areas  an agent (/app/pack/:id), a Tag, a token check, the watch and the yields, reached from the Fold
+Avatar menu   Your Lyko (preferences, voice and look, memory) │ More: Notice and risks │ Team: Letoon (admins only)
+Inside areas  a Tag and a token check, reached from the Fold
 Redirected    /app/move/:tab → /app?intent=… │ /app/flock → Fold · Flock │ /app/orders, /alerts, /automations → Fold · Herding
-              /app/activity → Fold · Trails │ /app/whatif → Fold · Flock (what-if open) │ /app/fence → Fold · Fence │ /app/memory → Your Lyko
-              A ?draft= or ?edit= link still opens the old form: it is the "edit the details" step of something Lyko drafted.
+              /app/activity → Fold · Trails │ /app/whatif → Fold · Flock (what-if open) │ /app/fence → Fold · Fence
+              /app/security → Fold · Fence, at Safety │ /app/pack, /app/pack/:id → Fold · Pack │ /app/memory → Your Lyko
+              /app/pastures → Ask "Where can I earn on USDC?" │ /app/discover → Ask "What are the new pools on Arc?"
+              /app/markets → Ask "Show me the perps markets"
+              A ?draft= link opens Ask Lyko with what the draft said; an ?edit= link asks Lyko to change the item. No form page is left.
 Unlisted      /pay/:id (payment links), /kit, /lykaion, 404
 Aliases       /build, /developers and /mint/* → /forge/*, /owner → /letoon
 City mode     <slug>.<root domain>, /c/<slug>, ?city=<slug> or a verified custom domain: the city's own shell
@@ -104,7 +110,7 @@ A two-column workspace: the Fold bar and five tabs on the left (keys 1 to
 - **Fold bar.** Net worth with rolling digits (only changed digits roll), the
   allocation as a strip of tesserae by venue type, today's Fence headroom
   (spent against the Fence's daily cap and the beta cap), one line of counts
-  ("3 rules running · 1 order waiting · 2 agents working") and two buttons:
+  ("3 instructions running · 1 order waiting · 2 agents working", counted from Herding) and two buttons:
   Ask Lyko (`/`) and the Whistle.
 - **Flock · holdings.** The pasture (holdings as tiles sized by value, grouped
   by venue), a what-if slider on the same shock model the assistant answers
@@ -114,17 +120,26 @@ A two-column workspace: the Fold bar and five tabs on the left (keys 1 to
   digest and the fee, plans, failed and refused attempts, orders, alerts and
   proposal transitions, with filters, beside a yield and fees explanation the
   server writes as a structured artifact.
-- **Herding · instructions.** One list of every standing instruction
-  (automations, standing orders and recurring payments, alerts, agent
-  automations, LykiaOrders orders) with status, next run, last result and the
-  expected Fence verdict, pause and resume, and edit via Lyko. Above it, the
-  drafts waiting for a signature: what automations and insights produce lands
-  here instead of vanishing.
-- **Pack · agents.** Budget meters, Tags, what each agent may do and a Whistle
-  per agent. New agents are made by asking Lyko.
-- **Fence · rules.** The Fence in plain words, the headroom, the recent
-  refusals with their reasons, and Fence edits Lyko proposes. Tightening
-  applies at once; loosening needs the owner's wallet signature.
+- **Herding · everything running.** The Running list: one row for everything
+  in motion, whatever engine holds it (automations with who signs, LykiaOrders
+  orders, watches with their channels, leashes and Stile, Autopilot and its
+  tasks, Pack agents, chat plans in progress, payment links and invoices from
+  Pay). Every row shows what it is in one line, its state, what happens next
+  and when, and one control (Pause, Resume, Stop, Revoke or Cancel); "Change
+  in Ask Lyko" sends anything else to Ask. Above it, the drafts waiting for a
+  signature. The Fold bar's counts are computed from this list.
+- **Pack · your agents and their leashes.** One card per agent: an outside
+  bot's leash (budget meters read from the chain, time left, Revoke) or an
+  agent whose leash is its budget on Lykia's side (pause, Revoke), and
+  Autopilot (pause, resume, Stop). Nothing is created here: one "Ask Lyko"
+  tile starts a new agent or leash, and Ask opens the leash and Autopilot
+  sheets as its review step.
+- **Fence · your spending rules.** The Fence, kept on the server per owner,
+  in plain words; the headroom; one control (the preset Careful, Balanced or
+  Bold, which is also Your Lyko's risk profile); the recent refusals with
+  their reasons; and Safety: approvals with Revoke, token checks, pauses.
+  Tightening applies at once; loosening needs the owner's wallet signature.
+  A Fence an older version kept in the browser is proposed once.
 - **Lyko on watch.** Its first message comes from server-side, deterministic
   insights (`GET /v1/fold/insights/:address`, also the Lyko tool
   `get_insights`): each has a title, a plain explanation, the figures behind a
@@ -215,15 +230,37 @@ sheets and an "Ask Lyko" bar stays within thumb reach. Targets are 44 px or more
 |---|---|
 | Move, Orders, Alerts, Automations → **Ask Lyko** (forms survive only as the "edit the details" step of a draft) | If the agent can do something, there is no separate manual page for it. |
 | Flock, Activity, What-if, Fence and the standing instructions → tabs of **The Fold** (Flock, Trails, Herding, Pack, Fence; the what-if slider sits in Flock) | One place for what the owner holds, what happened and what is in motion. |
-| **Perps markets** and **New pools** → More | Read-only market data. Useful, but neither moves money under a Fence. Perps trade on Extended, not on Arc. |
+| **Perps markets**, **New pools** and **Pastures** → answers in **Ask Lyko** ("Show me the perps markets", "What are the new pools on Arc?", "Where can I earn on EURC?"); their old addresses open Ask with the question filled in | Read-only data is an answer, not a page. Perps trade on Extended, not on Arc. |
+| The form pages (Orders, Alerts, Automations, Fence, Pack) → retired; `?draft=` and `?edit=` links open Ask Lyko | Ask starts things; the leash and Autopilot sheets are kept as the review step Ask opens. |
+| **Security** → the **Safety** section of the Fence tab | Approvals, token checks and pauses belong with the rules they guard. |
+| Pack agents and leashes → one **Leash** concept; the Pack is "your agents and their leashes" | An agent is what holds a leash. One card per agent, with its leash, budget and Revoke. |
+| Autopilot tasks, standing orders, recurring payments and agent automations → **automations**, with who signs | One noun for "something that repeats", whatever engine holds it. |
+| Alerts and watch tasks → **Watch**, with channels (in-app, webhook, Telegram) | One noun for "tell me when". |
+| The Fence → kept on the server per owner; the preset is the risk profile | One control, in one place; chat no longer takes a Fence from the client. |
 | You + Memory → **Your Lyko**, in the avatar menu | One account page instead of two unrelated ones. |
 | Build, Circle, Ecosystem and Stats → **The Forge** area, beside the League | This is where a builder or a reviewer looks for integrations and numbers. |
 | Owner console → **Letoon**, in the avatar menu for admins only | Only the team uses it; the server checks the role on every call. |
 | `DeskTabs` removed; the shell renders the area tabs | One tab component for every area. Pages no longer repeat the navigation. |
 | Page headers | The kicker names the area and section. The titles say what the page does ("Check a token before you touch it", not "Let Lyko sniff it"). The medallion is smaller and hidden on phones. |
-| ⌘K | It leads with "Jump to" pages. Sheepdog commands sit in a closed "Shepherd commands" section. The hidden-word counter is gone. The words still work. |
+| ⌘K | It leads with "Jump to" pages. Sheepdog commands sit in a closed "Sheepdog commands" section. The hidden-word counter is gone. The words still work. |
 | Empty states | Each says what to do next ("Connect a wallet, or paste any Arc address to read its holdings"), not just a mood. |
 | Landing | Rewritten as above. The duplicate ecosystem and Circle sections and the lore card grids were removed. |
+
+## One path per job
+
+Several engines can do the same job. New creations go through one path per
+job; the others keep working for records that already exist (readable in the
+Running list, and paused, resumed, stopped or cancelled there) and for API
+integrators, and are marked deprecated in the API docs.
+
+| Job | Canonical path for new creations | Still readable and controllable |
+|---|---|---|
+| Limit, stop-loss, take-profit, TWAP and DCA orders | LykiaOrders (`draft_order` in Ask; `POST /v1/orders`) | Autopilot `dca` tasks made before (Autopilot no longer takes new DCA tasks) |
+| Something that repeats, you sign each run (scheduled pay, sweep, any sentence on a schedule, price, balance or event) | Unified automations (`draft_automation` in Ask; `POST /v1/automations`) | Standing orders and recurring payments (`/v1/standing`), agent automations (`/v1/agent/automations`) |
+| Something that repeats, Autopilot signs (repay, sweep, pay) | Autopilot tasks (`add_autopilot_task` in Ask; `POST /v1/autopilot/tasks`) | |
+| A budget for an outside bot | A leash (`create_leash` in Ask, with the Stile option; `POST /v1/leashes`) | |
+| An agent on Lykia's side | A Pack agent (`create_agent` in Ask; `POST /v1/pack`): it holds a leash, its own Fence and daily budget | |
+| Tell me when | A watch: position conditions (health, LP range, idle cash, APY) go to Lyko on watch (`watch_position`); prices, transfers, token checks and fills, and anything for a webhook or Telegram, go to the alerts engine (`create_alert`; `POST /v1/alerts`) | |
 
 ### Vocabulary
 

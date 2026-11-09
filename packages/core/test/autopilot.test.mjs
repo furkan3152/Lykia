@@ -92,7 +92,9 @@ describe("Autopilot", () => {
     const map = buildCapabilityMap({ environment: "mainnet", executable: new Set(["arc-transfer"]), gatewayChains: [] });
     assert.equal(readAssist("stop autopilot", map)?.feature, "autopilot");
     assert.match(readAssist("Stop Autopilot", map)?.reason ?? "", /^Stop Autopilot/u);
-    assert.equal(readAssist("turn on autopilot", map)?.options[0], "Turn on Autopilot");
+    // Turning it on starts in Ask, with limits the owner picks from options (never guessed).
+    assert.equal(readAssist("turn on autopilot", map)?.kind, "create");
+    assert.match(readAssist("turn on autopilot", map)?.options[0] ?? "", /^Turn on Autopilot with \$\d+ a step and \$\d+ a day for \d+ days$/u);
     assert.equal(readAssist("stop everything", map)?.feature, "whistle");
     const feature = map.features.find((f) => f.id === "autopilot");
     // The chat drops offer blocks whose link is not an app path: both links must survive.

@@ -8,6 +8,9 @@
  *   route-binding     the model writes a venue the owner never named: the plan is the route search's winner
  *   watch-sourced     a data question from the Fold: read-only tools, a facts card with source and block
  *   whistle-all       the Whistle: every automation, standing order, agent automation, Pack agent and leash stops
+ *   create-*          starting things in Ask: an invented budget or limit becomes a question; stated ones become a card; nothing is created before review
+ *   autopilot-*       Autopilot's limits stay inside the beta ceilings; a task's amount is the owner's own
+ *   running-one-list  Herding's Running list: every kind is a row with one control and what happens next
  */
 import { DEFAULT_FENCE, LEASH_SCHEMA, type Address, type Leash } from "@lykia/core";
 import type { AnswerBlock } from "@lykia/core/api/answer";
@@ -136,6 +139,102 @@ export const TURN_CASES: readonly TurnCase[] = [
         check("agent automations are off", (await listAgentAutomations(ctx, OWNER)).every((a) => !a.enabled)),
         check("the agent lies down", (await agentServices(ctx).pack.get(agent.id)).status === "paused"),
         check("the leash key is disabled", (await leashService(ctx).get("lsh_0000000000ee")).paused?.by === "whistle"),
+      ];
+    },
+  },
+  {
+    id: "create-leash-invented",
+    category: "create",
+    async run(ctx) {
+      const client = scripted([reply([toolUse("create_leash", { name: "Invoice bot", template: "pay-invoices", perDayUsd: "50", days: 30 })]), reply([say("Done: $50 a day.")], "end_turn")]);
+      const { result, blocks, events } = await turn(ctx, client, "Give my invoice bot a budget to pay invoices");
+      const clarify = events.find((e) => e.event === "clarify")?.data as { options?: string[] } | undefined;
+      return [
+        check("ends in a question", result.stopReason === "clarify", result.stopReason),
+        check("offers budgets to pick", (clarify?.options ?? []).length >= 2, JSON.stringify(clarify)),
+        check("no leash card", !blocks.some((b) => b.kind === "leash-draft")),
+        check("the invented budget never reaches the owner", !/\$50/u.test(result.text), result.text),
+      ];
+    },
+  },
+  {
+    id: "create-leash-stated",
+    category: "create",
+    async run(ctx) {
+      const client = scripted([reply([toolUse("create_leash", { name: "Invoice bot", template: "pay-invoices", perDayUsd: "20", days: 7, spendFrom: "gateway" })]), reply([say("Review the leash on the card.")], "end_turn")]);
+      const { blocks } = await turn(ctx, client, "Give my invoice bot $20 a day for 7 days to pay invoices, from my Gateway balance");
+      const card = blocks.find((b) => b.kind === "leash-draft");
+      const d = card && card.kind === "leash-draft" ? card.draft : null;
+      return [
+        check("a leash card", d !== null),
+        check("the owner's budget", d?.perDayUsd === "20", JSON.stringify(d)),
+        check("the owner's days", d?.days === 7, JSON.stringify(d)),
+        check("the Stile option", d?.spendFrom === "gateway", JSON.stringify(d)),
+        check("nothing was created", (await leashService(ctx).ownedBy(OWNER)).length === 0),
+      ];
+    },
+  },
+  {
+    id: "autopilot-limits",
+    category: "create",
+    async run(ctx) {
+      const above = scripted([reply([toolUse("turn_on_autopilot", { perStepUsd: "500", perDayUsd: "1000", days: 30 })]), reply([say("On.")], "end_turn")]);
+      const a = await turn(ctx, above, "Turn on Autopilot with $500 a step and $1000 a day for 30 days");
+      const picked = scripted([reply([toolUse("turn_on_autopilot", { perStepUsd: "50", perDayUsd: "150", days: 30 })]), reply([say("Review it on the card.")], "end_turn")]);
+      const b = await turn(ctx, picked, "Turn on Autopilot with $50 a step and $150 a day for 30 days");
+      const card = b.blocks.find((x) => x.kind === "autopilot-draft");
+      return [
+        check("above the beta ceiling: a question", a.result.stopReason === "clarify" && !a.blocks.some((x) => x.kind === "autopilot-draft"), a.result.stopReason),
+        check("picked limits: an Autopilot card", card?.kind === "autopilot-draft" && card.perStepUsd === "50" && card.perDayUsd === "150" && card.days === 30, JSON.stringify(card)),
+      ];
+    },
+  },
+  {
+    id: "autopilot-task-grounded",
+    category: "create",
+    async run(ctx) {
+      const invented = scripted([reply([toolUse("add_autopilot_task", { kind: "repay", amountUsd: "75", floor: "1.5" })]), reply([say("Added.")], "end_turn")]);
+      const a = await turn(ctx, invented, "Have Autopilot repay my Aave loan when health drops below 1.5");
+      const stated = scripted([reply([toolUse("add_autopilot_task", { kind: "repay", amountUsd: "50", floor: "1.5" })]), reply([say("Confirm it on the card.")], "end_turn")]);
+      const b = await turn(ctx, stated, "Have Autopilot repay 50 USDC on Aave when health drops below 1.5");
+      const card = b.blocks.find((x) => x.kind === "autopilot-task");
+      return [
+        check("an invented amount: a question", a.result.stopReason === "clarify", a.result.stopReason),
+        check("stated: a task card", card?.kind === "autopilot-task" && card.task.amountUsd === "50" && card.task.floor === "1.5", JSON.stringify(card)),
+        check("the card says Autopilot is off", card?.kind === "autopilot-task" && card.autopilot === "off"),
+      ];
+    },
+  },
+  {
+    id: "create-agent",
+    category: "create",
+    async run(ctx) {
+      const client = scripted([reply([toolUse("create_agent", { name: "Payroll", role: "payroll", dailyUsd: "500" })]), reply([say("Review the agent on the card.")], "end_turn")]);
+      const { blocks } = await turn(ctx, client, "Create a payroll agent with a 500 USDC daily budget");
+      const card = blocks.find((b) => b.kind === "agent-draft");
+      return [
+        check("an agent card", card?.kind === "agent-draft" && card.dailyUsd === "500" && card.role === "payroll", JSON.stringify(card)),
+        check("nothing was created", (await agentServices(ctx).pack.ownedBy(OWNER)).length === 0),
+      ];
+    },
+  },
+  {
+    id: "running-one-list",
+    category: "running",
+    async run(ctx) {
+      await services(ctx).standing.create({ owner: OWNER, environment: "mainnet", draft: { trigger: { kind: "schedule", every: "day", at: "09:00", timezone: "UTC" }, actions: [{ verb: "send", token: "USDC", amount: { exact: "5" }, to: "0x1111111111111111111111111111111111111111" }], text: "Pay 5 USDC every day" } });
+      const agent = await agentServices(ctx).pack.create({ owner: OWNER, environment: "mainnet", name: "Treasury desk", role: "treasurer" });
+      await leashService(ctx).put({ schema: LEASH_SCHEMA, id: "lsh_0000000000ef", owner: OWNER.toLowerCase(), environment: "mainnet", agentId: "other", agentName: "Invoice bot", parentAgentId: null, template: "pay-invoices", fence: DEFAULT_FENCE, fenceHash: "sha256:00", budget: { perStepUsd: "10", perDayUsd: "20", totalUsd: "140" }, expiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString(), tools: ["plan"], venues: null, recipients: [], status: "active", session: null, tag: null, key: { id: "key_f", prefix: "lk_f" }, createdBy: { via: "session", developer: OWNER.toLowerCase() }, createdAt: new Date().toISOString() } as unknown as Leash);
+      const { instructionsView } = await import("../fold/instructions.js");
+      const view = await instructionsView(ctx, OWNER);
+      const kinds = new Set(view.instructions.map((i) => i.kind));
+      return [
+        check("automations are rows", kinds.has("automation")),
+        check("a leash is a row", view.instructions.some((i) => i.source === "leash" && i.control?.label === "Revoke")),
+        check("an agent is a leash row", view.instructions.some((i) => i.source === "pack-agent" && i.id === agent.id && i.kind === "leash")),
+        check("every live row has one control", view.instructions.filter((i) => i.status === "active" || i.status === "paused").every((i) => i.control !== undefined && i.control !== null), JSON.stringify(view.instructions.filter((i) => !i.control).map((i) => i.source))),
+        check("every row says what happens next", view.instructions.every((i) => typeof i.nextLine === "string" && i.nextLine.length > 0)),
+        check("the bar's counts come from the list", view.counts.agentsWorking === view.instructions.filter((i) => i.kind === "leash" && i.status === "active").length),
       ];
     },
   },

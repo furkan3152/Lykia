@@ -1,7 +1,7 @@
 /** Small icons drawn as Mosaic pixels (9 x 9 stones) in the current text colour. */
 import { useMemo } from "react";
 
-export type PixelIconName = "home" | "list" | "ask" | "in" | "out" | "agents" | "whistle" | "swap" | "shield" | "spark";
+export type PixelIconName = "home" | "list" | "ask" | "in" | "out" | "agents" | "whistle" | "swap" | "shield" | "spark" | "repeat" | "order" | "eye" | "leash" | "pilot" | "plan" | "coin" | "key" | "check";
 
 const ART: Readonly<Record<PixelIconName, readonly string[]>> = {
   home: ["....k....", "...kkk...", "..kkkkk..", ".kkkkkkk.", "kkkkkkkkk", ".kk...kk.", ".kk.k.kk.", ".kk.k.kk.", ".kkkkkkk."],
@@ -14,6 +14,15 @@ const ART: Readonly<Record<PixelIconName, readonly string[]>> = {
   swap: ["......k..", "kkkkkkkk.", "......k..", ".........", "..k......", ".kkkkkkkk", "..k......", ".........", "........."],
   shield: ["kkkkkkkkk", "kkkkkkkkk", "kk.....kk", "kk.....kk", "kk.....kk", ".kk...kk.", "..kk.kk..", "...kkk...", "....k...."],
   spark: ["....k....", "....k....", "...kkk...", "kkkk.kkkk", "...kkk...", "....k....", "....k....", ".........", "........."],
+  repeat: ["..kkkkk..", ".k.....kk", "k.....kkk", "k........", "k.......k", "........k", "kkk.....k", "kk.....k.", "..kkkkk.."],
+  order: ["kkkkkkk..", "k.....kk.", "k.kkk.k.k", "k.....kkk", "k.kkkkk.k", "k.......k", "k.kkkk..k", "k.......k", "kkkkkkkkk"],
+  eye: [".........", "...kkk...", ".kk...kk.", "k..kkk..k", "k.kk.kk.k", "k..kkk..k", ".kk...kk.", "...kkk...", "........."],
+  leash: ["kkk......", "k.k......", "kkk......", "..k......", "...k.....", "....k.kk.", ".....kkkk", "....kkkkk", ".....kkk."],
+  pilot: ["....k....", "...kkk...", "...k.k...", "..kk.kk..", ".kkkkkkk.", "kk.kkk.kk", "k..k.k..k", "...k.k...", "..kk.kk.."],
+  plan: ["k........", "kk.......", "k.kkkkkkk", ".........", "k........", "kk.......", "k.kkkkkkk", ".........", "k.kkkkkkk"],
+  coin: ["..kkkkk..", ".k.....k.", "k...k...k", "k..kkk..k", "k...k...k", "k..kkk..k", "k...k...k", ".k.....k.", "..kkkkk.."],
+  key: ["..kkk....", ".k...k...", ".k...k...", ".k...k...", "..kkk....", "...k.....", "...kk....", "...k.....", "...kk...."],
+  check: [".........", "........k", ".......kk", "k.....kk.", "kk...kk..", ".kk.kk...", "..kkk....", "...k.....", "........."],
 };
 
 export function PixelIcon({ name, size = 18, label }: { readonly name: PixelIconName; readonly size?: number; readonly label?: string }) {

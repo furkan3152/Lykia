@@ -5,8 +5,10 @@
  */
 import { ALLOCATION_LABELS, allocationOf, currentMix, FOLD_TABS, LYKIA_TERMS, roomTodayLine, sampleSnapshot as coreSampleSnapshot, type AllocationBucket, type Fence, type FoldPreferences, type FoldTab } from "@lykia/core";
 import type { PackAgentView } from "@lykia/core/api/agents";
+import { sampleAutopilot } from "./autopilot/model";
+import { sampleLeashes } from "./leash/model";
 import type { FlockHolding, FlockSnapshot } from "@lykia/core/api/flock";
-import type { FoldInsight, FoldInstruction, FoldProposal, FoldTrailEntry, ThreadSummaryView, WhistleItem, WhistleItemKind } from "@lykia/core/api/fold";
+import type { FoldInsight, FoldInstruction, FoldProposal, FoldTrailEntry, RunningControl, RunningKind, RunningSigner, ThreadSummaryView, WhistleItem, WhistleItemKind } from "@lykia/core/api/fold";
 
 /* ------------------------------------------------------------------ tabs */
 
@@ -23,8 +25,8 @@ export interface FoldTabMeta {
 export const FOLD_TAB_META: Readonly<Record<FoldTab, FoldTabMeta>> = {
   flock: { id: "flock", label: LYKIA_TERMS.flock.word, sub: LYKIA_TERMS.flock.plain, line: "Everything you own on Arc: what it is, what it is worth and what it is doing. Tap a row for details." },
   trails: { id: "trails", label: LYKIA_TERMS.trails.word, sub: LYKIA_TERMS.trails.plain, line: "Everything that happened: payments, plans, refusals and fees, each with why." },
-  herding: { id: "herding", label: LYKIA_TERMS.herding.word, sub: LYKIA_TERMS.herding.plain, line: "Things that run on their own (recurring payments, orders, alerts, watches) and what waits for your signature." },
-  pack: { id: "pack", label: LYKIA_TERMS.pack.word, sub: LYKIA_TERMS.pack.plain, line: "Bots that work for you, with their budgets. Stop any of them with one tap." },
+  herding: { id: "herding", label: LYKIA_TERMS.herding.word, sub: LYKIA_TERMS.herding.plain, line: "Everything in motion, one row each, with what happens next and one control. Anything you start in Ask Lyko shows up here." },
+  pack: { id: "pack", label: LYKIA_TERMS.pack.word, sub: LYKIA_TERMS.pack.plain, line: "One card per agent: the leash it holds, its budget and Revoke. New agents start in Ask Lyko." },
   fence: { id: "fence", label: LYKIA_TERMS.fence.word, sub: LYKIA_TERMS.fence.plain, line: "The limits every move must pass, how much room is left today, and how to change them." },
 };
 
@@ -129,13 +131,13 @@ export interface FoldCounts {
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-/** "3 rules running · 1 order waiting · 2 agents working". */
+/** "3 instructions run on their own · 1 order waits · 2 agents work for you" ("rules" is the Fence's word). */
 export function countsLine(c: FoldCounts): string {
   // Calm: only what is there. Zero counts are left out.
   const parts = [
-    c.rules > 0 ? plural(c.rules, "rule runs on its own", "rules run on their own") : null,
+    c.rules > 0 ? plural(c.rules, "instruction runs on its own", "instructions run on their own") : null,
     c.ordersWaiting > 0 ? plural(c.ordersWaiting, "order waits for its price", "orders wait for their price") : null,
-    c.agentsWorking > 0 ? plural(c.agentsWorking, "agent works for you", "agents work for you") : null,
+    c.agentsWorking > 0 ? plural(c.agentsWorking, "agent on a leash works for you", "agents on a leash work for you") : null,
     c.proposalsWaiting ? plural(c.proposalsWaiting, "draft waits for your signature", "drafts wait for your signature") : null,
   ].filter((x): x is string => x !== null);
   return parts.length === 0 ? "Nothing runs on its own yet." : parts.join(" · ");
@@ -283,42 +285,68 @@ export function mergeThreads(local: readonly { readonly id: string; readonly tit
 
 /* ------------------------------------------------------- herding, trails */
 
-export type HerdingFilter = "all" | "plans" | "rounds" | "orders" | "alerts" | "recurring" | "watch" | "paused";
+export type HerdingFilter = "all" | RunningKind | "paused";
 
+/** The Running list's filters: one per noun, then Paused. */
 export const HERDING_FILTERS: readonly { readonly id: HerdingFilter; readonly label: string }[] = [
   { id: "all", label: "All" },
-  { id: "plans", label: "Plans" },
-  { id: "rounds", label: "Automations" },
-  { id: "orders", label: "Orders" },
-  { id: "alerts", label: "Alerts" },
-  { id: "recurring", label: "Recurring" },
-  { id: "watch", label: "Watch tasks" },
+  { id: "automation", label: "Automations" },
+  { id: "order", label: "Orders" },
+  { id: "watch", label: "Watches" },
+  { id: "leash", label: "Leashes" },
+  { id: "autopilot", label: "Autopilot" },
+  { id: "plan", label: "Plans" },
+  { id: "payment", label: "Payments" },
   { id: "paused", label: "Paused" },
 ];
 
+/** `?show=` values, old ones included (rounds, alerts, recurring, watch). */
+const SHOW_ALIASES: Readonly<Record<string, HerdingFilter>> = { all: "all", automations: "automation", automation: "automation", rounds: "automation", recurring: "automation", orders: "order", order: "order", watches: "watch", watch: "watch", alerts: "watch", leashes: "leash", leash: "leash", autopilot: "autopilot", plans: "plan", plan: "plan", payments: "payment", payment: "payment", paused: "paused" };
+
 export function herdingFilterOf(value: string | null): HerdingFilter {
-  return HERDING_FILTERS.some((f) => f.id === value) ? (value as HerdingFilter) : "all";
+  return (value && SHOW_ALIASES[value]) || "all";
+}
+
+/** The noun a row is: the server says so; older answers are read from the source. */
+export function kindOf(i: Pick<FoldInstruction, "source" | "kind">): RunningKind {
+  if (i.kind) return i.kind;
+  switch (i.source) {
+    case "order":
+      return "order";
+    case "alert":
+    case "watch":
+      return "watch";
+    case "plan":
+      return "plan";
+    case "leash":
+    case "pack-agent":
+      return "leash";
+    case "autopilot":
+      return "autopilot";
+    case "invoice":
+      return "payment";
+    default:
+      return "automation";
+  }
 }
 
 export function filterInstructions(list: readonly FoldInstruction[], filter: HerdingFilter): FoldInstruction[] {
-  switch (filter) {
-    case "plans":
-      return list.filter((i) => i.source === "plan");
-    case "rounds":
-      return list.filter((i) => i.source === "automation" || i.source === "agent" || i.source === "standing");
-    case "orders":
-      return list.filter((i) => i.source === "order");
-    case "alerts":
-      return list.filter((i) => i.source === "alert");
-    case "recurring":
-      return list.filter((i) => i.source === "recurring");
-    case "watch":
-      return list.filter((i) => i.source === "watch");
-    case "paused":
-      return list.filter((i) => i.status === "paused");
-    default:
-      return [...list];
-  }
+  if (filter === "all") return [...list];
+  if (filter === "paused") return list.filter((i) => i.status === "paused");
+  return list.filter((i) => kindOf(i) === filter);
+}
+
+/** Who signs each run, in the owner's words. */
+export const SIGNER_LINE: Readonly<Record<RunningSigner, string>> = { you: "You sign each time", autopilot: "Autopilot signs", leash: "Its leash signs" };
+
+/** The one control a row offers: the server's, or (older answers) the same one built from the source. */
+export function controlOf(i: FoldInstruction): RunningControl | null {
+  if (i.control !== undefined) return i.control;
+  if (i.stop) return { action: "stop", label: "Stop", method: "post", path: `/v1/intents/${encodeURIComponent(i.stop.intentId)}/stop` };
+  if (i.cancel) return { action: "cancel", label: "Cancel", method: "get", path: `/v1/orders/${i.cancel.hash}/cancel-tx`, sign: "order-cancel" };
+  if (!i.controllable || (i.status !== "active" && i.status !== "paused")) return null;
+  const route = controlRoute(i, i.status === "paused" ? "resume" : "pause");
+  return route ? { action: i.status === "paused" ? "resume" : "pause", label: i.status === "paused" ? "Resume" : "Pause", method: route.method, path: route.path } : null;
 }
 
 export type TrailFilter = "all" | "settled" | "plans" | "refused" | "orders";
@@ -411,13 +439,27 @@ export function sampleWaiting(now: number): FoldProposal[] {
 
 export function sampleInstructions(now: number): FoldInstruction[] {
   const base = { controllable: true, environment: "mainnet" as const };
-  return [
-    { ...base, id: "so_sample_rent", source: "recurring", sourceLabel: "Recurring", name: "Pay 1,200 USDC rent to @landlord on the 1st", status: "active", trigger: "monthly on day 1 at 09:00", nextRunAt: at(-60 * 24 * 9, now), nextRunLabel: "in 9 d", lastRunAt: at(60 * 24 * 21, now), lastResult: "Settled · 1 step", nextVerdict: { decision: "allow", reason: "Every rule passed last time." }, editSentence: "Change my rent payment: " },
-    { ...base, id: "atm_sample_sweep", source: "automation", sourceLabel: "Automation", name: "Sweep USDC above $5,000 into the Galaxy vault", status: "active", trigger: "USDC balance above 5000", nextRunAt: null, nextRunLabel: "on balance", lastRunAt: at(60 * 30, now), lastResult: "Planned (allow)", nextVerdict: { decision: "unknown", reason: "Planned and checked by the Fence when it fires." }, editSentence: "Change my sweep: " },
-    { ...base, id: "0xsample", source: "order", sourceLabel: "Order", name: "Buy EURC when EUR/USD ≤ 1.09", status: "waiting", trigger: "waiting for condition", nextRunAt: null, nextRunLabel: "on condition", lastRunAt: null, lastResult: "Not filled yet", nextVerdict: { decision: "allow", reason: "One execution fits your Fence and the beta cap today; LykiaOrders enforces the price, size and deadline on chain." }, controllable: false, editSentence: "Change my EURC order: ", cancel: { hash: "0x00000000000000000000000000000000000000000000000000000000000000a1", environment: "mainnet" } },
-    { ...base, id: "out_sampleplan01", source: "plan", sourceLabel: "Plan", name: "Swap 500 USDC to EURC, then deposit it into Morpho", status: "active", trigger: "1 of 2 steps settled", nextRunAt: null, nextRunLabel: "your signature", lastRunAt: at(25, now), lastResult: "Next: Deposit the EURC into Morpho Galaxy EURC", nextVerdict: { decision: "allow", reason: "Every rule passed when it was planned; each step is checked again before you sign." }, controllable: false, editSentence: "Change my plan: ", stop: { intentId: "out_sampleplan01" } },
-    { ...base, id: "al_sample", source: "alert", sourceLabel: "Alert", name: "Health factor below 1.3 on Aave V4", status: "active", trigger: "health below", nextRunAt: null, nextRunLabel: "when it happens", lastRunAt: null, lastResult: "Quiet so far", nextVerdict: { decision: "allow", reason: "Alerts notify; they move nothing." }, editSentence: "Change my health alert: " },
+  const pause = (id: string): RunningControl => ({ action: "pause", label: "Pause", method: "post", path: `/v1/automations/${id}/pause` });
+  const rows: FoldInstruction[] = [
+    { ...base, id: "so_sample_rent", source: "recurring", sourceLabel: "Recurring payment", kind: "automation", signs: "you", name: "Pay 1,200 USDC rent to @landlord on the 1st", status: "active", trigger: "monthly on day 1 at 09:00", nextRunAt: at(-60 * 24 * 9, now), nextRunLabel: "in 9 d", nextLine: "Pays the rent in 9 d; you sign it.", lastRunAt: at(60 * 24 * 21, now), lastResult: "Settled · 1 step", nextVerdict: { decision: "allow", reason: "Every rule passed last time." }, editSentence: "Change my rent payment: ", control: pause("so_sample_rent") },
+    { ...base, id: "atm_sample_sweep", source: "automation", sourceLabel: "Automation", kind: "automation", signs: "you", name: "Sweep USDC above $5,000 into the Galaxy vault", status: "active", trigger: "USDC balance above 5000", nextRunAt: null, nextRunLabel: "on balance", nextLine: "Plans a deposit when USDC passes $5,000; you sign what it plans.", lastRunAt: at(60 * 30, now), lastResult: "Planned (allow)", nextVerdict: { decision: "unknown", reason: "Planned and checked by the Fence when it fires." }, editSentence: "Change my sweep: ", control: pause("atm_sample_sweep") },
+    { ...base, id: "0xsample", source: "order", sourceLabel: "Order", kind: "order", signs: "you", name: "Buy EURC when EUR/USD ≤ 1.09", status: "waiting", trigger: "waiting for condition", nextRunAt: null, nextRunLabel: "on condition", nextLine: "Executes when EUR/USD reaches 1.09; a keeper runs it inside the terms you signed.", lastRunAt: null, lastResult: "Not filled yet", nextVerdict: { decision: "allow", reason: "One execution fits your Fence and the beta cap today; LykiaOrders enforces the price, size and deadline on chain." }, controllable: false, editSentence: "Change my EURC order: ", cancel: { hash: "0x00000000000000000000000000000000000000000000000000000000000000a1", environment: "mainnet" }, control: { action: "cancel", label: "Cancel", method: "get", path: "/v1/orders/0x00000000000000000000000000000000000000000000000000000000000000a1/cancel-tx", sign: "order-cancel" } },
+    { ...base, id: "out_sampleplan01", source: "plan", sourceLabel: "Plan", kind: "plan", signs: "you", name: "Swap 500 USDC to EURC, then deposit it into Morpho", status: "active", trigger: "1 of 2 steps settled", nextRunAt: null, nextRunLabel: "your signature", nextLine: "Waits for your signature: deposit the EURC into Morpho Galaxy EURC.", lastRunAt: at(25, now), lastResult: "Next: Deposit the EURC into Morpho Galaxy EURC", nextVerdict: { decision: "allow", reason: "Every rule passed when it was planned; each step is checked again before you sign." }, controllable: false, editSentence: "Change my plan: ", stop: { intentId: "out_sampleplan01" }, control: { action: "stop", label: "Stop", method: "post", path: "/v1/intents/out_sampleplan01/stop" } },
+    { ...base, id: "al_sample", source: "alert", sourceLabel: "Watch", kind: "watch", channels: ["in-app", "telegram"], name: "Health factor below 1.3 on Aave V4", status: "active", trigger: "health below", nextRunAt: null, nextRunLabel: "when it happens", nextLine: "Tells you in-app and on Telegram when it happens.", lastRunAt: null, lastResult: "Quiet so far", nextVerdict: { decision: "allow", reason: "A watch only tells you; it moves nothing." }, editSentence: "Change my health watch: ", control: pause("al_sample") },
   ];
+  for (const l of sampleLeashes(now)) {
+    rows.push({ ...base, id: l.id, source: "leash", sourceLabel: l.spendFrom === "gateway" ? "Leash · Stile" : "Leash", kind: "leash", name: `${l.agentName}: $${Number(l.budget.perDayUsd)} a day, $${Number(l.budget.totalUsd)} in all`, status: "active", trigger: l.spendFrom === "gateway" ? "spends from your Gateway balance through your LykiaStile" : "spends from your LykiaAccount on Arc", nextRunAt: l.expiresAt, nextRunLabel: `key stops in ${Math.round((Date.parse(l.expiresAt) - now) / 86_400_000)} d`, nextLine: `May spend $${l.usage.day.remainingUsd} more today, $${Number(l.budget.perStepUsd)} in one step.`, lastRunAt: l.recent[0]?.at ?? null, lastResult: l.recent[0]?.summary ?? null, nextVerdict: { decision: "allow", reason: "Every step is checked against the leash's Fence, its budget and the session's limits on chain." }, editSentence: `Change ${l.agentName}'s leash: `, control: { action: "stop", label: "Revoke", method: "post", path: `/v1/leashes/${l.id}/revoke`, sign: "revoke-session" } });
+  }
+  for (const a of samplePack()) {
+    rows.push({ ...base, id: a.id, source: "pack-agent", sourceLabel: "Leash", kind: "leash", name: `${a.name}: ${a.role.replace(/-/gu, " ")} agent, $${Number(a.budget.caps.dailyUsd ?? 0)} a day`, status: "active", trigger: "proposes; you sign", nextRunAt: null, nextRunLabel: "when you ask", nextLine: `May propose up to $${Number(a.budget.caps.dailyUsd ?? 0)} a day; you sign each plan.`, lastRunAt: null, lastResult: null, nextVerdict: { decision: "allow", reason: "Its own Fence sits inside yours; its budget is carved from yours." }, editSentence: `Change my agent ${a.name}: `, control: { action: "pause", label: "Pause", method: "post", path: `/v1/pack/${a.id}/pause` } });
+  }
+  const ap = sampleAutopilot(now).autopilot!;
+  rows.push({ ...base, id: "autopilot:mainnet", source: "autopilot", sourceLabel: "Autopilot", kind: "autopilot", signs: "autopilot", name: `Autopilot on Arc mainnet: up to $${ap.limits.perStepUsd} a step, $${ap.limits.perDayUsd} a day`, status: "active", trigger: `${ap.tasks.length} tasks`, nextRunAt: null, nextRunLabel: "runs its tasks", nextLine: `Signs your own automations below, inside $${ap.limits.perDayUsd} a day.`, lastRunAt: ap.updatedAt, lastResult: null, nextVerdict: { decision: "allow", reason: "Each run is checked against your Fence and its leash before Lyko signs." }, editSentence: "Change my Autopilot: ", control: { action: "pause", label: "Pause", method: "post", path: "/v1/autopilot/pause", body: { environment: "mainnet" } } });
+  for (const t of ap.tasks) {
+    rows.push({ ...base, id: t.id, source: "autopilot-task", sourceLabel: "Automation", kind: "automation", signs: "autopilot", name: t.label, status: "active", trigger: t.when.kind === "schedule" ? `every ${t.when.every}` : "when its condition holds", nextRunAt: null, nextRunLabel: t.when.kind === "schedule" ? `every ${t.when.every}` : "on condition", nextLine: `${t.when.kind === "schedule" ? `Runs every ${t.when.every}` : "Runs when its condition holds"}; Autopilot signs up to $${t.amountUsd}.`, lastRunAt: t.lastRunAt, lastResult: t.lastResult ?? "Not run yet", nextVerdict: { decision: "allow", reason: `Autopilot signs at most $${t.amountUsd} a run, inside your Fence and its leash.` }, editSentence: `Change my automation "${t.label}": `, control: { action: "pause", label: "Pause", method: "post", path: `/v1/autopilot/tasks/${t.id}/pause`, body: { environment: "mainnet" } } });
+  }
+  rows.push({ ...base, id: "inv_sample_logo", source: "invoice", sourceLabel: "Payment link", kind: "payment", name: "Logo design, November: 120 USDC", status: "active", trigger: "open", nextRunAt: null, nextRunLabel: "when paid", nextLine: "Waits for the payer; Lykia records the payment from the chain.", lastRunAt: null, lastResult: "Not paid yet", nextVerdict: { decision: "allow", reason: "Money comes in; nothing leaves your wallet." }, editSentence: "Change my payment link \"Logo design\": ", control: { action: "cancel", label: "Cancel", method: "post", path: "/v1/invoices/inv_sample_logo/void" } });
+  return rows;
 }
 
 export function sampleTrails(now: number): FoldTrailEntry[] {
@@ -432,21 +474,23 @@ export function sampleTrails(now: number): FoldTrailEntry[] {
 export function samplePack(): PackAgentView[] {
   const agent = (id: string, name: string, role: PackAgentView["role"], daily: string, spent: string, tag?: string) =>
     ({ schema: "lykia.pack/v1", id, owner: SAMPLE_OWNER, environment: "mainnet", parentId: null, depth: 1, name, role, capabilities: ["read", "plan"], fence: {} as never, fenceHash: "sha256:00", ...(tag ? { agentId: tag } : {}), status: "active", createdAt: "2026-10-01T00:00:00.000Z", budget: { caps: { dailyUsd: daily }, allocated: {}, free: {}, spent: { dayUsd: spent, weekUsd: spent } }, children: [] }) as unknown as PackAgentView;
-  return [agent("agt_payroll", "Payroll", "payroll", "500", "120", "1842"), agent("agt_yield", "Yield keeper", "yield-keeper", "2000", "1710"), agent("agt_fx", "FX hedger", "fx-hedger", "300", "0")];
+  // One agent without an outside leash; the sample leashes (leash/model.ts) are the agents that hold one.
+  return [agent("agt_payroll", "Payroll", "payroll", "500", "120", "1842")];
 }
 
 /**
- * The Fold bar's counts from the lists themselves, the way the API counts them (fold/instructions.ts): rules are the
- * running instructions that are neither orders nor plans in progress. The sample uses the same formula on its own
- * lists, so "1 draft waits" in the bar is the one draft Herding shows.
+ * The Fold bar's counts from Herding's Running list, the way the API counts them (fold/instructions.ts and the
+ * summary route): instructions are the running rows that are not orders, plans or leashes; agents working are the
+ * leash rows. The sample uses the same formula on its own list, so the bar and Herding always agree.
  */
-export function countsOf(instructions: readonly FoldInstruction[], waiting: readonly FoldProposal[], agents: readonly Pick<PackAgentView, "status">[]): FoldCounts {
-  const running = instructions.filter((i) => (i.status === "active" || i.status === "waiting") && i.source !== "plan");
-  const orders = running.filter((i) => i.source === "order").length;
-  return { rules: running.length - orders, ordersWaiting: orders, agentsWorking: agents.filter((a) => a.status === "active").length, proposalsWaiting: waiting.length };
+export function countsOf(instructions: readonly FoldInstruction[], waiting: readonly FoldProposal[]): FoldCounts {
+  const running = instructions.filter((i) => (i.status === "active" || i.status === "waiting") && kindOf(i) !== "plan");
+  const orders = running.filter((i) => kindOf(i) === "order").length;
+  const agents = running.filter((i) => kindOf(i) === "leash").length;
+  return { rules: running.length - orders - agents, ordersWaiting: orders, agentsWorking: agents, proposalsWaiting: waiting.length };
 }
 
-export const SAMPLE_COUNTS: FoldCounts = countsOf(sampleInstructions(0), sampleWaiting(0), samplePack());
+export const SAMPLE_COUNTS: FoldCounts = countsOf(sampleInstructions(0), sampleWaiting(0));
 
 /* ---------------------------------------------------------------- fence */
 
@@ -511,12 +555,12 @@ export function controlRoute(i: Pick<FoldInstruction, "id" | "source">, action: 
 
 export const WHISTLE_KIND_LABEL: Readonly<Record<WhistleItemKind, string>> = {
   automation: "Automation",
-  standing: "Standing order",
-  "agent-automation": "Agent automation",
-  agent: "Pack agent",
+  standing: "Automation · you sign",
+  "agent-automation": "Automation · its leash signs",
+  agent: "Agent · leash on Lykia",
   leash: "Leash · key off",
   autopilot: "Autopilot",
-  alert: "Alert",
+  alert: "Watch",
 };
 
 /** One line per kind, in the order the sheet lists them. */

@@ -22,14 +22,13 @@
  * agents scope). Nothing here signs or moves funds: drafts are plans under
  * the owner's Fence, with Lykia's fee and the beta cap, for the owner to sign.
  */
-import { DEFAULT_FENCE, FOLD_INSIGHT_KINDS, isSampleOwner, POSITION_STATES, POSITION_VENUES, fenceForProfile, foldPreferenceEffects, NO_SHOCK, riskTierOf, type Address, type FoldShocks } from "@lykia/core";
+import { FOLD_INSIGHT_KINDS, isSampleOwner, POSITION_STATES, POSITION_VENUES, fenceForProfile, foldPreferenceEffects, NO_SHOCK, riskTierOf, type Address, type FoldShocks } from "@lykia/core";
 import type { FoldSummaryResponse, PreferencesResponse } from "@lykia/core/api/fold";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 import type { ApiModule } from "../http/router.js";
 import { evmAddress, parseBody, parseParams, parseQuery } from "../http/validate.js";
-import { agentServices } from "../agents/index.js";
 import { threadSummaries } from "../agents/memory.js";
 import { answer, explain, whatIfFor } from "../fold/answers.js";
 import { foldInsights, markSeen } from "../fold/insights.js";
@@ -39,10 +38,11 @@ import { getPreferences, resetPreferences, updatePreferences } from "../fold/pre
 import { createProposal, getProposal, listFeed, listProposals, moveProposal } from "../fold/proposals.js";
 import { trailsFor } from "../fold/trails.js";
 import { getProfile } from "../personal/profile.js";
+import { markFenceMigrated, ownerFence, ownerFenceView, setFencePreset, setOwnerFence } from "../personal/fence.js";
 import { documentRoutes } from "../platform/openapi/registry.js";
 import { sessionAddress } from "../platform/session.js";
 import { services } from "../services.js";
-import { authorizeOwner, environmentOf, environmentSchema, fenceFrom, ownerProof } from "./common.js";
+import { authorizeOwner, environmentOf, environmentSchema, ownerProof } from "./common.js";
 
 const AddressParams = z.object({ address: evmAddress });
 const OwnerQuery = z.object({ owner: evmAddress, environment: environmentSchema.optional() });
@@ -61,6 +61,14 @@ const createBody = z.object({
 });
 const moveBody = z.object({ owner: evmAddress, note: z.string().max(200).optional() });
 const preferencesPatch = z.record(z.unknown());
+const fenceBody = z
+  .object({
+    preset: z.enum(["careful", "balanced", "bold"]).optional(),
+    fence: z.record(z.unknown()).optional(),
+    signature: z.string().max(4_000).optional().describe("The owner's signature on the loosening message (403 FENCE_SIGNATURE_REQUIRED returns it); only a loosening needs one."),
+    migrated: z.boolean().optional().describe("True when this Fence is the one a browser held from before, kept by the owner."),
+  })
+  .refine((b) => Boolean(b.preset) !== Boolean(b.fence), "Send either preset or fence.");
 
 const insight = z.object({ id: z.string(), kind: z.enum(FOLD_INSIGHT_KINDS as unknown as [string, ...string[]]), severity: z.enum(["info", "watch", "act"]), title: z.string(), explain: z.string(), figures: z.array(z.object({ label: z.string(), value: z.string() })), draft: z.object({ label: z.string(), sentence: z.string().nullable() }).passthrough().nullable(), handled: z.boolean() });
 const proposal = z.object({ id: z.string(), owner: z.string(), status: statusSchema, title: z.string(), sentence: z.string().nullable(), intentId: z.string().nullable(), decision: z.string(), reasons: z.array(z.string()), steps: z.array(z.string()) }).passthrough();
@@ -136,7 +144,10 @@ documentRoutes([
   { method: "get", path: "/v1/fold/whatif/:address", tag: "Fold", summary: "The shared shock model on the live Flock: EURC and cirBTC price moves (percent) and a lending rate change (bps), with health factors and one sentence", auth: "public", params: AddressParams, query: z.object({ environment: environmentSchema.optional(), eurc: z.coerce.number().optional(), btc: z.coerce.number().optional(), rates: z.coerce.number().optional() }) },
   { method: "post", path: "/v1/fold/answer", tag: "Fold", summary: "Answer a follow-up chip and write the exchange to the owner's shared thread", auth: "session", body: z.object({ owner: evmAddress, environment: environmentSchema.optional(), question: questionSchema, threadId: z.string().max(120).optional(), shocks: shockSchema.partial().optional() }), response: z.object({ threadId: z.string(), question: z.string(), reply: z.string(), artifact }) },
   { method: "get", path: "/v1/me/preferences", tag: "Fold", summary: "Your Lyko: risk profile, liquidity floor, target mix, gas floor, insights and notifications and the Fold's layout, with the effect of each", auth: "session" },
-  { method: "put", path: "/v1/me/preferences", tag: "Fold", summary: "Update Your Lyko (partial; validated; the risk profile is written through to the profile)", auth: "session", body: preferencesPatch },
+  { method: "put", path: "/v1/me/preferences", tag: "Fold", summary: "Update Your Lyko (partial; validated). The risk profile is the Fence preset: a change that loosens the Fence needs fenceSignature, the owner's signature on the loosening message", auth: "session", body: preferencesPatch },
+  { method: "get", path: "/v1/me/fence", tag: "Fence", summary: "The owner's Fence, kept on the server: its preset (Careful, Balanced or Bold, the risk profile), whether it was edited beyond the preset, and its hash. Chat, proposals and automations plan under it", auth: "session" },
+  { method: "put", path: "/v1/me/fence", tag: "Fence", summary: "Pick a preset or save an edited Fence. Tightening applies at once; a loosening returns 403 FENCE_SIGNATURE_REQUIRED with the message to sign, then succeeds with signature", auth: "session", body: fenceBody },
+  { method: "post", path: "/v1/me/fence/migrated", tag: "Fence", summary: "The owner discarded the Fence a browser held from before; it is not proposed again", auth: "session" },
   { method: "delete", path: "/v1/me/preferences", tag: "Fold", summary: "Back to the default preferences", auth: "session" },
   { method: "get", path: "/v1/me/threads", tag: "Fold", summary: "The owner's shared threads (Ask Lyko and Lyko on watch), newest first, with size, last line and origin", auth: "session" },
 ]);
@@ -181,11 +192,14 @@ export const foldModule: ApiModule = {
       const owner = address as Address;
       const personal = (await ownerProof(ctx, req, address)) !== null;
       const [spent, profile, prefs] = await Promise.all([services(ctx).intents.spent(environment, owner), getProfile(ctx, personal ? owner : null), getPreferences(ctx, personal ? owner : null)]);
-      const fence = fenceForProfile({ ...profile, risk: riskTierOf(prefs.risk) });
+      const fence = personal ? await ownerFence(ctx, owner) : fenceForProfile({ ...profile, risk: riskTierOf(prefs.risk) });
       let counts: FoldSummaryResponse["counts"] = { rules: 0, ordersWaiting: 0, agentsWorking: 0, proposalsWaiting: 0 };
       if (personal) {
-        const [view, pack] = await Promise.all([instructionsView(ctx, owner), agentServices(ctx).pack.ownedBy(owner, environment).catch(() => [])]);
-        counts = { rules: view.counts.running - view.counts.ordersWaiting, ordersWaiting: view.counts.ordersWaiting, agentsWorking: pack.filter((a) => a.status === "active").length, proposalsWaiting: view.counts.waitingSignature };
+        // Every count comes from Herding's Running list, so the Fold bar and Herding always agree.
+        const view = await instructionsView(ctx, owner);
+        const agents = view.counts.agentsWorking ?? 0;
+        const leashRows = view.instructions.filter((i) => i.kind === "leash" && (i.status === "active" || i.status === "waiting")).length;
+        counts = { rules: view.counts.running - view.counts.ordersWaiting - leashRows, ordersWaiting: view.counts.ordersWaiting, agentsWorking: agents, proposalsWaiting: view.counts.waitingSignature };
       }
       const body: FoldSummaryResponse = { owner: owner.toLowerCase() as Address, environment, at: new Date(ctx.clock.now()).toISOString(), spent: { dayUsd: spent.dayUsd }, beta: environment === "mainnet" && ctx.config.beta ? { perDayUsd: ctx.config.beta.perDayUsd } : null, fenceDailyUsd: fence.caps?.dailyUsd ?? null, counts };
       res.json(body);
@@ -208,8 +222,8 @@ export const foldModule: ApiModule = {
       await authorizeOwner(ctx, req, body.owner);
       const owner = body.owner as Address;
       const environment = environmentOf(ctx, body.environment);
-      const [profile, prefs] = await Promise.all([getProfile(ctx, owner), getPreferences(ctx, owner)]);
-      const fence = fenceFrom(body.fence) ?? fenceForProfile({ ...profile, risk: riskTierOf(prefs.risk) }, DEFAULT_FENCE);
+      // The owner's Fence is the server's; a Fence in the request is ignored (kept in the schema for older clients).
+      const fence = await ownerFence(ctx, owner);
       if (body.source.kind === "insight") {
         // The draft comes from the server's own insight, never from the request.
         if (!body.source.ref) throw new LykiaHttpError("INVALID_REQUEST", 400, "Name the insight (source.ref).");
@@ -272,9 +286,26 @@ export const foldModule: ApiModule = {
     router.get("/me/preferences", async (req, res) => {
       res.json(await preferencesView(ctx, await sessionAddress(ctx, req)));
     });
+    router.get("/me/fence", async (req, res) => {
+      res.json(await ownerFenceView(ctx, await sessionAddress(ctx, req)));
+    });
+    router.put("/me/fence", async (req, res) => {
+      const owner = await sessionAddress(ctx, req);
+      const body = parseBody(req, fenceBody);
+      if (body.preset) return void res.json(await setFencePreset(ctx, owner, body.preset, body.signature));
+      res.json(await setOwnerFence(ctx, owner, body.fence, body.signature, { migrated: body.migrated === true }));
+    });
+    router.post("/me/fence/migrated", async (req, res) => {
+      res.json(await markFenceMigrated(ctx, await sessionAddress(ctx, req)));
+    });
     router.put("/me/preferences", async (req, res) => {
       const owner = await sessionAddress(ctx, req);
-      const patch = parseBody(req, preferencesPatch);
+      const { fenceSignature, ...patch } = parseBody(req, preferencesPatch) as Record<string, unknown> & { fenceSignature?: unknown };
+      // The risk profile is the Fence preset: one control. Changing it moves the Fence (a loosening needs the owner's signature).
+      const current = await getPreferences(ctx, owner);
+      if (typeof patch.risk === "string" && patch.risk !== current.risk && ["careful", "balanced", "bold"].includes(patch.risk)) {
+        await setFencePreset(ctx, owner, patch.risk as "careful" | "balanced" | "bold", typeof fenceSignature === "string" ? fenceSignature : undefined);
+      }
       await updatePreferences(ctx, owner, patch);
       res.json(await preferencesView(ctx, owner));
     });

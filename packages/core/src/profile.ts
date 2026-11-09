@@ -6,6 +6,7 @@
  */
 import { DEFAULT_FENCE, normalizeFence, timeMinutes, isSupportedTimeZone, USD_PATTERN, usdMicros, type Fence } from "./fence.js";
 import type { ArcEnvironment } from "./networks.js";
+import { FENCE_PRESETS, type FencePresetId } from "./plain.js";
 import type { RiskTier } from "./routes.js";
 
 export const PROFILE_SCHEMA = "lykia.profile/v1" as const;
@@ -154,12 +155,31 @@ export function validateProfile(input: unknown): { ok: true; profile: LykiaProfi
   return { ok: true, profile: { ...(input as unknown as LykiaProfile), language: "en" } };
 }
 
+/** The Fence preset each risk tier is: one control, the same one Your Lyko's risk profile sets. */
+export const FENCE_PRESET_LABEL: Readonly<Record<RiskTier, string>> = { low: "Careful", medium: "Balanced", high: "Bold" };
+const PRESET_OF_TIER: Readonly<Record<RiskTier, FencePresetId>> = { low: "careful", medium: "balanced", high: "bold" };
+
+/** The preset's Fence for a risk tier: the default with the preset's caps, confirmation, slippage, health floor and Scent rule. Balanced is the default. */
+export function presetFence(tier: RiskTier): Fence {
+  const p = FENCE_PRESETS[PRESET_OF_TIER[tier]].patch as { caps: Fence["caps"]; confirm: { aboveUsd: string }; limits: { maxSlippageBps: number }; lending: { minHealthFactor: string }; scent: { require: "no-red-flags" | "verified" } };
+  return {
+    ...DEFAULT_FENCE,
+    label: FENCE_PRESET_LABEL[tier],
+    caps: { ...DEFAULT_FENCE.caps, ...p.caps },
+    confirm: { ...DEFAULT_FENCE.confirm, ...p.confirm },
+    limits: { ...DEFAULT_FENCE.limits, ...p.limits },
+    lending: { ...DEFAULT_FENCE.lending, ...p.lending },
+    scent: { ...DEFAULT_FENCE.scent, ...p.scent },
+  };
+}
+
 /**
- * The Fence a profile implies when the request brings none: the Shepherd
- * default, tightened by risk appetite, slippage habit and confirmation
- * style. A profile never loosens a Fence it is applied to.
+ * The Fence a profile implies when the request brings none: the preset its
+ * risk tier names (Careful, Balanced or Bold), tightened by slippage habit
+ * and confirmation style. A profile never loosens a Fence it is applied to.
  */
-export function fenceForProfile(profile: LykiaProfile, base: Fence = DEFAULT_FENCE): Fence {
+export function fenceForProfile(profile: LykiaProfile, baseIn?: Fence): Fence {
+  const base = baseIn === undefined || baseIn === DEFAULT_FENCE ? presetFence(profile.risk) : baseIn;
   const f = normalizeFence(base);
   const baseSlip = f.limits?.maxSlippageBps ?? 1000;
   const riskSlip = profile.risk === "low" ? 30 : profile.risk === "medium" ? 100 : 300;

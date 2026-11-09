@@ -246,7 +246,7 @@ class AlertsService {
     }
     await this.links().put(`owner:${data.owner.toLowerCase()}`, { chatId } as unknown as JsonValue);
     await this.links().delete(`code:${match[1]}`);
-    await this.telegramSend(chatId, `Linked to ${data.owner.slice(0, 6)}…${data.owner.slice(-4)}. I'll bark here when an alert fires.`);
+    await this.telegramSend(chatId, `Linked to ${data.owner.slice(0, 6)}…${data.owner.slice(-4)}. I'll tell you here when a watch fires.`);
   }
 
   private async telegramNotify(owner: Address, text: string): Promise<void> {

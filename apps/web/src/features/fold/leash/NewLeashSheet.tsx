@@ -67,11 +67,15 @@ function Secret({ title, value, hint }: { readonly title: string; readonly value
   );
 }
 
-export function NewLeashSheet({ open, owner, draft, onClose, onCreated }: { readonly open: boolean; readonly owner: FoldOwner; readonly draft: LeashDraft | null; readonly onClose: () => void; readonly onCreated: (l: LeashView) => void }) {
+export function NewLeashSheet({ open, owner, draft, spendFrom, onClose, onCreated }: { readonly open: boolean; readonly owner: FoldOwner; readonly draft: LeashDraft | null; readonly spendFrom?: "arc" | "gateway"; readonly onClose: () => void; readonly onCreated: (l: LeashView) => void }) {
   const wallet = useLykiaWallet();
   const openModal = useWallet((s) => s.openModal);
   const [phase, setPhase] = useState<Phase>("who");
-  const [form, setForm] = useState<LeashForm>(() => (draft ? formFromDraft(draft) : emptyForm()));
+  // Ask Lyko drafts the leash; this sheet is its review step (the Stile option arrives as spendFrom "gateway").
+  const [form, setForm] = useState<LeashForm>(() => {
+    const base = draft ? formFromDraft(draft) : emptyForm();
+    return spendFrom ? withSpendFrom(base, spendFrom) : base;
+  });
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<(CreateLeashResponse & { readonly sessionKey: string | null }) | null>(null);

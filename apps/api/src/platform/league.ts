@@ -252,8 +252,8 @@ export const OFFICIAL_CITIES: readonly SeedCity[] = Object.freeze([
       note: "An agent never gets more than its budget, carved from the owner's. Its Fence sits inside the owner's Fence, and its Tag pins the hash of the Fence it obeys.",
       does: ["Create an agent with a daily budget and its own Fence.", "Give it an ERC-8004 identity (a Tag) that pins its rules.", "Stop every agent at once with the Whistle."],
       pages: [
-        { label: "Pack · agents", href: "/app/pack" },
-        { label: "Fence · rules", href: "/app/fence" },
+        { label: "Pack · your agents and their leashes", href: "/app/fold/pack" },
+        { label: "Fence · rules", href: "/app/fold/fence" },
         { label: "Tag · agent identity", href: "/app/tag" },
       ],
     },
@@ -278,7 +278,7 @@ export const OFFICIAL_CITIES: readonly SeedCity[] = Object.freeze([
       codenameNote: "Phaselis traded through three harbours with ports far beyond the coast, while its goods were counted at home.",
       note: "Not live. Orders would match on Extended's engine, off Arc; the collateral sits on Arc. Lykia would check each order against your Fence and never hold funds or keys.",
       does: ["Place perpetual orders checked against your Fence.", "Keep collateral on Arc in your own account.", "Read live markets today on the Perps markets page."],
-      pages: [{ label: "Perps markets (read only)", href: "/app/markets" }],
+      pages: [{ label: "Perps markets (read only, in Ask Lyko)", href: "/app?intent=Show%20me%20the%20perps%20markets" }],
     },
   },
 ]);

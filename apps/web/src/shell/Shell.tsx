@@ -4,6 +4,7 @@ import type { RouteId, RouteKind } from "../app/routes/routeTable";
 import { useLykiaStore, whistleOn } from "../lib/lykiaStore";
 import { useProfile } from "../lib/profile";
 import { BetaRibbon } from "../features/ecosystem/BetaRibbon";
+import { useOwnerFence } from "../features/fence/sync";
 import { AreaTabs } from "./AreaTabs";
 import { Footer } from "./Footer";
 import { Header } from "./Header";
@@ -16,6 +17,8 @@ const FULL_BLEED: ReadonlySet<RouteId> = new Set(["ask"]);
 
 export function Shell({ kind, routeId, children }: { readonly kind: RouteKind; readonly routeId: RouteId; readonly children: React.ReactNode }) {
   const whistle = useLykiaStore((s) => whistleOn(s.fence));
+  // The owner's Fence is the server's; the deck mirrors it for every surface that shows it.
+  useOwnerFence();
   const theme = useProfile((s) => s.profile.theme);
   const prefersDark = typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-color-scheme: dark)").matches;
   const night = whistle || theme === "night" || (theme === "auto" && prefersDark);

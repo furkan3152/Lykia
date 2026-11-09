@@ -16,7 +16,7 @@ const VALID: readonly AnswerBlock[] = [
   { kind: "fence", decision: "deny", rules: [{ rule: "caps.step", message: "Above the per-step cap." }], headroom: [{ label: "Per step", value: "$1,000" }] },
   { kind: "balance", totalUsd: "12480.2", holdings: [{ symbol: "USDC", amount: "8210.5", usd: "8210.5", where: "wallet" }, { symbol: "USYC", amount: "1", usd: null, where: "wallet" }] },
   { kind: "rate", base: "USDC", quote: "EURC", rate: "0.889", reference: "0.8889", bandBps: 50, source: "Chainlink EURC/USD" },
-  { kind: "herded", items: [{ kind: "automation", label: "Friday sweep", saved: true, href: "/app/fold/herding?show=rounds", next: "every Friday at 17:00" }] },
+  { kind: "herded", items: [{ kind: "automation", label: "Friday sweep", saved: true, href: "/app/fold/herding?show=automations", next: "every Friday at 17:00" }] },
   { kind: "settled", summary: "250 USDC to Ayla", tx: TX },
 ];
 

@@ -5614,6 +5614,34 @@
           }
         },
         {
+          "name": "The owner's Fence, kept on the server: its preset (Careful, Balanced or Bold, the risk profile), whether it was edited beyond the preset, and its hash. Chat, proposals and automations plan under it",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/me/fence",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "me",
+                "fence"
+              ]
+            },
+            "description": "The owner's Fence, kept on the server: its preset (Careful, Balanced or Bold, the risk profile), whether it was edited beyond the preset, and its hash. Chat, proposals and automations plan under it\n\nAuth: session."
+          }
+        },
+        {
           "name": "Evaluate a planned move against a Fence: allow, confirm or deny with reasons",
           "request": {
             "method": "POST",
@@ -5701,6 +5729,76 @@
               }
             },
             "description": "Validate a Fence document (and diff it against a previous one)\n\nAuth: key, scope: quote."
+          }
+        },
+        {
+          "name": "The owner discarded the Fence a browser held from before; it is not proposed again",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/me/fence/migrated",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "me",
+                "fence",
+                "migrated"
+              ]
+            },
+            "description": "The owner discarded the Fence a browser held from before; it is not proposed again\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Pick a preset or save an edited Fence. Tightening applies at once; a loosening returns 403 FENCE_SIGNATURE_REQUIRED with the message to sign, then succeeds with signature",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/me/fence",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "me",
+                "fence"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Pick a preset or save an edited Fence. Tightening applies at once; a loosening returns 403 FENCE_SIGNATURE_REQUIRED with the message to sign, then succeeds with signature\n\nAuth: session."
           }
         }
       ]
@@ -6549,7 +6647,7 @@
           }
         },
         {
-          "name": "Update Your Lyko (partial; validated; the risk profile is written through to the profile)",
+          "name": "Update Your Lyko (partial; validated). The risk profile is the Fence preset: a change that loosens the Fence needs fenceSignature, the owner's signature on the loosening message",
           "request": {
             "method": "PUT",
             "header": [
@@ -6586,7 +6684,7 @@
                 }
               }
             },
-            "description": "Update Your Lyko (partial; validated; the risk profile is written through to the profile)\n\nAuth: session."
+            "description": "Update Your Lyko (partial; validated). The risk profile is the Fence preset: a change that loosens the Fence needs fenceSignature, the owner's signature on the loosening message\n\nAuth: session."
           }
         }
       ]

@@ -106,7 +106,7 @@ export function CommandPalette() {
             ))}
           </div>
           <details className="mt-2">
-            <summary className="m-small m-muted" style={{ cursor: "pointer" }}>{"Shepherd commands"}</summary>
+            <summary className="m-small m-muted" style={{ cursor: "pointer" }}>{"Sheepdog commands"}</summary>
             <div className="m-chips" style={{ justifyContent: "flex-start", marginTop: 6 }}>
               {(Object.keys(COMMANDS) as CommandWord[]).map((w) => (
                 <button key={w} type="button" className="m-chip" title={COMMANDS[w].meaning} onClick={() => setText(w)}>

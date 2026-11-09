@@ -42,7 +42,7 @@ export function ruleName(rule: string): string {
 
 /** Drafts from the stream (alerts, automations) as herded items. */
 export function herdFromDrafts(drafts: readonly ChatDraftLink[]): HerdItem[] {
-  return drafts.map((d) => ({ kind: d.kind, label: d.label, saved: d.saved, href: d.saved ? `/app/fold/herding?show=${d.kind === "alert" ? "alerts" : "rounds"}` : d.href, next: d.next ?? null }));
+  return drafts.map((d) => ({ kind: d.kind, label: d.label, saved: d.saved, href: d.saved ? `/app/fold/herding?show=${d.kind === "alert" ? "watches" : "automations"}` : d.href, next: d.next ?? null }));
 }
 
 

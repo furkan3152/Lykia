@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { DEFAULT_FENCE, DEFAULT_FOLD_PREFERENCES, loosenedRules } from "@lykia/core";
 import type { FoldInsight } from "@lykia/core/api/fold";
 
-import { agentMeter, allocationStones, applyFencePatch, badgeCount, byDay, countsLine, fenceInWords, fenceSuggestions, filterInstructions, filterTrails, headroom, herdingFilterOf, holdingAction, mergeThreads, openingLine, pastureLayout, rollingChars, sampleInsights, sampleInstructions, samplePack, sampleSnapshot, sampleTrails, tabForKey, tabFromParam, visibleTabs } from "../model";
+import { agentMeter, controlOf, kindOf, allocationStones, applyFencePatch, badgeCount, byDay, countsLine, fenceInWords, fenceSuggestions, filterInstructions, filterTrails, headroom, herdingFilterOf, holdingAction, mergeThreads, openingLine, pastureLayout, rollingChars, sampleInsights, sampleInstructions, samplePack, sampleSnapshot, sampleTrails, tabForKey, tabFromParam, visibleTabs } from "../model";
 
 const NOW = Date.UTC(2026, 10, 4, 12);
 
@@ -42,8 +42,8 @@ describe("the Fold bar", () => {
   });
 
   it("writes the counts line in words", () => {
-    assert.equal(countsLine({ rules: 3, ordersWaiting: 1, agentsWorking: 2 }), "3 rules run on their own · 1 order waits for its price · 2 agents work for you");
-    assert.equal(countsLine({ rules: 1, ordersWaiting: 0, agentsWorking: 1, proposalsWaiting: 2 }), "1 rule runs on its own · 1 agent works for you · 2 drafts wait for your signature", "zero counts are left out");
+    assert.equal(countsLine({ rules: 3, ordersWaiting: 1, agentsWorking: 2 }), "3 instructions run on their own · 1 order waits for its price · 2 agents on a leash work for you");
+    assert.equal(countsLine({ rules: 1, ordersWaiting: 0, agentsWorking: 1, proposalsWaiting: 2 }), "1 instruction runs on its own · 1 agent on a leash works for you · 2 drafts wait for your signature", "zero counts are left out");
     assert.equal(countsLine({ rules: 0, ordersWaiting: 0, agentsWorking: 0 }), "Nothing runs on its own yet.");
   });
 
@@ -100,11 +100,25 @@ describe("Lyko on watch", () => {
 describe("Herding, Trails, Pack and Fence", () => {
   it("filters instructions by kind and reads the filter from the URL", () => {
     const list = sampleInstructions(NOW);
-    assert.equal(filterInstructions(list, "orders").length, 1);
-    assert.equal(filterInstructions(list, "recurring")[0]!.sourceLabel, "Recurring");
+    assert.equal(filterInstructions(list, "order").length, 1);
+    assert.ok(filterInstructions(list, "automation").some((i) => i.sourceLabel === "Recurring payment" && i.signs === "you"));
+    assert.ok(filterInstructions(list, "automation").some((i) => i.signs === "autopilot"), "Autopilot tasks are automations Autopilot signs");
     assert.equal(filterInstructions(list, "all").length, list.length);
-    assert.equal(herdingFilterOf("alerts"), "alerts");
+    assert.equal(herdingFilterOf("watches"), "watch");
+    // Old ?show= values keep working.
+    assert.equal(herdingFilterOf("alerts"), "watch");
+    assert.equal(herdingFilterOf("rounds"), "automation");
     assert.equal(herdingFilterOf("<script>"), "all");
+  });
+
+  it("every Running row says what it is, what happens next, and offers one control", () => {
+    const list = sampleInstructions(NOW);
+    const kinds = new Set(list.map((i) => kindOf(i)));
+    for (const k of ["automation", "order", "watch", "leash", "autopilot", "plan", "payment"] as const) assert.ok(kinds.has(k), k);
+    for (const i of list) {
+      assert.ok(i.nextLine && i.nextLine.length > 0, i.id);
+      assert.ok(controlOf(i), `${i.id} has a control`);
+    }
   });
 
   it("filters the trail and groups it by day", () => {
@@ -117,9 +131,9 @@ describe("Herding, Trails, Pack and Fence", () => {
   });
 
   it("meters an agent's budget against its tightest cap", () => {
-    const [payroll, keeper] = samplePack();
+    const [payroll] = samplePack();
     assert.deepEqual(agentMeter(payroll!), { used: 120, cap: 500, share: 0.24, label: "today" });
-    assert.ok(agentMeter(keeper!).share > 0.8);
+    assert.ok(agentMeter({ ...payroll!, budget: { ...payroll!.budget, spent: { dayUsd: "450", weekUsd: "450" } } }).share > 0.8);
   });
 
   it("says the Fence in words and proposes edits that only tighten it", () => {

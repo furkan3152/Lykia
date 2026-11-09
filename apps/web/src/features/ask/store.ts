@@ -3,7 +3,7 @@
  * composer or ⌘K, so the composer can morph into the chat), the live
  * conversation, local thread history and the streaming status.
  */
-import type { ArcEnvironment, Fence } from "@lykia/core";
+import type { ArcEnvironment } from "@lykia/core";
 import { create } from "zustand";
 
 import { readStorage, writeStorage } from "../../app/state/storage";
@@ -37,7 +37,6 @@ export interface Prefill {
 export interface SendContext {
   owner?: `0x${string}`;
   environment: ArcEnvironment;
-  fence?: Fence;
   /** Where the message was written: Ask Lyko (default) or Lyko on watch in the Fold. Both write to the same thread. */
   origin?: "ask" | "fold";
 }
@@ -102,7 +101,7 @@ export const useAsk = create<AskState>()((set, get) => ({
     set({ convo: { ...start, messages: [...start.messages, userMessage(text), assistantDraft()] }, status: "streaming", abort: controller, context: null });
     try {
       await streamChat(
-        { message: text, environment: ctx.environment, ...(ctx.owner ? { owner: ctx.owner } : {}), ...(start.threadId ? { threadId: start.threadId } : {}), ...(ctx.fence ? { fence: ctx.fence } : {}), ...(ctx.origin ? { origin: ctx.origin } : {}), ...(context ? { context: context.slice(0, 1000) } : {}) },
+        { message: text, environment: ctx.environment, ...(ctx.owner ? { owner: ctx.owner } : {}), ...(start.threadId ? { threadId: start.threadId } : {}), ...(ctx.origin ? { origin: ctx.origin } : {}), ...(context ? { context: context.slice(0, 1000) } : {}) },
         (event) => set({ convo: reduce(get().convo, event) }),
         controller.signal,
       );

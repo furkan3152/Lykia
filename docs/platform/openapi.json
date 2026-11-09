@@ -17113,6 +17113,229 @@
         }
       }
     },
+    "/v1/me/fence": {
+      "get": {
+        "operationId": "getMeFence",
+        "summary": "The owner's Fence, kept on the server: its preset (Careful, Balanced or Bold, the risk profile), whether it was edited beyond the preset, and its hash. Chat, proposals and automations plan under it",
+        "tags": [
+          "Fence"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "putMeFence",
+        "summary": "Pick a preset or save an edited Fence. Tightening applies at once; a loosening returns 403 FENCE_SIGNATURE_REQUIRED with the message to sign, then succeeds with signature",
+        "tags": [
+          "Fence"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "preset": {
+                    "type": "string",
+                    "enum": [
+                      "careful",
+                      "balanced",
+                      "bold"
+                    ]
+                  },
+                  "fence": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  },
+                  "signature": {
+                    "type": "string",
+                    "maxLength": 4000,
+                    "description": "The owner's signature on the loosening message (403 FENCE_SIGNATURE_REQUIRED returns it); only a loosening needs one."
+                  },
+                  "migrated": {
+                    "type": "boolean",
+                    "description": "True when this Fence is the one a browser held from before, kept by the owner."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/fence/migrated": {
+      "post": {
+        "operationId": "postMeFenceMigrated",
+        "summary": "The owner discarded the Fence a browser held from before; it is not proposed again",
+        "tags": [
+          "Fence"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LykiaVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "Lykia-Version": {
+                "$ref": "#/components/headers/LykiaVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        },
+        "x-lykia-auth": "session",
+        "security": [
+          {
+            "LykiaSession": []
+          },
+          {
+            "LykiaKey": []
+          }
+        ]
+      }
+    },
     "/v1/flock/{address}": {
       "get": {
         "operationId": "getFlockByAddress",
@@ -20139,7 +20362,7 @@
       },
       "put": {
         "operationId": "putMePreferences",
-        "summary": "Update Your Lyko (partial; validated; the risk profile is written through to the profile)",
+        "summary": "Update Your Lyko (partial; validated). The risk profile is the Fence preset: a change that loosens the Fence needs fenceSignature, the owner's signature on the loosening message",
         "tags": [
           "Fold"
         ],

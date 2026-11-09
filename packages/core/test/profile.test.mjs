@@ -22,8 +22,14 @@ test("a profile tightens the Fence, never loosens it", () => {
   assert.deepEqual(low.venues.deny, ["synthra"]);
   assert.equal(low.confirm.aboveUsd, "100");
   assert.equal(low.scent.require, "verified");
+  // The risk tier is the Fence preset (Bold allows 3%), and a slippage habit never loosens the preset.
   const high = fenceForProfile({ ...DEFAULT_PROFILE, risk: "high", defaultSlippageBps: 500 });
-  assert.equal(high.limits.maxSlippageBps, DEFAULT_FENCE.limits.maxSlippageBps);
+  assert.equal(high.label, "Bold");
+  assert.equal(high.limits.maxSlippageBps, 300);
+  // Applied to a Fence of the owner's own, a profile never loosens it.
+  const own = fenceForProfile({ ...DEFAULT_PROFILE, risk: "high", defaultSlippageBps: 500 }, { ...DEFAULT_FENCE, label: "Mine" });
+  assert.equal(own.limits.maxSlippageBps, DEFAULT_FENCE.limits.maxSlippageBps);
+  assert.equal(fenceForProfile(DEFAULT_PROFILE).label, "Balanced");
   const loose = fenceForProfile({ ...DEFAULT_PROFILE, confirmation: { mode: "above", aboveUsd: "99999" } });
   assert.equal(loose.confirm.aboveUsd, DEFAULT_FENCE.confirm.aboveUsd);
   const always = fenceForProfile({ ...DEFAULT_PROFILE, confirmation: { mode: "always", aboveUsd: null } });

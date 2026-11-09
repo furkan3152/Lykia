@@ -72,6 +72,27 @@ export interface FactRow {
   readonly from: BlockSource;
 }
 
+/** What an Ask-drafted leash carries into the review sheet (core LeashDraft, validated again there). */
+export interface LeashDraftBlock {
+  readonly name: string;
+  readonly template: "pay-invoices" | "trade-small" | "earn";
+  readonly perDayUsd: string;
+  readonly perStepUsd?: string;
+  readonly days: number;
+  readonly recipients?: readonly string[];
+  /** "arc" (the owner's LykiaAccount) or "gateway" (the owner's Gateway balance through LykiaStile). */
+  readonly spendFrom?: "arc" | "gateway";
+}
+
+/** One venue's live rate for a token. */
+export interface YieldRow {
+  readonly venue: string;
+  /** Percent, two decimals; null when the source did not give one ("n/a", never a guess). */
+  readonly apyPercent: string | null;
+  readonly risk: "low" | "medium" | "high";
+  readonly source: string;
+}
+
 /** A drafted LykiaOrders order the owner reviews and signs in the chat (the draft is rebuilt and re-checked at signing). */
 export interface OrderBlockInput {
   readonly kind: "limit" | "stop-loss" | "take-profit" | "dca" | "twap";
@@ -108,6 +129,16 @@ export type AnswerBlock =
   /** Sourced figures: a read-only answer from Lyko on watch, or totals the code derived (a blended APY, a yearly estimate). */
   | { readonly kind: "facts"; readonly title: string; readonly rows: readonly FactRow[]; readonly note: string | null }
   /** A LykiaOrders order drafted in the chat: its terms, the Fence and beta verdict at draft time, and the inputs to rebuild it for signing. */
+  /** A leash drafted in Ask: who holds it, what it may spend and for how long. Its card opens the leash review sheet; nothing is created before that. */
+  | { readonly kind: "leash-draft"; readonly title: string; readonly draft: LeashDraftBlock; readonly note: string | null }
+  /** Autopilot drafted in Ask: the limits the owner stated or picked. Its card opens the Autopilot review sheet (read, accept, sign once). */
+  | { readonly kind: "autopilot-draft"; readonly perStepUsd: string; readonly perDayUsd: string; readonly days: number; readonly payees: readonly string[]; readonly environment: "mainnet" | "testnet" }
+  /** An automation for Autopilot to sign, drafted in Ask: the card adds it once the owner confirms. */
+  | { readonly kind: "autopilot-task"; readonly label: string; readonly task: Readonly<Record<string, string>>; readonly environment: "mainnet" | "testnet"; readonly autopilot: "on" | "paused" | "pending" | "off" }
+  /** An agent drafted in Ask: it holds a leash (its own Fence and daily budget, carved from yours). The card creates it once the owner confirms. */
+  | { readonly kind: "agent-draft"; readonly name: string; readonly role: string; readonly dailyUsd: string; readonly mission: string | null; readonly environment: "mainnet" | "testnet" }
+  /** Live yields for one token, best first, each with its risk and source (the answer to "where can I earn on EURC?"). */
+  | { readonly kind: "yields"; readonly token: string; readonly rows: readonly YieldRow[]; readonly best: string | null; readonly from: BlockSource }
   | { readonly kind: "order"; readonly summary: string; readonly environment: "mainnet" | "testnet"; readonly decision: "allow" | "confirm" | "deny"; readonly reasons: readonly string[]; readonly perExecution: { readonly fee: string; readonly swapped: string; readonly minOut: string; readonly symbolIn: string; readonly symbolOut: string }; readonly approval: string | null; readonly executions: number; readonly input: OrderBlockInput };
 
 export interface CapabilitySection {
@@ -347,6 +378,60 @@ export function parseAnswerBlock(raw: unknown): AnswerBlock | null {
       if (!kind || !sell || !buy || amount === null || execs === null || interval === null || triggerPrice === null || triggerAbove === null) return null;
       const input: OrderBlockInput = { kind, sell, buy, amount, ...(execs !== undefined ? { executions: execs } : {}), ...(interval !== undefined ? { intervalSeconds: interval } : {}), ...(triggerPrice !== undefined ? { triggerPrice } : {}), ...(triggerAbove !== undefined ? { triggerAbove } : {}) };
       return { kind: "order", summary, environment, decision, reasons: reasons as string[], perExecution: perExecution as { fee: string; swapped: string; minOut: string; symbolIn: string; symbolOut: string }, approval, executions, input };
+    }
+    case "leash-draft": {
+      const title = str(o.title, 120);
+      const note = nullable(o.note, (n) => str(n, 300));
+      const d = obj(o.draft);
+      const name = str(d?.name, 48);
+      const template = d?.template === "pay-invoices" || d?.template === "trade-small" || d?.template === "earn" ? d.template : null;
+      const perDayUsd = decimal(d?.perDayUsd);
+      const perStepUsd = d?.perStepUsd === undefined ? undefined : decimal(d.perStepUsd);
+      const days = typeof d?.days === "number" && Number.isInteger(d.days) && d.days >= 1 && d.days <= 365 ? d.days : null;
+      const recipients = d?.recipients === undefined ? undefined : Array.isArray(d.recipients) && d.recipients.length <= 20 && d.recipients.every((r) => typeof r === "string" && ADDRESS.test(r)) ? (d.recipients as string[]) : null;
+      const spendFrom = d?.spendFrom === undefined ? undefined : d.spendFrom === "arc" || d.spendFrom === "gateway" ? d.spendFrom : null;
+      if (!title || note === undefined || !name || !template || !perDayUsd || perStepUsd === null || !days || recipients === null || spendFrom === null) return null;
+      return { kind: "leash-draft", title, note, draft: { name, template, perDayUsd, days, ...(perStepUsd ? { perStepUsd } : {}), ...(recipients ? { recipients } : {}), ...(spendFrom ? { spendFrom } : {}) } };
+    }
+    case "autopilot-draft": {
+      const perStepUsd = decimal(o.perStepUsd);
+      const perDayUsd = decimal(o.perDayUsd);
+      const days = typeof o.days === "number" && Number.isInteger(o.days) && o.days >= 1 && o.days <= 365 ? o.days : null;
+      const payees = Array.isArray(o.payees) && o.payees.length <= 10 && o.payees.every((p) => typeof p === "string" && ADDRESS.test(p)) ? (o.payees as string[]) : null;
+      const environment = o.environment === "mainnet" || o.environment === "testnet" ? o.environment : null;
+      return perStepUsd && perDayUsd && days && payees && environment ? { kind: "autopilot-draft", perStepUsd, perDayUsd, days, payees, environment } : null;
+    }
+    case "autopilot-task": {
+      const label = str(o.label, 200);
+      const t = obj(o.task);
+      const task = t && Object.keys(t).length <= 8 && Object.values(t).every((v) => typeof v === "string" && v.length <= 200) ? (t as Record<string, string>) : null;
+      const environment = o.environment === "mainnet" || o.environment === "testnet" ? o.environment : null;
+      const autopilot = o.autopilot === "on" || o.autopilot === "paused" || o.autopilot === "pending" || o.autopilot === "off" ? o.autopilot : null;
+      return label && task && environment && autopilot ? { kind: "autopilot-task", label, task, environment, autopilot } : null;
+    }
+    case "agent-draft": {
+      const name = str(o.name, 48);
+      const role = str(o.role, 24);
+      const dailyUsd = decimal(o.dailyUsd);
+      const mission = nullable(o.mission, (m) => str(m, 400));
+      const environment = o.environment === "mainnet" || o.environment === "testnet" ? o.environment : null;
+      return name && role && dailyUsd && mission !== undefined && environment ? { kind: "agent-draft", name, role, dailyUsd, mission, environment } : null;
+    }
+    case "yields": {
+      const token = typeof o.token === "string" && SYMBOL.test(o.token) ? o.token : null;
+      const best = nullable(o.best, (b) => str(b, 80));
+      const from = parseBlockSource(o.from);
+      if (!token || best === undefined || !from || !Array.isArray(o.rows) || o.rows.length > 10) return null;
+      const rows = o.rows.map((r) => {
+        const x = obj(r);
+        const venue = str(x?.venue, 80);
+        const apyPercent = nullable(x?.apyPercent, decimal);
+        const risk = x?.risk === "low" || x?.risk === "medium" || x?.risk === "high" ? x.risk : null;
+        const source = str(x?.source, 60);
+        return venue && apyPercent !== undefined && risk && source ? { venue, apyPercent, risk, source } : null;
+      });
+      if (rows.some((r) => r === null)) return null;
+      return { kind: "yields", token, rows: rows as YieldRow[], best, from };
     }
     case "settled": {
       const summary = str(o.summary, 200);

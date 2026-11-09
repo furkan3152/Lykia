@@ -23,16 +23,15 @@ import { useAsk } from "../ask/store";
 import { Markdown } from "../ask/Markdown";
 import { apiGet, describeError } from "../../lib/api";
 import { Button, LykoFace, LykoTile, Tag, cx, toast } from "../../mosaic";
-import { useAnswer, useInstructionControl, useMarkSeen, useSendToAsk, type FoldOwner } from "./data";
-import { FOLLOW_UPS, openingLine } from "./model";
+import { useAnswer, useInstructionControl, useMarkSeen, type FoldOwner } from "./data";
+import {FOLLOW_UPS, openingLine} from "./model";
 
 const SEVERITY: Readonly<Record<FoldInsight["severity"], { label: string; tone: "bad" | "ochre" | "ghost" }>> = { act: { label: "Act", tone: "bad" }, watch: { label: "Watch", tone: "ochre" }, info: { label: "FYI", tone: "ghost" } };
 
 const SENT_WORD: Readonly<Record<string, string>> = { planned: "planned", signed: "signed", done: "signed", refused: "refused by your Fence", stopped: "stopped", pending: "sent" };
 
-function InsightCard({ insight, onDraft, onAsk, onSend, onOpenThread, busy, sending, sample }: { readonly insight: FoldInsight; readonly onDraft: (i: FoldInsight) => void; readonly onAsk: (i: FoldInsight) => void; readonly onSend: (i: FoldInsight) => void; readonly onOpenThread: (threadId: string | null) => void; readonly busy: boolean; readonly sending: boolean; readonly sample: boolean }) {
+function InsightCard({ insight, onAsk, onOpenThread }: { readonly insight: FoldInsight; readonly onAsk: (i: FoldInsight) => void; readonly onOpenThread: (threadId: string | null) => void }) {
   const [why, setWhy] = useState(false);
-  const actionable = Boolean(insight.draft?.sentence);
   return (
     <li className={cx("fd-insight", insight.handled && "fd-insight--handled")} data-severity={insight.severity}>
       <div className="fd-insight__top">
@@ -63,18 +62,8 @@ function InsightCard({ insight, onDraft, onAsk, onSend, onOpenThread, busy, send
         {insight.sent ? (
           <Button size="sm" tone="ghost" onClick={() => onOpenThread(insight.sent!.threadId)}>{"OPEN THE PLAN"}</Button>
         ) : (
-          <>
-            {insight.draft && !insight.handled ? (
-              <Button size="sm" disabled={busy || sample} onClick={() => onDraft(insight)} title={sample ? "Connect a wallet to draft for your own flock" : undefined}>
-                {insight.draft.label}
-              </Button>
-            ) : null}
-            {actionable && !insight.handled ? (
-              <Button size="sm" tone="ghost" disabled={sending || sample} onClick={() => onSend(insight)} title={sample ? "Connect a wallet and sign in to hand this over" : "Ask Lyko plans it step by step on your shared thread"}>{sending ? "SENDING…" : "SEND TO ASK LYKO"}</Button>
-            ) : (
-              <Button size="sm" tone="ghost" onClick={() => onAsk(insight)}>{"OPEN IN ASK LYKO"}</Button>
-            )}
-          </>
+          // One action: Ask Lyko, with the request filled in. Ask starts things; the Fold only shows them.
+          <Button size="sm" tone={insight.draft && !insight.handled ? "terra" : "ghost"} onClick={() => onAsk(insight)} title={insight.draft ? `Ask Lyko: ${insight.draft.sentence ?? insight.draft.label}` : undefined}>{"ASK LYKO"}</Button>
         )}
       </div>
     </li>
@@ -126,8 +115,6 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
   const answer = useAnswer(owner);
   const seen = useMarkSeen(owner);
   const control = useInstructionControl(owner);
-  const sendToAsk = useSendToAsk(owner);
-  const receive = useAsk((s) => s.receive);
   const [answers, setAnswers] = useState<{ id: number; question: string; artifact: FoldExplainArtifact }[]>([]);
   const [stripOpen, setStripOpen] = useState(false);
   const scroll = useRef<HTMLDivElement | null>(null);
@@ -176,21 +163,6 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
       return;
     }
     setAnswers((a) => [...a, { id: Date.now(), question: label, artifact: { kind: question, title: label, summary: "Sign in as this address (one message, no transaction) and I will answer this from your own records.", lines: [], sources: [], at: new Date().toISOString() } }]);
-  };
-
-  // Lyko on watch hands the insight to Ask Lyko: planned on the server as a staged plan, written to the shared thread.
-  const handOver = (i: FoldInsight) => {
-    sendToAsk.mutate(
-      { insightId: i.id, threadId: convo.threadId ?? latestId },
-      {
-        onSuccess: (r) => {
-          adopt(r.threadId, r.instruction.payload.kind === "plan" ? r.instruction.payload.title : i.title);
-          receive(r.threadId, { ...storedMessage({ role: "assistant", text: `From Lyko on watch: ${(i.draft?.label ?? i.title).toLowerCase()}. ${r.proposal.intentId ? "Planned step by step; review and sign it here." : "Your Fence refused the plan."}`, at: r.instruction.createdAt, proposals: r.proposal.intentId ? [r.proposal] : [], origin: "fold", instruction: { id: r.instruction.id, from: "watch", to: "ask", kind: "plan", label: i.title } }, `h${Date.now()}`) });
-          toast.success(r.instruction.status === "planned" ? "Sent to Ask Lyko · planned" : "Sent to Ask Lyko · refused", { description: r.instruction.status === "planned" ? "Open Ask Lyko to review and sign it step by step." : "Your Fence refused the plan; the reason is in the thread.", from: "LYKO" });
-        },
-        onError: (e) => toast.error("Not sent", { description: describeError(e), from: "LYKO" }),
-      },
-    );
   };
 
   const chat = (text: string) => {
@@ -265,7 +237,7 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
         ) : (
           <ul className="fd-insights">
             {insights.map((i) => (
-              <InsightCard key={i.id} insight={i} busy={p.busy} sample={owner.sample || !owner.signedIn} sending={sendToAsk.isPending && sendToAsk.variables?.insightId === i.id} onSend={handOver} onOpenThread={(t) => navigate(t ? `/app/ask/${encodeURIComponent(t)}` : "/app")} onDraft={p.onDraft} onAsk={(x) => p.onOpenInAsk(x.draft?.sentence ?? `Tell me more about this: ${x.title}`, `${x.title}. ${x.explain} ${x.figures.map((f) => `${f.label}: ${f.value}`).join("; ")}`)} />
+              <InsightCard key={i.id} insight={i} onOpenThread={(t) => navigate(t ? `/app/ask/${encodeURIComponent(t)}` : "/app")} onAsk={(x) => p.onOpenInAsk(x.draft?.sentence ?? `Tell me more about this: ${x.title}`, `${x.title}. ${x.explain} ${x.figures.map((f) => `${f.label}: ${f.value}`).join("; ")}`)} />
             ))}
           </ul>
         )}

@@ -296,10 +296,10 @@ function frozen<T>(value: T): T {
   return Object.freeze(value);
 }
 
-/** The shepherd's default: careful, agents welcome, strangers not. */
+/** The default, the Balanced preset's base: careful, agents welcome, strangers not. */
 export const DEFAULT_FENCE: Fence = frozen({
   schema: FENCE_SCHEMA,
-  label: "Shepherd",
+  label: "Balanced",
   mode: "live",
   tokens: { unlisted: "deny" },
   recipients: { mode: "own" },
@@ -317,7 +317,7 @@ export type FenceTemplateKey = "lamb" | "shepherd" | "treasury" | "caravan";
 export const FENCE_TEMPLATES: Readonly<Record<FenceTemplateKey, Fence>> = frozen({
   /** Lamb: watch and learn. Plans everything, signs nothing. */
   lamb: frozen({ schema: FENCE_SCHEMA, label: "Lamb", mode: "dry-run", tokens: { unlisted: "deny" }, recipients: { mode: "own" }, scent: { require: "verified" }, signers: ["wallet"] } satisfies Fence),
-  /** Shepherd: the default. */
+  /** The default (the Balanced preset's base). The key "shepherd" stays for API compatibility. */
   shepherd: DEFAULT_FENCE,
   /** Treasury: a business treasury. Stablecoins only, named payees, office hours, tight FX band. */
   treasury: frozen({

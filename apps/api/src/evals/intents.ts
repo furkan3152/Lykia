@@ -17,7 +17,7 @@
 import type { ElementKind, RefusalCode } from "@lykia/core";
 
 export type CaseMode = "both" | "llm";
-export type Category = "capabilities" | "bridges" | "proactive" | "clarify" | "watch" | "treasury" | "payroll" | "savings" | "hedging" | "agents" | "exits" | "dca" | "sweeps" | "cross-chain" | "ambiguity" | "contradiction" | "impossible" | "injection" | "conditional" | "multilingual";
+export type Category = "capabilities" | "create" | "bridges" | "proactive" | "clarify" | "watch" | "treasury" | "payroll" | "savings" | "hedging" | "agents" | "exits" | "dca" | "sweeps" | "cross-chain" | "ambiguity" | "contradiction" | "impossible" | "injection" | "conditional" | "multilingual";
 
 export interface ElementExpect {
   readonly kind: ElementKind;
@@ -101,7 +101,19 @@ export const EVAL_CASES: readonly EvalCase[] = [
   { id: "stop-autopilot", category: "proactive", mode: "both", state: "treasury", text: "Stop Autopilot now", expect: { assist: { kind: "offer", feature: "autopilot" } } },
   { id: "offer-fence-careful", category: "proactive", mode: "both", state: "treasury", text: "Make my Fence more careful", expect: { assist: { kind: "offer", feature: "fence-presets", optionsMatch: /^Careful$/u } } },
   { id: "offer-not-full-leash", category: "proactive", mode: "both", state: "treasury", text: "Give my bot $20 a day for a week to pay invoices.", expect: { assist: false, scheduled: [{ kind: "leash" }] } },
-  { id: "offer-not-pack-agent", category: "proactive", mode: "both", state: "treasury", text: "Create a payroll agent with a 500 USDC daily budget", expect: { assist: false } },
+  /* ------------------------------------------------------------ starting things in Ask (an agent on a leash, Autopilot, its tasks) */
+  { id: "create-agent-stated", category: "create", mode: "both", state: "treasury", text: "Create a payroll agent with a 500 USDC daily budget", expect: { assist: { kind: "create", feature: "agent", role: "payroll", dailyUsd: "500" } } },
+  { id: "create-agent-asks-budget", category: "create", mode: "both", state: "treasury", text: "Create a payroll agent", expect: { assist: { kind: "create", feature: "agent", dailyUsd: null, optionsMatch: /with a \$\d+ daily budget$/u } } },
+  { id: "create-autopilot-asks", category: "create", mode: "both", state: "treasury", text: "Turn on Autopilot", expect: { assist: { kind: "create", feature: "autopilot", perStepUsd: null, perDayUsd: null, optionsMatch: /^Turn on Autopilot with \$\d+ a step and \$\d+ a day for \d+ days$/u } } },
+  { id: "create-autopilot-stated", category: "create", mode: "both", state: "treasury", text: "Turn on Autopilot with $50 a step and $150 a day for 30 days", expect: { assist: { kind: "create", feature: "autopilot", perStepUsd: "50", perDayUsd: "150", days: 30 } } },
+  { id: "create-task-repay", category: "create", mode: "both", state: "btc", text: "Have Autopilot repay 50 USDC on Aave when health drops below 1.5", expect: { assist: { kind: "create", feature: "autopilot-task", task: { kind: "repay", amountUsd: "50", floor: "1.5" } } } },
+  { id: "create-task-asks-floor", category: "create", mode: "both", state: "btc", text: "Have Autopilot repay 50 USDC on Aave", expect: { assist: { kind: "create", feature: "autopilot-task", task: null, missing: "floor", optionsMatch: /below 1\.\d$/u } } },
+  { id: "create-task-sweep", category: "create", mode: "both", state: "treasury", text: "Have Autopilot sweep idle USDC above 1000 into the Galaxy vault, up to 100 at a time", expect: { assist: { kind: "create", feature: "autopilot-task", task: { kind: "sweep", keepUsd: "1000", amountUsd: "100" } } } },
+  { id: "create-task-dca-is-an-order", category: "create", mode: "both", state: "treasury", text: "Have Autopilot buy EURC with 50 USDC every week", expect: { assist: { kind: "create", feature: "autopilot-task", task: null, missing: "dca", optionsMatch: /^Buy EURC with 50 USDC every week/u } } },
+  { id: "answer-yields-eurc", category: "capabilities", mode: "both", state: "treasury", text: "Where can I earn on EURC?", expect: { assist: { kind: "yields", token: "EURC" } } },
+  { id: "answer-new-pools", category: "capabilities", mode: "both", state: "treasury", text: "What are the new pools on Arc?", expect: { assist: { kind: "pools" } } },
+  { id: "answer-perps", category: "capabilities", mode: "both", state: "treasury", text: "Show me the BTC perps funding rate", expect: { assist: { kind: "markets", market: "BTC" } } },
+  { id: "answer-not-stress", category: "capabilities", mode: "both", state: "treasury", text: "What if rates go up 1%?", expect: { assist: { kind: "offer", feature: "stress-test" } } },
   { id: "offer-not-watch", category: "proactive", mode: "both", state: "treasury", text: "Tell me if the Morpho rate falls below 4%", expect: { assist: false, watch: { kind: "apy-below" } } },
   { id: "clarify-bridge-chain", category: "clarify", mode: "both", state: "treasury", text: "Bridge 100 USDC", expect: { assist: { kind: "clarify", missing: "destination", optionsMatch: /^Bridge 100 USDC to (Base|Arbitrum|Ethereum|OP Mainnet)$/u } } },
   { id: "clarify-move-off-arc", category: "clarify", mode: "both", state: "treasury", text: "Move 200 USDC to another chain", expect: { assist: { kind: "clarify", missing: "destination", optionsMatch: /to Base$/u } } },

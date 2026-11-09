@@ -1,7 +1,9 @@
 # Security layer (`lykia.security/v1`)
 
-Lykia puts six checks between a plan and the owner's wallet. The **Security
-center** (`/app/security`) shows all six in one place. Every check follows three
+Lykia puts six checks between a plan and the owner's wallet. The owner sees
+them in the **Safety** section of the Fold's Fence tab (`/app/fold/fence#safety`:
+approvals, token checks and pauses; the old `/app/security` address redirects
+there), and the team in Letoon. Every check follows three
 rules:
 
 - **Fail closed.** An outflow the layer cannot explain is a block, never a
@@ -115,7 +117,7 @@ payment.
   zero in `security.cleanup`.
 - `GET /v1/security/approvals` reuses the stale-approval scanner. Every leftover
   allowance to a registry venue comes with a one-tap revoke, shown in the
-  Security center.
+  Fence tab's Safety section.
 - Permit and Permit2 approvals are reviewed with the same rules as `approve`.
 
 ## Layer 4: agent safety monitor and audit log

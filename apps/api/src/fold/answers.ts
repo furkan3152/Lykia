@@ -5,18 +5,17 @@
  * artifact (label, value, note per line) and written to the owner's shared
  * thread, so Ask Lyko sees the same conversation.
  */
-import { applyFoldShocks, describeShock, fenceForProfile, formatUsdMicros, isSampleOwner, NO_SHOCK, riskTierOf, usdMicros, type Address, type ArcEnvironment, type FoldShocks, type PositionsResponse, type ShockHolding } from "@lykia/core";
+import { ownerFence } from "../personal/fence.js";
+import { applyFoldShocks, describeShock, formatUsdMicros, isSampleOwner, NO_SHOCK, usdMicros, type Address, type ArcEnvironment, type FoldShocks, type PositionsResponse, type ShockHolding } from "@lykia/core";
 import type { BlockSource } from "@lykia/core/api/answer";
 import type { FoldAnswerResponse, FoldExplainArtifact, FoldQuestion, FoldWhatIfResponse } from "@lykia/core/api/fold";
 import type { AppContext } from "../context.js";
 import { appendMessages, openThread } from "../agents/memory.js";
 import { staleApprovals } from "../agents/insights.js";
-import { getProfile } from "../personal/profile.js";
 import { blockOf, isoOf } from "../agents/cards.js";
 import { healthFromPositions } from "./insights.js";
 import { instructionsFor } from "./instructions.js";
 import { foldPositions } from "./sample.js";
-import { getPreferences } from "./preferences.js";
 import { ownerIntents } from "./trails.js";
 
 const usd = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -29,8 +28,7 @@ const QUESTIONS: Readonly<Record<FoldQuestion, string>> = {
 };
 
 async function minHealth(ctx: AppContext, owner: Address): Promise<number> {
-  const [profile, prefs] = await Promise.all([getProfile(ctx, owner), getPreferences(ctx, owner)]);
-  return Number(fenceForProfile({ ...profile, risk: riskTierOf(prefs.risk) }).lending?.minHealthFactor ?? "1.2");
+  return Number((await ownerFence(ctx, owner)).lending?.minHealthFactor ?? "1.2");
 }
 
 /** The position map as shock inputs: every position that counts toward net worth, under its own label. */

@@ -1,5 +1,5 @@
 /** Owner profiles: stored per SIWE address, validated and versioned in the core. */
-import { DEFAULT_PROFILE, fenceForProfile, fromWebProfile, isWebProfile, mergeProfile, validateProfile, type Address, type LykiaProfile } from "@lykia/core";
+import { DEFAULT_PROFILE, FENCE_PRESET_LABEL, fenceForProfile, fromWebProfile, isWebProfile, mergeProfile, validateProfile, type Address, type LykiaProfile } from "@lykia/core";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { typedCollection } from "../platform/typed.js";
@@ -41,7 +41,7 @@ export async function resetProfile(ctx: AppContext, owner: Address): Promise<voi
 export function profileEffects(profile: LykiaProfile): string[] {
   const fence = fenceForProfile(profile);
   const out = [
-    `Default Fence: Shepherd with a ${fence.limits?.maxSlippageBps} bps slippage ceiling${profile.risk === "low" ? " and verified tokens only" : ""}.`,
+    `Default Fence: ${FENCE_PRESET_LABEL[profile.risk]} with a ${fence.limits?.maxSlippageBps} bps slippage ceiling${profile.risk === "low" ? " and verified tokens only" : ""}.`,
     `Routing risk ceiling: ${profile.risk}.`,
     `Amounts shown in ${profile.displayCurrency}; plans still settle in tokens.`,
     `Lyko replies in English (it reads any language), ${profile.persona.tone} and ${profile.persona.verbosity}.`,

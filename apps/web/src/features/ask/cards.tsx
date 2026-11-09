@@ -27,13 +27,14 @@ import { useStopAutopilot } from "../fold/autopilot/data";
 import { useEnvironment } from "../../lib/environment";
 import { STATE_COLOR, stateLabel } from "../fold/positionsModel";
 import { OrderReviewModal } from "../route/OrderReview";
+import { CreateCard } from "./createCards";
 import type { PositionState } from "@lykia/core";
 
 
 const fmt = (v: string | number, max = 4) => Number(v).toLocaleString("en-US", { maximumFractionDigits: max });
 const usd = (v: string) => `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-function CardShell({ kind, tone, kick, title, icon, children, className, from }: { readonly kind: string; readonly tone: "sea" | "ochre" | "terra" | "olive" | "navy"; readonly kick: string; readonly title: React.ReactNode; readonly icon?: React.ReactNode; readonly children: React.ReactNode; readonly className?: string; readonly from?: BlockSource | undefined }) {
+export function CardShell({ kind, tone, kick, title, icon, children, className, from }: { readonly kind: string; readonly tone: "sea" | "ochre" | "terra" | "olive" | "navy"; readonly kick: string; readonly title: React.ReactNode; readonly icon?: React.ReactNode; readonly children: React.ReactNode; readonly className?: string; readonly from?: BlockSource | undefined }) {
   return (
     <section className={cx("m-card2", className)} data-kind={kind} data-tone={tone}>
       <header className="m-card2__head">
@@ -325,11 +326,11 @@ const SHEEP = ["..cccc.....", ".cccccccckk", "cccccccckwk", "ccccccccckk", ".ccc
 
 
 
-const KIND_WORD: Readonly<Record<HerdItem["kind"], string>> = { alert: "BARK · ALERT", automation: "ROUND · AUTOMATION", order: "ORDER", watch: "WATCH · LYKO ON WATCH" };
+const KIND_WORD: Readonly<Record<HerdItem["kind"], string>> = { alert: "WATCH", automation: "AUTOMATION", order: "ORDER", watch: "WATCH" };
 
 export function HerdedCard({ items }: { readonly items: readonly HerdItem[] }) {
   const saved = items.filter((i) => i.saved).length;
-  const show = items.every((i) => i.kind === "alert") ? "alerts" : items.every((i) => i.kind === "order") ? "orders" : items.every((i) => i.kind === "watch") ? "watch" : "rounds";
+  const show = items.every((i) => i.kind === "alert" || i.kind === "watch") ? "watches" : items.every((i) => i.kind === "order") ? "orders" : "automations";
   return (
     <CardShell kind="herded" tone="olive" kick={saved === items.length ? "HERDED · IN YOUR FOLD" : saved > 0 ? "HERDED · SOME NEED YOU" : "DRAFTED · ONE STEP LEFT"} title={saved === items.length ? `${items.length === 1 ? "It's" : "They're"} in the Fold` : "Ready for your signature"}>
       <div className="m-herding" aria-hidden="true">
@@ -782,6 +783,6 @@ export function BlockCard({ block }: { readonly block: AnswerBlock }) {
     case "stress":
       return <StressCard block={block} />;
     default:
-      return null;
+      return <CreateCard block={block} />;
   }
 }

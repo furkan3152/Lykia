@@ -12,7 +12,7 @@ export function useLeashes(o: FoldOwner) {
     queryKey: ["leashes", o.address, o.environment, o.signedIn],
     enabled: Boolean(o.address && o.signedIn),
     refetchInterval: 30_000,
-    queryFn: ({ signal }) => apiGet<{ leashes: LeashView[] }>("/v1/leashes", { query: { owner: o.address, environment: o.environment }, signal, timeoutMs: 20_000 }),
+    queryFn: ({ signal }) => apiGet<{ leashes: LeashView[] }>("/v1/leashes", { query: { owner: o.address }, signal, timeoutMs: 20_000 }),
   });
   const [now] = useState(() => Date.now());
   const sample = useMemo(() => (o.sample ? { leashes: sampleLeashes(now) } : undefined), [o.sample, now]);

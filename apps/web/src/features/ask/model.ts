@@ -128,14 +128,16 @@ export function reduce(c: Conversation, e: ChatEvent): Conversation {
 /** A program view is shown only when its shape is sane and every link stays inside the app. */
 export function programViewOk(v: ChatProgramView): boolean {
   if (!v || typeof v.programHash !== "string" || !Array.isArray(v.scheduled) || !Array.isArray(v.assumptions)) return false;
-  return v.scheduled.every((s) => typeof s.href === "string" && /^\/app\/[a-z]+(?:\?draft=[A-Za-z0-9_-]+)?$/u.test(s.href));
+  return v.scheduled.every((s) => typeof s.href === "string" && IN_APP.test(s.href));
 }
 
-/** Only in-app links to the Alerts or Automations page are shown as buttons. */
+/** An in-app link: a page, optionally with one draft, filter or leash parameter. */
+const IN_APP = /^\/app(?:\/[a-z-]+){0,2}(?:\?(?:draft|show|leash)=[A-Za-z0-9_-]+)?$/u;
+
+/** Only in-app links are shown as buttons: Herding's Running list, or a draft link (it opens Ask Lyko with what it carried). */
 function draftLinkOk(d: ChatDraftLink): boolean {
   if (!d || (d.kind !== "alert" && d.kind !== "automation") || typeof d.href !== "string" || typeof d.label !== "string") return false;
-  const page = d.kind === "alert" ? "/app/alerts" : "/app/automations";
-  return d.href === page || (d.href.startsWith(`${page}?draft=`) && /^[A-Za-z0-9_-]+$/u.test(d.href.slice(page.length + 7)));
+  return IN_APP.test(d.href);
 }
 
 /** "Lyko on watch → Ask Lyko · plan": the compact line over a hand-off message. */

@@ -42,12 +42,12 @@ const QUICK = [
   { en: "Pay someone", q: "Pay 250 USDC to ", kick: "ARC MEMO · ONE TX", hint: "Name, address or @contact, an amount, a note" },
   { en: "Put idle USDC to work", q: "Put my idle USDC to work at low risk", kick: "EARN · MORPHO · AAVE V4", hint: "Keeps your liquidity floor in the wallet" },
   { en: "Hedge into EUR", q: "Convert 200 USDC to EURC", kick: "CONVERT · CHECKED RATE", hint: "Checked against the reference EUR rate" },
-  { en: "Set a rule", q: "Every Friday at 17:00, pay ", kick: "RUNS ON ITS OWN", hint: "Schedules, price triggers, alerts" },
+  { en: "Set something running", q: "Every Friday at 17:00, pay ", kick: "RUNS ON ITS OWN", hint: "Automations, orders, watches" },
   { en: "Give a bot a budget", q: "Give my bot $20 a day for 7 days to pay invoices", kick: "LEASH · A BUDGET FOR A BOT", hint: "A limit it cannot go past; stop it anytime" },
 ] as const;
 
 /** Example requests, sent as they are with one tap. */
-const EXAMPLES = ["What can you do?", "Where can I bridge USDC to?", "What if EURC drops 5%?", "My bot needs a budget", "Tell me if my health factor drops below 1.5", "Where is my money and what is it doing?"] as const;
+const EXAMPLES = ["What can you do?", "Where can I earn on EURC?", "Where can I bridge USDC to?", "What if EURC drops 5%?", "Tell me if my health factor drops below 1.5", "Where is my money and what is it doing?"] as const;
 
 export default function AskPage({ reviewId = null }: { readonly reviewId?: string | null } = {}) {
   const environment = useEnvironment();
@@ -67,8 +67,8 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const started = useRef(false);
 
-  // Without a wallet Lyko plans dry runs for a sample address, and says so.
-  const ctx = useMemo(() => ({ environment, fence, owner: address ?? SAMPLE_OWNER }), [environment, fence, address]);
+  // Without a wallet Lyko plans dry runs for a sample address, and says so. The Fence is the server's: never sent from here.
+  const ctx = useMemo(() => ({ environment, owner: address ?? SAMPLE_OWNER }), [environment, address]);
 
   useEffect(() => {
     if (started.current) return;

@@ -16,6 +16,8 @@ import { ORDER_KINDS } from "./orders.js";
 import { LYKIA_TERMS, readStressQuestion, type LykiaTerm } from "./plain.js";
 import { capableProtocols, PROTOCOLS, registryCoverage, type ProtocolDescriptor } from "./protocols.js";
 import type { StepKind } from "./intent.js";
+import type { PackRole } from "./pack.js";
+import type { AutopilotTaskInput } from "./autopilot.js";
 
 export const CAPABILITIES_SCHEMA = "lykia.capabilities/v1" as const;
 
@@ -104,15 +106,15 @@ const ACTION_ROWS: readonly { readonly id: string; readonly label: string; reado
 const FEATURES: readonly CapabilityFeature[] = [
   { id: "fence-presets", name: "Fence presets", plain: `${LYKIA_TERMS.fence.word} · ${LYKIA_TERMS.fence.plain}: Careful, Balanced or Bold, with a preview of what changes.`, when: "You want different limits, fewer questions, or more caution.", say: "Make my Fence more careful", href: "/app/fold/fence" },
   { id: "stress-test", name: "Stress test", plain: "What happens to your holdings and loans if a price drops or rates move.", when: "You ask \"what if\" about EURC, Bitcoin or rates.", say: "What if EURC drops 5%?", href: "/app/fold/flock" },
-  { id: "leash", name: "Leash", plain: `${LYKIA_TERMS.leash.word} · ${LYKIA_TERMS.leash.plain}: per step, per day and in total, until a date, only to payees you name.`, when: "A bot or an outside agent needs money to spend on its own.", say: "Give my bot $20 a day for a week", href: "/app/fold/pack" },
-  { id: "watch", name: "Watch", plain: "Lyko on watch keeps an eye on a position and tells you when something happens.", when: "You say \"tell me if\" or \"keep an eye on\".", say: "Tell me if my health factor drops below 1.5", href: "/app/fold/herding?show=watch" },
+  { id: "leash", name: "Leash", plain: `${LYKIA_TERMS.leash.word} · ${LYKIA_TERMS.leash.plain}: per step, per day and in total, until a date, only to payees you name. An agent is what holds a leash.`, when: "A bot or an outside agent needs money to spend on its own.", say: "Give my bot $20 a day for a week", href: "/app/fold/pack" },
+  { id: "watch", name: "Watch", plain: "A watch keeps an eye on a price, a position or a transfer and tells you in-app, by webhook or on Telegram. It never moves money.", when: "You say \"tell me if\" or \"keep an eye on\".", say: "Tell me if my health factor drops below 1.5", href: "/app/fold/herding?show=watches" },
   { id: "staged-plans", name: "Step-by-step plans", plain: "A plan with several steps is signed one step at a time; each next step is rebuilt from what actually arrived.", when: "A request has several moves, like swap then deposit.", say: "Swap 500 USDC to EURC, then deposit it into Morpho", href: "/app" },
   { id: "whistle", name: "Whistle", plain: `${LYKIA_TERMS.whistle.word} · ${LYKIA_TERMS.whistle.plain}: every agent and every new move stops at once. Money coming home still passes.`, when: "Something looks wrong and you want everything to stop.", say: "Blow the whistle", href: "/app/fold/fence" },
   { id: "autopilot", name: "Autopilot", plain: "Lyko signs your own automations (auto-repay, DCA, sweeping idle USDC, recurring payments) inside a leash on your LykiaAccount, at most $100 a step and $300 a day in beta. Off until you turn it on; Stop ends it at once.", when: "You want repeats to run without signing each one.", say: "Turn on Autopilot", href: "/app/fold/pack" },
   { id: "orders", name: "Orders", plain: `Limit, stop-loss, take-profit, DCA and TWAP orders, signed once and filled on chain within your limits (${ORDER_KINDS.join(", ")}).`, when: "You want to buy or sell when a price is reached, or spread a buy over time.", say: "Buy EURC when EUR/USD is below 1.09", href: "/app/fold/herding?show=orders" },
-  { id: "alerts", name: "Alerts", plain: "A message when a price crosses a level, a loan gets riskier, or money moves.", when: "You only want to be told, not to move anything.", say: "Alert me if cirBTC falls below 60000", href: "/app/alerts" },
-  { id: "automations", name: "Recurring rules", plain: "A sentence Lyko plans again on a schedule or a trigger; each run is a proposal you sign.", when: "Something should happen every week or every month.", say: "Every Friday at 17:00, sweep USDC above 1000 into a vault", href: "/app/automations" },
-  { id: "payouts", name: "Payouts and invoices", plain: "Pay several people at once, or send an invoice someone pays with one link.", when: "You pay a team, contractors or customers.", say: "Pay 50 USDC each to 0x… and 0x… on the 1st of every month", href: "/app/pay" },
+  { id: "alerts", name: "Watch with a channel", plain: "A watch delivered by webhook or Telegram when a price crosses a level, a loan gets riskier, or money moves.", when: "You only want to be told, not to move anything.", say: "Tell me on Telegram if cirBTC falls below 60000", href: "/app/fold/herding?show=watches" },
+  { id: "automations", name: "Automations", plain: "A sentence Lyko plans again on a schedule or a trigger; you sign each run, or Autopilot signs it inside its limits.", when: "Something should happen every week or every month.", say: "Every Friday at 17:00, sweep USDC above 1000 into a vault", href: "/app/fold/herding?show=automations" },
+  { id: "payouts", name: "Payouts and invoices", plain: "Pay several people at once, or send an invoice someone pays with one link.", when: "You pay a team, contractors or customers.", say: "Pay 50 USDC each to 0x… and 0x… on the 1st of every month", href: "/app/fold/herding?show=payments" },
 ];
 
 function venueOf(p: ProtocolDescriptor): CapabilityVenue {
@@ -201,7 +203,20 @@ export type AssistReading =
   /** A feature that fits the words: offered with a sentence that starts it. */
   | { readonly kind: "offer"; readonly feature: CapabilityFeature["id"]; readonly reason: string; readonly options: readonly string[] }
   /** Something essential is missing: one question, options from the map. */
-  | { readonly kind: "clarify"; readonly missing: "destination" | "amount" | "position" | "recipient"; readonly question: string; readonly options: readonly string[] };
+  | { readonly kind: "clarify"; readonly missing: "destination" | "amount" | "position" | "recipient"; readonly question: string; readonly options: readonly string[] }
+  /** "Where can I earn on EURC?": live rates for one token, ranked (the answer Pastures used to be). */
+  | { readonly kind: "yields"; readonly token: "USDC" | "EURC" }
+  /** "What are the new pools on Arc?": new pools with each token's check (the answer Discover used to be). */
+  | { readonly kind: "pools" }
+  /** "Show me the perps markets": price, funding and open interest (the answer Markets used to be). */
+  | { readonly kind: "markets"; readonly market: string | null }
+  /** Something to start: an agent on a leash, Autopilot, or an Autopilot task. Every figure is the owner's, or the turn asks with options. */
+  | CreateReading;
+
+export type CreateReading =
+  | { readonly kind: "create"; readonly feature: "agent"; readonly name: string; readonly role: PackRole; readonly dailyUsd: string | null; readonly options: readonly string[] }
+  | { readonly kind: "create"; readonly feature: "autopilot"; readonly perStepUsd: string | null; readonly perDayUsd: string | null; readonly days: number | null; readonly options: readonly string[] }
+  | { readonly kind: "create"; readonly feature: "autopilot-task"; readonly task: AutopilotTaskInput | null; readonly missing: string | null; readonly options: readonly string[] };
 
 const ACTION_WORDS: readonly [RegExp, string][] = [
   [/\b(lend|lending|supply|earn|yield|deposit|vaults?)\b/u, "earn"],
@@ -236,6 +251,18 @@ export function readAssist(text: string, map: CapabilityMap): AssistReading | nu
     if (key in LYKIA_TERMS) return { kind: "explain", term: key };
   }
 
+  // The pages that became answers: yields, new pools, perps markets.
+  if ((question || /^(show|list|give)\b/u.test(t)) && !readStressQuestion(t) && !/\b(my|mine|i have|i hold)\b/u.test(t)) {
+    if (/\b(perps?|perpetuals?|funding rates?|open interest)\b/u.test(t)) {
+      const m = t.match(/\b(btc|eth|sol|bitcoin|ether)\b/u)?.[1] ?? null;
+      return { kind: "markets", market: m ? ({ bitcoin: "BTC", ether: "ETH" } as Record<string, string>)[m] ?? m.toUpperCase() : null };
+    }
+    if (/\b(earn|yield|yields|apy|rates?|interest|pastures?)\b/u.test(t) && /\b(where|which|best|show|what|list|rates?)\b/u.test(t) && !AMOUNT.test(t)) {
+      return { kind: "yields", token: /\beurc\b/u.test(t) ? "EURC" : "USDC" };
+    }
+    if (/\bnew (pools?|tokens?|launch(es)?)\b|\blaunchpads?\b|\bwhat(?:'s| is) new on arc\b/u.test(t)) return { kind: "pools" };
+  }
+
   // Capability questions.
   if (/\b(what can you do|what do you do|what are you able|your (features|capabilities)|help me get started|what can lyko do|what can lykia do)\b/u.test(t)) return { kind: "capabilities", topic: "all" };
   if (question && /\bbridge|move .* to (another|other) chain|which chains?|what chains?\b/u.test(t) && /\b(where|which|what|can i)\b/u.test(t) && !AMOUNT.test(t)) {
@@ -246,6 +273,10 @@ export function readAssist(text: string, map: CapabilityMap): AssistReading | nu
     const hit = ACTION_WORDS.find(([re]) => re.test(t));
     if (hit && map.actions.some((a) => a.id === hit[1])) return { kind: "venues-for", action: hit[1] };
   }
+
+  // Starting things: an agent on a leash, Autopilot, an Autopilot task.
+  const create = readCreate(t, text);
+  if (create) return create;
 
   // Watches and alerts have their own reader ("tell me if", "keep an eye on").
   if (/\b(tell me|let me know|alert me|notify me|warn me|keep an eye|watch)\b/u.test(t)) return null;
@@ -273,6 +304,83 @@ export function readAssist(text: string, map: CapabilityMap): AssistReading | nu
     const rest = base.slice(verb.length).trim();
     const amounts = ["50", "100", "500"];
     return { kind: "clarify", missing: "amount", question: `How much should I ${verb}?`, options: amounts.map((a) => `${verb.charAt(0).toUpperCase()}${verb.slice(1)} ${a} USDC${rest ? ` ${rest.replace(/^usdc\s*/iu, "")}` : ""}`.trim()) };
+  }
+  return null;
+}
+
+const ROLE_WORDS: readonly [RegExp, PackRole, string][] = [
+  [/\bpayroll\b/u, "payroll", "Payroll"],
+  [/\b(treasur(y|er))\b/u, "treasurer", "Treasurer"],
+  [/\b(fx|hedg(e|er|ing)|currency)\b/u, "fx-hedger", "FX hedger"],
+  [/\b(yield|earn(ing)?|vault)\b/u, "yield-keeper", "Yield keeper"],
+  [/\b(bills?|invoices?)\b/u, "bill-payer", "Bill payer"],
+  [/\b(sentinel|guard|security)\b/u, "sentinel", "Sentinel"],
+  [/\b(research(er)?)\b/u, "researcher", "Researcher"],
+];
+
+/** A USD figure written next to a period word ("$500 a day", "500 USDC daily", "daily budget of 500"). */
+function usdPer(t: string, period: "day" | "step"): string | null {
+  const unit = period === "day" ? "(?:a|per|each|every)\\s+day|daily|/\\s*day" : "(?:a|per|each)\\s+(?:step|move|run|go)|per\\s+transaction";
+  const after = new RegExp(`\\$?\\s?(\\d{1,9}(?:\\.\\d{1,2})?)\\s*(?:usdc|usd|dollars?)?\\s*(?:${unit})`, "u").exec(t);
+  if (after) return after[1]!;
+  const before = new RegExp(`(?:${period === "day" ? "daily (?:budget|cap|limit)" : "(?:step|per-step) (?:cap|limit)"})\\s*(?:of)?\\s*\\$?\\s?(\\d{1,9}(?:\\.\\d{1,2})?)`, "u").exec(t);
+  if (before) return before[1]!;
+  if (period === "day") {
+    const daily = /\$?\s?(\d{1,9}(?:\.\d{1,2})?)\s*(?:usdc|usd|dollars?)?\s+daily\b/u.exec(t);
+    if (daily) return daily[1]!;
+  }
+  return null;
+}
+
+/** Reads a request to start an agent, Autopilot or an Autopilot task. Pure; the figures are only ever the owner's own. */
+export function readCreate(t: string, original: string): CreateReading | null {
+  void original;
+  // An agent (it holds a leash): "create a payroll agent with a 500 USDC daily budget".
+  if (/\b(create|make|spin up|set up|start|new|add|hire)\b.*\b(agent|bot)\b/u.test(t) && !/\b(needs?|wants?)\b/u.test(t) && !/\b(leash|autopilot)\b/u.test(t)) {
+    const hit = ROLE_WORDS.find(([re]) => re.test(t));
+    const role: PackRole = hit?.[1] ?? "custom";
+    const name = hit?.[2] ?? "Helper";
+    const dailyUsd = usdPer(t, "day") ?? (/\bbudget\b/u.test(t) ? (/\$?\s?(\d{1,9}(?:\.\d{1,2})?)\s*(?:usdc|usd|dollars?|\$)?/u.exec(t.replace(/^.*?\bbudget\b/u, ""))?.[1] ?? null) : null);
+    const base = `Create a ${name.toLowerCase()} agent`;
+    return { kind: "create", feature: "agent", name, role, dailyUsd, options: dailyUsd ? [] : [`${base} with a $100 daily budget`, `${base} with a $250 daily budget`, `${base} with a $500 daily budget`] };
+  }
+  // Autopilot: "turn on Autopilot with $50 a step and $150 a day for 30 days".
+  if (/\b(turn on|switch on|enable|start|set up)\b.*\bautopilot\b|\bautopilot\b.*\b(on|up)\b\s*$/u.test(t) && !/\b(off|stop|pause)\b/u.test(t)) {
+    const perStepUsd = usdPer(t, "step");
+    const perDayUsd = usdPer(t, "day");
+    const daysHit = /\bfor\s+(\d{1,3})\s+days?\b|\bfor\s+a\s+(week|month)\b/u.exec(t);
+    const days = daysHit ? (daysHit[1] ? Number(daysHit[1]) : daysHit[2] === "week" ? 7 : 30) : null;
+    const ready = perStepUsd !== null && perDayUsd !== null && days !== null;
+    return { kind: "create", feature: "autopilot", perStepUsd, perDayUsd, days, options: ready ? [] : ["Turn on Autopilot with $25 a step and $75 a day for 30 days", "Turn on Autopilot with $50 a step and $150 a day for 30 days", "Turn on Autopilot with $100 a step and $300 a day for 30 days"] };
+  }
+  // An Autopilot task: "have Autopilot repay 50 USDC on Aave when health drops below 1.5".
+  if (/\bautopilot\b/u.test(t) && /\b(add|task|have|let|make|tell)\b/u.test(t) && !/\b(off|stop|pause|turn on|switch on|enable)\b/u.test(t)) {
+    const amount = /\$?\s?(\d{1,9}(?:\.\d{1,2})?)\s*(?:usdc|usd|dollars?)\b|\$\s?(\d{1,9}(?:\.\d{1,2})?)/u.exec(t);
+    const amountUsd = amount ? (amount[1] ?? amount[2] ?? null) : null;
+    const every = /\b(daily|every day|each day)\b/u.test(t) ? "day" : /\b(weekly|every week|each week)\b/u.test(t) ? "week" : /\b(monthly|every month|each month)\b/u.test(t) ? "month" : null;
+    if (/\brepay\b/u.test(t)) {
+      const floor = /\b(?:health|hf)\b[^\d]{0,30}(\d(?:\.\d{1,2})?)/u.exec(t)?.[1] ?? null;
+      const missing = !amountUsd ? "amount" : !floor ? "floor" : null;
+      return { kind: "create", feature: "autopilot-task", task: missing ? null : { kind: "repay", amountUsd: amountUsd!, floor: floor! }, missing, options: missing === "amount" ? ["Have Autopilot repay 25 USDC on Aave when health drops below 1.5", "Have Autopilot repay 50 USDC on Aave when health drops below 1.5"] : missing === "floor" ? [`Have Autopilot repay ${amountUsd} USDC on Aave when health drops below 1.5`, `Have Autopilot repay ${amountUsd} USDC on Aave when health drops below 1.3`] : [] };
+    }
+    if (/\b(sweep|idle)\b/u.test(t)) {
+      const keep = /\b(?:above|over|keep(?:ing)?)\s*\$?\s?(\d{1,9}(?:\.\d{1,2})?)/u.exec(t)?.[1] ?? null;
+      const up = /\bup to\s*\$?\s?(\d{1,9}(?:\.\d{1,2})?)/u.exec(t)?.[1] ?? null;
+      const vault = /\binto\s+(?:the\s+)?([a-z][a-z0-9 .'-]{1,40}?)(?:\s+vault)?(?:,|\.|$|\s+up to|\s+when|\s+every)/u.exec(t)?.[1]?.trim() ?? null;
+      const missing = !keep ? "keep" : !up ? "amount" : !vault ? "vault" : null;
+      const say = (k: string, a: string) => `Have Autopilot sweep idle USDC above ${k} into the Galaxy vault, up to ${a} at a time`;
+      return { kind: "create", feature: "autopilot-task", task: missing ? null : { kind: "sweep", keepUsd: keep!, amountUsd: up!, vault: vault!.replace(/\b\w/gu, (c) => c.toUpperCase()) }, missing, options: missing ? [say(keep ?? "500", up ?? "100"), say(keep ?? "1000", up ?? "100")] : [] };
+    }
+    if (/\b(pay|send)\b/u.test(t)) {
+      const payee = /0x[0-9a-f]{40}/u.exec(t)?.[0] ?? null;
+      const missing = !amountUsd ? "amount" : !payee ? "payee" : !every ? "every" : null;
+      return { kind: "create", feature: "autopilot-task", task: missing ? null : { kind: "pay", amountUsd: amountUsd!, every: every!, payee: payee as `0x${string}` }, missing, options: missing === "every" ? ["every day", "every week", "every month"].map((e) => `${original.trim().replace(/[.?!]+$/u, "")} ${e}`) : [] };
+    }
+    if (/\b(dca|buy|convert)\b/u.test(t)) {
+      // DCA has one engine: LykiaOrders. Autopilot no longer takes new DCA tasks.
+      return { kind: "create", feature: "autopilot-task", task: null, missing: "dca", options: [4, 8].map((n) => `Buy EURC with ${amountUsd ?? "50"} USDC every ${every ?? "week"} for ${n} ${every ?? "week"}s`) };
+    }
+    return { kind: "create", feature: "autopilot-task", task: null, missing: "kind", options: ["Have Autopilot repay 50 USDC on Aave when health drops below 1.5", "Have Autopilot sweep idle USDC above 1000 into the Galaxy vault, up to 100 at a time", "Have Autopilot pay 25 USDC to 0x… every week"] };
   }
   return null;
 }

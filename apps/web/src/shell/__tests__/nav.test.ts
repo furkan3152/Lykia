@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { encodeDraft } from "@lykia/core";
 import { describe, it } from "node:test";
 
 import { aliasTarget, askWith, legacyDecision, forgeSectionFor } from "../../app/routes/aliases";
@@ -71,7 +72,7 @@ describe("navigation structure", () => {
   it("finds the area and tabs for a route", () => {
     assert.equal(areaOf("outrun")?.id, "ask");
     assert.equal(areaOf("fold")?.id, "fold");
-    assert.equal(areaOf("pack")?.id, "fold", "an agent's own page lives in the Fold");
+    assert.equal(areaOf("pack"), null, "the old Pack page redirects to the Fold");
     assert.equal(areaOf("scent")?.id, "fold");
     assert.equal(areaOf("city")?.id, "forge");
     assert.equal(areaOf("letoon"), null);
@@ -113,8 +114,8 @@ describe("old addresses", () => {
     assert.deepEqual(link, { kind: "redirect", to: askWith("Pay 25 EURC to 0x4100000000000000000000000000000000000009") }, "a shared pay link keeps its recipient and amount");
     assert.equal(decodeURIComponent(askWith("Pay 5 USDC").split("=")[1]!), "Pay 5 USDC");
     assert.deepEqual(legacyDecision("orders", {}), { kind: "redirect", to: "/app/fold/herding?show=orders" });
-    assert.deepEqual(legacyDecision("alerts", {}), { kind: "redirect", to: "/app/fold/herding?show=alerts" });
-    assert.deepEqual(legacyDecision("automations", {}), { kind: "redirect", to: "/app/fold/herding?show=rounds" });
+    assert.deepEqual(legacyDecision("alerts", {}), { kind: "redirect", to: "/app/fold/herding?show=watches" });
+    assert.deepEqual(legacyDecision("automations", {}), { kind: "redirect", to: "/app/fold/herding?show=automations" });
     assert.deepEqual(legacyDecision("activity", {}), { kind: "redirect", to: "/app/fold/trails" });
     assert.deepEqual(legacyDecision("whatif", {}), { kind: "redirect", to: "/app/fold/flock?whatif=1" });
     assert.deepEqual(legacyDecision("fence", {}), { kind: "redirect", to: "/app/fold/fence" });
@@ -124,11 +125,20 @@ describe("old addresses", () => {
     assert.deepEqual(legacyDecision("memory", {}), { kind: "redirect", to: "/app/you?tab=memory" });
   });
 
-  it("keeps the form only as the edit-the-details step of a draft, and an agent's own page", () => {
-    assert.deepEqual(legacyDecision("alerts", {}, "?draft=eyJ"), { kind: "page" });
-    assert.deepEqual(legacyDecision("automations", {}, "?draft=eyJ"), { kind: "page" });
-    assert.deepEqual(legacyDecision("fence", {}, "?edit=1"), { kind: "page" });
-    assert.deepEqual(legacyDecision("pack", { id: "agt_123" }), { kind: "page" });
+  it("retires every form page: drafts and edits open Ask Lyko, and the pages that became answers ask their question", () => {
+    const alertDraft = `?draft=${encodeDraft({ kind: "price-below", token: "EURC", threshold: "1.05", channels: ["telegram"] })}`;
+    assert.deepEqual(legacyDecision("alerts", {}, alertDraft), { kind: "redirect", to: askWith("Watch EURC below $1.05 and tell me on Telegram") });
+    const autoDraft = `?draft=${encodeDraft({ name: "Friday sweep", trigger: { type: "schedule", every: "week", weekday: "fri", at: "17:00", timezone: "UTC" }, action: { type: "plan", sentence: "keep 1 USDC liquid and earn the rest" } })}`;
+    const auto = legacyDecision("automations", {}, autoDraft);
+    assert.match(decodeURIComponent(auto.to), /keep 1 USDC liquid and earn the rest$/u);
+    assert.deepEqual(legacyDecision("automations", {}, "?draft=eyJ"), { kind: "redirect", to: askWith("Every ") }, "a draft that does not decode still lands in Ask");
+    assert.deepEqual(legacyDecision("orders", {}, "?edit=0xabc"), { kind: "redirect", to: askWith("Change my order 0xabc: ") });
+    assert.deepEqual(legacyDecision("fence", {}, "?edit=1"), { kind: "redirect", to: askWith("Change my Fence: ") });
+    assert.deepEqual(legacyDecision("pack", { id: "agt_123" }), { kind: "redirect", to: "/app/fold/pack" });
+    assert.deepEqual(legacyDecision("security", {}), { kind: "redirect", to: "/app/fold/fence#safety" });
+    assert.deepEqual(legacyDecision("pastures", {}), { kind: "redirect", to: askWith("Where can I earn on USDC?") });
+    assert.deepEqual(legacyDecision("discover", {}), { kind: "redirect", to: askWith("What are the new pools on Arc?") });
+    assert.deepEqual(legacyDecision("markets", {}), { kind: "redirect", to: askWith("Show me the perps markets") });
     assert.deepEqual(legacyDecision("move", { tab: "swap" }, "?draft=1"), { kind: "redirect", to: askWith("Convert ") }, "moving money always goes through Lyko");
     for (const id of REDIRECTED) assert.ok(matchRoute(ROUTES[id].pattern.replace(/\/:[a-z]+\?/giu, "")).route.id === id, `${id} still matches its old address`);
   });

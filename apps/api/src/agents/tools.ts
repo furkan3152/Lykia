@@ -64,7 +64,8 @@ import type { LlmTool } from "./llm.js";
 import { foldPositions, foldSnapshot } from "../fold/sample.js";
 import { foldInsights } from "../fold/insights.js";
 import { createWatch, listInstructions } from "./instructions.js";
-import { WATCH_KINDS, type PlanPayload, type WatchCondition, type WatchPayload } from "@lykia/core";
+import { AUTOPILOT_BETA, WATCH_KINDS, type AutopilotTaskInput, type PlanPayload, type WatchCondition, type WatchPayload } from "@lykia/core";
+import { agentDraft, autopilotDraft, autopilotTaskDraft, leashDraftBlock, yieldsCard } from "./create.js";
 
 export interface ActingAgent {
   readonly name: string;
@@ -439,8 +440,8 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
       if (!who) return { summary: "Watch not saved: the owner is not signed in", data: { saved: false, condition, next: "Nothing was saved: this chat has not proven control of the owner's address. The owner signs in with the wallet (one message, no transaction) and asks again." } };
       const made = await createWatch(tc.ctx, { owner: who.owner, environment: tc.environment, condition, threadId: tc.threadId ?? null });
       const label = (made.payload as WatchPayload).label;
-      tc.blocks?.push({ kind: "herded", items: [{ kind: "watch", label, saved: true, href: "/app/fold/herding?show=watch", next: "Lyko on watch checks it each time it reads your Fold" }] });
-      return { summary: `Handed to Lyko on watch: ${label}`, data: { saved: true, id: made.id, label, status: made.status, manage: "/app/fold/herding?show=watch" } };
+      tc.blocks?.push({ kind: "herded", items: [{ kind: "watch", label, saved: true, href: "/app/fold/herding?show=watches", next: "Lyko on watch checks it each time it reads your Fold" }] });
+      return { summary: `Handed to Lyko on watch: ${label}`, data: { saved: true, id: made.id, label, status: made.status, manage: "/app/fold/herding?show=watches" } };
     },
   }),
   spec({
@@ -482,7 +483,7 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
       ["kind"],
     ),
     async run(input: { kind: AlertKind; token?: string; threshold?: string; channels?: AlertChannel[]; cooldownSeconds?: number }, tc) {
-      if (!ok(tc, input.threshold)) return askOwner(tc, input.kind.startsWith("price-") ? `At what ${input.token ?? "EURC"} price should the alert bark?` : input.kind === "health-below" ? "Below which health factor should the alert bark?" : "From how many tokens should the alert bark?", ["Let me type a number"], `The threshold ${input.threshold} was not stated.`);
+      if (!ok(tc, input.threshold)) return askOwner(tc, input.kind.startsWith("price-") ? `At what ${input.token ?? "EURC"} price should the watch tell you?` : input.kind === "health-below" ? "Below which health factor should the watch tell you?" : "From how many tokens should the watch tell you?", ["Let me type a number"], `The threshold ${input.threshold} was not stated.`);
       const issue = alertInputIssue({ environment: tc.environment, kind: input.kind, ...(input.token ? { token: input.token } : {}), ...(input.threshold ? { threshold: input.threshold } : {}) });
       if (issue) throw new Error(issue);
       const usesToken = input.kind.startsWith("price-") || input.kind.startsWith("transfer-");
@@ -503,8 +504,8 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
         return { summary: `Alert drafted (not saved): ${described}`, data: { saved: false, alert: draft, description: described, link, next: SIGN_IN_NOTE } };
       }
       const rule = await alertsService(tc.ctx).create({ owner: who.owner, environment: tc.environment, ...draft });
-      tc.drafts?.push({ kind: "alert", saved: true, label: described, href: "/app/alerts" });
-      return { summary: `Alert armed: ${described}`, data: { saved: true, id: rule.id, description: described, channels: rule.channels, cooldownSeconds: rule.cooldownSeconds, manage: "/app/alerts" } };
+      tc.drafts?.push({ kind: "alert", saved: true, label: described, href: "/app/fold/herding?show=watches" });
+      return { summary: `Alert armed: ${described}`, data: { saved: true, id: rule.id, description: described, channels: rule.channels, cooldownSeconds: rule.cooldownSeconds, manage: "/app/fold/herding?show=watches" } };
     },
   }),
   spec({
@@ -582,10 +583,10 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
         { developer: who.actor.developer, project: null, via: who.actor.via, consentProject: who.actor.projectId ?? null },
         { owner: who.owner, name: input.name, environment: tc.environment, trigger, action: input.action, fence: tc.agent.fence, ...(input.maxFiresPerDay ? { maxFiresPerDay: input.maxFiresPerDay } : {}) },
       );
-      tc.drafts?.push({ kind: "automation", saved: true, label: input.name, href: "/app/automations", next: when.slice(0, 80) });
+      tc.drafts?.push({ kind: "automation", saved: true, label: input.name, href: "/app/fold/herding?show=automations", next: when.slice(0, 80) });
       return {
         summary: `Automation saved (${saved.status}): ${when}, ${what}`,
-        data: { saved: true, id: saved.id, status: saved.status, trigger: when, action: what, fence: tc.agent.fence.label ?? "custom", next: "Each fire is checked against the Fence and arrives as a proposal the owner signs; nothing moves on its own. Pause or delete it on the Automations page.", manage: "/app/automations" },
+        data: { saved: true, id: saved.id, status: saved.status, trigger: when, action: what, fence: tc.agent.fence.label ?? "custom", next: "Each fire is checked against the Fence and arrives as a proposal the owner signs; nothing moves on its own. Pause it in the Fold's Running list; change it in Ask.", manage: "/app/fold/herding?show=automations" },
       };
     },
   }),
@@ -683,6 +684,117 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
       const fees = intent.steps.flatMap((st) => (st.fee ? [{ step: st.id, fee: `${fromBaseUnits(st.fee.amount, st.fee.decimals)} ${st.fee.symbol}`, bps: st.fee.bps, basis: FEE_BASIS[st.fee.basis] }] : []));
       const compared = intent.steps.map((st) => st.route?.reason).filter((r): r is string => Boolean(r));
       return { summary: `Planned (${intent.verdict.decision}): ${proposal.steps.join(" → ")}`, data: { intentId: proposal.intentId, steps: proposal.steps, decision: proposal.decision, reasons: proposal.reasons, warnings: proposal.warnings, ...(notes.length > 0 ? { grounding: notes } : {}), ...(routeLine ? { route: routeLine } : {}), ...(compared.length > 0 ? { why: compared } : {}), ...(fees.length > 0 ? { lykiaFees: fees } : {}) } };
+    },
+  }),
+  spec({
+    name: "create_leash",
+    description:
+      "Draft a leash for an outside bot or agent: its name, what it is for (pay-invoices, trade-small or earn), a daily budget, optional most-in-one-step, how many days, the payees it may pay, and where it spends from (arc: your LykiaAccount; gateway: your Gateway balance through your LykiaStile). Every figure must be the owner's own: when one is missing the owner gets a question with options. Nothing is created here: the chat shows a leash card that opens the review sheet, where the owner checks it, gets the key and signs the session once.",
+    capability: "propose",
+    schema: z
+      .object({
+        name: z.string().min(1).max(48),
+        template: z.enum(["pay-invoices", "trade-small", "earn"]),
+        perDayUsd: decimal.optional(),
+        perStepUsd: decimal.optional(),
+        days: z.number().int().min(1).max(90).optional(),
+        recipients: z.array(address).max(20).optional(),
+        spendFrom: z.enum(["arc", "gateway"]).optional(),
+      })
+      .strict(),
+    json: obj(
+      {
+        name: { type: "string", maxLength: 48, description: "Who holds the leash, e.g. \"Invoice bot\"" },
+        template: { type: "string", enum: ["pay-invoices", "trade-small", "earn"] },
+        perDayUsd: { type: "string", description: "USD a day, the owner's own figure" },
+        perStepUsd: { type: "string", description: "Optional: most in one step" },
+        days: { type: "integer", minimum: 1, maximum: 90 },
+        recipients: { type: "array", items: { type: "string" }, maxItems: 20, description: "pay-invoices: the payees the owner named" },
+        spendFrom: { type: "string", enum: ["arc", "gateway"], description: "gateway: the owner's Gateway balance through LykiaStile (the Stile option)" },
+      },
+      ["name", "template"],
+    ),
+    async run(input: { name: string; template: "pay-invoices" | "trade-small" | "earn"; perDayUsd?: string; perStepUsd?: string; days?: number; recipients?: string[]; spendFrom?: "arc" | "gateway" }, tc) {
+      const days = input.days !== undefined && ok(tc, input.days) ? input.days : null;
+      const perDay = input.perDayUsd !== undefined && ok(tc, input.perDayUsd) ? input.perDayUsd : null;
+      const perStep = input.perStepUsd !== undefined && ok(tc, input.perStepUsd) ? input.perStepUsd : null;
+      for (const r of input.recipients ?? []) if (tc.ground && !tc.ground.ownerText.toLowerCase().includes(r.toLowerCase()) && !tc.ground.toolAddresses.has(r.toLowerCase())) return askOwner(tc, `Who may ${input.name} pay? Paste the addresses.`, [], `The payee ${r} was not given by the owner.`);
+      const drafted = leashDraftBlock({ name: input.name, template: input.template, perDayUsd: perDay, perStepUsd: perStep, days, ...(input.recipients ? { recipients: input.recipients } : {}), ...(input.spendFrom ? { spendFrom: input.spendFrom } : {}) });
+      if (!drafted.ok) return askOwner(tc, drafted.question, drafted.options, drafted.reason);
+      tc.blocks?.push(drafted.block);
+      return { summary: `Leash drafted: ${drafted.summary}`, data: { drafted: drafted.summary, next: "The leash card in this chat opens the review: the owner checks it, gets the leash key once and signs the session. Nothing exists until then." } };
+    },
+  }),
+  spec({
+    name: "turn_on_autopilot",
+    description: `Draft Autopilot: Lyko signs the owner's own automations inside a leash on the owner's LykiaAccount. Limits: per step and per day in USD (at most $${AUTOPILOT_BETA.perStepUsd} and $${AUTOPILOT_BETA.perDayUsd} in beta) and days (1 to 30), plus the payees it may pay. Every limit must be the owner's own; otherwise the owner gets a question with options. Nothing is turned on here: the chat shows an Autopilot card that opens the review (read what it holds, accept, sign once).`,
+    capability: "propose",
+    schema: z.object({ perStepUsd: decimal.optional(), perDayUsd: decimal.optional(), days: z.number().int().min(1).max(30).optional(), payees: z.array(address).max(10).optional() }).strict(),
+    json: obj({ perStepUsd: { type: "string" }, perDayUsd: { type: "string" }, days: { type: "integer", minimum: 1, maximum: 30 }, payees: { type: "array", items: { type: "string" }, maxItems: 10 } }),
+    async run(input: { perStepUsd?: string; perDayUsd?: string; days?: number; payees?: string[] }, tc) {
+      const pick = <T extends string | number>(v: T | undefined) => (v !== undefined && ok(tc, v) ? v : null);
+      for (const p of input.payees ?? []) if (tc.ground && !tc.ground.ownerText.toLowerCase().includes(p.toLowerCase())) return askOwner(tc, "Who may Autopilot pay? Paste the addresses.", [], `The payee ${p} was not given by the owner.`);
+      const drafted = autopilotDraft({ perStepUsd: pick(input.perStepUsd), perDayUsd: pick(input.perDayUsd), days: pick(input.days), payees: input.payees ?? [], environment: tc.environment });
+      if (!drafted.ok) return askOwner(tc, drafted.question, drafted.options, drafted.reason);
+      tc.blocks?.push(drafted.block);
+      return { summary: drafted.summary, data: { drafted: drafted.summary, next: "The Autopilot card in this chat opens the review: the owner reads what it holds, accepts and signs its session once." } };
+    },
+  }),
+  spec({
+    name: "add_autopilot_task",
+    description: "Draft an automation Autopilot signs: repay (amountUsd, floor = health factor, Aave), sweep (keepUsd stays in the account, amountUsd at most per run, vault name) or pay (amountUsd, every day/week/month, payee named when Autopilot was turned on). DCA is not an Autopilot task: use draft_order with kind dca. Every figure must be the owner's own. Nothing is added here: the chat shows a card the owner confirms.",
+    capability: "propose",
+    schema: z
+      .object({
+        kind: z.enum(["repay", "sweep", "pay"]),
+        amountUsd: decimal,
+        floor: decimal.optional(),
+        keepUsd: decimal.optional(),
+        vault: z.string().min(2).max(48).optional(),
+        every: z.enum(["day", "week", "month"]).optional(),
+        payee: address.optional(),
+      })
+      .strict(),
+    json: obj({ kind: { type: "string", enum: ["repay", "sweep", "pay"] }, amountUsd: { type: "string" }, floor: { type: "string" }, keepUsd: { type: "string" }, vault: { type: "string" }, every: { type: "string", enum: ["day", "week", "month"] }, payee: { type: "string" } }, ["kind", "amountUsd"]),
+    async run(input: { kind: "repay" | "sweep" | "pay"; amountUsd: string; floor?: string; keepUsd?: string; vault?: string; every?: "day" | "week" | "month"; payee?: string }, tc) {
+      if (!ok(tc, input.amountUsd)) return askOwner(tc, "How much at most should one run move?", ["Let me type an amount"], `${input.amountUsd} was not stated.`);
+      if (input.floor !== undefined && !ok(tc, input.floor)) return askOwner(tc, "Below which health factor should Autopilot repay?", ["1.5", "1.3"], `${input.floor} was not stated.`);
+      if (input.keepUsd !== undefined && !ok(tc, input.keepUsd)) return askOwner(tc, "How much USDC should stay in your account?", ["Let me type an amount"], `${input.keepUsd} was not stated.`);
+      if (input.payee && tc.ground && !tc.ground.ownerText.toLowerCase().includes(input.payee.toLowerCase())) return askOwner(tc, "Who should Autopilot pay? Paste the address.", [], "The payee was not given by the owner.");
+      const task: AutopilotTaskInput | null =
+        input.kind === "repay" ? (input.floor ? { kind: "repay", amountUsd: input.amountUsd, floor: input.floor } : null)
+        : input.kind === "sweep" ? (input.keepUsd && input.vault ? { kind: "sweep", keepUsd: input.keepUsd, amountUsd: input.amountUsd, vault: input.vault } : null)
+        : input.every && input.payee ? { kind: "pay", amountUsd: input.amountUsd, every: input.every, payee: input.payee as Address } : null;
+      const missing = task ? null : input.kind === "repay" ? "floor" : input.kind === "sweep" ? (input.keepUsd ? "vault" : "keep") : input.payee ? "every" : "payee";
+      const drafted = await autopilotTaskDraft(tc.ctx, tc.owner, tc.environment, task, missing, []);
+      if (!drafted.ok) return askOwner(tc, drafted.question, drafted.options, drafted.reason);
+      tc.blocks?.push(drafted.block);
+      return { summary: drafted.summary, data: { drafted: drafted.summary, next: "The task card in this chat adds it once the owner confirms; it then shows in the Fold's Running list as an automation Autopilot signs." } };
+    },
+  }),
+  spec({
+    name: "create_agent",
+    description: "Draft a Pack agent for the owner: it holds a leash (its own Fence inside the owner's, and a daily budget carved from it). Name, role (treasurer, payroll, fx-hedger, yield-keeper, bill-payer, sentinel, researcher or custom), a daily budget in USD and an optional mission. The budget must be the owner's own; otherwise the owner gets a question with options. Nothing is created here: the chat shows an agent card the owner confirms.",
+    capability: "propose",
+    schema: z.object({ name: z.string().min(1).max(48), role: z.enum(["treasurer", "payroll", "fx-hedger", "yield-keeper", "bill-payer", "sentinel", "researcher", "custom"]), dailyUsd: decimal.optional(), mission: z.string().max(400).optional() }).strict(),
+    json: obj({ name: { type: "string", maxLength: 48 }, role: { type: "string", enum: ["treasurer", "payroll", "fx-hedger", "yield-keeper", "bill-payer", "sentinel", "researcher", "custom"] }, dailyUsd: { type: "string" }, mission: { type: "string", maxLength: 400 } }, ["name", "role"]),
+    async run(input: { name: string; role: string; dailyUsd?: string; mission?: string }, tc) {
+      const drafted = agentDraft({ name: input.name, role: input.role, dailyUsd: input.dailyUsd !== undefined && ok(tc, input.dailyUsd) ? input.dailyUsd : null, mission: input.mission ?? null, environment: tc.environment });
+      if (!drafted.ok) return askOwner(tc, drafted.question, drafted.options, drafted.reason);
+      tc.blocks?.push(drafted.block);
+      return { summary: drafted.summary, data: { drafted: drafted.summary, next: "The agent card in this chat creates it once the owner confirms; it shows in the Fold's Pack with its leash and Revoke." } };
+    },
+  }),
+  spec({
+    name: "yields",
+    description: "Live rates for USDC or EURC across Arc's vaults and lending markets, best first, each with its risk tier and source. Use it for \"where can I earn\" questions; the chat shows a yields card. Never state a rate this did not return.",
+    capability: "read",
+    schema: z.object({ token: z.enum(["USDC", "EURC"]) }).strict(),
+    json: obj({ token: { type: "string", enum: ["USDC", "EURC"] } }, ["token"]),
+    async run(input: { token: "USDC" | "EURC" }, tc) {
+      const card = await yieldsCard(tc.ctx, tc.environment, input.token);
+      tc.blocks?.push(card.block);
+      return { summary: card.summary, data: { rows: card.rows } };
     },
   }),
   spec({

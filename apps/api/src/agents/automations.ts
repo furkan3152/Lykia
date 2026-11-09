@@ -9,9 +9,8 @@
  * `maxRunsPerDay` times and only while the `agents.keeper` flag allows
  * session mode.
  */
-import { DEFAULT_FENCE, fenceForProfile, intersectFence, riskTierOf, type Address, type ArcEnvironment, type Fence } from "@lykia/core";
-import { getProfile } from "../personal/profile.js";
-import { getPreferences } from "../fold/preferences.js";
+import { ownerFence } from "../personal/fence.js";
+import { intersectFence, type Address, type ArcEnvironment, type Fence } from "@lykia/core";
 import type { AgentProposal, Automation, InsightKind } from "@lykia/core/api/agents";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
@@ -92,8 +91,7 @@ export interface AutomationRun {
  * and Ask Lyko use). An agent's own Fence is intersected with it, so an agent automation is never looser than its owner.
  */
 export async function ownerFenceOf(ctx: AppContext, owner: Address): Promise<Fence> {
-  const [profile, prefs] = await Promise.all([getProfile(ctx, owner), getPreferences(ctx, owner)]);
-  return fenceForProfile({ ...profile, risk: riskTierOf(prefs.risk) }, DEFAULT_FENCE);
+  return ownerFence(ctx, owner);
 }
 
 export async function runAutomations(ctx: AppContext, pack: PackService, owner: Address, environment: ArcEnvironment, onFired?: (a: Automation, p: AgentProposal) => void, ownerFence?: Fence): Promise<AutomationRun[]> {

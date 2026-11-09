@@ -24,9 +24,10 @@ const STEPS: readonly { readonly id: Phase; readonly label: string }[] = [
   { id: "sign", label: "Sign once" },
 ];
 
-export function AutopilotSheet({ owner, offer, onClose, onDone }: { readonly owner: FoldOwner; readonly offer: AutopilotOffer | undefined; readonly onClose: () => void; readonly onDone: () => void }) {
+export function AutopilotSheet({ owner, offer, initial, onClose, onDone }: { readonly owner: FoldOwner; readonly offer: AutopilotOffer | undefined; readonly initial?: Partial<Pick<AutopilotForm, "perStepUsd" | "perDayUsd" | "days" | "payees">>; readonly onClose: () => void; readonly onDone: () => void }) {
   const [phase, setPhase] = useState<Phase>("limits");
-  const [form, setForm] = useState<AutopilotForm>(emptyAutopilotForm);
+  // Ask Lyko drafts the limits the owner stated or picked; this sheet is their review (read, accept, sign once).
+  const [form, setForm] = useState<AutopilotForm>(() => ({ ...emptyAutopilotForm(), ...initial }));
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [made, setMade] = useState<EnableAutopilotResponse | null>(null);

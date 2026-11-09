@@ -19,53 +19,8 @@
  * record but spends from the owner's Circle Gateway balance through the
  * owner's LykiaStile; its half lives in ./gateway.ts.
  */
-import {
-  LEASH_ENFORCEMENT,
-  LEASH_GATEWAY_ENFORCEMENT,
-  LEASH_LIMITS,
-  LEASH_SCHEMA,
-  LEASH_REQUIRED_TOOLS,
-  LEASH_TOOLS,
-  PROTOCOLS,
-  budgetOf,
-  carveBudget,
-  crossedThresholds,
-  expiryIssues,
-  fenceForProfile,
-  fenceHash,
-  formatUsdMicros,
-  getToken,
-  intersectFence,
-  leashCarve,
-  leashCeiling,
-  leashFence,
-  leashWindow,
-  memoData,
-  networkFor,
-  projectFence,
-  subFenceViolations,
-  tightenFence,
-  tokenAddress,
-  usdMicros,
-  verdictTag,
-  type Address,
-  type ArcEnvironment,
-  type Fence,
-  type IntentGraph,
-  type Leash,
-  type LeashBudget,
-  type LeashDenyReason,
-  type LeashSession,
-  type LeashSpendFrom,
-  type LeashTemplateKey,
-  type LeashTool,
-  type LeashUsage,
-  type PackAgent,
-  type PackBudget,
-  type PlanAction,
-  type Project,
-  type UnsignedTransaction,
-} from "@lykia/core";
+import { ownerFence as ownerFenceStored } from "../personal/fence.js";
+import { LEASH_ENFORCEMENT, LEASH_GATEWAY_ENFORCEMENT, LEASH_LIMITS, LEASH_SCHEMA, LEASH_REQUIRED_TOOLS, LEASH_TOOLS, PROTOCOLS, budgetOf, carveBudget, crossedThresholds, expiryIssues, fenceHash, formatUsdMicros, getToken, intersectFence, leashCarve, leashCeiling, leashFence, leashWindow, memoData, networkFor, projectFence, subFenceViolations, tightenFence, tokenAddress, usdMicros, verdictTag, type Address, type ArcEnvironment, type Fence, type IntentGraph, type Leash, type LeashBudget, type LeashDenyReason, type LeashSession, type LeashSpendFrom, type LeashTemplateKey, type LeashTool, type LeashUsage, type PackAgent, type PackBudget, type PlanAction, type Project, type UnsignedTransaction } from "@lykia/core";
 import type { CreateLeashResponse, LeashDenied, LeashPlanResponse, LeashPreparedStep, LeashSubmitResponse, LeashTrailItem, LeashTrailResponse, LeashView, RenewLeashResponse, RevokeLeashResponse } from "@lykia/core/api/leash";
 import type { Hex } from "viem";
 import type { AppContext } from "../context.js";
@@ -73,7 +28,6 @@ import { LykiaHttpError } from "../http/errors.js";
 import { agentServices } from "../agents/index.js";
 import { buildSessionTx, callRulesFor, lykiaAccountFor, sessionCalldata, usdToUnits, type SessionSpec } from "../agents/onchain.js";
 import { readSentence } from "../language/reader.js";
-import { getProfile } from "../personal/profile.js";
 import { randomHex } from "../platform/crypto.js";
 import { createKey, revokeKey } from "../platform/keys.js";
 import { services } from "../services.js";
@@ -265,7 +219,7 @@ export class LeashService implements LeashHost {
 
     // The budget is carved from the parent: a Pack agent's caps, or for a root leash the owner's own Fence.
     if (!parent) {
-      const ownerFence = caller.project ? projectFence(caller.project) : fenceForProfile(await getProfile(ctx, owner));
+      const ownerFence = caller.project ? projectFence(caller.project) : await ownerFenceStored(ctx, owner as Address);
       const own = budgetOf(ownerFence);
       const caps: PackBudget = { ...(own.perIntentUsd ? { perIntentUsd: own.perIntentUsd } : {}), ...(own.dailyUsd ? { dailyUsd: own.dailyUsd } : {}) };
       const allocated = active.filter((l) => l.parentAgentId === null && l.environment === environment).reduce<PackBudget>((sum, l) => ({ dailyUsd: formatUsdMicros(usdMicros(sum.dailyUsd ?? "0") + usdMicros(l.budget.perDayUsd)) }), {});

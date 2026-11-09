@@ -92,7 +92,7 @@ async function watchTurn(input: DeterministicInput, request: NonNullable<ReturnT
   }
   handing.end("ok", "Watching", request.label);
   emit("tool", { agent: "Lyko", name: "watch_position", ok: true, summary: `Handed to Lyko on watch: ${request.label}` });
-  emitBlock(emit, { kind: "herded", items: [{ kind: "watch", label: request.label, saved: true, href: "/app/fold/herding?show=watch", next: "Lyko on watch checks it each time it reads your Fold" }] });
+  emitBlock(emit, { kind: "herded", items: [{ kind: "watch", label: request.label, saved: true, href: "/app/fold/herding?show=watches", next: "Lyko on watch checks it each time it reads your Fold" }] });
   const defaulted = request.defaulted ? `\n- **Threshold:** ${(request.condition as { threshold?: string }).threshold ?? ""}, your Fence's health floor (say another number to change it)` : "";
   return done(`Lyko on watch has it: ${request.label.charAt(0).toLowerCase()}${request.label.slice(1)}.\n\n- **Where:** the Fold, under Herding, marked From Ask Lyko${defaulted}\n- **When it is met:** an insight in the Fold, with a move ready if there is one\n\n**Next:** nothing to sign; pause or remove it in the Fold any time.`);
 }
@@ -129,7 +129,7 @@ async function compiledTurn(input: DeterministicInput): Promise<TurnResult> {
     if (v.assumptions.length > 0) lines.push(`- **Assumed:** ${v.assumptions.length} thing${v.assumptions.length === 1 ? "" : "s"} you can change below`);
     if (v.refusals.length > 0) lines.push(`- **Left out:** ${v.refusals.join(" ")}`);
     if (delivered.planError) lines.push(`- **Not built now:** ${delivered.planError}`);
-    lines.push("", result.questions.length > 0 ? `**Next:** ${result.questions[0]!.text}` : v.now ? "**Next:** review the route and sign it in your wallet." : "**Next:** save the drafts below.");
+    lines.push("", result.questions.length > 0 ? `**Next:** ${result.questions[0]!.text}` : v.now ? "**Next:** review the route and sign it in your wallet." : v.scheduled.some((x) => x.kind === "leash") ? "**Next:** review the leash on its card; you sign once there." : "**Next:** save the drafts below.");
   }
   const text = lines.join("\n").trim() || result.why.summary;
   emit("text", { text });

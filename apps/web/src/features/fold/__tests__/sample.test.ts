@@ -5,7 +5,7 @@ import { applyFoldShocks, NO_SHOCK, samplePositions as coreSamplePositions, shoc
 import type { AnswerBlock } from "@lykia/core/api/answer";
 import type { WhistleItem } from "@lykia/core/api/fold";
 
-import { controlRoute, countsOf, countsLine, filterInstructions, sampleInsights, sampleInstructions, samplePack, sampleSnapshot, sampleWaiting, whistleGroups } from "../model";
+import { controlRoute, countsOf, kindOf, countsLine, filterInstructions, sampleInsights, sampleInstructions, sampleSnapshot, sampleWaiting, whistleGroups } from "../model";
 import { samplePositions } from "../positionsModel";
 import { cancelReviewView, orderReviewView, signableOrder } from "../../route/orderReview";
 
@@ -34,11 +34,12 @@ describe("the signed-out Fold: one sample everywhere", () => {
   it("the bar's counts are the lists' counts: 'drafts wait' is exactly what Herding shows", () => {
     const instructions = sampleInstructions(NOW);
     const waiting = sampleWaiting(NOW);
-    const counts = countsOf(instructions, waiting, samplePack());
+    const counts = countsOf(instructions, waiting);
     assert.equal(counts.proposalsWaiting, waiting.length);
     assert.ok(waiting.length > 0, "the sample's inbox is not empty, so Herding never says 'Nothing waits' beside '1 draft waits'");
-    assert.equal(counts.ordersWaiting, filterInstructions(instructions, "orders").length);
-    assert.equal(counts.rules, instructions.filter((i) => i.status === "active" && i.source !== "order" && i.source !== "plan").length);
+    assert.equal(counts.ordersWaiting, filterInstructions(instructions, "order").length);
+    assert.equal(counts.agentsWorking, filterInstructions(instructions, "leash").filter((i) => i.status === "active").length);
+    assert.equal(counts.rules, instructions.filter((i) => i.status === "active" && !["order", "plan", "leash"].includes(kindOf(i))).length);
     assert.match(countsLine(counts), new RegExp(`${waiting.length} draft`, "u"));
   });
 
@@ -53,7 +54,7 @@ describe("the signed-out Fold: one sample everywhere", () => {
     const list = sampleInstructions(NOW);
     assert.ok(list.find((i) => i.source === "plan")?.stop);
     assert.ok(list.find((i) => i.source === "order")?.cancel);
-    assert.equal(filterInstructions(list, "plans").length, 1);
+    assert.equal(filterInstructions(list, "plan").length, 1);
   });
 });
 

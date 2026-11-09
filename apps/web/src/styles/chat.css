@@ -423,3 +423,40 @@ html[data-night="on"] .m-work__head { background: #1d3150; color: #c9d3e6; box-s
 /* The order card's title leaves room for its Fence seal (the seal drops under the title on phones). */
 .m-card2[data-kind="order"] .m-card2__head { padding-right: 168px; }
 @media (max-width: 640px) { .m-card2[data-kind="order"] .m-card2__head { padding-right: 16px; } }
+
+/* ---------------------------------------------------------------- what Ask starts */
+/* The figures of a draft laid as stones: each one the owner's own, set in grout. */
+.m-stones { list-style: none; margin: 0; padding: 6px; display: flex; flex-wrap: wrap; gap: 6px; background: var(--grout); box-shadow: inset 0 0 0 2px var(--tone, var(--navy)); }
+.m-stones__stone { --st: var(--terra); flex: 1 1 92px; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 7px; background: var(--cream); box-shadow: inset 0 -4px 0 var(--st), inset 0 0 0 1px rgba(19, 35, 58, 0.08); animation: m-stone-in 320ms var(--ease-spring) both; }
+.m-stones__stone:nth-child(2) { animation-delay: 60ms; }
+.m-stones__stone:nth-child(3) { animation-delay: 120ms; }
+.m-stones__stone:nth-child(n + 4) { animation-delay: 180ms; }
+.m-stones__stone[data-tone="sea"] { --st: var(--sea); }
+.m-stones__stone[data-tone="ochre"] { --st: var(--ochre); }
+.m-stones__stone[data-tone="olive"] { --st: var(--olive); }
+.m-stones__stone[data-tone="navy"] { --st: var(--navy); }
+.m-stones__stone b { font-family: "Pixelify Sans", monospace; font-size: 19px; color: var(--navy); text-transform: capitalize; overflow-wrap: anywhere; }
+.m-stones__stone span { font-family: Silkscreen, monospace; font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+@keyframes m-stone-in { from { opacity: 0; transform: translateY(6px) scale(0.96); } to { opacity: 1; transform: none; } }
+.m-mini--go { background: var(--tone, var(--terra)); color: #fff; }
+.m-mini--go:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Yields: one pen per venue, grass height is the rate, the stripe under it is its risk. */
+.m-pens { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.m-pen { display: grid; grid-template-columns: 26px 64px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 6px 10px 6px 6px; background: var(--cream); box-shadow: inset 0 -3px 0 var(--pr, var(--ochre)), inset 0 0 0 1px var(--grout); }
+.m-pen[data-risk="low"] { --pr: var(--olive); }
+.m-pen[data-risk="medium"] { --pr: var(--ochre); }
+.m-pen[data-risk="high"] { --pr: var(--terra); }
+.m-pen.is-best { background: #eef3e2; box-shadow: inset 0 -3px 0 var(--pr), inset 0 0 0 2px var(--olive); }
+.m-pen__grass { display: grid; grid-template-rows: repeat(8, 3px); gap: 1px; width: 22px; transform: scaleY(-1); }
+.m-pen__grass i { display: block; background: var(--grout); }
+.m-pen__grass i[data-on="true"] { background: var(--olive); box-shadow: inset 2px 0 0 #7fa858; }
+.m-pen__apy { font-family: "Pixelify Sans", monospace; font-size: 18px; color: var(--navy); }
+.m-pen__venue { font-size: 13.5px; overflow-wrap: anywhere; }
+.m-pen__meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.m-pen__meta small { font-size: 11px; color: var(--ink-3); }
+@media (max-width: 520px) {
+  .m-pen { grid-template-columns: 22px 58px minmax(0, 1fr); }
+  .m-pen__meta { grid-column: 2 / -1; flex-direction: row; justify-content: flex-start; gap: 8px; align-items: center; }
+}
+@media (prefers-reduced-motion: reduce) { .m-stones__stone { animation: none; } }

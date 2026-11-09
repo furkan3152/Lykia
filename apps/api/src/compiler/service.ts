@@ -46,7 +46,7 @@ import {
   type WatchCondition,
 } from "@lykia/core";
 import type { Request } from "express";
-import { readAssist, sampleSnapshot, type AssistReading } from "@lykia/core";
+import { readAssist, type AssistReading } from "@lykia/core";
 import { capabilityMap } from "../capabilities/map.js";
 import type { AppContext } from "../context.js";
 import { agentServices } from "../agents/index.js";
@@ -61,8 +61,6 @@ import { groundAmounts, lexiconReading, readDeterministic, reconcile } from "./h
 import { readProgramWithModel } from "./llm.js";
 
 const SAMPLE_OWNER = "0x000000000000000000000000000000000000dead";
-/** No wallet connected: the Fold's sample flock's wallet (core sampleFold), always flagged as what-if, so a compiled plan can still be previewed as a dry run. */
-const SAMPLE_BALANCES: Readonly<Record<string, string>> = Object.freeze(Object.fromEntries(sampleSnapshot(0).holdings.filter((h) => h.where === "wallet" && h.kind === "token").map((h) => [h.symbol, h.amount])));
 const PREVIEW_TIMEOUT_MS = 15_000;
 const MAX_PREVIEWS = 6;
 
@@ -191,7 +189,7 @@ async function readGoalUngrounded(llm: LlmClient | null, text: string, contacts:
 }
 
 /** The owner's state the resolver needs: wallet balances, positions, prices, venue facts, fee, beta cap, contacts. */
-async function programState(ctx: AppContext, environment: ArcEnvironment, owner: Address | null, balances?: Readonly<Record<string, string>>): Promise<ProgramState> {
+async function programState(ctx: AppContext, environment: ArcEnvironment, owner: Address | null, balances?: Readonly<Record<string, string>>, live = false): Promise<ProgramState> {
   const s = services(ctx);
   const base = { environment, venues: venueFactsFrom(KNOWLEDGE_ROWS), feeBps: ctx.config.fee.bps, beta: environment === "mainnet" ? ctx.config.beta : null, gasBufferUsdc: "1", now: ctx.clock.now() } as const;
   const symbols = ["USDC", "EURC", "cirBTC", "WETH", "USYC"];
@@ -209,13 +207,16 @@ async function programState(ctx: AppContext, environment: ArcEnvironment, owner:
     }
   }
   if (balances) return { ...base, owner: real, balances: { ...balances }, prices, timezone, contacts, hypothetical: true };
-  if (!real) return { ...base, owner: null, balances: null, prices, timezone, contacts };
-  const snap = await s.flock.snapshot(environment, real);
+  // Signed out, Ask plans for the sample address read live from Arc, like every other read in an Ask turn
+  // (the Fold's fixture is for the Fold only); the result stays a what-if, never signable.
+  const reader = real ?? (live ? (SAMPLE_OWNER as Address) : null);
+  if (!reader) return { ...base, owner: null, balances: null, prices, timezone, contacts };
+  const snap = await s.flock.snapshot(environment, reader);
   const wallet: Record<string, string> = {};
   for (const h of snap.holdings) if (h.where === "wallet" && h.kind === "token") wallet[h.symbol] = h.amount;
   for (const sym of ["USDC", "EURC"]) wallet[sym] ??= "0";
   for (const [sym, p] of Object.entries(snap.prices)) if (p.usd !== null) prices[sym] = p.usd;
-  return { ...base, owner: real, balances: wallet, positions: snap.holdings.filter((h) => h.where !== "wallet").map((h) => ({ symbol: h.symbol, where: h.where, amount: h.amount, kind: h.kind })), prices, timezone, contacts };
+  return { ...base, owner: real, balances: wallet, positions: snap.holdings.filter((h) => h.where !== "wallet").map((h) => ({ symbol: h.symbol, where: h.where, amount: h.amount, kind: h.kind })), prices, timezone, contacts, ...(real ? {} : { hypothetical: true }) };
 }
 
 const normalize = (actions: readonly PlanAction[]) => canonicalJson(actions.map((a) => ({ ...a, ...("to" in a && typeof a.to === "string" && a.to.startsWith("0x") ? { to: a.to.toLowerCase() } : {}) })));
@@ -242,9 +243,9 @@ function linkOf(d: ScheduledDraft): { link: string; valid: boolean } {
       // Signed from its order card in the chat; once armed it lives in Herding.
       return { link: "/app/fold/herding?show=orders", valid: true };
     case "standing":
-      return { link: "/app/automations", valid: true };
+      return { link: "/app/fold/herding?show=automations", valid: true };
     case "budget":
-      return { link: "/app/pack", valid: true };
+      return { link: "/app/fold/pack", valid: true };
     case "leash": {
       const valid = leashDraftOf(d.draft) !== null;
       return { link: leashDraftLink(d.draft), valid };
@@ -314,10 +315,10 @@ export async function compileIntent(ctx: AppContext, input: CompileInput, http: 
   const environment = input.environment ?? ctx.config.mode;
   const owner = input.owner && input.owner.toLowerCase() !== SAMPLE_OWNER ? input.owner : null;
   const sample = !owner && !input.balances && input.owner?.toLowerCase() === SAMPLE_OWNER;
-  const state = await programState(ctx, environment, owner, input.balances ?? (sample ? SAMPLE_BALANCES : undefined));
+  const state = await programState(ctx, environment, owner, input.balances, sample);
   const llm = input.reader === "deterministic" ? null : agentServices(ctx).llm();
   const read = await readGoal(llm, input.text, state.contacts ?? [], input.reader, input.ownerText);
-  if (sample) read.note = `${read.note ? `${read.note} ` : ""}No wallet is connected: amounts use a sample wallet of ${SAMPLE_BALANCES.USDC} USDC (what-if).`;
+  if (sample) read.note = `${read.note ? `${read.note} ` : ""}No wallet is connected: amounts use the sample address ${SAMPLE_OWNER} read live from Arc (${state.balances?.USDC ?? "0"} USDC in its wallet), as a what-if.`;
   const compiled = compileProgram(read.program, state, input.overrides ? { overrides: input.overrides } : {});
   const fence = await fenceFor(ctx, input, http, owner, compiled);
   const s = services(ctx);

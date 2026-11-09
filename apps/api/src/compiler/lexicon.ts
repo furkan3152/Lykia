@@ -918,7 +918,9 @@ export function isGoalLanguage(text: string): boolean {
     w("safe|safely|defensive|conservative|risky|risk|leverage|hedge|protect|runway|savings|liquid|within a day|any ?time|dollar weaken"),
     w("if|when|whenever|once|unless"),
     w("months? of|weeks? of|a third|a quarter|half"),
-    w("sweep|dca|dollar[- ]cost|take profit|stop[- ]loss|budget|agent"),
+    w("sweep|dca|dollar[- ]cost|take profit|stop[- ]loss|budget|agent|bot"),
+    // A budget for a bot ("$20 a day for a week"): a leash, which the compiler drafts.
+    w("a day|per day|a week|for \\d+ days|allowance"),
   ].filter((re) => re.test(t)).length;
   const clauses = goalClauses(text).length;
   return signals >= 2 || clauses >= 3 || (signals >= 1 && clauses >= 2) || text.length > 160;

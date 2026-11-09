@@ -2,16 +2,17 @@
  * A drafted proposal, opened for review: a bottom sheet on phones and a
  * stone panel on wider screens. A plan opens the route card (one signature
  * per step, in your wallet); ready-made transactions (a revoke) are signed
- * here; a Fence edit is applied to your deck, and a loosening asks your
- * wallet to sign first. Nothing is ever signed by Lykia.
+ * here; a Fence edit is saved to your Fence on the server, and a loosening
+ * asks your wallet to sign first. Nothing is ever signed by Lykia.
  */
-import { fenceHash, loosenedRules } from "@lykia/core";
+import { loosenedRules } from "@lykia/core";
 import type { FoldProposal } from "@lykia/core/api/fold";
 import { useState } from "react";
 
 import { Sheet } from "../../city/Sheet";
 import { describeError } from "../../lib/api";
 import { useLykiaStore } from "../../lib/lykiaStore";
+import { useFenceWrite } from "../fence/data";
 import { Button, Seal, Tag, toast } from "../../mosaic";
 import { RouteArtifact } from "../route/RouteArtifact";
 import { useLykiaWallet } from "../wallet/useLykiaWallet";
@@ -38,7 +39,7 @@ export function DraftSheet({ proposal, onClose, onMove }: { readonly proposal: F
   const wallet = useLykiaWallet();
   const openModal = useWallet((s) => s.openModal);
   const fence = useLykiaStore((s) => s.fence);
-  const setFence = useLykiaStore((s) => s.setFence);
+  const write = useFenceWrite();
   const [busy, setBusy] = useState(false);
   if (!proposal) return null;
   const p = proposal;
@@ -65,17 +66,14 @@ export function DraftSheet({ proposal, onClose, onMove }: { readonly proposal: F
     if (!p.fencePatch) return;
     const next = applyFencePatch(fence, p.fencePatch);
     const loosened = loosenedRules(fence, next);
+    if (loosened.length > 0 && !wallet.connected) return openModal();
     setBusy(true);
     try {
-      if (loosened.length > 0) {
-        if (!wallet.connected) return openModal();
-        // Loosening is the owner's call: the wallet signs the new Fence's hash before the deck takes it.
-        await wallet.signMessage(`Lykia: loosen my Fence\n\n${loosened.join("\n")}\n\nNew Fence ${fenceHash(next)}`);
-      }
-      setFence(next);
+      // The server keeps the Fence; a loosening is signed by the owner's wallet when the server asks for it.
+      const saved = await write.save.mutateAsync({ fence: next });
       if (p.status === "proposed") await onMove(p.id, "approve");
       await onMove(p.id, "done", loosened.length > 0 ? "Loosened with the owner's signature." : "Tightened.");
-      toast.success("Fence updated", { description: fenceHash(next).slice(0, 22), from: "LYKO" });
+      toast.success("Fence updated", { description: saved.hash.slice(0, 22), from: "LYKO" });
       onClose();
     } catch (e) {
       toast.error("The Fence did not change", { description: describeError(e), from: "LYKO" });

@@ -121,6 +121,7 @@ export interface LykiaOperations {
   getLogs: { method: "GET"; path: "/v1/logs"; params: never; query: { keyId?: string; projectId?: string; status?: string; statusClass?: "2xx" | "3xx" | "4xx" | "5xx" | "error"; method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "get" | "post" | "put" | "patch" | "delete"; path?: string; since?: string; limit?: string; cursor?: string }; body: never; response: { data: Array<{ requestId: string; at: string; method: string; path: string; route: string | null; status: number; latencyMs: number; errorCode: string | null; keyId: string | null; projectId: string | null; mode: "live" | "test" | null; apiVersion: string; idempotentReplay: boolean }>; nextCursor: string | null } };
   getLogsByRequestId: { method: "GET"; path: "/v1/logs/{requestId}"; params: { requestId: string }; query: never; body: never; response: { requestId: string; at: string; method: string; path: string; route: string | null; status: number; latencyMs: number; errorCode: string | null; keyId: string | null; projectId: string | null; mode: "live" | "test" | null; apiVersion: string; idempotentReplay: boolean } };
   getMcp: { method: "GET"; path: "/v1/mcp"; params: never; query: never; body: never; response: Record<string, unknown> };
+  getMeFence: { method: "GET"; path: "/v1/me/fence"; params: never; query: never; body: never; response: Record<string, unknown> };
   getMemory: { method: "GET"; path: "/v1/memory"; params: never; query: never; body: never; response: Record<string, unknown> };
   getMemoryExport: { method: "GET"; path: "/v1/memory/export"; params: never; query: never; body: never; response: Record<string, unknown> };
   getMemoryIntents: { method: "GET"; path: "/v1/memory/intents"; params: never; query: never; body: never; response: Record<string, unknown> };
@@ -295,6 +296,7 @@ export interface LykiaOperations {
   postLeashesByIdSession: { method: "POST"; path: "/v1/leashes/{id}/session"; params: { id: string }; query: never; body: { txHash?: string }; response: { [key: string]: unknown } };
   postLeashesByIdSubmit: { method: "POST"; path: "/v1/leashes/{id}/submit"; params: { id: string }; query: never; body: { intentId: string; stepId: string; hash: string }; response: { [key: string]: unknown } };
   postMcp: { method: "POST"; path: "/v1/mcp"; params: never; query: never; body: never; response: Record<string, unknown> };
+  postMeFenceMigrated: { method: "POST"; path: "/v1/me/fence/migrated"; params: never; query: never; body: never; response: Record<string, unknown> };
   postMemoryForget: { method: "POST"; path: "/v1/memory/forget"; params: never; query: never; body: { what?: "intents" | "contacts" | "all" }; response: Record<string, unknown> };
   postOrders: { method: "POST"; path: "/v1/orders"; params: never; query: never; body: Record<string, unknown>; response: Record<string, unknown> };
   postOrdersDraft: { method: "POST"; path: "/v1/orders/draft"; params: never; query: never; body: Record<string, unknown>; response: Record<string, unknown> };
@@ -345,6 +347,7 @@ export interface LykiaOperations {
   putContactsById: { method: "PUT"; path: "/v1/contacts/{id}"; params: { id: string }; query: never; body: { name: string; address: string; aliases?: Array<string>; note?: string }; response: Record<string, unknown> };
   putDevelopersSettings: { method: "PUT"; path: "/v1/developers/settings"; params: never; query: never; body: { integratorFeeBps: number; feeRecipient: string | null }; response: Record<string, unknown> };
   putLeagueById: { method: "PUT"; path: "/v1/league/{id}"; params: { id: string }; query: never; body: { action: "approve" | "reject" | "feature" | "unfeature" | "delist" | "relist" | "pause" | "resume" | "launch"; note?: string }; response: Record<string, unknown> };
+  putMeFence: { method: "PUT"; path: "/v1/me/fence"; params: never; query: never; body: { preset?: "careful" | "balanced" | "bold"; fence?: { [key: string]: unknown }; signature?: string; migrated?: boolean }; response: Record<string, unknown> };
   putMePreferences: { method: "PUT"; path: "/v1/me/preferences"; params: never; query: never; body: { [key: string]: unknown }; response: Record<string, unknown> };
   putProfile: { method: "PUT"; path: "/v1/profile"; params: never; query: never; body: Record<string, unknown>; response: Record<string, unknown> };
   putProjectsByIdLimits: { method: "PUT"; path: "/v1/projects/{id}/limits"; params: { id: string }; query: never; body: { perMinute?: number; perDay?: number }; response: { perMinute: number; perDay: number } };
@@ -482,6 +485,7 @@ export const LYKIA_OPERATIONS: { readonly [K in LykiaOperationId]: OperationInfo
   getLogs: { method: "GET", path: "/v1/logs", tag: "Logs", summary: "Request logs of the account's keys, newest first", auth: "session", scope: "read", idempotent: false },
   getLogsByRequestId: { method: "GET", path: "/v1/logs/{requestId}", tag: "Logs", summary: "One logged request by X-Request-Id", auth: "session", scope: "read", idempotent: false },
   getMcp: { method: "GET", path: "/v1/mcp", tag: "MCP", summary: "MCP session stream", auth: "key", scope: null, idempotent: false },
+  getMeFence: { method: "GET", path: "/v1/me/fence", tag: "Fence", summary: "The owner's Fence, kept on the server: its preset (Careful, Balanced or Bold, the risk profile), whether it was edited beyond the preset, and its hash. Chat, proposals and automations plan under it", auth: "session", scope: null, idempotent: false },
   getMemory: { method: "GET", path: "/v1/memory", tag: "Personal", summary: "What Lyko remembers", auth: "session", scope: null, idempotent: false },
   getMemoryExport: { method: "GET", path: "/v1/memory/export", tag: "Personal", summary: "Export memory", auth: "session", scope: null, idempotent: false },
   getMemoryIntents: { method: "GET", path: "/v1/memory/intents", tag: "Personal", summary: "Remembered plans", auth: "session", scope: null, idempotent: false },
@@ -656,6 +660,7 @@ export const LYKIA_OPERATIONS: { readonly [K in LykiaOperationId]: OperationInfo
   postLeashesByIdSession: { method: "POST", path: "/v1/leashes/{id}/session", tag: "Leashes", summary: "Bind the on-chain session", auth: "secret", scope: "agents", idempotent: false },
   postLeashesByIdSubmit: { method: "POST", path: "/v1/leashes/{id}/submit", tag: "Leashes", summary: "Report a signed leash step", auth: "key", scope: "execute", idempotent: false },
   postMcp: { method: "POST", path: "/v1/mcp", tag: "MCP", summary: "Model Context Protocol (streamable HTTP): plan, Scent, Flock, Fence and more as tools", auth: "key", scope: "build", idempotent: false },
+  postMeFenceMigrated: { method: "POST", path: "/v1/me/fence/migrated", tag: "Fence", summary: "The owner discarded the Fence a browser held from before; it is not proposed again", auth: "session", scope: null, idempotent: false },
   postMemoryForget: { method: "POST", path: "/v1/memory/forget", tag: "Personal", summary: "Forget intents, contacts or everything", auth: "session", scope: null, idempotent: true },
   postOrders: { method: "POST", path: "/v1/orders", tag: "Orders", summary: "Place a signed limit order", auth: "key", scope: "automation", idempotent: true },
   postOrdersDraft: { method: "POST", path: "/v1/orders/draft", tag: "Orders", summary: "Draft a limit order for signing", auth: "key", scope: "quote", idempotent: true },
@@ -706,7 +711,8 @@ export const LYKIA_OPERATIONS: { readonly [K in LykiaOperationId]: OperationInfo
   putContactsById: { method: "PUT", path: "/v1/contacts/{id}", tag: "Personal", summary: "Update a contact", auth: "session", scope: null, idempotent: false },
   putDevelopersSettings: { method: "PUT", path: "/v1/developers/settings", tag: "Developers", summary: "Integrator fee (bps, capped) and its recipient", auth: "session", scope: null, idempotent: false },
   putLeagueById: { method: "PUT", path: "/v1/league/{id}", tag: "League", summary: "Admin: approve, reject, feature, unfeature, delist, relist, pause, resume or launch a city (audited)", auth: "session", scope: "admin", idempotent: false },
-  putMePreferences: { method: "PUT", path: "/v1/me/preferences", tag: "Fold", summary: "Update Your Lyko (partial; validated; the risk profile is written through to the profile)", auth: "session", scope: null, idempotent: false },
+  putMeFence: { method: "PUT", path: "/v1/me/fence", tag: "Fence", summary: "Pick a preset or save an edited Fence. Tightening applies at once; a loosening returns 403 FENCE_SIGNATURE_REQUIRED with the message to sign, then succeeds with signature", auth: "session", scope: null, idempotent: false },
+  putMePreferences: { method: "PUT", path: "/v1/me/preferences", tag: "Fold", summary: "Update Your Lyko (partial; validated). The risk profile is the Fence preset: a change that loosens the Fence needs fenceSignature, the owner's signature on the loosening message", auth: "session", scope: null, idempotent: false },
   putProfile: { method: "PUT", path: "/v1/profile", tag: "Personal", summary: "Update the profile (never loosens a Fence)", auth: "session", scope: null, idempotent: false },
   putProjectsByIdLimits: { method: "PUT", path: "/v1/projects/{id}/limits", tag: "Projects", summary: "Set a project's rate limits (up to the plan's)", auth: "session", scope: "admin", idempotent: false },
   putSecurityPolicy: { method: "PUT", path: "/v1/security/policy", tag: "Security", summary: "Update the security policy", auth: "session", scope: null, idempotent: false },

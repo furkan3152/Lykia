@@ -3,8 +3,8 @@
  * resolves to the labelled sample; with a wallet, public reads are live;
  * signed in (SIWE), the personal ones are too.
  */
-import { DEFAULT_FOLD_PREFERENCES, POSITION_VENUES, SAMPLE_OWNER, summarizePositions, type AgentInstruction, type ArcEnvironment, type FoldPreferences, type PositionsResponse, type PositionsSummary, type PositionVenueInfo, type VenueRead } from "@lykia/core";
-import type { AgentProposal, PackAgentView } from "@lykia/core/api/agents";
+import { DEFAULT_FOLD_PREFERENCES, POSITION_VENUES, SAMPLE_OWNER, summarizePositions, type ArcEnvironment, type FoldPreferences, type PositionsResponse, type PositionsSummary, type PositionVenueInfo, type VenueRead } from "@lykia/core";
+import type { PackAgentView } from "@lykia/core/api/agents";
 import type { FlockSnapshot } from "@lykia/core/api/flock";
 import type { FoldAnswerResponse, FoldExplainArtifact, FoldInsightsResponse, FoldInstruction, FoldInstructionsResponse, FoldProposal, FoldQuestion, FoldSummaryResponse, FoldTrailsResponse, PreferencesResponse, WhistleItem, WhistleResponse } from "@lykia/core/api/fold";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,7 +13,6 @@ import { useMemo, useState } from "react";
 import { useSearchParam } from "../../app/routes/useRoute";
 import { apiDelete, apiGet, apiPost, apiPut } from "../../lib/api";
 import { useEnvironment } from "../../lib/environment";
-import { useLykiaStore } from "../../lib/lykiaStore";
 import { useSession } from "../../lib/session";
 import { useLykiaWallet } from "../wallet/useLykiaWallet";
 import { controlRoute, sampleInsights, samplePack, sampleSnapshot } from "./model";
@@ -84,11 +83,28 @@ export const POSITION_GROUPS: readonly (readonly string[])[] = [
   ["wallet", "aave-v4", "morpho-vaults", "galaxy-curation", "keyrock", "steakhouse-financial", "gauntlet", "bitwise", "usyc", "gateway", "lykia-practice"],
   ["uniswap-v3", "aerodrome-slipstream", "archery", "unitflow-finance-v3", "sushiswap"],
   ["uniswap-v4", "morpho-blue"],
-  ["cctp", "relay", "across", "lykia-orders", "arc-transfer", "leashes", "plans", "watches"],
+  ["cctp", "relay", "across", "leashes"],
 ];
 
+/**
+ * Flock is for holdings: money that sits somewhere. Orders, scheduled payments, plans in progress and watches are
+ * things in motion, so they are rows in Herding's Running list, not pens here. Bridges in flight and leash budgets stay
+ * as holdings-relevant rows, without controls: Herding owns Stop, Revoke and Cancel.
+ */
+const IN_MOTION_KINDS: ReadonlySet<string> = new Set(["orders", "payments", "plan", "watch"]);
+
+export function flockVenues(environment: ArcEnvironment): readonly PositionVenueInfo[] {
+  return POSITION_VENUES[environment].filter((v) => !IN_MOTION_KINDS.has(v.kind));
+}
+
+/** A read as the Flock shows it: a leash budget or a bridge in flight keeps its figures, its controls live in Herding. */
+function holdingsOnly(read: VenueRead | null): VenueRead | null {
+  if (!read || (read.venueKind !== "leash" && read.venueKind !== "bridge")) return read;
+  return { ...read, positions: read.positions.map((p) => ({ ...p, actions: p.actions.filter((a) => a.kind !== "cancel") })) };
+}
+
 export function usePositions(o: FoldOwner): PositionMap {
-  const venues = POSITION_VENUES[o.environment];
+  const venues = flockVenues(o.environment);
   const grouped = POSITION_GROUPS.map((g) => g.filter((id) => venues.some((v) => v.id === id))).filter((g) => g.length > 0);
   // A venue no group names yet (a new kind) rides with the last group, so it is read rather than left loading.
   const loose = venues.filter((v) => !grouped.some((g) => g.includes(v.id))).map((v) => v.id);
@@ -105,15 +121,15 @@ export function usePositions(o: FoldOwner): PositionMap {
   const at = useMountedAt();
   const sample = useMemo(() => (o.sample ? samplePositions(at, o.environment) : null), [o.sample, at, o.environment]);
   if (sample) {
-    const slots: VenueSlot[] = venues.map((info) => ({ info, read: sample.venues.find((r) => r.venue === info.id) ?? null, loading: false, refetch: () => undefined }));
-    return { slots, summary: sample.summary, healthFloor: sample.healthFloor, at: sample.at, block: sample.block, sample: true, loading: false };
+    const slots: VenueSlot[] = venues.map((info) => ({ info, read: holdingsOnly(sample.venues.find((r) => r.venue === info.id) ?? null), loading: false, refetch: () => undefined }));
+    return { slots, summary: summarizePositions(slots.map((sl) => sl.read).filter((r): r is VenueRead => r !== null)), healthFloor: sample.healthFloor, at: sample.at, block: sample.block, sample: true, loading: false };
   }
   const slots: VenueSlot[] = venues.map((info) => {
     const gi = groups.findIndex((g) => g.includes(info.id));
     const q = results[gi];
     const answered = q?.data?.venues.find((r) => r.venue === info.id) ?? null;
     const failed: VenueRead | null = !answered && q?.isError ? { venue: info.id, venueName: info.name, venueKind: info.kind, status: "unavailable", reason: "Lykia's API did not answer for this venue.", positions: [], source: "chain", method: "", readAt: new Date().toISOString(), block: null, ms: 0 } : null;
-    return { info, read: answered ?? failed, loading: !answered && !failed, refetch: () => void q?.refetch() };
+    return { info, read: holdingsOnly(answered ?? failed), loading: !answered && !failed, refetch: () => void q?.refetch() };
   });
   const reads = slots.map((s) => s.read).filter((r): r is VenueRead => r !== null);
   const first = results.find((q) => q.data)?.data;
@@ -177,7 +193,8 @@ export function useFoldPack(o: FoldOwner) {
     enabled: Boolean(o.address),
     // Names, Fences and budgets come back only for the signed-in owner; a redacted answer lists nothing here.
     queryFn: async ({ signal }) => {
-      const r = await apiGet<{ agents: PackAgentView[]; redacted?: boolean }>("/v1/pack", { query: { owner: o.address, environment: o.environment }, signal });
+      // Every network, like Herding's Running list: the Pack shows each agent once, whichever network it works on.
+      const r = await apiGet<{ agents: PackAgentView[]; redacted?: boolean }>("/v1/pack", { query: { owner: o.address }, signal });
       return { agents: r.redacted ? [] : r.agents };
     },
   });
@@ -214,10 +231,9 @@ export function useSavePreferences(address: string | null) {
 /** Proposal writes: draft (from an insight, a holding, a sentence, a Fence edit) and move along the lifecycle. */
 export function useProposals(o: FoldOwner) {
   const qc = useQueryClient();
-  const fence = useLykiaStore((s) => s.fence);
   const refresh = () => Promise.all(["fold-insights", "fold-instructions", "fold-summary", "fold-trails"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
   const draft = useMutation({
-    mutationFn: (input: { source: { kind: "insight" | "holding" | "chat" | "fence"; ref: string | null }; title?: string; sentence?: string; fencePatch?: Record<string, unknown> }) => apiPost<FoldProposal>("/v1/fold/proposals", { owner: o.address, environment: o.environment, fence, ...input }, { timeoutMs: 30_000 }),
+    mutationFn: (input: { source: { kind: "insight" | "holding" | "chat" | "fence"; ref: string | null }; title?: string; sentence?: string; fencePatch?: Record<string, unknown> }) => apiPost<FoldProposal>("/v1/fold/proposals", { owner: o.address, environment: o.environment, ...input }, { timeoutMs: 30_000 }),
     onSuccess: () => void refresh(),
   });
   const move = useMutation({
@@ -260,17 +276,6 @@ export function useInstructionControl(o: FoldOwner) {
   });
 }
 
-/** Stop a plan in progress (the owner's session is the proof): every step not started yet is stopped. */
-export function useStopPlan() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (intentId: string) => apiPost(`/v1/intents/${encodeURIComponent(intentId)}/stop`, {}),
-    onSuccess: () => {
-      for (const k of ["fold-instructions", "fold-positions", "fold-summary", "fold-trails"]) void qc.invalidateQueries({ queryKey: [k] });
-    },
-  });
-}
-
 /** The Whistle on the server: what it holds, blow it, resume one item or everything. */
 export function useWhistle(o: FoldOwner) {
   const qc = useQueryClient();
@@ -294,14 +299,3 @@ export function useWhistle(o: FoldOwner) {
   return { state, blow, resume };
 }
 
-/** "Send to Ask Lyko": the insight becomes a staged plan on the shared thread, marked From Lyko on watch. */
-export function useSendToAsk(o: FoldOwner) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: { insightId: string; threadId: string | null }) =>
-      apiPost<{ instruction: AgentInstruction; proposal: AgentProposal; threadId: string }>("/v1/agent/instructions", { owner: o.address, environment: o.environment, kind: "plan", from: "watch", to: "ask", insightId: input.insightId, ...(input.threadId ? { threadId: input.threadId } : {}) }),
-    onSuccess: () => {
-      for (const k of ["fold-insights", "fold-instructions", "fold-proposals", "me-threads"]) void qc.invalidateQueries({ queryKey: [k] });
-    },
-  });
-}

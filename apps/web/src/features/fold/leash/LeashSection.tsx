@@ -1,11 +1,12 @@
 /**
- * Pack · Leashes. Every leash as a card: who it is for, its template, where
- * it spends from (Arc wallet or Gateway balance, and for Gateway the chains
- * it may pay on), a budget meter for today and for its whole life (read from
- * the LykiaAccount or LykiaStile on chain), the time left, where it may go,
- * its last actions, and Revoke,
- * always one click away. "New leash" opens the three-step sheet; a draft
- * from Ask Lyko (`?leash=`) opens it prefilled.
+ * Pack · your agents and their leashes. One card per agent: an outside bot
+ * with its leash (who it is for, its template, where it spends from, a
+ * budget meter for today and for its whole life read from the LykiaAccount
+ * or LykiaStile on chain, the time left, where it may go, its last actions
+ * and Revoke), or an agent whose leash is its budget on Lykia's side.
+ * Nothing is created here: new agents and leashes start in Ask Lyko, which
+ * opens the leash sheet as its review step. An older Ask link (`?leash=`)
+ * still opens that review here.
  */
 import { decodeDraft, LEASH_TEMPLATES, LYKIA_TERMS } from "@lykia/core";
 import type { LeashView, RevokeLeashResponse } from "@lykia/core/api/leash";
@@ -22,6 +23,8 @@ import type { FoldOwner } from "../data";
 import { useGatewayOffer, useLeashes } from "./data";
 import { actionLine, destinationsLabel, draftFromParam, meterOf, nearCap, spendFromLabel, statusLabel, stepLeft, timeLeft, usdText, venueLabel, type GatewayOffer, type MeterView } from "./model";
 import { NewLeashSheet } from "./NewLeashSheet";
+import { AgentCard, AskTile } from "../tabs/PackTab";
+import type { PackAgentView } from "@lykia/core/api/agents";
 
 function Bar({ m, label }: { readonly m: MeterView; readonly label: string }) {
   const n = 14;
@@ -39,12 +42,12 @@ function Bar({ m, label }: { readonly m: MeterView; readonly label: string }) {
   );
 }
 
-export function LeashCard({ l, now, busy, onRevoke, offer }: { readonly l: LeashView; readonly now: number; readonly busy: boolean; readonly onRevoke: (l: LeashView) => void; readonly offer?: GatewayOffer | undefined }) {
+export function LeashCard({ l, now, busy, onRevoke, offer, onAsk }: { readonly l: LeashView; readonly now: number; readonly busy: boolean; readonly onRevoke: (l: LeashView) => void; readonly offer?: GatewayOffer | undefined; readonly onAsk?: (l: LeashView) => void }) {
   const live = l.status === "active" || l.status === "pending";
   const close = nearCap(l);
   const paysOn = destinationsLabel(l, offer);
   return (
-    <article className="fd-leash m-frame m-frame--thin" data-status={l.status} data-near={close} data-from={l.spendFrom ?? "arc"}>
+    <article className="fd-pk__card fd-leash m-frame m-frame--thin" data-status={l.status} data-near={close} data-from={l.spendFrom ?? "arc"} data-tone="terra">
       <header className="fd-leash__head">
         <span className="fd-leash__mark" aria-hidden="true"><LeashMark scale={2} /></span>
         <h3>{l.agentName}</h3>
@@ -76,11 +79,12 @@ export function LeashCard({ l, now, busy, onRevoke, offer }: { readonly l: Leash
           ))}
         </ul>
       ) : <p className="m-small m-muted">{l.status === "pending" ? "Nothing yet. It goes live once you sign the session." : "No actions yet."}</p>}
+      {onAsk && live ? <button type="button" className="fd-run__ask" onClick={() => onAsk(l)}>{"Change in Ask Lyko"}</button> : null}
     </article>
   );
 }
 
-export function LeashSection({ owner, onSignIn }: { readonly owner: FoldOwner; readonly onSignIn: () => void }) {
+export function LeashSection({ owner, agents, busyId: agentBusy, onPauseAgent, onRevokeAgent, onAsk }: { readonly owner: FoldOwner; readonly agents: readonly PackAgentView[] | undefined; readonly busyId: string | null; readonly onPauseAgent: (a: PackAgentView) => void; readonly onRevokeAgent: (a: PackAgentView) => void; readonly onAsk: (text: string, context: string) => void }) {
   const leashes = useLeashes(owner);
   const offer = useGatewayOffer();
   const qc = useQueryClient();
@@ -88,16 +92,16 @@ export function LeashSection({ owner, onSignIn }: { readonly owner: FoldOwner; r
   const openModal = useWallet((s) => s.openModal);
   const draftParam = useSearchParam("leash");
   const draft = useMemo(() => draftFromParam(draftParam, decodeDraft), [draftParam]);
-  const [open, setOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [now] = useState(() => Date.now());
-  const sheetOpen = open || draft !== null;
   const list = leashes.data?.leashes ?? [];
   const live = list.filter((l) => l.status === "active" || l.status === "pending");
   const ended = list.filter((l) => l.status !== "active" && l.status !== "pending").slice(0, 3);
+  // An agent holding an outside leash shows as that leash's card; the rest show their own.
+  const leashed = new Set(list.map((l) => l.agentId));
+  const own = (agents ?? []).filter((a) => !leashed.has(a.id) && a.status !== "revoked" && a.role !== "orchestrator");
 
   const closeSheet = () => {
-    setOpen(false);
     if (draftParam) navigate("/app/fold/pack", { replace: true });
   };
 
@@ -111,6 +115,7 @@ export function LeashSection({ owner, onSignIn }: { readonly owner: FoldOwner; r
       // The key dies at the API first; then the wallet ends the session on chain.
       const r = await apiPost<RevokeLeashResponse>(`/v1/leashes/${encodeURIComponent(l.id)}/revoke`, {});
       await qc.invalidateQueries({ queryKey: ["leashes"] });
+      void qc.invalidateQueries({ queryKey: ["fold-instructions"] });
       toast.success(`${l.agentName}'s key stopped working`, { description: r.transaction ? "Sign revokeSession to end it on chain too." : r.note, from: "LYKO" });
       if (r.transaction) {
         if (!wallet.connected) openModal();
@@ -126,33 +131,32 @@ export function LeashSection({ owner, onSignIn }: { readonly owner: FoldOwner; r
     }
   };
 
+  const loading = (leashes.isLoading && !owner.sample) || agents === undefined;
   return (
-    <section className="fd-leashes" aria-labelledby="fd-leashes-h">
-      <header className="fd-leashes__head">
+    <section className="fd-leashes fd-pk" aria-labelledby="fd-pk-h">
+      <header className="fd-leashes__head fd-pk__head">
         <span className="fd-leashes__mark" aria-hidden="true"><LeashMark scale={3} /></span>
         <div>
-          <h3 id="fd-leashes-h">{"Leashes"} <span className="p-h-sub">{`· ${LYKIA_TERMS.leash.plain}`}</span></h3>
-          <p className="m-small">{"Give an outside bot a budget it cannot go past: per step, per day and in total, until a date, only to who you allow. The limits sit on chain, and Revoke stops its key at once."}</p>
+          <h3 id="fd-pk-h">{"Agents and their leashes"} <span className="p-h-sub">{`· ${LYKIA_TERMS.leash.plain}`}</span></h3>
+          <p className="m-small">{"An agent is what holds a leash: a budget it cannot go past, per step, per day and in total, until a date, only to who you allow. For outside bots the limits sit on chain, and Revoke stops a key at once."}</p>
         </div>
-        <Button tone="sea" onClick={() => (owner.sample || owner.signedIn ? setOpen(true) : onSignIn())}>{owner.signedIn || owner.sample ? "+ NEW LEASH" : "SIGN IN TO LEASH"}</Button>
+        <span className="fd-pk__count num" aria-label={`${live.length + own.length} agents`}>{live.length + own.length}</span>
       </header>
-      {owner.sample ? <p className="fd-leashes__sample m-small">{"Sample leashes, so you can look around."}</p> : null}
-      {!owner.sample && !owner.signedIn ? <p className="m-small m-muted">{"Sign in as the owner to see and manage your leashes."}</p> : null}
-      {leashes.isLoading && !owner.sample ? <div className="fd-leashes__grid"><div className="m-skel" style={{ height: 260 }} /></div> : null}
-      {live.length > 0 ? (
-        <div className="fd-leashes__grid">
-          {live.map((l) => <LeashCard key={l.id} l={l} now={now} busy={busyId === l.id} onRevoke={(x) => void revoke(x)} offer={offer.data} />)}
-        </div>
-      ) : owner.signedIn && !leashes.isLoading ? (
-        <p className="fd-leashes__empty m-small">{"No leashes yet. Give a bot $20 a day for a week to pay invoices, or let a trading agent swap small amounts: it gets a key for its leash only, and you sign the limits once."}</p>
-      ) : null}
+      {owner.sample ? <p className="fd-leashes__sample m-small">{"Sample agents and leashes, so you can look around."}</p> : null}
+      {!owner.sample && !owner.signedIn ? <p className="m-small m-muted">{"Sign in as the owner to see and manage your agents and leashes."}</p> : null}
+      <div className="fd-leashes__grid fd-pk__grid">
+        {loading ? <div className="m-skel" style={{ height: 260 }} /> : null}
+        {live.map((l) => <LeashCard key={l.id} l={l} now={now} busy={busyId === l.id} onRevoke={(x) => void revoke(x)} offer={offer.data} onAsk={(x) => onAsk(`Change ${x.agentName}'s leash: `, `Leash ${x.id} for ${x.agentName}: $${x.budget.perDayUsd} a day, $${x.budget.totalUsd} in all, until ${x.expiresAt}.`)} />)}
+        {own.map((a) => <AgentCard key={a.id} a={a} sample={owner.sample} busy={agentBusy === a.id} onPause={onPauseAgent} onRevoke={onRevokeAgent} onAsk={(x) => onAsk(`Change my agent ${x.name}: `, `Agent ${x.name} (${x.role}), ${x.status}; daily cap ${x.budget.caps.dailyUsd ?? "none"}, spent today ${x.budget.spent.dayUsd}.`)} />)}
+        <AskTile onAsk={onAsk} />
+      </div>
       {ended.length > 0 ? (
         <details className="fd-leashes__ended">
           <summary className="m-small">{`${ended.length} ended`}</summary>
           <div className="fd-leashes__grid">{ended.map((l) => <LeashCard key={l.id} l={l} now={now} busy={false} onRevoke={() => undefined} offer={offer.data} />)}</div>
         </details>
       ) : null}
-      {sheetOpen ? <NewLeashSheet key={draftParam ?? "new"} open owner={owner} draft={draft} onClose={closeSheet} onCreated={() => void qc.invalidateQueries({ queryKey: ["leashes"] })} /> : null}
+      {draft ? <NewLeashSheet key={draftParam ?? "draft"} open owner={owner} draft={draft} onClose={closeSheet} onCreated={() => void qc.invalidateQueries({ queryKey: ["leashes"] })} /> : null}
     </section>
   );
 }

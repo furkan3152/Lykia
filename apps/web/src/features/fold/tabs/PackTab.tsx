@@ -1,13 +1,15 @@
 /**
- * Pack · agents. Each agent with its budget meter (Fence caps used and
- * left), its Tag, what it may do, and a Whistle of its own. New agents are
- * made by asking Lyko.
+ * Pack · your agents and their leashes. The cards for an agent whose leash
+ * is its budget on Lykia's side (its Fence inside yours, a daily cap carved
+ * from yours), and the one tile that starts something new: Ask Lyko. The
+ * leash cards for outside bots live in leash/LeashSection.tsx; both sit in
+ * the same grid.
  */
 import { ROLE_TEMPLATES, type PackRole } from "@lykia/core";
 import type { PackAgentView } from "@lykia/core/api/agents";
 
 import { Link } from "../../../app/routes/Link";
-import { Button, EmptyState, PupIcon, Tag } from "../../../mosaic";
+import { Button, PupIcon, Tag } from "../../../mosaic";
 import { agentMeter, usd } from "../model";
 
 const roleTitle = (role: PackRole) => (role === "custom" ? "Custom" : role === "orchestrator" ? "Lyko" : ROLE_TEMPLATES[role].title.en);
@@ -28,48 +30,48 @@ function Meter({ share, used, cap, label }: { readonly share: number; readonly u
   );
 }
 
-export function PackTab({ agents, sample, busyId, onWhistle, onNew, onAsk }: { readonly agents: readonly PackAgentView[] | undefined; readonly sample: boolean; readonly busyId: string | null; readonly onWhistle: (a: PackAgentView) => void; readonly onNew: () => void; readonly onAsk: (a: PackAgentView) => void }) {
-  if (!agents) return <div className="fd-agents">{[0, 1, 2].map((i) => <div key={i} className="m-skel" style={{ height: 220 }} />)}</div>;
+/** An agent with no outside leash: its leash is its budget on Lykia's side (a Fence inside yours, a daily cap carved from yours). */
+export function AgentCard({ a, sample, busy, onPause, onAsk, onRevoke }: { readonly a: PackAgentView; readonly sample: boolean; readonly busy: boolean; readonly onPause: (a: PackAgentView) => void; readonly onAsk: (a: PackAgentView) => void; readonly onRevoke: (a: PackAgentView) => void }) {
+  const m = agentMeter(a);
+  const paused = a.status === "paused";
   return (
-    <div className="fd-agents">
-      {agents.map((a) => {
-        const m = agentMeter(a);
-        const paused = a.status === "paused";
-        return (
-          <article key={a.id} className="fd-agent m-frame m-frame--thin" data-status={a.status}>
-            <header className="fd-agent__head">
-              <span className="fd-agent__icon"><PupIcon role={a.role} scale={3} /></span>
-              <div>
-                <h3>{a.name}</h3>
-                <span className="m-kick">{roleTitle(a.role)}{a.depth > 1 ? " · PUP" : ""}</span>
-              </div>
-              <Tag tone={paused ? "ghost" : a.status === "revoked" ? "bad" : "ok"}>{a.status}</Tag>
-            </header>
-            <Meter {...m} />
-            <dl className="fd-agent__facts">
-              <div><dt>{"ID card (Tag)"}</dt><dd>{a.agentId ? <Link to={`/app/tag/${a.agentId}`}>{`#${a.agentId}`}</Link> : <span className="m-muted">{"none yet"}</span>}</dd></div>
-              <div><dt>{"Allowed to"}</dt><dd>{a.capabilities.slice(0, 3).join(", ")}{a.capabilities.length > 3 ? " …" : ""}</dd></div>
-              <div><dt>{"Can it sign?"}</dt><dd>{a.session ? "yes, within its budget" : "no, it only suggests"}</dd></div>
-              <div><dt>{"Since"}</dt><dd className="num">{new Date(a.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</dd></div>
-            </dl>
-            <footer className="fd-agent__acts">
-              <Button size="sm" tone="ghost" onClick={() => onAsk(a)}>{"ASK ABOUT IT"}</Button>
-              {sample ? null : <Link to={`/app/pack/${encodeURIComponent(a.id)}`} className="m-btn m-btn--ghost m-btn--sm">{"DETAILS"}</Link>}
-              <Button size="sm" tone={paused ? "ochre" : "navy"} disabled={sample || busyId === a.id || a.status === "revoked"} onClick={() => onWhistle(a)}>{paused ? "LET IT WORK" : "PAUSE IT"}</Button>
-            </footer>
-          </article>
-        );
-      })}
-      <button type="button" className="fd-agent fd-agent--new m-frame m-frame--thin" onClick={onNew}>
-        <span className="fd-agent__plus" aria-hidden="true">+</span>
-        <b>{"New agent"}</b>
-        <span className="m-small m-muted">{"Tell Lyko what it should do and its budget. Its Fence stays inside yours."}</span>
-      </button>
-      {agents.length === 0 ? (
-        <div className="fd-agents__empty">
-          <EmptyState mood="resting" title="No agents yet">{"An agent gets a budget carved from yours and a Fence inside yours. It proposes; you, or its on-chain session, sign."}</EmptyState>
+    <article className="fd-pk__card fd-agent m-frame m-frame--thin" data-status={a.status} data-tone="sea">
+      <header className="fd-agent__head">
+        <span className="fd-agent__icon"><PupIcon role={a.role} scale={3} /></span>
+        <div>
+          <h3>{a.name}</h3>
+          <span className="m-kick">{`${roleTitle(a.role)}${a.depth > 1 ? " · PUP" : ""} · LEASH ON LYKIA`}</span>
         </div>
-      ) : null}
+        <Tag tone={paused ? "ghost" : a.status === "revoked" ? "bad" : "ok"}>{a.status}</Tag>
+      </header>
+      <Meter {...m} />
+      <dl className="fd-agent__facts">
+        <div><dt>{"Budget"}</dt><dd className="num">{a.budget.caps.dailyUsd ? `${usd(Number(a.budget.caps.dailyUsd), 0)} a day` : "no cap"}</dd></div>
+        <div><dt>{"Can it sign?"}</dt><dd>{a.session ? "yes, within its leash" : "no, it proposes; you sign"}</dd></div>
+        <div><dt>{"ID card (Tag)"}</dt><dd>{a.agentId ? <Link to={`/app/tag/${a.agentId}`}>{`#${a.agentId}`}</Link> : <span className="m-muted">{"none yet"}</span>}</dd></div>
+        <div><dt>{"Since"}</dt><dd className="num">{new Date(a.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</dd></div>
+      </dl>
+      <footer className="fd-agent__acts">
+        <Button size="sm" tone="ghost" disabled={sample || busy || a.status === "revoked"} onClick={() => onPause(a)}>{paused ? "RESUME" : "PAUSE"}</Button>
+        <Button size="sm" tone="navy" disabled={sample || busy || a.status === "revoked"} onClick={() => onRevoke(a)}>{"REVOKE"}</Button>
+        <button type="button" className="fd-run__ask" onClick={() => onAsk(a)}>{"Change in Ask Lyko"}</button>
+      </footer>
+    </article>
+  );
+}
+
+/** The one way to start something in the Pack: Ask Lyko, with the request filled in. */
+export function AskTile({ onAsk }: { readonly onAsk: (text: string, context: string) => void }) {
+  return (
+    <div className="fd-pk__ask m-frame m-frame--thin">
+      <span className="fd-pk__askmark" aria-hidden="true"><PupIcon role="orchestrator" scale={3} /></span>
+      <b>{"A new agent or leash starts in Ask Lyko"}</b>
+      <span className="m-small m-muted">{"Say who it is for, what it may spend a day and for how long. Lyko drafts it, you review and sign once there, and it shows up here."}</span>
+      <div className="fd-pk__asks">
+        <button type="button" className="m-chip" onClick={() => onAsk("Give my bot ", "A new leash from the Pack.")}>{"Give my bot $… a day"}</button>
+        <button type="button" className="m-chip" onClick={() => onAsk("Create a ", "A new agent from the Pack.")}>{"Create an agent"}</button>
+      </div>
+      <Button size="sm" tone="terra" onClick={() => onAsk("Give my bot ", "A new leash from the Pack.")}>{"ASK LYKO"}</Button>
     </div>
   );
 }

@@ -254,9 +254,10 @@ describe("agent instructions (API)", () => {
     const twice = await call("POST", "/v1/agent/instructions", watchBody({ kind: "idle-above", token: "USDC", amount: "100" }));
     assert.equal((twice.body.instruction as AgentInstruction).id, instruction.id, "the same condition is not set twice");
     const herding = await call("GET", `/v1/fold/instructions?owner=${OWNER}`);
-    const row = (herding.body.instructions as { id: string; source: string; sourceLabel: string }[]).find((i) => i.id === instruction.id);
+    const row = (herding.body.instructions as { id: string; source: string; sourceLabel: string; kind?: string }[]).find((i) => i.id === instruction.id);
     assert.equal(row?.source, "watch");
-    assert.equal(row?.sourceLabel, "From Ask Lyko");
+    assert.equal(row?.sourceLabel, "Watch");
+    assert.equal(row?.kind, "watch");
     const id = encodeURIComponent(instruction.id);
     assert.equal(((await call("POST", `/v1/agent/instructions/${id}/pause`, { owner: OWNER })).body.instruction as AgentInstruction).status, "paused");
     assert.equal(((await call("POST", `/v1/agent/instructions/${id}/resume`, { owner: OWNER })).body.instruction as AgentInstruction).status, "active");

@@ -1,23 +1,34 @@
 /**
- * Fence · your spending rules. The rules as plain sentences, Lykia's beta
- * limit set apart from them (what it is, why, that it sits above every
- * Fence and never limits money coming home), the room left today, and
- * changes made by picking a preset (with a "what changes" preview) or by
- * asking Lyko. Tightening applies at once; loosening needs the owner's
- * wallet. The one-tap tweaks sit behind "Adjust".
+ * Fence · your spending rules, kept on the server per owner. The rules as
+ * plain sentences, Lykia's beta limit set apart from them (what it is, why,
+ * that it sits above every Fence and never limits money coming home), the
+ * room left today, and one control to change them: the preset (Careful,
+ * Balanced or Bold), which is also Your Lyko's risk profile, with a "what
+ * changes" preview. Tightening applies at once; loosening is signed by the
+ * owner's wallet. Anything finer goes through Ask Lyko. A Fence an older
+ * version kept in this browser is proposed once. Safety (approvals, token
+ * checks and pauses) closes the tab.
  */
-import { fenceHash, fencePresetOf, fencePresetPreview, fenceSentences, FENCE_PRESET_IDS, FENCE_PRESETS, LYKIA_TERMS, MEANINGS, type BetaCap, type Fence, type FencePresetId } from "@lykia/core";
+import { fenceHash, fencePresetPreview, fenceSentences, FENCE_PRESET_IDS, FENCE_PRESETS, LYKIA_TERMS, MEANINGS, type BetaCap, type Fence, type FencePresetId } from "@lykia/core";
 import type { FoldTrailEntry } from "@lykia/core/api/fold";
 import { useState } from "react";
 
-import { Link } from "../../../app/routes/Link";
-import { Button, Seal, cx } from "../../../mosaic";
+import { Button, LykoFace, Seal, cx, toast } from "../../../mosaic";
+import { describeError } from "../../../lib/api";
+import { useLykiaStore } from "../../../lib/lykiaStore";
+import { legacyDiff, useFenceWrite } from "../../fence/data";
+import type { OwnerFenceView } from "../../fence/sync";
+import type { FoldOwner } from "../data";
+import { SafetySection } from "./SafetySection";
 import { BetaCapNote, Hint, Meaning } from "../../help/Help";
 import { HeadroomGauge } from "../FoldBar";
 import { fenceSuggestions, roomLine, type Headroom } from "../model";
 
 export interface FenceTabProps {
   readonly fence: Fence;
+  readonly owner: FoldOwner;
+  /** The server's view of the owner's Fence (signed in), with its preset. */
+  readonly view: OwnerFenceView | undefined;
   readonly headroom: Headroom;
   /** Lykia's beta limit on this network (mainnet), or null. */
   readonly beta: BetaCap | null;
@@ -28,22 +39,85 @@ export interface FenceTabProps {
   readonly busy: boolean;
 }
 
-export function FenceTab({ fence, headroom, beta, verdicts, onSuggest, onAsk, onWhistle, busy }: FenceTabProps) {
+/** A Fence an older version kept in this browser: proposed once, kept (signed if it loosens) or let go. */
+function LegacyFence({ legacy, view }: { readonly legacy: Fence; readonly view: OwnerFenceView }) {
+  const write = useFenceWrite();
+  const forget = useLykiaStore((s) => s.forgetLegacyFence);
+  const diff = legacyDiff(view.fence, legacy);
+  if (view.migrated || !diff.differs) return null;
+  const keep = async () => {
+    try {
+      await write.save.mutateAsync({ fence: { ...legacy, mode: legacy.mode === "whistle" ? "live" : (legacy.mode ?? "live") }, migrated: true });
+      forget();
+      toast.success("Your Fence from before is your Fence now", { description: "It lives on the server, the same everywhere you sign in.", from: "LYKO" });
+    } catch (e) {
+      toast.error("Not kept", { description: describeError(e), from: "LYKO" });
+    }
+  };
+  const drop = async () => {
+    try {
+      await write.settled.mutateAsync();
+      forget();
+    } catch (e) {
+      toast.error("No change", { description: describeError(e), from: "LYKO" });
+    }
+  };
+  return (
+    <section className="fd-card m-frame m-frame--thin fd-legacy" aria-labelledby="legacy-h">
+      <header className="fd-card__head fd-card__head--row">
+        <LykoFace mood="watching" scale={2} />
+        <div>
+          <h3 id="legacy-h">{"This browser kept a Fence from before"}</h3>
+          <span className="m-small m-muted">{"Your Fence lives on the server now. Keep the old one, or stay with your preset. Lyko asks once."}</span>
+        </div>
+      </header>
+      {diff.loosens.length > 0 ? (
+        <div className="p-preview">
+          <b className="m-small">{"Keeping it loosens your Fence; your wallet signs first:"}</b>
+          <ul>{diff.loosens.map((l) => <li key={l} data-dir="looser"><span>{l}</span></li>)}</ul>
+        </div>
+      ) : <p className="m-small">{"Keeping it only tightens your Fence."}</p>}
+      <div className="p-fence-actions">
+        <Button size="sm" disabled={write.save.isPending} onClick={() => void keep()}>{diff.loosens.length > 0 ? "SIGN AND KEEP IT" : "KEEP IT"}</Button>
+        <Button size="sm" tone="ghost" disabled={write.settled.isPending} onClick={() => void drop()}>{`STAY WITH ${view.presetLabel.toUpperCase()}`}</Button>
+      </div>
+    </section>
+  );
+}
+
+export function FenceTab({ fence, owner, view, headroom, beta, verdicts, onSuggest, onAsk, onWhistle, busy }: FenceTabProps) {
   const rules = fenceSentences(fence).filter((s) => s.source === "yours");
-  const current = fencePresetOf(fence);
+  const legacy = useLykiaStore((s) => s.legacyFence);
+  const write = useFenceWrite();
+  // The preset is the risk profile (one control); custom edits on top show as "custom".
+  const current: FencePresetId | null = view ? (view.custom ? null : view.preset) : "balanced";
   const [picked, setPicked] = useState<FencePresetId | null>(null);
   const preview = picked ? fencePresetPreview(fence, picked, beta) : null;
   const whistle = fence.mode === "whistle";
   const refused = verdicts.filter((v) => v.kind === "refused");
+  const pickPreset = async (id: FencePresetId) => {
+    if (owner.sample || !owner.signedIn) {
+      toast.info(owner.sample ? "This is the sample flock" : "Sign in first", { description: "Your Fence is kept on the server for your address; sign in with your wallet to change it.", from: "LYKO" });
+      return;
+    }
+    try {
+      const saved = await write.preset.mutateAsync(id);
+      setPicked(null);
+      toast.success(`Your Fence is ${saved.presetLabel} now`, { description: saved.hash.slice(0, 22), from: "LYKO" });
+    } catch (e) {
+      toast.error("The Fence did not change", { description: describeError(e), from: "LYKO" });
+    }
+  };
   const status = whistle ? "Stopped: the Whistle is blown" : fence.mode === "dry-run" ? "Practice mode: nothing can be signed" : "On: every move is checked";
   return (
     <div className="fd-grid2 fd-grid2--fence">
+      {legacy && view ? <div className="fd-span2"><LegacyFence legacy={legacy} view={view} /></div> : null}
       <div className="fd-stack">
         <section className="fd-card m-frame m-frame--thin" aria-labelledby="fence-h">
           <header className="fd-card__head fd-card__head--row">
             <div>
               <h3 id="fence-h">{"Your rules"}</h3>
-              <span className="m-small m-muted">{fence.label ? `${fence.label}${current ? ` · matches ${FENCE_PRESETS[current].label}` : ""}` : "Custom"}</span>
+              <span className="m-small m-muted">{view ? (view.custom ? `Your own, built on ${view.presetLabel}` : `${view.presetLabel} preset`) : owner.sample ? "Balanced preset (sample)" : owner.signedIn ? "Reading your Fence…" : "Balanced preset until you sign in"}</span>
             </div>
             <span className={cx("p-fence-status", whistle && "is-stopped")}>{status}</span>
           </header>
@@ -62,7 +136,7 @@ export function FenceTab({ fence, headroom, beta, verdicts, onSuggest, onAsk, on
           {refused.length === 0 ? <p className="fd-quiet">{"Nothing was refused lately. When a rule says no, the reason shows here."}</p> : null}
           <details className="p-tech">
             <summary className="m-small">{"Technical details"}</summary>
-            <p className="m-small m-muted">{"The same rules are checked before signing, compiled into your Circle wallet policy, and enforced on chain by your Lykia account. Missing facts count as a no."}</p>
+            <p className="m-small m-muted">{"Kept on Lykia's server for your address, the same in Ask Lyko, the Fold and every automation. The same rules are checked before signing, compiled into your Circle wallet policy, and enforced on chain by your Lykia account. Missing facts count as a no."}</p>
             <span className="m-kick num">{fenceHash(fence)}</span>
           </details>
         </section>
@@ -90,7 +164,7 @@ export function FenceTab({ fence, headroom, beta, verdicts, onSuggest, onAsk, on
         <section className="fd-card m-frame m-frame--thin" aria-labelledby="change-h">
           <header className="fd-card__head">
             <h3 id="change-h">{"Change your rules"}</h3>
-            <Meaning>{"Pick a level and see what changes. Lyko drafts it; stricter rules apply at once, looser ones need your wallet."}</Meaning>
+            <Meaning>{"One control: the preset is also Your Lyko's risk profile. Stricter applies at once; looser is signed by your wallet."}</Meaning>
           </header>
           <div className="p-presets" role="radiogroup" aria-label="Rule presets">
             {FENCE_PRESET_IDS.map((id) => (
@@ -116,14 +190,14 @@ export function FenceTab({ fence, headroom, beta, verdicts, onSuggest, onAsk, on
               ) : null}
               {preview.betaNote ? <p className="m-small m-muted">{preview.betaNote}</p> : null}
               {preview.changes.length > 0 ? (
-                <Button size="sm" disabled={busy} onClick={() => onSuggest(`Switch my Fence to ${preview.preset.label}`, preview.preset.patch as Record<string, unknown>)}>
-                  {preview.needsWallet ? `DRAFT IT · YOUR WALLET SIGNS` : "MAKE IT STRICTER NOW"}
+                <Button size="sm" disabled={busy || write.preset.isPending} onClick={() => void pickPreset(preview.preset.id)}>
+                  {write.preset.isPending ? "…" : preview.needsWallet ? "SIGN AND SWITCH" : "MAKE IT STRICTER NOW"}
                 </Button>
               ) : null}
             </div>
           ) : null}
           <div className="p-fence-actions">
-            <Button size="sm" tone="ghost" onClick={onAsk}>{"OR SAY IT IN YOUR WORDS"}</Button>
+            <Button size="sm" tone="ghost" onClick={onAsk}>{"CHANGE ONE RULE IN ASK LYKO"}</Button>
           </div>
           <details className="p-adjust">
             <summary className="m-small">{"Adjust one rule"}</summary>
@@ -144,9 +218,6 @@ export function FenceTab({ fence, headroom, beta, verdicts, onSuggest, onAsk, on
           <div className="p-fence-actions">
             <Button size="sm" tone={whistle ? "ochre" : "navy"} onClick={onWhistle}>{whistle ? "RELEASE · LET THINGS RUN AGAIN" : "BLOW THE WHISTLE"}</Button>
           </div>
-          <p className="m-small m-muted">
-            <Link to="/app/scent">{"Check a token before you buy it"}</Link>
-          </p>
         </section>
         {refused.length > 0 ? (
           <section className="fd-card m-frame m-frame--thin" aria-labelledby="why-h">
@@ -167,6 +238,7 @@ export function FenceTab({ fence, headroom, beta, verdicts, onSuggest, onAsk, on
           </section>
         ) : null}
       </div>
+      <div className="fd-span2"><SafetySection owner={owner} fence={fence} /></div>
     </div>
   );
 }

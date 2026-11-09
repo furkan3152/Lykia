@@ -1,26 +1,25 @@
 /**
- * Lykia Agents (Xanthos): your agents as cards with budget meters (their
- * Fence caps) and Tag status, a "New agent" flow, recent decisions, and the
- * Whistle that pauses every agent at once.
+ * Lykia Agents (Xanthos): a window onto your agents, as cards with budget
+ * meters (their Fence caps) and Tag status, recent decisions, and the
+ * Whistle that pauses every agent at once. Agents live in Lykia's Fold
+ * (Pack · your agents and their leashes) and start in Ask Lyko: this city
+ * points there instead of keeping a creation flow of its own.
  */
 import type { LeagueCity } from "@lykia/core";
 import type { PackAgentView } from "@lykia/core/api/agents";
 import type { AuditEntry } from "@lykia/core/security/index";
-import { LykiaTransport } from "@lykia/sdk";
-import { LykiaProvider, Pack } from "@lykia/widget";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { useSiwe } from "../features/session/useSiwe";
 import { useLykiaWallet } from "../features/wallet/useLykiaWallet";
 import { apiGet, apiPost, describeError } from "../lib/api";
-import { API_BASE } from "../lib/env";
 import { useLykiaStore, whistleOn } from "../lib/lykiaStore";
 import { Button, EmptyState, PupIcon, Skeleton, Tag, cx, toast } from "../mosaic";
 import { CityFrame, type CityTab } from "./CityFrame";
 import { PixelIcon } from "./PixelIcon";
 import { budgetUsed } from "./model";
-import { Sheet } from "./Sheet";
+import {Sheet} from "./Sheet";
 
 type Tab = "agents" | "activity" | "whistle";
 
@@ -77,16 +76,15 @@ function AgentCard({ agent }: { readonly agent: PackAgentView }) {
 
 export function AgentsShell({ city, home }: { readonly city: LeagueCity; readonly home: string }) {
   const [tab, setTab] = useState<Tab>("agents");
-  const [creating, setCreating] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const wallet = useLykiaWallet();
   const siwe = useSiwe();
-  const qc = useQueryClient();
   const env = city.project.network;
   const owner = wallet.address;
   const whistle = useLykiaStore((s) => whistleOn(s.fence));
   const setWhistle = useLykiaStore((s) => s.setWhistle);
-  const transport = useMemo(() => new LykiaTransport({ baseUrl: new URL(API_BASE).origin, environment: env }), [env]);
+  // A new agent starts in Ask Lyko, with the request filled in; it then shows here and in the Fold's Pack.
+  const newAgent = `${home}/app?intent=${encodeURIComponent("Create an agent with a daily budget of ")}`;
   const agents = useQuery({
     queryKey: ["city-pack", owner, env, siwe.signedIn],
     enabled: Boolean(owner),
@@ -110,7 +108,7 @@ export function AgentsShell({ city, home }: { readonly city: LeagueCity; readonl
   };
 
   return (
-    <CityFrame city={city} home={home} tab={tab} tabs={TABS} onTab={(t) => (t === "whistle" ? setConfirm(true) : setTab(t))} action={tab === "agents" ? <Button className="ct-action__btn" onClick={() => setCreating(true)}>{"NEW AGENT"}</Button> : undefined}>
+    <CityFrame city={city} home={home} tab={tab} tabs={TABS} onTab={(t) => (t === "whistle" ? setConfirm(true) : setTab(t))} action={tab === "agents" ? <a className="m-btn ct-action__btn" href={newAgent}>{"NEW AGENT"}</a> : undefined}>
       <div className={cx("ct-whistle", whistle && "is-on")} role="status">
         <span className="ct-whistle__lamp" aria-hidden="true" />
         <span className="m-small">{whistle ? "The Whistle is blown: every agent is stopped. Moves that bring value home still pass." : `${list.filter((a) => a.status === "active").length} agents working inside your Fence.`}</span>
@@ -132,7 +130,7 @@ export function AgentsShell({ city, home }: { readonly city: LeagueCity; readonl
         ) : list.length === 0 ? (
           <div className="ct-empty ct-empty--big">
             <EmptyState mood="watching" title="No agents yet">{"Start with one: a name, a role and a daily budget. It can never spend more than you give it."}</EmptyState>
-            <Button className="ct-wide-only" onClick={() => setCreating(true)}>{"CREATE YOUR FIRST AGENT"}</Button>
+            <a className="m-btn ct-wide-only" href={newAgent}>{"CREATE YOUR FIRST AGENT IN ASK LYKO"}</a>
             <ol className="ct-steps" aria-label="How an agent is held">
               <li><PixelIcon name="spark" size={22} /><div><b>{"A budget carved from yours"}</b><span className="m-small m-muted">{`Daily caps up to $${city.project.fence.caps.dailyUsd ?? "250"} in this city.`}</span></div></li>
               <li><PixelIcon name="shield" size={22} /><div><b>{"Its own spending rules"}</b><span className="m-small m-muted">{"It can only be tighter than your own rules."}</span></div></li>
@@ -142,6 +140,11 @@ export function AgentsShell({ city, home }: { readonly city: LeagueCity; readonl
         ) : (
           <ul className="ct-agents">{list.map((a) => <AgentCard key={a.id} agent={a} />)}</ul>
         )}
+        <a className="ct-fold" href={`${home}/app/fold/pack`}>
+          <PixelIcon name="agents" size={22} />
+          <span><b>{"Manage them in the Fold"}</b><span className="m-small m-muted">{"Pack · your agents and their leashes: budgets, pause and Revoke, with everything else you run."}</span></span>
+          <span aria-hidden="true">{"›"}</span>
+        </a>
         </div>
         <aside className="ctd-ag__side ct-desk-only" aria-label="Activity">
           <section className="ct-card m-frame m-frame--thin">
@@ -150,7 +153,7 @@ export function AgentsShell({ city, home }: { readonly city: LeagueCity; readonl
               <div><dt>{"Working"}</dt><dd className="num">{owner ? list.filter((a) => a.status === "active").length : 3}</dd></div>
               <div><dt>{"Spent today"}</dt><dd className="num">{`$${(owner ? list.reduce((x, a) => x + Number(a.budget.spent.dayUsd || 0), 0) : 184.2).toFixed(2)}`}</dd></div>
             </dl>
-            <Button onClick={() => setCreating(true)}>{"NEW AGENT"}</Button>
+            <a className="m-btn" href={newAgent}>{"NEW AGENT"}</a>
           </section>
           <section className="ct-card m-frame m-frame--thin ctd-ag__feed">
             <div className="ct-card__head"><h2>{"Activity"}</h2><span className="m-kick">{siwe.signedIn ? "AUDIT LOG" : "SAMPLE"}</span></div>
@@ -178,12 +181,6 @@ export function AgentsShell({ city, home }: { readonly city: LeagueCity; readonl
           )}
         </section>
       )}
-
-      <Sheet open={creating} onClose={() => { setCreating(false); void qc.invalidateQueries({ queryKey: ["city-pack"] }); }} title="New agent">
-        <LykiaProvider transport={transport} brand={city.project.brand} modules={city.project.modules} assistantName={city.project.assistantName} environment={env} {...(owner ? { owner } : {})}>
-          <Pack />
-        </LykiaProvider>
-      </Sheet>
 
       <Sheet open={confirm} onClose={() => setConfirm(false)} title={whistle ? "Release the Whistle?" : "Blow the Whistle?"}>
         <div className="ct-form">

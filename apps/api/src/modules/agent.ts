@@ -22,6 +22,7 @@
  * key with the agents scope (a developer acting for its users). Nothing
  * here signs or moves funds.
  */
+import { ownerFence } from "../personal/fence.js";
 import { DEFAULT_FENCE, evaluateFence, PACK_ROLES, type Address, type ArcEnvironment, type FenceFacts, type PackAgent, type PackRole } from "@lykia/core";
 import type { Request, Response } from "express";
 import { encodeFunctionData, type Hex } from "viem";
@@ -33,8 +34,7 @@ import { evmAddress, parseBody, parseParams, parseQuery } from "../http/validate
 import { agentServices } from "../agents/index.js";
 import { publicPackView } from "../agents/pack.js";
 import { readSentence } from "../language/reader.js";
-import { fenceForProfile, projectFence, projectPromptBlock, tightenFence } from "@lykia/core";
-import { getProfile } from "../personal/profile.js";
+import { projectFence, projectPromptBlock, tightenFence } from "@lykia/core";
 import { projectOf } from "../platform/projects.js";
 import { createAutomation, listAutomations, ownerFenceOf, runAutomations, setAutomationEnabled } from "../agents/automations.js";
 import { runDeterministicTurn } from "../agents/deterministic.js";
@@ -100,7 +100,9 @@ export const agentModule: ApiModule = {
       const project = projectOf(req);
       // Private state (profile, memory, the Pack's names and missions, saved threads) is used only for a proven owner.
       const proven = proof !== null ? realOwner : null;
-      const ownFence = fenceFrom(body.fence) ?? (project ? projectFence(project) : proven ? fenceForProfile(await getProfile(ctx, proven)) : DEFAULT_FENCE);
+      // The Fence is the server's: the project's through a project key, else the proven owner's own (GET /v1/me/fence),
+      // else the Balanced preset. A Fence in the request is ignored (the field stays in the schema for older clients).
+      const ownFence = project ? projectFence(project) : proven ? await ownerFence(ctx, proven) : DEFAULT_FENCE;
       const baseFence = project ? tightenFence(ownFence, project) : ownFence;
       const fence = sample ? { ...baseFence, mode: "dry-run" as const } : baseFence;
       const pack = proven ? (await s().pack.ownedBy(proven, environment)).filter((a) => a.status === "active") : [];

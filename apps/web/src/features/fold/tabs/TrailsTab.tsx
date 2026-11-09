@@ -17,7 +17,7 @@ const KIND: Readonly<Record<FoldTrailEntry["kind"], { label: string; tone: "ok" 
   failed: { label: "Failed", tone: "bad" },
   refused: { label: "Refused", tone: "bad" },
   order: { label: "Order", tone: "ochre" },
-  alert: { label: "Bark", tone: "ochre" },
+  alert: { label: "Watch", tone: "ochre" },
   proposal: { label: "Draft", tone: "ghost" },
 };
 

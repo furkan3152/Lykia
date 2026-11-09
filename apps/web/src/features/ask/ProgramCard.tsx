@@ -17,7 +17,7 @@ import { useLykiaWallet } from "../wallet/useLykiaWallet";
 import { useChatActions } from "./actions";
 
 const SAMPLE_OWNER = "0x000000000000000000000000000000000000dEaD";
-const KIND_LABEL: Readonly<Record<ChatProgramView["scheduled"][number]["kind"], string>> = { automation: "AUTOMATION", order: "LYKIAORDERS", alert: "ALERT", standing: "STANDING ORDER", budget: "FENCE BUDGET", leash: "LEASH" };
+const KIND_LABEL: Readonly<Record<ChatProgramView["scheduled"][number]["kind"], string>> = { automation: "AUTOMATION", order: "LYKIAORDERS", alert: "WATCH", standing: "AUTOMATION", budget: "FENCE BUDGET", leash: "LEASH" };
 
 /** The Fence verdict as a seal, or a quiet tag when it is decided later. */
 function Verdict({ decision, reasons }: { decision: "allow" | "confirm" | "deny" | "unknown"; reasons: readonly string[] }) {
@@ -156,9 +156,15 @@ export function ProgramCard({ view: initial }: { view: ChatProgramView }) {
                 <span className="m-small m-muted" style={{ overflowWrap: "anywhere" }}>{s.rationale}</span>
                 <Verdict decision={s.decision} reasons={s.reasons} />
                 <div>
-                  <Link to={s.href} className={cx("m-btn m-btn--sm", s.saved && "m-btn--ghost")}>
-                    {s.saved ? "MANAGE" : s.kind === "order" ? "SIGN ON THE ORDERS PAGE" : s.kind === "budget" ? "OPEN THE PACK" : s.kind === "leash" ? "SET UP THE LEASH" : "REVIEW AND SAVE"}
-                  </Link>
+                  {s.kind === "leash" && !s.saved ? (
+                    <span className="m-small m-muted">{"Review it on the leash card in this answer: you sign once there."}</span>
+                  ) : s.kind === "order" && !s.saved ? (
+                    <span className="m-small m-muted">{"Review it on the order card in this answer: you sign it there."}</span>
+                  ) : (
+                    <Link to={s.href} className={cx("m-btn m-btn--sm", s.saved && "m-btn--ghost")}>
+                      {s.saved ? "SEE IT RUNNING" : s.kind === "budget" ? "OPEN THE PACK" : "REVIEW IN ASK LYKO"}
+                    </Link>
+                  )}
                 </div>
               </div>
             ))}

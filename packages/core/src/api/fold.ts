@@ -88,13 +88,41 @@ export interface FoldFeedEntry {
   readonly note: string | null;
 }
 
-export type InstructionSource = "automation" | "standing" | "alert" | "agent" | "order" | "recurring" | "watch" | "plan";
+export type InstructionSource = "automation" | "standing" | "alert" | "agent" | "order" | "recurring" | "watch" | "plan" | "leash" | "autopilot" | "autopilot-task" | "pack-agent" | "invoice";
+
+/**
+ * The one noun a Running row is, whatever engine holds it. Autopilot tasks,
+ * standing orders, recurring payments and agent automations are all
+ * "automation" (with who signs); alerts and watch tasks are "watch"; Pack
+ * agents and leashes are "leash" (an agent is what holds a leash).
+ */
+export type RunningKind = "automation" | "order" | "watch" | "leash" | "autopilot" | "plan" | "payment";
+export const RUNNING_KINDS: readonly RunningKind[] = ["automation", "order", "watch", "leash", "autopilot", "plan", "payment"];
+
+/** Who signs each run of an automation. */
+export type RunningSigner = "you" | "autopilot" | "leash";
+
+/**
+ * The one control a Running row offers, described as the HTTP call that
+ * does it (the web only follows it). `sign` controls need the owner's wallet
+ * after the call: a LykiaOrders cancel, a leash's revokeSession.
+ */
+export interface RunningControl {
+  readonly action: "pause" | "resume" | "stop" | "cancel";
+  readonly label: string;
+  readonly method: "get" | "post" | "delete";
+  readonly path: string;
+  readonly query?: Readonly<Record<string, string>>;
+  readonly body?: Readonly<Record<string, string>>;
+  /** After the call the owner signs a transaction (a LykiaOrders cancel, a revokeSession). */
+  readonly sign?: "order-cancel" | "revoke-session";
+}
 
 /** One standing instruction, whatever created it, in one shape. */
 export interface FoldInstruction {
   readonly id: string;
   readonly source: InstructionSource;
-  /** "Rounds", "Barks", "Orders", "Standing", "Agent rounds", "Recurring". */
+  /** The row's chip: "Automation", "Order", "Watch", "Leash", "Autopilot", "Plan", "Payment link", "Invoice". */
   readonly sourceLabel: string;
   readonly name: string;
   readonly status: "active" | "paused" | "waiting" | "done" | "failed" | "cancelled";
@@ -115,6 +143,16 @@ export interface FoldInstruction {
   readonly stop?: { readonly intentId: string };
   /** An open LykiaOrders order: Cancel is a transaction the owner signs (GET /v1/orders/:hash/cancel-tx). */
   readonly cancel?: { readonly hash: string; readonly environment: ArcEnvironment };
+  /** The one noun it is in the Running list. */
+  readonly kind?: RunningKind;
+  /** Automations: who signs each run ("You sign each time", "Autopilot signs"). */
+  readonly signs?: RunningSigner;
+  /** What happens next, in one plain line ("Pays 300 USDC in 3 d", "Bot may spend $20 more today"). */
+  readonly nextLine?: string;
+  /** The one control that fits (Pause, Resume, Stop or Cancel); null when nothing can be done from here. */
+  readonly control?: RunningControl | null;
+  /** Watches: where it is delivered (in-app, webhook, Telegram). */
+  readonly channels?: readonly ("in-app" | "webhook" | "telegram")[];
 }
 
 export interface FoldInstructionsResponse {
@@ -123,7 +161,7 @@ export interface FoldInstructionsResponse {
   readonly instructions: readonly FoldInstruction[];
   /** Proposals waiting for the owner's signature (automations, insights, chat). */
   readonly waiting: readonly FoldProposal[];
-  readonly counts: { readonly running: number; readonly paused: number; readonly ordersWaiting: number; readonly waitingSignature: number };
+  readonly counts: { readonly running: number; readonly paused: number; readonly ordersWaiting: number; readonly waitingSignature: number; readonly agentsWorking?: number; readonly byKind?: Readonly<Partial<Record<RunningKind, number>>> };
 }
 
 export interface FoldTrailEntry {

@@ -10,6 +10,7 @@
  * the chat, checked against the Fence and the beta cap now and signed by the
  * owner in their wallet; budgets are Fence changes the owner signs.
  */
+import { leashDraftBlock } from "../agents/create.js";
 import type { Address, ArcEnvironment, Fence } from "@lykia/core";
 import type { AgentProposal, AnswerBlock, ChatDraftLink, ChatProgramView } from "@lykia/core/api/agents";
 import { ordersService } from "../orders/service.js";
@@ -103,7 +104,7 @@ async function draftsOf(d: DeliverContext, result: CompileResult): Promise<Map<n
       if (d.verified) {
         try {
           await createAutomation(d.ctx, { developer: d.verified.developer, project: null, via: d.verified.via, consentProject: d.verified.projectId ?? null }, { owner: d.owner, name: s.draft.name, environment: d.environment, trigger: s.draft.trigger, action: s.draft.action, fence: d.fence });
-          out.set(i, { kind: "automation", saved: true, label: s.draft.name, href: "/app/automations" });
+          out.set(i, { kind: "automation", saved: true, label: s.draft.name, href: "/app/fold/herding?show=automations" });
           continue;
         } catch {
           /* fall back to the link */
@@ -114,7 +115,7 @@ async function draftsOf(d: DeliverContext, result: CompileResult): Promise<Map<n
       if (d.verified) {
         try {
           await alertsService(d.ctx).create({ owner: d.owner, environment: d.environment, ...s.draft });
-          out.set(i, { kind: "alert", saved: true, label: s.summary, href: "/app/alerts" });
+          out.set(i, { kind: "alert", saved: true, label: s.summary, href: "/app/fold/herding?show=watches" });
           continue;
         } catch {
           /* fall back to the link */
@@ -156,5 +157,17 @@ export async function deliver(d: DeliverContext, result: CompileResult, override
   const { proposal, error } = await proposalOf(d, result);
   const saved = await draftsOf(d, result);
   const view = programView(result, overrides, saved, proposal?.intentId ?? null, proposal ? { decision: proposal.decision, reasons: proposal.reasons } : undefined);
-  return { proposal, drafts: [...saved.values()], view, planError: error, blocks: await orderCards(d, result) };
+  return { proposal, drafts: [...saved.values()], view, planError: error, blocks: [...(await orderCards(d, result)), ...leashCards(result)] };
+}
+
+/** A leash the program drafted: a card in Ask that opens the leash review sheet (Ask starts it; the Fold manages it). */
+function leashCards(result: CompileResult): AnswerBlock[] {
+  const out: AnswerBlock[] = [];
+  for (const s of result.scheduled) {
+    if (s.kind !== "leash" || out.length >= 2) continue;
+    if (s.draft.template === "custom") continue;
+    const drafted = leashDraftBlock({ name: s.draft.name, template: s.draft.template, perDayUsd: s.draft.perDayUsd, perStepUsd: s.draft.perStepUsd ?? null, days: s.draft.days, ...(s.draft.recipients ? { recipients: s.draft.recipients } : {}) });
+    if (drafted.ok) out.push(drafted.block);
+  }
+  return out;
 }
