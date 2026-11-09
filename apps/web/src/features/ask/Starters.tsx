@@ -69,10 +69,10 @@ export function StarterChips({ items, onPick }: { readonly items: readonly Start
   if (items.length === 0) return null;
   return (
     <div className="m-dockchips" role="group" aria-label="Suggestions">
-      {items.map((s) => (
-        <button key={s.id} type="button" className="m-chip m-dockchips__chip" onClick={() => onPick(s)}>
-          <IntentIcon icon={s.icon} size={14} />
-          {s.label}
+      {items.map((s, i) => (
+        <button key={s.id} type="button" className="m-dockchip" data-icon={s.icon} data-kind={s.kind} style={{ "--i": i } as React.CSSProperties} onClick={() => onPick(s)}>
+          <span className="m-dockchip__stone"><IntentIcon icon={s.icon} size={20} /></span>
+          <span className="m-dockchip__label">{s.label}</span>
         </button>
       ))}
     </div>

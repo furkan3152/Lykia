@@ -589,9 +589,25 @@ html:not([data-night="on"]) .m-chat { --ink-3: #586577; }
 
 /* Phones: Ask is a plain chat. A short greeting, then the box at the bottom
  * with the suggestions as one row of small chips right above it. */
-.m-dockchips { display: flex; gap: var(--sp-2); overflow-x: auto; margin: 0 calc(-1 * var(--sp-3)) var(--sp-2); padding: 2px var(--sp-3); scrollbar-width: none; }
+.m-dockchips { display: flex; gap: var(--sp-3); overflow-x: auto; margin: 0 calc(-1 * var(--sp-3)) var(--sp-2); padding: var(--sp-1) var(--sp-3) var(--sp-1); scrollbar-width: none; }
 .m-dockchips::-webkit-scrollbar { display: none; }
-.m-dockchips__chip { flex: none; display: inline-flex; align-items: center; gap: var(--sp-2); min-height: 36px; padding: 0 var(--sp-3); white-space: nowrap; font-size: 14px; }
+/* Each chip is a small tessera: its pixel icon set in a coloured stone, a
+ * pixel-type word, a hard mosaic shadow in the intent's colour, and a tile
+ * that drops into place one after another. A question (one tap sends it)
+ * ends in an arrow. */
+.m-dockchip { --tone: var(--grout); --stone: #efe5cf; flex: none; display: inline-flex; align-items: center; gap: var(--sp-2); min-height: 44px; padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-1); border: 0; cursor: pointer; white-space: nowrap; background: var(--cream); color: var(--navy); box-shadow: inset 0 0 0 2px var(--navy), 0 4px 0 var(--tone); margin-bottom: 4px; transition: transform 90ms steps(2, end), box-shadow 90ms steps(2, end); animation: m-start-in 320ms steps(4, end) both; animation-delay: calc(var(--i, 0) * 50ms); }
+.m-dockchip__stone { display: grid; place-items: center; width: 32px; height: 32px; background-color: var(--stone); background-image: linear-gradient(rgba(19, 35, 58, 0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(19, 35, 58, 0.08) 1px, transparent 1px); background-size: 4px 4px; box-shadow: inset 0 0 0 2px var(--tone); }
+.m-dockchip__label { font-family: "Pixelify Sans", monospace; font-size: 15px; font-weight: 700; letter-spacing: 0.01em; }
+.m-dockchip:hover, .m-dockchip:focus-visible { outline: none; transform: translateY(-2px); box-shadow: inset 0 0 0 2px var(--navy), 0 6px 0 var(--tone); }
+.m-dockchip:active { transform: translateY(4px); box-shadow: inset 0 0 0 2px var(--navy), 0 0 0 var(--tone); }
+.m-dockchip[data-icon="earn"] { --tone: var(--olive); --stone: #e5edd8; }
+.m-dockchip[data-icon="send"] { --tone: var(--terra); --stone: #f7e0d8; }
+.m-dockchip[data-icon="bridge"] { --tone: var(--sea); --stone: #d8ecef; }
+.m-dockchip[data-icon="watch"] { --tone: var(--ochre); --stone: #f6e9c8; }
+.m-dockchip[data-icon="have"] { --tone: #1d4e89; --stone: #dfe8f3; }
+.m-dockchip[data-icon="can"] { --tone: var(--navy); --stone: var(--navy); }
+.m-dockchip[data-kind="ask"] .m-dockchip__label::after { content: "→"; margin-left: var(--sp-1); font-family: "JetBrains Mono Variable", monospace; font-weight: 600; color: var(--tone); }
+@media (prefers-reduced-motion: reduce) { .m-dockchip { animation: none; transition: none; } }
 @media (max-width: 640px) {
   .m-ask-hero.m-ask-empty { min-height: 100%; align-content: center; justify-items: center; text-align: center; padding: var(--sp-5) 0; }
   .m-ask-hero__head { flex-direction: column; text-align: center; }
