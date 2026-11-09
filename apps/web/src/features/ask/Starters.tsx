@@ -62,14 +62,32 @@ export function StarterGrid({ onPick }: { readonly onPick: (s: Starter) => void 
 }
 
 /**
+ * Phones: the starting points or the follow-ups as one row of small
+ * chips that sits right above the message box and scrolls sideways.
+ */
+export function StarterChips({ items, onPick }: { readonly items: readonly Starter[]; readonly onPick: (s: Starter) => void }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="m-dockchips" role="group" aria-label="Suggestions">
+      {items.map((s) => (
+        <button key={s.id} type="button" className="m-chip m-dockchips__chip" onClick={() => onPick(s)}>
+          <IntentIcon icon={s.icon} size={14} />
+          {s.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
  * After Lyko answers: the one next step as a single button (review and sign,
  * or the Fold where the result now lives), then two or three follow-ups.
  * A clarify question already shows its own chips, so it adds no button.
  */
-export function NextStepBar({ m, onPick }: { readonly m: ChatMessage; readonly onPick: (s: Starter) => void }) {
+export function NextStepBar({ m, onPick, chips = true }: { readonly m: ChatMessage; readonly onPick: (s: Starter) => void; readonly chips?: boolean }) {
   const { openReview } = useChatActions();
   const step = nextStep(m);
-  const more = step.kind === "choose" ? [] : followUps(m);
+  const more = step.kind === "choose" || !chips ? [] : followUps(m);
   const proposal = step.kind === "review" ? m.proposals[step.index] : undefined;
   const go = Boolean(proposal && openReview) || step.kind === "fold";
   if (!go && more.length === 0) return null;

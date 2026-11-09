@@ -586,3 +586,16 @@ html:not([data-night="on"]) .m-chat { --ink-3: #586577; }
   .m-nextbar__chips::-webkit-scrollbar { display: none; }
   .m-nextbar__chip { flex: none; min-height: 44px; }
 }
+
+/* Phones: Ask is a plain chat. A short greeting, then the box at the bottom
+ * with the suggestions as one row of small chips right above it. */
+.m-dockchips { display: flex; gap: var(--sp-2); overflow-x: auto; margin: 0 calc(-1 * var(--sp-3)) var(--sp-2); padding: 2px var(--sp-3); scrollbar-width: none; }
+.m-dockchips::-webkit-scrollbar { display: none; }
+.m-dockchips__chip { flex: none; display: inline-flex; align-items: center; gap: var(--sp-2); min-height: 36px; padding: 0 var(--sp-3); white-space: nowrap; font-size: 14px; }
+@media (max-width: 640px) {
+  .m-ask-hero.m-ask-empty { min-height: 100%; align-content: center; justify-items: center; text-align: center; padding: var(--sp-5) 0; }
+  .m-ask-hero__head { flex-direction: column; text-align: center; }
+  .m-ask-hero__head .m-title, .m-ask-hero__head .m-sub { text-align: center; }
+  .m-ask-hero .m-sub { margin-top: var(--sp-2); color: #586577; }
+  .m-convo__col:has(> .m-ask-empty) { min-height: 100%; }
+}

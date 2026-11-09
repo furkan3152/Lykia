@@ -8,7 +8,8 @@
 import { useLykiaWallet } from "../../features/wallet/useLykiaWallet";
 import type { ThreadView } from "@lykia/core/api/agents";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { mediaMatches, subscribeMedia } from "../../app/state/media";
 
 import { navigate } from "../../app/routes/history";
 import { useUiStore } from "../../app/state/uiStore";
@@ -33,8 +34,14 @@ import { useSession } from "../../lib/session";
 import type { ThreadSummaryView } from "@lykia/core/api/fold";
 import { mergeThreads } from "../../features/fold/model";
 import { HowItWorks } from "../../features/help/Help";
-import { NextStepBar, StarterGrid } from "../../features/ask/Starters";
-import type { Starter } from "../../features/ask/starters";
+import { NextStepBar, StarterChips, StarterGrid } from "../../features/ask/Starters";
+import { ASK_STARTERS, DO_STARTERS, followUps, nextStep, type Starter } from "../../features/ask/starters";
+
+const PHONE = "(max-width: 640px)";
+/** True on phone widths: Ask then becomes a plain chat, the box at the bottom. */
+function usePhone(): boolean {
+  return useSyncExternalStore((cb) => subscribeMedia(PHONE, cb), () => mediaMatches(PHONE) === true, () => false);
+}
 
 const SAMPLE_OWNER = "0x000000000000000000000000000000000000dEaD" as const;
 
@@ -183,7 +190,15 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
   const walletLine = address ? "Lyko only proposes · your wallet signs" : "Sample mode · connect to plan yours";
   const walletBadge = address ? "YOU SIGN" : "SAMPLE MODE";
   const threadTitle = threads.find((t) => t.id === convo.threadId)?.title ?? (lastUser || null);
-  const composer = <Composer onSubmit={ask} busy={status === "streaming"} onStop={stop} autoFocus memoryChips={hasHistory} prefill={prefill} hints {...(empty ? {} : { className: "m-composer--dock", placeholder: "Reply, or ask something new…" })} />;
+  const small = usePhone();
+  const docked = !empty || small;
+  const composer = <Composer onSubmit={ask} busy={status === "streaming"} onStop={stop} autoFocus={!small} memoryChips={hasHistory && !small} prefill={prefill} hints {...(docked ? { className: "m-composer--dock", placeholder: empty ? "Say what your money should do…" : "Reply, or ask something new…" } : {})} />;
+  // Phones: suggestions sit as small chips right above the box.
+  const smallChips: readonly Starter[] = !small || status === "streaming"
+    ? []
+    : empty
+      ? [...DO_STARTERS, ...ASK_STARTERS]
+      : lastAnswer && nextStep(lastAnswer).kind !== "choose" ? followUps(lastAnswer) : [];
   const firstUser = convo.messages.findIndex((m) => m.role === "user");
 
   return (
@@ -232,16 +247,20 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
             {empty ? (
               <div className="m-ask-empty m-ask-hero">
                 <div className="m-ask-hero__head">
-                  <LykoFace mood="happy" scale={2.4} />
+                  <LykoFace mood="happy" scale={small ? 2 : 2.4} />
                   <div>
                     <h1 className="m-title">{"What should your money do?"}</h1>
-                    <p className="m-sub">{"Say it in one sentence. Lyko plans it across Arc and Circle rails, your Fence checks every step, and you sign once."}</p>
+                    {small ? <p className="m-sub">{"Pick one below or type it. You sign once."}</p> : <p className="m-sub">{"Say it in one sentence. Lyko plans it across Arc and Circle rails, your Fence checks every step, and you sign once."}</p>}
                   </div>
                 </div>
-                {composer}
-                <StarterGrid onPick={pick} />
-                <p className="m-asknote m-ask-hero__foot">{walletLine}</p>
-                <HowItWorks area="ask" inAsk />
+                {small ? null : (
+                  <>
+                    {composer}
+                    <StarterGrid onPick={pick} />
+                    <p className="m-asknote m-ask-hero__foot">{walletLine}</p>
+                    <HowItWorks area="ask" inAsk />
+                  </>
+                )}
               </div>
             ) : null}
             {serverThread.data && convo.messages.length === 0
@@ -254,17 +273,18 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
                 )
               : null}
             {convo.messages.map((m, i) => (m.role === "user" ? <UserMessage key={m.id} text={m.text} morph={i === firstUser} /> : <AssistantMessage key={m.id} m={m} onChoose={choose} />))}
-            {lastAnswer && status !== "streaming" ? <NextStepBar key={lastAnswer.id} m={lastAnswer} onPick={pick} /> : null}
+            {lastAnswer && status !== "streaming" ? <NextStepBar key={lastAnswer.id} m={lastAnswer} onPick={pick} chips={!small} /> : null}
           </div>
         </div>
-        {empty ? null : (
+        {docked ? (
           <div className="m-convo__dock">
             <div className="m-convo__col">
+              <StarterChips items={smallChips} onPick={pick} />
               {composer}
               <p className="m-asknote m-convo__note">{walletLine}</p>
             </div>
           </div>
-        )}
+        ) : null}
       </section>
 
       {showArtifact && proposal ? (
