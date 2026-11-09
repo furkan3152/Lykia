@@ -47,7 +47,7 @@ interface Payout {
 
 /** Shown, labelled "sample", until the owner signs in. */
 const SAMPLE_ROWS = [
-  { kind: "Invoice" as const, id: "s1", title: "Logo design, final round", status: "paid", at: "2026-11-04T09:12:00Z", amount: "250" },
+  { kind: "Invoice" as const, id: "s1", title: "Logo design, final version", status: "paid", at: "2026-11-04T09:12:00Z", amount: "250" },
   { kind: "Invoice" as const, id: "s2", title: "Lunch on Friday", status: "open", at: "2026-11-04T08:40:00Z", amount: "18.50" },
   { kind: "Payout" as const, id: "s3", title: "Payout to 4 recipients", status: "settled", at: "2026-11-03T17:05:00Z", amount: "1200" },
   { kind: "Invoice" as const, id: "s4", title: "Request (open amount)", status: "open", at: "2026-11-02T11:30:00Z", amount: null },

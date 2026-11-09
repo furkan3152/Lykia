@@ -373,7 +373,7 @@ export async function compileIntent(ctx: AppContext, input: CompileInput, http: 
   const scheduled: CheckedDraft[] = [];
   for (const d of compiled.scheduled) {
     const { link, valid } = linkOf(d);
-    let verdict: VerdictBrief = { decision: "unknown", reasons: d.kind === "alert" ? ["Alerts move no money."] : d.kind === "budget" ? ["A Fence change: you sign it on the Pack page."] : [], digest: null };
+    let verdict: VerdictBrief = { decision: "unknown", reasons: d.kind === "alert" ? ["Watches move no money."] : d.kind === "budget" ? ["A Fence change: you sign it on the Pack page."] : [], digest: null };
     const previewActions: readonly PlanAction[] | null = d.kind === "automation" ? d.actions : d.kind === "standing" ? d.draft.actions : d.kind === "order" ? [{ verb: "swap", from: d.order.sell, to: d.order.buy, amount: { exact: d.order.amount } }] : null;
     if (wantPreview && previewActions && previewActions.length > 0 && previews < MAX_PREVIEWS) {
       previews++;

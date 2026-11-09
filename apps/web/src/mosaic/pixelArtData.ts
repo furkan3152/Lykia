@@ -32,3 +32,18 @@ export const MARK_ART = {
   spark: ["....k....", "....k....", "...kkk...", "kkkk.kkkk", "...kkk...", "....k....", "....k....", ".........", "........."],
   arrow: [".........", ".....k...", "......k..", "kkkkkkkk.", "kkkkkkkkk", "kkkkkkkk.", "......k..", ".....k...", "........."],
 } as const;
+
+/** Ask Lyko's starting points: one hand-laid tessera icon per intent (12 x 12). */
+export const INTENT_PAL: Readonly<Record<string, string>> = {
+  k: "#13233A", g: "#5F8A3A", G: "#3D6124", y: "#F4CB4E", Y: "#B88A1E", t: "#B9472E", r: "#B9472E", R: "#7E2C1B",
+  s: "#1E8FA3", S: "#9CC9F0", u: "#9CC9F0", B: "#1D4E89", w: "#FFF6DE",
+};
+
+export const INTENT_ART = {
+  earn: ["....gg......", "...gGg.gg...", "....gg.gG...", ".....ggg....", "......g.....", "...yyyyyy...", "..yYYYYYYy..", ".yYyyyyyyYy.", ".yYyyYYyyYy.", ".yYyyyyyyYy.", "..yYYYYYYy..", "...yyyyyy..."],
+  send: ["............", ".......t....", ".......tt...", "..yyy..ttt..", ".yYYYy.tttt.", ".yYyYytttttt", ".yYyYytttttt", ".yYYYy.tttt.", "..yyy..ttt..", ".......tt...", ".......t....", "............"],
+  bridge: ["............", "rrrrrrrrrrrr", "RrRrRrRrRrRr", "rrrr....rrrr", "rrr......rrr", "rr........rr", "rr........rr", "rr........rr", "rrssssssssrr", "ssSsssSsssSs", "ssssssssssss", "............"],
+  watch: [".....kk.....", "....yyyy....", "...yYYYYy...", "..yYyyyyYy..", "..yYyyyyYy..", "..yYyyyyYy..", ".yYyyyyyyYy.", ".yYyyyyyyYy.", "yYYYYYYYYYYy", "kkkkkkkkkkkk", ".....kk.....", "............"],
+  have: ["............", "..uuuuuuuu..", ".uBBBBBBBBu.", "..uuuuuuuu..", ".yyyyyyyyyy.", "yYYYYYYYYYYy", ".yyyyyyyyyy.", "..uuuuuuuu..", ".uBBBBBBBBu.", "..uuuuuuuu..", ".gggggggggg.", "............"],
+  can: ["......y.....", "......y.....", ".....yYy....", "....yYYYy...", "yyyyYYwYYyyy", "....yYYYy...", ".....yYy....", "......y.....", "......y.....", "............", "............", "............"],
+} as const;

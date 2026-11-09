@@ -103,7 +103,7 @@ export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze(
   discover: page("discover", "/app/discover", "app", "New pools", "New pools on Arc are an answer in Ask Lyko now.", LEGACY, { robots: PRIVATE_ROBOTS }),
   alerts: page("alerts", "/app/alerts", "app", "Watches", "Watches start in Ask Lyko and run in the Fold's Herding now.", LEGACY, { robots: PRIVATE_ROBOTS }),
   automations: page("automations", "/app/automations", "app", "Automations", "Automations start in Ask Lyko and run in the Fold's Herding now.", LEGACY, { robots: PRIVATE_ROBOTS }),
-  activity: page("activity", "/app/activity", "app", "Trails · activity", "Every intent, order and alert in one trail.", LEGACY, { robots: PRIVATE_ROBOTS }),
+  activity: page("activity", "/app/activity", "app", "Trails · activity", "Every intent, order and watch in one trail.", LEGACY, { robots: PRIVATE_ROBOTS }),
   whatif: page("whatif", "/app/whatif", "app", "What-if · stress test", "Shock cirBTC and EURC and see your portfolio's value and health factors move, with the PnL explained.", LEGACY, { robots: PRIVATE_ROBOTS }),
   pay: page("pay", "/pay/:id", "app", "Pay", "Pay an invoice or payment link on Arc: the amount, the line items and Lykia's fee shown before your wallet signs.", () => import("../../pages/pay/PayPage"), { robots: PRIVATE_ROBOTS }),
   security: page("security", "/app/security", "app", "Safety", "Safety is a section of the Fold's Fence tab now.", LEGACY, { robots: PRIVATE_ROBOTS }),

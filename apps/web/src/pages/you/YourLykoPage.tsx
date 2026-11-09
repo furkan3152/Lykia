@@ -6,7 +6,7 @@
  * replies in English and understands any language, so there is no language
  * setting. Voice and look, and Memory, are the other two tabs.
  */
-import { DEFAULT_FOLD_PREFERENCES, FOLD_CARDS, FOLD_INSIGHT_KINDS, FOLD_INSIGHT_NAMES, FOLD_TABS, foldPreferenceEffects, type FoldCard, type FoldInsightKind, type FoldPreferences, type FoldRisk, type FoldTab } from "@lykia/core";
+import { DEFAULT_FOLD_PREFERENCES, FOLD_CARDS, FOLD_INSIGHT_NAMES, FOLD_TABS, foldPreferenceEffects, type FoldCard, type FoldInsightKind, type FoldPreferences, type FoldRisk, type FoldTab } from "@lykia/core";
 import React, { useEffect, useMemo, useState } from "react";
 
 import { Link } from "../../app/routes/Link";
@@ -18,6 +18,27 @@ import { HowItWorks } from "../../features/help/Help";
 import { useSiwe } from "../../features/session/useSiwe";
 import { describeError } from "../../lib/api";
 import { Button, LykoFace, Tag, cx, toast } from "../../mosaic";
+import { PixelArt } from "../../mosaic/PixelArt";
+import { INTENT_ART, INTENT_PAL, MARK_ART, STEP_ART } from "../../mosaic/pixelArtData";
+import { applyPreset, groupState, MIX_PRESETS, mixStones, presetOf, toggleGroup, WATCH_GROUPS, type WatchGroup } from "./prefsModel";
+
+const STONE_COLOUR = { usdc: "var(--sea)", eurc: "var(--ochre)", earning: "var(--olive)" } as const;
+
+/** Ten tesserae: the preset's split at a glance. */
+function MixStrip({ mix }: { readonly mix: Parameters<typeof mixStones>[0] }) {
+  return (
+    <span className="yl-ministrip" aria-hidden="true">
+      {mixStones(mix).map((k, i) => <i key={i} style={{ background: STONE_COLOUR[k] }} />)}
+    </span>
+  );
+}
+
+const GROUP_ICON: Readonly<Record<WatchGroup["id"], { readonly art: readonly string[]; readonly palette: Readonly<Record<string, string>>; readonly tone: string }>> = {
+  risk: { art: MARK_ART.bang, palette: { k: "#B9472E" }, tone: "var(--terra)" },
+  idle: { art: INTENT_ART.earn, palette: INTENT_PAL, tone: "var(--olive)" },
+  running: { art: STEP_ART.simulate, palette: { k: "#1E8FA3" }, tone: "var(--sea)" },
+  safety: { art: STEP_ART.fence, palette: { k: "#13233A" }, tone: "var(--navy)" },
+};
 
 const VoiceAndLook = React.lazy(() => import("./YouPage"));
 const Memory = React.lazy(() => import("../memory/MemoryPage"));
@@ -130,17 +151,33 @@ function Preferences() {
 
         <section className="fd-card m-frame m-frame--thin yl-span2" aria-labelledby="mix-h">
           <header className="fd-card__head"><h3 id="mix-h">{"Target mix"}</h3><span className="m-small m-muted">{"How you would like your money split; Lyko tells you when it drifts past the band."}</span></header>
-          <div className="yl-mixbar" role="img" aria-label={`USDC ${mix.usdcPct}%, EURC ${mix.eurcPct}%, earning ${mix.earningPct}%`}>
-            <i style={{ flexGrow: mix.usdcPct, background: "var(--sea)" }}><span>{`USDC ${mix.usdcPct}%`}</span></i>
-            <i style={{ flexGrow: mix.eurcPct, background: "var(--ochre)" }}><span>{`EURC ${mix.eurcPct}%`}</span></i>
-            <i style={{ flexGrow: mix.earningPct, background: "var(--olive)" }}><span>{`Earning ${mix.earningPct}%`}</span></i>
+          <div className="yl-presets" role="radiogroup" aria-label="Target mix">
+            {MIX_PRESETS.map((p, i) => {
+              const on = presetOf(mix) === p.id;
+              return (
+                <button key={p.id} type="button" role="radio" aria-checked={on} className={cx("yl-preset", on && "yl-preset--on")} style={{ ["--i" as string]: i }} onClick={() => set("targetMix", applyPreset(mix, p.id))}>
+                  <b>{p.title}</b>
+                  <MixStrip mix={p.mix} />
+                  <span className="yl-preset__nums num">{`USDC ${p.mix.usdcPct} · EURC ${p.mix.eurcPct} · earning ${p.mix.earningPct}`}</span>
+                  <span className="m-small m-muted">{p.line}</span>
+                </button>
+              );
+            })}
           </div>
-          <div className="fd-sliders">
-            <label className="fd-slider"><span>{"USDC"}</span><input type="range" min={0} max={100} value={mix.usdcPct} onChange={(e) => setMix("usdcPct", Number(e.target.value))} /><b className="num">{mix.usdcPct}%</b></label>
-            <label className="fd-slider"><span>{"EURC"}</span><input type="range" min={0} max={100} value={mix.eurcPct} onChange={(e) => setMix("eurcPct", Number(e.target.value))} /><b className="num">{mix.eurcPct}%</b></label>
-            <label className="fd-slider"><span>{"Band"}</span><input type="range" min={1} max={50} value={mix.bandPct} onChange={(e) => set("targetMix", { ...mix, bandPct: Number(e.target.value) })} /><b className="num">{`± ${mix.bandPct}`}</b></label>
-          </div>
-          <p className="m-small m-muted">{"Earning takes what USDC and EURC leave, so the three always add up to 100."}</p>
+          <details className="yl-fine" open={presetOf(mix) === null || undefined}>
+            <summary>{presetOf(mix) === null ? "Fine-tuned: your own split" : "Fine-tune"}</summary>
+            <div className="yl-mixbar" role="img" aria-label={`USDC ${mix.usdcPct}%, EURC ${mix.eurcPct}%, earning ${mix.earningPct}%`}>
+              <i style={{ flexGrow: mix.usdcPct, background: "var(--sea)" }}><span>{`USDC ${mix.usdcPct}%`}</span></i>
+              <i style={{ flexGrow: mix.eurcPct, background: "var(--ochre)" }}><span>{`EURC ${mix.eurcPct}%`}</span></i>
+              <i style={{ flexGrow: mix.earningPct, background: "var(--olive)" }}><span>{`Earning ${mix.earningPct}%`}</span></i>
+            </div>
+            <div className="fd-sliders">
+              <label className="fd-slider"><span>{"USDC"}</span><input type="range" min={0} max={100} value={mix.usdcPct} onChange={(e) => setMix("usdcPct", Number(e.target.value))} /><b className="num">{mix.usdcPct}%</b></label>
+              <label className="fd-slider"><span>{"EURC"}</span><input type="range" min={0} max={100} value={mix.eurcPct} onChange={(e) => setMix("eurcPct", Number(e.target.value))} /><b className="num">{mix.eurcPct}%</b></label>
+              <label className="fd-slider"><span>{"Band"}</span><input type="range" min={1} max={50} value={mix.bandPct} onChange={(e) => set("targetMix", { ...mix, bandPct: Number(e.target.value) })} /><b className="num">{`± ${mix.bandPct}`}</b></label>
+            </div>
+            <p className="m-small m-muted">{"Earning takes what USDC and EURC leave, so the three always add up to 100."}</p>
+          </details>
           <Effect text={effects.targetMix} />
         </section>
 
@@ -151,15 +188,39 @@ function Preferences() {
               {(["inbox", "webhook", "telegram"] as const).map((n) => <button key={n} type="button" role="radio" aria-checked={draft.insights.notify === n} onClick={() => set("insights", { ...draft.insights, notify: n })}>{n}</button>)}
             </div>
           </header>
-          <ul className="yl-checks">
-            {FOLD_INSIGHT_KINDS.map((k) => (
-              <li key={k}>
-                <label>
-                  <input type="checkbox" checked={!hidden.has(k)} onChange={() => toggleInsight(k)} />
-                  <span>{FOLD_INSIGHT_NAMES[k]}</span>
-                </label>
-              </li>
-            ))}
+          <ul className="yl-groups">
+            {WATCH_GROUPS.map((g) => {
+              const st = groupState(g, draft.insights.hidden);
+              const icon = GROUP_ICON[g.id];
+              return (
+                <li key={g.id} className="yl-group" data-on={st.on > 0} style={{ ["--tone" as string]: icon.tone }}>
+                  <div className="yl-group__top">
+                    <span className="yl-group__stone"><PixelArt art={icon.art} palette={icon.palette} size={24} grout /></span>
+                    <span className="yl-group__words">
+                      <b>{g.title}</b>
+                      <small>{g.line}</small>
+                    </span>
+                    <label className="fd-switch" title={st.on === st.of ? "All on" : st.on === 0 ? "All off" : `${st.on} of ${st.of} on`}>
+                      <input type="checkbox" checked={st.on === st.of} ref={(el) => { if (el) el.indeterminate = st.on > 0 && st.on < st.of; }} onChange={() => set("insights", { ...draft.insights, hidden: toggleGroup(g, draft.insights.hidden) })} aria-label={`${g.title}: ${st.on} of ${st.of} on`} />
+                      <i />
+                    </label>
+                  </div>
+                  <details className="yl-group__more">
+                    <summary>{`${st.on} of ${st.of} on · see each`}</summary>
+                    <ul className="yl-checks">
+                      {g.kinds.map((k) => (
+                        <li key={k}>
+                          <label>
+                            <input type="checkbox" checked={!hidden.has(k)} onChange={() => toggleInsight(k)} />
+                            <span>{FOLD_INSIGHT_NAMES[k]}</span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                </li>
+              );
+            })}
           </ul>
           <div className="yl-seg" role="radiogroup" aria-label="How often">
             {(["live", "daily", "weekly"] as const).map((c) => <button key={c} type="button" role="radio" aria-checked={draft.insights.cadence === c} onClick={() => set("insights", { ...draft.insights, cadence: c })}>{c === "live" ? "as it happens" : c === "daily" ? "once a day" : "once a week"}</button>)}

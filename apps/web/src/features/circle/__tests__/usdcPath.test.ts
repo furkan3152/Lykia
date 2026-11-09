@@ -30,6 +30,12 @@ describe("where USDC and Circle sit in Lykia", () => {
     }
   });
 
+  it("sets StableFX, USYC and x402 apart as not routes", () => {
+    const notRoutes = BESIDE_ROUTER.filter((b) => b.place === "not-route").map((b) => b.primitive);
+    for (const name of ["StableFX", "USYC Teller", "x402 facilitator", "Agent Marketplace"]) assert.ok(notRoutes.includes(name), name);
+    assert.deepEqual(BESIDE_ROUTER.filter((b) => b.place === "route").map((b) => b.primitive), ["EURC", "Compliance Engine"]);
+  });
+
   it("never calls Circle Wallets the default", () => {
     const wallets = BESIDE_ROUTER.find((b) => b.primitive === "Circle Wallets")!;
     assert.match(wallets.line, /off by default/u);

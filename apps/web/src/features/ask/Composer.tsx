@@ -5,6 +5,7 @@ import { apiGet } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { Button, LykoFace, cx } from "../../mosaic";
 import { insertMention, matchContacts, mentionAt, MEMORY_PHRASES, type ContactRef } from "./memoryRefs";
+import { composerHint, nextBlank, sendWord } from "./starters";
 
 export interface ComposerProps {
   readonly onSubmit: (text: string) => void;
@@ -24,10 +25,12 @@ export interface ComposerProps {
   readonly meta?: string;
   /** The send button's label. */
   readonly sendLabel?: string;
+  /** Show what the sentence still lacks (amount, token, destination) under the text box. */
+  readonly hints?: boolean;
 }
 
 /** Ask Lyko's composer: grows with the text, Enter sends, Shift+Enter breaks a line. */
-export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, className, morph = true, initial = "", memoryChips = false, prefill = null, meta, sendLabel }: ComposerProps) {
+export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, className, morph = true, initial = "", memoryChips = false, prefill = null, meta, sendLabel, hints = false }: ComposerProps) {
   const [text, setText] = useState(initial);
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const owner = useSession((st) => st.session?.address ?? null);
@@ -55,6 +58,19 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
   useEffect(() => {
     if (autoFocus) ref.current?.focus();
   }, [autoFocus]);
+  /** Selects a blank ("[amount]") so typing replaces it. */
+  const selectBlank = (value: string, from: number) => {
+    const b = nextBlank(value, from);
+    if (!b) return false;
+    requestAnimationFrame(() => {
+      const el = ref.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(b.start, b.end);
+      setCaret(b.start);
+    });
+    return true;
+  };
   const prefillNonce = prefill?.nonce ?? 0;
   const prefillText = prefill?.text ?? "";
   useEffect(() => {
@@ -62,16 +78,21 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
     // eslint-disable-next-line react-hooks/set-state-in-effect -- an outside request to fill the box (a quick tile, ?intent=)
     setText(prefillText);
     setCaret(prefillText.length);
+    const b = nextBlank(prefillText);
     requestAnimationFrame(() => {
       const el = ref.current;
       if (!el) return;
       el.focus();
-      el.setSelectionRange(prefillText.length, prefillText.length);
+      if (b) el.setSelectionRange(b.start, b.end);
+      else el.setSelectionRange(prefillText.length, prefillText.length);
     });
   }, [prefillNonce, prefillText]);
+  const hint = hints ? composerHint(text) : null;
   const send = () => {
     const line = text.trim();
     if (!line || busy) return;
+    // A blank is still open: take the user to it instead of sending "[amount]".
+    if (selectBlank(text, 0)) return;
     setText("");
     onSubmit(line);
   };
@@ -103,6 +124,11 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
               choose(matches[pick]?.name ?? matches[0]!.name);
               return;
             }
+            if (e.key === "Tab" && !e.shiftKey && nextBlank(text)) {
+              e.preventDefault();
+              selectBlank(text, (e.currentTarget.selectionEnd ?? 0));
+              return;
+            }
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               send();
@@ -119,6 +145,11 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
               </li>
             ))}
           </ul>
+        ) : null}
+        {hint ? (
+          <p className="m-composer__hint" data-tone={hint.tone} aria-live="polite">
+            {hint.text}
+          </p>
         ) : null}
         {memoryChips ? (
           <div className="m-memchips">
@@ -137,11 +168,13 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
         <Button tone="navy" onClick={onStop}>
           {"STOP"}
         </Button>
-      ) : (
-        <Button onClick={send} disabled={!text.trim()}>
-          {sendLabel ?? "PLAN IT"}
+      ) : text.trim() ? (
+        <Button onClick={send} className="m-composer__send">
+          {sendLabel ?? sendWord(text)}
         </Button>
-      )}
+      ) : sendLabel ? (
+        <Button disabled>{sendLabel}</Button>
+      ) : null}
     </div>
   );
 }

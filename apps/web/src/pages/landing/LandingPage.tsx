@@ -29,6 +29,7 @@ import { NavIcon } from "../../mosaic/PixelArt";
 import { UsdcPath } from "../../features/circle/UsdcPath";
 import { AREAS } from "../../shell/nav";
 import { bay, BAY_H, BAY_W } from "../../mosaic/scenes";
+import { GateWalk, ProblemNight } from "./Story";
 
 const REPO = "https://github.com/furkan3152/Lykia";
 const API_REFERENCE = "https://api.lykiaai.com/v1/reference";
@@ -131,7 +132,7 @@ export default function LandingPage() {
           ]}
           footer={
             <div style={{ padding: 12, borderTop: "8px solid", borderImage: "var(--rule8) 8 round" }} onFocus={() => void warmRoute("/app")} onMouseEnter={() => void warmRoute("/app")}>
-              <Composer onSubmit={ask} className="m-frame--thin" />
+              <Composer onSubmit={ask} className="m-frame--thin" sendLabel="PLAN IT" />
               <div className="m-chips">
                 {CHIPS.map((c) => (
                   <button key={c} type="button" className="m-chip" onClick={() => ask(c)}>
@@ -158,14 +159,7 @@ export default function LandingPage() {
           <span className="m-kick">{"THE PROBLEM"}</span>
           <h2 id="lp-problem" className="m-h2" style={{ marginTop: 8 }}>{"Agents can hold money on Arc. Nobody should hand them a blank cheque."}</h2>
         </div>
-        <div className="m-grid-3" style={{ marginTop: 24 }}>
-          {PROBLEM.map(([title, line]) => (
-            <div key={title} className="m-frame m-frame--thin lp-box">
-              <b>{title}</b>
-              <p className="m-small m-muted">{line}</p>
-            </div>
-          ))}
-        </div>
+        <ProblemNight items={PROBLEM} />
       </section>
 
       <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="lp-how">
@@ -173,15 +167,7 @@ export default function LandingPage() {
           <span className="m-kick">{"HOW IT WORKS"}</span>
           <h2 id="lp-how" className="m-h2" style={{ marginTop: 8 }}>{"One sentence in. One checked transaction out."}</h2>
         </div>
-        <ol className="lp-steps" aria-label="How Lykia works">
-          {STEPS.map(([n, title, line]) => (
-            <li key={n} className="m-frame lp-step">
-              <span className="lp-step__n" aria-hidden="true">{n}</span>
-              <b>{title}</b>
-              <p className="m-small m-muted">{line}</p>
-            </li>
-          ))}
-        </ol>
+        <GateWalk steps={STEPS} />
         <p className="m-small m-muted m-center" style={{ marginTop: 12 }}>{"The server never holds your keys; plans come back unsigned for your wallet. A deny comes back with its reasons; nothing is sent."}</p>
       </section>
 

@@ -3,7 +3,7 @@
  * verdict and its digest, plans still running, failed and refused attempts,
  * the fees paid, orders, watches that fired and every proposal transition.
  */
-import { deriveIntentStatus, formatUsdMicros, memoString, usdMicros, verdictTag, type Address, type IntentGraph } from "@lykia/core";
+import { deriveIntentStatus, memoString, trailFeesUsd, verdictTag, type Address, type IntentGraph } from "@lykia/core";
 import type { FoldTrailEntry, FoldTrailsResponse } from "@lykia/core/api/fold";
 import type { AppContext } from "../context.js";
 import { alertsService } from "../alerts/service.js";
@@ -32,21 +32,6 @@ function memoOf(graph: IntentGraph, stepId: string): string | null {
   } catch {
     return null;
   }
-}
-
-function feeUsdOf(graph: IntentGraph, settledOnly: boolean): bigint {
-  let sum = 0n;
-  for (const s of graph.steps) {
-    if (settledOnly && s.status !== "settled") continue;
-    if (s.fee?.usd) {
-      try {
-        sum += usdMicros(s.fee.usd);
-      } catch {
-        /* unpriced fee */
-      }
-    }
-  }
-  return sum;
 }
 
 function trailsFromIntents(graphs: readonly IntentGraph[]): FoldTrailEntry[] {
@@ -89,10 +74,9 @@ export async function trailsFor(ctx: AppContext, owner: Address): Promise<FoldTr
     items.push({ id: e.id, at: e.at, kind: "proposal", title: e.title, detail: `${FEED_WORDS[e.status]}${e.note ? `: ${e.note}` : ""}`, environment: ctx.config.mode, memo: null, verdict: null, transactions: [], feeUsd: null, link: "/app/fold/herding" });
   }
   items.sort((a, b) => b.at.localeCompare(a.at));
-  const fees = graphs.reduce((sum, g) => sum + feeUsdOf(g, true), 0n);
   return {
     owner: owner.toLowerCase() as Address,
     items: items.slice(0, 300),
-    totals: { settled: items.filter((i) => i.kind === "settled").length, failed: items.filter((i) => i.kind === "failed").length, refused: items.filter((i) => i.kind === "refused").length, feesUsd: formatUsdMicros(fees) },
+    totals: { settled: items.filter((i) => i.kind === "settled").length, failed: items.filter((i) => i.kind === "failed").length, refused: items.filter((i) => i.kind === "refused").length, feesUsd: trailFeesUsd(items, ctx.clock.now()) },
   };
 }

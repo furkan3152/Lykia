@@ -38,7 +38,7 @@ export async function watchTurn(input: DeterministicInput): Promise<TurnResult> 
     const card = await rateCard(input.ctx, question.base, question.quote, input.fence);
     if (!card || card.kind !== "rate") {
       pricing.end("fail", "Unavailable");
-      return done(input, `The ${question.base}/${question.quote} reference rate is unavailable right now: the Chainlink round is stale or could not be read.\n\n**Next:** ask again in a minute.`);
+      return done(input, `The ${question.base}/${question.quote} reference rate is unavailable right now: the Chainlink price is stale or could not be read.\n\n**Next:** ask again in a minute.`);
     }
     pricing.end(card.from?.stale ? "warn" : "ok", `1 ${card.base} = ${card.rate} ${card.quote}`, card.from ? sourceLine(card.from) : undefined);
     emitBlock(input.emit, card);

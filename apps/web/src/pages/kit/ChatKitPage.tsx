@@ -116,7 +116,7 @@ const SAMPLES: readonly { readonly id: string; readonly kick: string; readonly t
     user: "Every Friday at 17:00 sweep idle USDC above 1 into the best vault, and tell me if EURC drops below 1.05",
     m: base("herded", {
       text: "Herded: one automation saved, one watch waiting for you.\n\n- **Automation:** every Friday at 17:00 Europe/Istanbul\n- **Watch:** EURC below 1.05 USD\n\n**Next:** sign in and ask again to save the watch.",
-      steps: [step("s1", "compile", "Compiling your goal", "ok", "Nothing now · 2 for later", 420), step("s2", "draft", "Drafting the automation", "ok", "Automation saved (active)", 160), step("s3", "draft", "Setting the alert", "ok", "Alert drafted (not saved)", 90)],
+      steps: [step("s1", "compile", "Compiling your goal", "ok", "Nothing now · 2 for later", 420), step("s2", "draft", "Drafting the automation", "ok", "Automation saved (active)", 160), step("s3", "draft", "Setting the watch", "ok", "Watch drafted (not saved)", 90)],
       drafts: [
         { kind: "automation", saved: true, label: "Friday sweep into the best vault", href: "/app/fold/herding?show=automations", next: "every Friday at 17:00 Europe/Istanbul" },
         { kind: "alert", saved: false, label: "EURC below 1.05 USD", href: "/app/fold/herding?show=watches" },
@@ -150,7 +150,7 @@ const SAMPLES: readonly { readonly id: string; readonly kick: string; readonly t
         { label: "Blended APY on what earns", value: "4.05%", note: null, from: { source: "Morpho API", readAt: "2026-11-09T10:00:00.000Z", block: "29857405", venue: "4 venues" } },
         { label: "Yearly estimate, net of borrowing", value: "$330.61", note: "at today's rates", from: { source: "Morpho API", readAt: "2026-11-09T10:00:00.000Z", block: "29857405", venue: "4 venues" } },
         { label: "Lowest health factor", value: "1.38", note: "Aave V4 Main Spoke · cirBTC supplied; your floor is 1.5", from: { source: "Aave V4 on Arc", readAt: "2026-11-09T09:59:58.000Z", block: "29857401", venue: "Aave V4" } },
-        { label: "EURC/USD", value: "unavailable", note: "the reference price is stale", from: { source: "Chainlink EURC/USD", readAt: "2026-11-08T04:00:00.000Z", block: null, stale: "EURC/USD round is 30 h old, past its 26 h heartbeat" } },
+        { label: "EURC/USD", value: "unavailable", note: "the reference price is stale", from: { source: "Chainlink EURC/USD", readAt: "2026-11-08T04:00:00.000Z", block: null, stale: "EURC/USD price is 30 h old, past its 26 h heartbeat" } },
       ] }],
       endedAt: T0 + 840,
     }),

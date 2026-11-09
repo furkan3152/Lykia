@@ -8,7 +8,8 @@ import { useState } from "react";
 
 import { Link } from "../../../app/routes/Link";
 import { EmptyState, Seal, Tag, cx } from "../../../mosaic";
-import { byDay, filterTrails, TRAIL_FILTERS, type TrailFilter } from "../model";
+import { TRAIL_FEE_WINDOW_DAYS } from "@lykia/core";
+import { askWhyTrail, byDay, filterTrails, trailLink, TRAIL_FILTERS, withTrailFees, type TrailFilter } from "../model";
 
 const KIND: Readonly<Record<FoldTrailEntry["kind"], { label: string; tone: "ok" | "bad" | "sea" | "ghost" | "ochre" }>> = {
   settled: { label: "Settled", tone: "ok" },
@@ -20,6 +21,26 @@ const KIND: Readonly<Record<FoldTrailEntry["kind"], { label: string; tone: "ok" 
   alert: { label: "Watch", tone: "ochre" },
   proposal: { label: "Draft", tone: "ghost" },
 };
+
+/** A trail row's way out: its Herding row or transaction, and "Ask why" to Lyko on watch. */
+function TrailActions({ t, onAskWhy }: { readonly t: FoldTrailEntry; readonly onAskWhy: ((question: string, context: string) => void) | undefined }) {
+  const link = trailLink(t);
+  if (!link && !onAskWhy) return null;
+  return (
+    <div className="fd-trail__acts">
+      {link ? (
+        link.external ? (
+          <a className="ps-act ps-act--go" href={link.href} target="_blank" rel="noreferrer">{`${link.label} ↗`}</a>
+        ) : (
+          <Link to={link.href} className="ps-act ps-act--go">{`${link.label} ›`}</Link>
+        )
+      ) : null}
+      {onAskWhy ? (
+        <button type="button" className="ps-act" onClick={() => { const q = askWhyTrail(t); onAskWhy(q.question, q.context); }}>{"Ask why"}</button>
+      ) : null}
+    </div>
+  );
+}
 
 function ExplainCard({ artifact, loading, sample }: { readonly artifact: FoldExplainArtifact | undefined; readonly loading: boolean; readonly sample?: boolean }) {
   return (
@@ -47,7 +68,7 @@ function ExplainCard({ artifact, loading, sample }: { readonly artifact: FoldExp
   );
 }
 
-export function TrailsTab({ now, items, totals, explain, explainLoading, sample, signedIn, onSignIn }: { readonly now: number; readonly items: readonly FoldTrailEntry[] | undefined; readonly totals: { settled: number; failed: number; refused: number; feesUsd: string } | undefined; readonly explain: FoldExplainArtifact | undefined; readonly explainLoading: boolean; readonly sample: boolean; readonly signedIn: boolean; readonly onSignIn: () => void }) {
+export function TrailsTab({ now, items, totals, explain, explainLoading, sample, signedIn, onSignIn, onAskWhy }: { readonly now: number; readonly items: readonly FoldTrailEntry[] | undefined; readonly totals: { settled: number; failed: number; refused: number; feesUsd: string } | undefined; readonly explain: FoldExplainArtifact | undefined; readonly explainLoading: boolean; readonly sample: boolean; readonly signedIn: boolean; readonly onSignIn: () => void; readonly onAskWhy?: (question: string, context: string) => void }) {
   const [filter, setFilter] = useState<TrailFilter>("all");
   const list = items ? filterTrails(items, filter) : [];
   const days = byDay(list, now);
@@ -99,7 +120,7 @@ export function TrailsTab({ now, items, totals, explain, explainLoading, sample,
                           </div>
                         ) : null}
                       </div>
-                      {t.link && t.link.startsWith("/app/outrun/") ? <Link to={t.link} className="fd-trail__go" aria-label={`Open the plan: ${t.title}`}>{"›"}</Link> : null}
+                      <TrailActions t={t} onAskWhy={onAskWhy} />
                     </li>
                   ))}
                 </ol>
@@ -109,13 +130,13 @@ export function TrailsTab({ now, items, totals, explain, explainLoading, sample,
         )}
       </section>
       <div className="fd-stack">
-        <ExplainCard artifact={explain} loading={explainLoading} sample={sample} />
+        <ExplainCard artifact={explain ? withTrailFees(explain, totals?.feesUsd ?? null) : undefined} loading={explainLoading} sample={sample} />
         <section className="fd-card m-frame m-frame--thin" aria-label="Totals">
           <div className="fd-totals">
             <div><span className="m-kick">{"SETTLED"}</span><b className="num">{totals?.settled ?? "—"}</b></div>
             <div><span className="m-kick">{"REFUSED"}</span><b className="num">{totals?.refused ?? "—"}</b></div>
             <div><span className="m-kick">{"FAILED"}</span><b className="num">{totals?.failed ?? "—"}</b></div>
-            <div><span className="m-kick">{"FEES PAID"}</span><b className="num">{totals ? `$${totals.feesUsd}` : "—"}</b></div>
+            <div><span className="m-kick">{`FEES · LAST ${TRAIL_FEE_WINDOW_DAYS} DAYS`}</span><b className="num">{totals ? `$${totals.feesUsd}` : "—"}</b></div>
           </div>
           <p className="m-small m-muted">{"Lykia's fee is 1% of what moves, paid on chain in the same transaction. Refusals cost nothing."}</p>
         </section>

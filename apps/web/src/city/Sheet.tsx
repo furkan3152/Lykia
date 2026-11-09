@@ -5,7 +5,7 @@
  */
 import { useEffect, useRef } from "react";
 
-export function Sheet({ open, onClose, title, children }: { readonly open: boolean; readonly onClose: () => void; readonly title: string; readonly children: React.ReactNode }) {
+export function Sheet({ open, onClose, title, children, className }: { readonly open: boolean; readonly onClose: () => void; readonly title: string; readonly children: React.ReactNode; readonly className?: string }) {
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!open) return undefined;
@@ -22,7 +22,7 @@ export function Sheet({ open, onClose, title, children }: { readonly open: boole
   if (!open) return null;
   return (
     <div className="ct-scrim" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={ref} className="ct-sheet m-frame" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}>
+      <div ref={ref} className={`ct-sheet m-frame${className ? ` ${className}` : ""}`} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}>
         <button type="button" className="ct-sheet__grab" aria-label="Close" onClick={onClose} />
         <header className="ct-sheet__head">
           <h2>{title}</h2>

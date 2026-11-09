@@ -4,6 +4,7 @@
  * answer in readable type (verdict first), then the cards that fit the
  * situation, drawn from typed data.
  */
+import { Link } from "../../app/routes/Link";
 import { cx } from "../../mosaic/cx";
 import { useChatActions } from "./actions";
 import { herdFromDrafts } from "./cardModel";
@@ -12,6 +13,7 @@ import { clarifyLabel } from "./clarify";
 import { Markdown } from "./Markdown";
 import { displayText } from "./richText";
 import { failureReasons, handoffLine, type ChatMessage } from "./model";
+import { useAsk } from "./store";
 import { ProgramCard } from "./ProgramCard";
 import { LykoAvatar, Trail } from "./Trail";
 import { avatarState, elapsedOf, trailSteps } from "./workTrail";
@@ -40,6 +42,7 @@ export function AssistantMessage({ m, compact = false, onChoose }: AssistantMess
   const reasons = m.streaming ? [] : failureReasons(m);
   const herded = (m.blocks ?? []).some((b) => b.kind === "herded");
   const drafts = m.drafts ?? [];
+  const threadId = useAsk((st) => st.convo.threadId);
   return (
     <div className={cx("m-msg m-msg--lyko", compact && "m-msg--compact")} data-state={state}>
       <div className="m-msg__who">
@@ -74,7 +77,11 @@ export function AssistantMessage({ m, compact = false, onChoose }: AssistantMess
         {!herded && drafts.length > 0 ? <HerdedCard items={herdFromDrafts(drafts)} /> : null}
         {m.program && !compact ? <ProgramCard view={m.program} /> : null}
         {compact && (m.program || m.proposals.length > 0) ? (
-          <p className="m-answer__more">{`${m.proposals.length || 1} plan${m.proposals.length > 1 ? "s" : ""} ready: open in Ask Lyko to review and sign`}</p>
+          // Lyko on watch does not sign: it hands the plan to Ask Lyko, in the same thread, and says so.
+          <div className="m-handoff" role="status">
+            <p className="m-answer__more">{`Handed to Ask Lyko: ${m.proposals.length || 1} plan${m.proposals.length > 1 ? "s" : ""} drafted in this same thread, ready to review and sign.`}</p>
+            <Link to={threadId ? `/app/ask/${encodeURIComponent(threadId)}` : "/app"} className="m-btn m-btn--sm">{"REVIEW AND SIGN IN ASK ›"}</Link>
+          </div>
         ) : (
           m.proposals.length > 0 ? <PlanCard proposals={m.proposals} /> : null
         )}

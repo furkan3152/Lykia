@@ -175,8 +175,11 @@ describe("the top menu: three Mosaic tiles, no visible subtitles", () => {
   });
 
   it("draws each tile's icon from squares, every row the same width", async () => {
-    const { STEP_ART, MARK_ART } = await import("../../mosaic/pixelArtData");
-    for (const [name, art] of Object.entries({ ...STEP_ART, ...MARK_ART })) {
+    const { STEP_ART, MARK_ART, INTENT_ART, INTENT_PAL } = await import("../../mosaic/pixelArtData");
+    for (const [name, art] of Object.entries(INTENT_ART)) {
+      assert.ok(art.every((row) => [...row].every((ch) => ch === "." || ch in INTENT_PAL)), `${name} uses a colour outside its palette`);
+    }
+    for (const [name, art] of Object.entries({ ...STEP_ART, ...MARK_ART, ...INTENT_ART })) {
       assert.ok(art.every((row) => row.length === art[0]!.length), `${name} rows differ in width`);
     }
   });

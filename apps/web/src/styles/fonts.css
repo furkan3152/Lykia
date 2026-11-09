@@ -8,3 +8,36 @@
 @import "@fontsource/silkscreen/400.css";
 @import "@fontsource-variable/space-grotesk/index.css";
 @import "@fontsource-variable/jetbrains-mono/index.css";
+
+/*
+ * Unambiguous digits. In Pixelify Sans and Silkscreen a "5" or a "2" can read
+ * as an "8" at small sizes ($15,470 looked like $18,470). These faces cover
+ * only the ten digits and come after the pixel faces, so for 0-9 the browser
+ * picks JetBrains Mono everywhere a pixel face is set: headings and labels keep
+ * their pixel letters, every figure gets clear digits. Guarded by
+ * src/styles/__tests__/digits.test.ts.
+ */
+@font-face {
+  font-family: "Pixelify Sans";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url("@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0030-0039;
+}
+@font-face {
+  font-family: "Pixelify Sans";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url("@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0030-0039;
+}
+@font-face {
+  font-family: "Silkscreen";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url("@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0030-0039;
+}

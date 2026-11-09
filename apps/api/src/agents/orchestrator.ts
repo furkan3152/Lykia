@@ -190,7 +190,7 @@ const TOOL_STEPS: Readonly<Record<string, { kind: ChatStepKind; label: string }>
   outrun: { kind: "read", label: "Reading the outrun" },
   fence: { kind: "fence", label: "Reading your Fence" },
   draft_order: { kind: "draft", label: "Drafting the order" },
-  create_alert: { kind: "draft", label: "Setting the alert" },
+  create_alert: { kind: "draft", label: "Setting the watch" },
   draft_automation: { kind: "draft", label: "Drafting the automation" },
   compile_goal: { kind: "compile", label: "Compiling your goal" },
   plan_intent: { kind: "route", label: "Planning the route under the Fence" },

@@ -442,11 +442,6 @@ html[data-night="on"] .m-footer__note { color: #9fb0c8; }
 
 /* Landing: calls to action, the problem, the three steps, proof and entry points. */
 .lp-cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 20px; }
-.lp-box { padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
-.lp-steps { list-style: none; margin: 24px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; counter-reset: none; }
-.lp-step { position: relative; padding: 18px 16px 16px; display: grid; gap: 6px; align-content: start; }
-.lp-step__n { position: absolute; top: -14px; left: 14px; width: 28px; height: 28px; display: grid; place-items: center; background: var(--terra); color: #fff6de; font-family: "Pixelify Sans", monospace; font-weight: 700; }
-.lp-step:not(:last-child)::after { content: "→"; position: absolute; right: -22px; top: 50%; transform: translateY(-50%); font-family: "Pixelify Sans", monospace; font-size: 20px; color: var(--terra); }
 .lp-links { display: flex; flex-wrap: wrap; gap: 8px; }
 .lp-contracts { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; font-size: 13px; }
 .lp-contracts li { display: grid; gap: 2px; min-width: 0; }
@@ -454,8 +449,6 @@ html[data-night="on"] .m-footer__note { color: #9fb0c8; }
 .lp-entry { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .lp-entry li { display: grid; gap: 2px; }
 @media (max-width: 900px) {
-  .lp-steps { grid-template-columns: 1fr; gap: 30px; }
-  .lp-step:not(:last-child)::after { content: "↓"; right: auto; left: 50%; top: auto; bottom: -26px; transform: translateX(-50%); }
 }
 @media (max-width: 640px) { .beta-ribbon:not(.beta-ribbon--inline) { padding: 4px 12px; gap: 2px 8px; } .beta-ribbon:not(.beta-ribbon--inline) .m-small { font-size: 11.5px; line-height: 1.35; } }
 
@@ -772,9 +765,7 @@ html[data-night="on"] .lp-coin { background: #1d3150; box-shadow: inset 0 0 0 2p
 .usdc-stop__tags { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
 .usdc-note { margin-top: 14px; max-width: 760px; margin-inline: auto; }
 .usdc-beside { margin-top: 26px; }
-.usdc-beside__grid { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.usdc-beside__item { display: grid; gap: 6px; align-content: start; justify-items: start; padding: 10px 12px; background: var(--cream); box-shadow: inset 0 0 0 2px var(--grout); }
-html[data-night="on"] .usdc-stop, html[data-night="on"] .usdc-beside__item { background: #1d3150; box-shadow: inset 0 0 0 2px #2f4a72, inset 0 -5px 0 #2f4a72; }
+html[data-night="on"] .usdc-stop, html[data-night="on"] .usdc-tessera { background: #1d3150; box-shadow: inset 0 0 0 2px #2f4a72, inset 0 -5px 0 #2f4a72; }
 @media (max-width: 1180px) {
   .usdc-path { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 26px; }
   .usdc-stop:nth-child(3)::after, .usdc-stop:nth-child(3)::before { display: none; }
@@ -784,9 +775,7 @@ html[data-night="on"] .usdc-stop, html[data-night="on"] .usdc-beside__item { bac
   .usdc-stop:not(:last-child)::after, .usdc-stop:nth-child(3)::after { display: block; top: auto; right: auto; left: 24px; bottom: -22px; width: 4px; height: 22px; background: repeating-linear-gradient(180deg, var(--navy) 0 4px, transparent 4px 7px); }
   .usdc-stop:not(:last-child)::before, .usdc-stop:nth-child(3)::before { display: block; top: auto; right: auto; left: 20px; bottom: -8px; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid var(--navy); border-bottom: 0; }
   .usdc-stop { grid-template-rows: auto; }
-  .usdc-beside__grid { grid-template-columns: 1fr; }
 }
-@media (min-width: 761px) and (max-width: 1180px) { .usdc-beside__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* ------------------------------------------------- Landing: the three ways in */
 .lp-oneline { max-width: 640px; margin-inline: auto; }
@@ -812,3 +801,78 @@ html[data-night="on"] .lp-door__sub { color: #c9d3e6; }
 .forge-leash__mark { display: grid; place-items: center; width: 82px; height: 60px; background: #efe5cf; box-shadow: inset 0 0 0 2px var(--grout); }
 .forge-leash__steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 14px; }
 @media (max-width: 540px) { .forge-leash { grid-template-columns: 1fr; } }
+
+/* The League with no city yet: the anvil, a shelf of blank coins, one call to action. */
+.lg-first { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 28px; align-items: center; padding: 24px; background: var(--cream); }
+.lg-first__forge { display: grid; gap: 14px; justify-items: center; padding: 14px; background: #1b2a42; box-shadow: inset 0 0 0 3px #0e1828; }
+.lg-first__forge .forge-anvil { max-width: 320px; }
+.lg-first__shelf { display: flex; gap: 10px; justify-content: center; padding: 8px 12px 10px; background: #5b3b22; box-shadow: inset 0 -4px 0 #3c2614; }
+.lg-blank { width: 38px; height: 38px; background-color: #c8b48a; background-image: linear-gradient(rgba(0, 0, 0, 0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 0, 0, 0.08) 1px, transparent 1px), radial-gradient(circle at 35% 30%, #efe1bd 0 22%, transparent 23%); background-size: 6px 6px, 6px 6px, 100% 100%; clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%); box-shadow: inset 0 -4px 0 #9d8659; animation: lg-blank-wait 4.2s steps(2, end) infinite; animation-delay: calc(var(--i, 0) * 0.5s); }
+@keyframes lg-blank-wait { 0%, 80% { transform: none; } 90% { transform: translateY(-3px); } 100% { transform: none; } }
+.lg-first__copy { display: grid; gap: 10px; justify-items: start; }
+.lg-first__copy .m-h2 { margin: 0; font-size: 28px; }
+.lg-first__copy p { margin: 0; max-width: 52ch; }
+.lg-first__acts { display: flex; flex-wrap: wrap; gap: 10px; margin: 4px 0; }
+@media (max-width: 760px) { .lg-first { grid-template-columns: minmax(0, 1fr); padding: 16px; gap: 18px; } .lg-blank { width: 30px; height: 30px; } }
+@media (prefers-reduced-motion: reduce) { .lg-blank { animation: none; } }
+
+/* ---------------------------------------------------- the landing's story */
+/* The problem, at night: three wolves at the edge of the fold. */
+.lp-night { position: relative; margin-top: 24px; padding: 22px 18px 18px; background-color: #13233a; background-image: linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px); background-size: 10px 10px; box-shadow: inset 0 0 0 3px #0a1525, inset 0 -10px 0 #1f3a26; overflow: hidden; }
+.lp-night__sky { position: absolute; inset: 0 0 auto 0; height: 36px; background-image: radial-gradient(#fff6de 1px, transparent 1.5px); background-size: 46px 18px; opacity: 0.5; }
+.lp-night__wolves { position: relative; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.lp-wolf { display: grid; gap: 6px; align-content: start; padding: 12px 14px 14px; color: #f2ead7; background: rgba(10, 21, 37, 0.65); box-shadow: inset 0 0 0 2px #2f4a72, inset 0 -4px 0 #2f4a72; animation: m-start-in 360ms steps(4, end) both; animation-delay: calc(var(--i, 0) * 90ms); }
+.lp-wolf b { font-family: "Pixelify Sans", monospace; font-size: 18px; color: #fff6de; }
+.lp-wolf p { margin: 0; font-size: 13.5px; line-height: 1.5; color: #c9d3e6; }
+.lp-wolf__eyes { display: block; filter: drop-shadow(0 0 0 #000); }
+.lp-wolf__eyes canvas { opacity: 0.95; }
+
+/* How it works, by day: Lyko trots a USDC coin through three gates. */
+.lp-walk { margin-top: 24px; }
+.lp-walk__scene { position: relative; height: 128px; background-color: #d8ecef; background-image: linear-gradient(rgba(19, 35, 58, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(19, 35, 58, 0.05) 1px, transparent 1px); background-size: 8px 8px; box-shadow: inset 0 0 0 3px var(--grout); overflow: hidden; }
+.lp-walk__ground { position: absolute; left: 0; right: 0; bottom: 0; height: 22px; background-color: #6f9a45; background-image: linear-gradient(90deg, rgba(0, 0, 0, 0.08) 1px, transparent 1px), linear-gradient(rgba(0, 0, 0, 0.08) 1px, transparent 1px); background-size: 8px 8px; box-shadow: inset 0 4px 0 #85b257; }
+.lp-walk__gates { position: absolute; inset: 0 0 18px 0; display: grid; grid-template-columns: repeat(3, 1fr); align-items: end; justify-items: center; z-index: 1; }
+.lp-walk__gate { position: relative; display: grid; justify-items: center; }
+.lp-walk__plaque { position: absolute; top: 4px; display: grid; place-items: center; width: 22px; height: 22px; background: var(--navy); color: #fff6de; font-family: "JetBrains Mono Variable", monospace; font-weight: 700; font-size: 13px; }
+.lp-walker { position: absolute; bottom: 18px; left: 0; z-index: 2; display: block; width: 64px; height: 48px; animation: lp-walk 10s steps(40, end) infinite; }
+.lp-walker canvas { position: absolute; left: 0; bottom: 0; }
+.lp-walker__coin { position: absolute; right: -6px; bottom: 26px; animation: lp-coin-bob 0.5s steps(2, end) infinite; }
+.lp-walker__f2 { animation: lp-frame 0.5s steps(1, end) infinite; }
+.lp-walker__f1 { animation: lp-frame 0.5s steps(1, end) infinite reverse; }
+@keyframes lp-walk { 0% { left: -64px; } 92% { left: calc(100% - 40px); } 100% { left: calc(100% - 40px); } }
+@keyframes lp-frame { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes lp-coin-bob { 0% { transform: none; } 50% { transform: translateY(-2px); } }
+.lp-walk__steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+.lp-walk__step { display: grid; gap: 6px; align-content: start; padding: 14px 16px 16px; background: var(--cream); box-shadow: inset 0 4px 0 var(--tone), inset -1px 0 0 var(--grout), inset 0 -2px 0 var(--grout); }
+.lp-walk__step b { font-family: "Pixelify Sans", monospace; font-size: 18px; }
+.lp-walk__step .m-kick { color: var(--ink-2); }
+@media (prefers-reduced-motion: reduce) {
+  .lp-walker { animation: none; left: calc(100% - 64px); }
+  .lp-walker__f1, .lp-walker__f2, .lp-walker__coin, .lp-wolf { animation: none; }
+  .lp-walker__f2 { opacity: 0; }
+}
+html[data-motion="off"] .lp-walker { animation: none; left: calc(100% - 64px); }
+html[data-motion="off"] .lp-walker__f2 { opacity: 0; animation: none; }
+@media (max-width: 760px) {
+  .lp-night__wolves, .lp-walk__steps { grid-template-columns: minmax(0, 1fr); }
+  .lp-walk__scene { height: 104px; }
+  .lp-walk__gate svg { width: 52px !important; height: auto !important; }
+  .lp-walk__step { box-shadow: inset 4px 0 0 var(--tone), inset 0 -2px 0 var(--grout); }
+}
+
+/* Circle and Arc, mapped: in the route, beside it, and not routes (quiet, dashed). */
+.usdc-map { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1.3fr); gap: 12px; margin-top: 12px; }
+.usdc-map__zone { display: grid; gap: 8px; align-content: start; padding: 12px; background: var(--cream); box-shadow: inset 0 0 0 2px var(--grout); }
+.usdc-map__zone--route { background-color: #eaf2f8; background-image: repeating-linear-gradient(90deg, #1e6fa8 0 10px, transparent 10px 16px); background-size: 100% 4px; background-repeat: no-repeat; background-position: 0 0; box-shadow: inset 0 0 0 2px #1e6fa8; }
+.usdc-map__zone--not-route { background: transparent; box-shadow: none; outline: 2px dashed #b9ac90; outline-offset: -2px; }
+.usdc-map__zone--not-route .usdc-tessera { opacity: 0.82; background: #f6efdd; }
+.usdc-map__zone--not-route .usdc-tag { filter: grayscale(0.7); }
+.usdc-map__head { display: grid; gap: 2px; }
+.usdc-map__title { font-family: Silkscreen, monospace; font-size: 11px; letter-spacing: 0.1em; color: var(--navy); }
+.usdc-map__zone--not-route .usdc-map__title { color: var(--ink-3); }
+.usdc-map__line { font-size: 12.5px; color: var(--ink-2); }
+.usdc-map__stones { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.usdc-tessera { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; background: #fffaf0; box-shadow: inset 0 0 0 2px var(--grout), inset 0 -3px 0 var(--grout); animation: m-start-in 320ms steps(4, end) both; animation-delay: calc(var(--i, 0) * 60ms); }
+.usdc-tessera__icon { display: grid; place-items: center; flex: none; width: 32px; height: 32px; background: #efe5cf; box-shadow: inset 0 0 0 2px var(--grout); }
+.usdc-tessera__body { display: grid; gap: 4px; justify-items: start; min-width: 0; }
+@media (max-width: 980px) { .usdc-map { grid-template-columns: minmax(0, 1fr); } }

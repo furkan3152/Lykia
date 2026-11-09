@@ -6,7 +6,7 @@
  * Lyko becomes a tab of its own with a badge, drafts open as bottom sheets
  * and an "Ask Lyko" bar stays within thumb reach.
  */
-import { DEFAULT_BETA_CAP, fenceForProfile, DEFAULT_PROFILE, riskTierOf, type FoldTab, type Position, type PositionAction } from "@lykia/core";
+import { DEFAULT_BETA_CAP, fenceForProfile, DEFAULT_PROFILE, riskTierOf, trailFeesUsd, type FoldTab, type Position, type PositionAction } from "@lykia/core";
 import type { PackAgentView } from "@lykia/core/api/agents";
 import type { FoldInsight, FoldInstruction, FoldProposal, WhistleItem } from "@lykia/core/api/fold";
 import type { UnsignedTransaction } from "@lykia/core";
@@ -41,6 +41,8 @@ import { apiDelete, apiGet, apiPost, describeError } from "../../lib/api";
 import { useLykiaStore } from "../../lib/lykiaStore";
 import { runCommand } from "../../lib/runCommand";
 import { Button, LykoFace, cx, toast } from "../../mosaic";
+import { Sheet } from "../../city/Sheet";
+import { askAboutPosition } from "../../features/fold/model";
 import { useQueryClient } from "@tanstack/react-query";
 
 const PHONE = "(max-width: 899px)";
@@ -101,6 +103,10 @@ export default function FoldPage() {
   // Signed out, the inbox shows the sample's one draft, so the bar's "1 draft waits" and Herding agree.
   const waiting = instructions.data?.waiting ?? sampleWait;
   const trailItems = trails.data?.items ?? sampleTrail;
+  // One fee figure for the page: the server's total, or the sample trail's through the same core function.
+  const trailTotals = trails.data?.totals ?? (sampleTrail ? { settled: sampleTrail.filter((t) => t.kind === "settled").length, failed: sampleTrail.filter((t) => t.kind === "failed").length, refused: sampleTrail.filter((t) => t.kind === "refused").length, feesUsd: trailFeesUsd(sampleTrail, mountedAt) } : undefined);
+  // Phones: Lyko on watch opens as a sheet over whichever tab is showing.
+  const [watchSheet, setWatchSheet] = useState(false);
 
   const minHealth = Number(fence.lending?.minHealthFactor ?? fenceForProfile({ ...DEFAULT_PROFILE, risk: riskTierOf(preferences.risk) }).lending?.minHealthFactor ?? "1.2");
   const fenceDaily = fence.caps?.dailyUsd ?? summary.data?.fenceDailyUsd ?? null;
@@ -128,10 +134,10 @@ export default function FoldPage() {
   }, []);
 
   const focusLyko = useCallback(() => {
-    if (phone) return go("lyko");
+    if (phone) return setWatchSheet(true);
     const el = document.querySelector<HTMLTextAreaElement>(".fd-lyko textarea");
     el?.focus();
-  }, [phone, go]);
+  }, [phone]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -187,6 +193,14 @@ export default function FoldPage() {
       return;
     }
     void draftFrom({ source: { kind: "holding", ref: p.id.slice(0, 120) }, sentence: a.sentence, title: `${a.label}: ${a.sentence}`.slice(0, 160) });
+  };
+  // "Ask about this": the position goes to Lyko on watch as context, with one scoped question, in the same thread as Ask Lyko.
+  const onAskAbout = (p: Position) => {
+    const q = askAboutPosition(p);
+    carry(q.context);
+    void useAsk.getState().send(q.question, { environment: owner.environment, ...(owner.address ? { owner: owner.address as `0x${string}` } : {}), origin: "fold" });
+    if (phone) setWatchSheet(true);
+    else document.querySelector<HTMLElement>(".fd__side .fd-lyko")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   };
   const onFenceSuggest = (label: string, patch: Record<string, unknown>) => void draftFrom({ source: { kind: "fence", ref: null }, title: label, fencePatch: patch });
   const moveP = (id: string, to: "approve" | "done" | "stop", note?: string) => move.mutateAsync({ id, to, ...(note ? { note } : {}) });
@@ -296,7 +310,7 @@ export default function FoldPage() {
 
   const meta = effectiveTab === "lyko" ? null : FOLD_TAB_META[effectiveTab as FoldTab];
   const panel = (variant: "dock" | "tab") => (
-    <LykoOnWatch variant={variant} owner={owner} insights={insights.data} loading={insights.isLoading} instructions={instructionList} snapshot={snapshot} minHealth={minHealth} busy={draft.isPending} onDraft={onInsight} onOpenInAsk={openInAsk} />
+    <LykoOnWatch variant={variant} owner={owner} insights={insights.data} loading={insights.isLoading} instructions={instructionList} snapshot={snapshot} minHealth={minHealth} busy={draft.isPending} onDraft={onInsight} onOpenInAsk={openInAsk} onOpenHerding={() => { setWatchSheet(false); go("herding"); }} />
   );
 
   return (
@@ -342,8 +356,8 @@ export default function FoldPage() {
           ) : null}
 
           <div className="fd-panel" role="tabpanel" aria-label={meta ? `${meta.label} · ${meta.sub}` : "Lyko on watch"}>
-            {effectiveTab === "flock" ? <FlockTab snapshot={snapshot} map={positions} minHealth={minHealth} signedIn={owner.signedIn} onSignIn={() => void siwe.signIn()} onAction={onPosition} onAsk={(t) => openInAsk(t, "A Stress test question from the Fold.")} busy={draft.isPending} openWhatIf={whatifOpen} /> : null}
-            {effectiveTab === "trails" ? <TrailsTab now={mountedAt} items={trailItems} totals={trails.data?.totals ?? (owner.sample ? { settled: 2, failed: 0, refused: 1, feesUsd: "54.00" } : undefined)} explain={explain.data} explainLoading={explain.isLoading} sample={owner.sample} signedIn={owner.signedIn} onSignIn={() => void siwe.signIn()} /> : null}
+            {effectiveTab === "flock" ? <FlockTab snapshot={snapshot} map={positions} minHealth={minHealth} signedIn={owner.signedIn} onSignIn={() => void siwe.signIn()} onAction={onPosition} onAskAbout={onAskAbout} onAsk={(t) => openInAsk(t, "A Stress test question from the Fold.")} busy={draft.isPending} openWhatIf={whatifOpen} /> : null}
+            {effectiveTab === "trails" ? <TrailsTab now={mountedAt} items={trailItems} totals={trailTotals} onAskWhy={(question, context) => { carry(context); void useAsk.getState().send(question, { environment: owner.environment, ...(owner.address ? { owner: owner.address as `0x${string}` } : {}), origin: "fold" }); if (phone) setWatchSheet(true); }} explain={explain.data} explainLoading={explain.isLoading} sample={owner.sample} signedIn={owner.signedIn} onSignIn={() => void siwe.signIn()} /> : null}
             {effectiveTab === "herding" ? <HerdingTab instructions={instructionList} waiting={waiting} sample={owner.sample} signedIn={owner.signedIn} initialFilter={show} onSignIn={() => void siwe.signIn()} onOpen={setOpenDraft} onStop={(p) => void stopP(p)} onControl={(i) => void runControl(i)} onChange={(i) => openInAsk(i.editSentence, `Running item ${i.id}: ${i.name} (${i.trigger}; ${i.status}; next ${i.nextRunLabel}).`)} onAsk={() => openInAsk("", "Something new from Herding.")} busyId={busyId} /> : null}
             {effectiveTab === "pack" ? <AutopilotSection owner={owner} onAsk={openInAsk} /> : null}
             {effectiveTab === "pack" ? <LeashSection owner={owner} agents={pack.data?.agents} busyId={busyId} onPauseAgent={(a) => void whistleAgent(a)} onRevokeAgent={(a) => void revokeAgent(a)} onAsk={openInAsk} /> : null}
@@ -356,14 +370,19 @@ export default function FoldPage() {
 
       {phone && effectiveTab !== "lyko" ? (
         <div className="fd-askbar">
-          <button type="button" className="fd-askbar__btn" onClick={() => go("lyko")}>
+          <button type="button" className="fd-askbar__btn" onClick={() => setWatchSheet(true)} aria-haspopup="dialog">
             <LykoFace mood={badge > 0 ? "alert" : "happy"} scale={1.4} />
-            <span>{badge > 0 ? `Lyko noticed ${badge} thing${badge === 1 ? "" : "s"}` : "Ask Lyko about your Fold"}</span>
+            <span className="fd-askbar__t"><b>{"Lyko on watch"}</b><small>{badge > 0 ? `noticed ${badge} thing${badge === 1 ? "" : "s"} · tap to act` : "ask about anything here"}</small></span>
             {badge > 0 ? <span className="fd-badge">{badge}</span> : null}
           </button>
         </div>
       ) : null}
 
+      {phone ? (
+        <Sheet open={watchSheet && effectiveTab !== "lyko"} onClose={() => setWatchSheet(false)} title="Lyko on watch" className="fd-watchsheet">
+          {panel("tab")}
+        </Sheet>
+      ) : null}
       <DraftSheet proposal={openDraft} onClose={() => setOpenDraft(null)} onMove={moveP} />
       <WhistleSheet open={whistleOpen} onClose={() => setWhistleOpen(false)} state={wh.state.data} busyId={busyId} onResume={(i) => void resumeOne(i)} onResumeAll={resumeAll} />
       {cancelling ? <CancelOrderModal key={cancelling.hash} order={cancelling} open onClose={() => setCancelling(null)} /> : null}

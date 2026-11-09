@@ -78,8 +78,8 @@
 }
 
 /* ------------------------------------------------------------- positions */
-.ps-row__head { grid-template-areas: "assets label nums chev" "assets doing doing chev" "assets next next chev"; }
-.ps-row__next { grid-area: next; font-size: 12px; font-weight: 600; color: var(--sea-2); }
+
+
 .ps-map__mean { margin: 0 0 8px; }
 .ps-health__mean { margin: 6px 0 0; font-size: 13px; line-height: 1.45; color: var(--ink); }
 .ps-actions__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }

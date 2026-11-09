@@ -30,14 +30,16 @@ export interface FlockTabProps {
   readonly onSignIn: () => void;
   readonly onAction: (p: Position, a: PositionAction) => void;
   readonly onAsk: (text: string) => void;
+  /** "Ask about this" on a position row: a scoped question to Lyko on watch. */
+  readonly onAskAbout?: (p: Position) => void;
   readonly busy?: boolean;
   readonly openWhatIf: boolean;
 }
 
-export function FlockTab({ snapshot, map, minHealth, signedIn, onSignIn, onAction, onAsk, busy, openWhatIf }: FlockTabProps) {
+export function FlockTab({ snapshot, map, minHealth, signedIn, onSignIn, onAction, onAsk, onAskAbout, busy, openWhatIf }: FlockTabProps) {
   return (
     <div className="fd-stack">
-      <PositionMap map={map} signedIn={signedIn} onSignIn={onSignIn} onAction={onAction} busy={busy} />
+      <PositionMap map={map} signedIn={signedIn} onSignIn={onSignIn} onAction={onAction} {...(onAskAbout ? { onAskAbout } : {})} busy={busy} />
       <StressTest snapshot={snapshot} map={map} minHealth={minHealth} onAsk={onAsk} initial={openWhatIf ? "eurc-5" : null} />
     </div>
   );

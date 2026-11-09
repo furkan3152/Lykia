@@ -6,7 +6,7 @@
  * thread, so Ask Lyko sees the same conversation.
  */
 import { ownerFence } from "../personal/fence.js";
-import { applyFoldShocks, describeShock, formatUsdMicros, isSampleOwner, NO_SHOCK, usdMicros, type Address, type ArcEnvironment, type FoldShocks, type PositionsResponse, type ShockHolding } from "@lykia/core";
+import { applyFoldShocks, describeShock, isSampleOwner, NO_SHOCK, TRAIL_FEE_WINDOW_DAYS, type Address, type ArcEnvironment, type FoldShocks, type PositionsResponse, type ShockHolding } from "@lykia/core";
 import type { BlockSource } from "@lykia/core/api/answer";
 import type { FoldAnswerResponse, FoldExplainArtifact, FoldQuestion, FoldWhatIfResponse } from "@lykia/core/api/fold";
 import type { AppContext } from "../context.js";
@@ -16,7 +16,7 @@ import { blockOf, isoOf } from "../agents/cards.js";
 import { healthFromPositions } from "./insights.js";
 import { instructionsFor } from "./instructions.js";
 import { foldPositions } from "./sample.js";
-import { ownerIntents } from "./trails.js";
+import { trailsFor } from "./trails.js";
 
 const usd = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -85,7 +85,7 @@ export async function explain(ctx: AppContext, environment: ArcEnvironment, owne
       title: "This week in Herding",
       summary: week.length === 0 ? `Nothing is scheduled for the next seven days${onEvent > 0 ? `; ${onEvent} instruction(s) wait for a price or an event` : ""}.` : `${week.length} run(s) in the next seven days${onEvent > 0 ? `, and ${onEvent} waiting for a price or an event` : ""}.`,
       lines: week.map((i) => ({ label: i.name, value: i.nextRunLabel, note: i.nextVerdict ? `${i.nextVerdict.decision}: ${i.nextVerdict.reason}` : null, from: records })),
-      sources: ["automations", "standing orders", "orders", "alerts"],
+      sources: ["automations", "standing orders", "orders", "watches"],
       at,
       block: null,
     };
@@ -118,10 +118,9 @@ export async function explain(ctx: AppContext, environment: ArcEnvironment, owne
   for (const p of earning) lines.push({ label: p.label, value: usd(Number(p.valueUsd)), note: `${p.apy!.percent}% a year (${p.apy!.kind})`, from: from(p) });
   for (const p of debts) lines.push({ label: p.label, value: `−${usd(Math.abs(Number(p.valueUsd)))}`, note: p.apy ? `${p.apy.percent}% a year accrues against your yield` : "interest accrues against your yield", from: from(p) });
   lines.push({ label: "Resting in the wallet", value: usd(idle), note: unpricedWallet.length > 0 ? `plus ${unpricedWallet.length} unpriced holding${unpricedWallet.length === 1 ? "" : "s"} (no price, not counted as $0)` : "earns nothing; kept liquid for gas and payments", from: mapFrom });
-  const since = ctx.clock.now() - 30 * 86_400_000;
-  let fees = 0n;
-  if (!sample) for (const g of await ownerIntents(ctx, owner)) for (const st of g.steps) if (st.status === "settled" && st.fee?.usd && Date.parse(st.settledAt ?? g.createdAt) >= since) fees += usdMicros(st.fee.usd);
-  lines.push({ label: "Lykia fees, last 30 days", value: `$${formatUsdMicros(fees)}`, note: "1% of the amount moved, paid on chain in the same transaction", from: records });
+  // The same figure as the Trails totals: one function over the same trail (core trailFeesUsd).
+  const fees = sample ? "0.00" : (await trailsFor(ctx, owner)).totals.feesUsd;
+  lines.push({ label: `Lykia fees, last ${TRAIL_FEE_WINDOW_DAYS} days`, value: `$${fees}`, note: "1% of the amount moved, paid on chain in the same transaction", from: records });
   const s = map.summary;
   const earningUsd = earning.reduce((a, p) => a + Number(p.valueUsd), 0);
   const blended = s.weightedApyPercent !== null ? `${s.weightedApyPercent}% blended` : "a blended rate that is unavailable";

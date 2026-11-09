@@ -15,6 +15,7 @@
  *
  * Pure TypeScript, no I/O.
  */
+import { formatUsdMicros, usdMicros } from "./fence.js";
 import type { RiskTier } from "./routes.js";
 
 export const FOLD_PREFERENCES_SCHEMA = "lykia.fold-preferences/v1" as const;
@@ -385,4 +386,26 @@ export function currentMix(holdings: readonly ShockHolding[]): { readonly usdcPc
   }
   const pct = (n: number) => (total > 0 ? Math.round((n / total) * 1000) / 10 : 0);
   return { usdcPct: pct(usdc), eurcPct: pct(eurc), earningPct: pct(earning), totalUsd: total };
+}
+
+/* ------------------------------------------------------------ trail fees */
+
+/** The window Lykia's fees are totalled over, everywhere the Fold shows them. */
+export const TRAIL_FEE_WINDOW_DAYS = 30;
+
+/**
+ * Lykia's fees on settled steps in the last `days` days. The one figure both
+ * the Trails totals and "Where your yield comes from" show, so they agree.
+ */
+export function trailFeesUsd(items: readonly { readonly kind: string; readonly at: string; readonly feeUsd: string | null }[], nowMs: number, days: number = TRAIL_FEE_WINDOW_DAYS): string {
+  const since = nowMs - days * 86_400_000;
+  let micros = 0n;
+  for (const item of items) {
+    if (item.kind !== "settled" || !item.feeUsd) continue;
+    const at = Date.parse(item.at);
+    if (!Number.isFinite(at) || at < since) continue;
+    if (!/^\d+(\.\d+)?$/.test(item.feeUsd)) continue;
+    micros += usdMicros(item.feeUsd);
+  }
+  return formatUsdMicros(micros);
 }

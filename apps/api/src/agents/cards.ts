@@ -156,12 +156,12 @@ export async function rateCard(ctx: AppContext, base: string, quote: string, fen
   return { kind: "rate", base, quote, rate, reference: quoted ? reference : null, bandBps: fence.fx?.maxDeviationBps ?? null, source: source ? source.slice(0, 80) : null, from: { source: (source ?? "Lykia reference").slice(0, 80), readAt: isoOf(read ?? Date.now()), block: null, ...(stale ? { stale } : {}) } };
 }
 
-/** "Chainlink EURC/USD round is 30 h old, past its 26 h heartbeat": why a price is stale, or null. */
+/** "Chainlink EURC/USD price is 30 h old, past its 26 h heartbeat": why a price is stale, or null. */
 export function staleFeed(quote: { readonly symbol: string; readonly source: string; readonly updatedAt: string | null } | null): string | null {
   if (!quote || !/\(stale\)/u.test(quote.source)) return null;
   const feed = FEEDS[quote.symbol];
   const age = quote.updatedAt ? Math.round((Date.now() - Date.parse(quote.updatedAt)) / 3_600_000) : null;
-  return `${feed?.pair ?? quote.symbol} round ${age !== null ? `is ${age} h old, ` : ""}past its ${feed ? Math.round(feed.maxAgeSeconds / 3600) : "?"} h heartbeat`;
+  return `${feed?.pair ?? quote.symbol} price ${age !== null ? `is ${age} h old, ` : ""}past its ${feed ? Math.round(feed.maxAgeSeconds / 3600) : "?"} h heartbeat`;
 }
 
 /** The rate a planned conversion gets: output per input of its first conversion step. */

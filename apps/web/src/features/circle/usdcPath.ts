@@ -39,23 +39,27 @@ export const USDC_PATH: readonly PathStop[] = [
 
 export const PROVIDER_LABEL: Readonly<Record<Provider, string>> = { circle: "Circle", arc: "Arc", lykia: "Lykia" };
 
+/** Where a product sits: in the step itself, beside it, or not a route at all (a reference or a payment rail). */
+export type BesidePlace = "route" | "beside" | "not-route";
+
 export interface BesideItem {
   readonly primitive: string;
   readonly by: Provider;
   readonly line: string;
+  readonly place: BesidePlace;
 }
 
 /** The rest of Circle and Arc in Lykia, beside the router: EURC is a token routes convert to; none of the others is a route. */
 export const BESIDE_ROUTER: readonly BesideItem[] = [
-  { by: "circle", primitive: "EURC", line: "Circle's euro stablecoin: USDC to EURC conversions route on Arc, checked against the FX band." },
-  { by: "circle", primitive: "Compliance Engine", line: "With a Circle key, a recipient it denies becomes a Fence deny. Unscreened is never read as approved." },
-  { by: "circle", primitive: "Circle Wallets", line: "Optional, off by default: developer-controlled wallets, bound to the address that created them." },
-  { by: "circle", primitive: "Agent Wallet policy", line: "A Fence exports as a Circle spending policy; the owner applies it with the Circle CLI." },
-  { by: "circle", primitive: "StableFX", line: "RFQ endpoints for USDC and EURC, with Circle StableFX access. A reference quote, not a route." },
-  { by: "circle", primitive: "USYC Teller", line: "Subscribe and redeem for wallets Circle has entitled; Lykia checks the entitlement first." },
-  { by: "circle", primitive: "x402 facilitator", line: "Settles Lykia's paid API routes in USDC through Circle's facilitator." },
-  { by: "circle", primitive: "Agent Marketplace", line: "Agents find x402 services and pay them in USDC, inside their Fence caps." },
-  { by: "arc", primitive: "ERC-8004", line: "Agent identities (Tags) in the ERC-8004 registries on Arc, each pinning the hash of its Fence." },
+  { by: "circle", place: "route", primitive: "EURC", line: "Circle's euro stablecoin: USDC to EURC conversions route on Arc, checked against the FX band." },
+  { by: "circle", place: "route", primitive: "Compliance Engine", line: "With a Circle key, a recipient it denies becomes a Fence deny. Unscreened is never read as approved." },
+  { by: "circle", place: "beside", primitive: "Circle Wallets", line: "Optional, off by default: developer-controlled wallets, bound to the address that created them." },
+  { by: "circle", place: "beside", primitive: "Agent Wallet policy", line: "A Fence exports as a Circle spending policy; the owner applies it with the Circle CLI." },
+  { by: "circle", place: "not-route", primitive: "StableFX", line: "RFQ endpoints for USDC and EURC, with Circle StableFX access. A reference quote, not a route." },
+  { by: "circle", place: "not-route", primitive: "USYC Teller", line: "Subscribe and redeem for wallets Circle has entitled; Lykia checks the entitlement first." },
+  { by: "circle", place: "not-route", primitive: "x402 facilitator", line: "Settles Lykia's paid API routes in USDC through Circle's facilitator." },
+  { by: "circle", place: "not-route", primitive: "Agent Marketplace", line: "Agents find x402 services and pay them in USDC, inside their Fence caps." },
+  { by: "arc", place: "beside", primitive: "ERC-8004", line: "Agent identities (Tags) in the ERC-8004 registries on Arc, each pinning the hash of its Fence." },
 ];
 
 /** The primitives a reader must find in README.md and docs/circle/README.md. */

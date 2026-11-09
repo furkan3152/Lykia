@@ -24,13 +24,14 @@ import { Markdown } from "../ask/Markdown";
 import { apiGet, describeError } from "../../lib/api";
 import { Button, LykoFace, LykoTile, Tag, cx, toast } from "../../mosaic";
 import { useAnswer, useInstructionControl, useMarkSeen, type FoldOwner } from "./data";
-import {FOLLOW_UPS, openingLine} from "./model";
+import { FOLLOW_UPS, insightAction, openingLine } from "./model";
 
 const SEVERITY: Readonly<Record<FoldInsight["severity"], { label: string; tone: "bad" | "ochre" | "ghost" }>> = { act: { label: "Act", tone: "bad" }, watch: { label: "Watch", tone: "ochre" }, info: { label: "FYI", tone: "ghost" } };
 
 const SENT_WORD: Readonly<Record<string, string>> = { planned: "planned", signed: "signed", done: "signed", refused: "refused by your Fence", stopped: "stopped", pending: "sent" };
 
-function InsightCard({ insight, onAsk, onOpenThread }: { readonly insight: FoldInsight; readonly onAsk: (i: FoldInsight) => void; readonly onOpenThread: (threadId: string | null) => void }) {
+function InsightCard({ insight, canDraft, busy, onAsk, onDraft, onOpenThread, onOpenHerding }: { readonly insight: FoldInsight; readonly canDraft: boolean; readonly busy: boolean; readonly onAsk: (i: FoldInsight) => void; readonly onDraft: (i: FoldInsight) => void; readonly onOpenThread: (threadId: string | null) => void; readonly onOpenHerding: () => void }) {
+  const action = insightAction(insight, canDraft);
   const [why, setWhy] = useState(false);
   return (
     <li className={cx("fd-insight", insight.handled && "fd-insight--handled")} data-severity={insight.severity}>
@@ -59,12 +60,17 @@ function InsightCard({ insight, onAsk, onOpenThread }: { readonly insight: FoldI
         </>
       ) : null}
       <div className="fd-insight__acts">
-        {insight.sent ? (
-          <Button size="sm" tone="ghost" onClick={() => onOpenThread(insight.sent!.threadId)}>{"OPEN THE PLAN"}</Button>
-        ) : (
-          // One action: Ask Lyko, with the request filled in. Ask starts things; the Fold only shows them.
-          <Button size="sm" tone={insight.draft && !insight.handled ? "terra" : "ghost"} onClick={() => onAsk(insight)} title={insight.draft ? `Ask Lyko: ${insight.draft.sentence ?? insight.draft.label}` : undefined}>{"ASK LYKO"}</Button>
-        )}
+        <Button
+          size="sm"
+          tone={action.kind === "draft" || (action.kind === "ask" && insight.draft) ? "terra" : "ghost"}
+          disabled={busy && action.kind === "draft"}
+          onClick={() => (action.kind === "thread" ? onOpenThread(insight.sent!.threadId) : action.kind === "herding" ? onOpenHerding() : action.kind === "draft" ? onDraft(insight) : onAsk(insight))}
+          title={insight.draft?.sentence ?? undefined}
+        >
+          {action.label.toUpperCase()}
+        </Button>
+        {action.kind === "draft" ? <button type="button" className="fd-why-btn" onClick={() => onAsk(insight)}>{"or talk it through in Ask"}</button> : null}
+        {action.kind === "draft" ? <small className="fd-insight__note">{"Lyko drafts it here; you review and sign. Nothing moves before."}</small> : null}
       </div>
     </li>
   );
@@ -102,6 +108,8 @@ export interface LykoOnWatchProps {
   readonly busy: boolean;
   readonly onDraft: (i: FoldInsight) => void;
   readonly onOpenInAsk: (text: string, context: string) => void;
+  /** Where a drafted insight waits: Herding. */
+  readonly onOpenHerding?: () => void;
   readonly variant?: "dock" | "tab";
 }
 
@@ -135,10 +143,18 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
   }, [latestId, convo.threadId, adopt, latest.data]);
   const past = convo.messages.length === 0 ? (history.data?.messages ?? []).slice(-4) : [];
 
+  // Follow the newest turn, also while it streams in (an "Ask about this" from a row lands here).
+  const lastLen = recent[recent.length - 1]?.text.length ?? 0;
+  const lastId = recent[recent.length - 1]?.id ?? "";
   useEffect(() => {
     const el = scroll.current;
-    if (el && (recent.length > 0 || answers.length > 0)) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [recent.length, answers.length]);
+    if (!el || (recent.length === 0 && answers.length === 0)) return undefined;
+    // After the new turn has laid out: jump, so a long list of insights never hides the answer.
+    const raf = requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [recent.length, answers.length, lastId, lastLen]);
 
   const ask = (question: FoldQuestion, label: string) => {
     // Signed in, or the sample: the API answers from the same reads (or the same fixture) the Fold shows, with sources.
@@ -237,7 +253,7 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
         ) : (
           <ul className="fd-insights">
             {insights.map((i) => (
-              <InsightCard key={i.id} insight={i} onOpenThread={(t) => navigate(t ? `/app/ask/${encodeURIComponent(t)}` : "/app")} onAsk={(x) => p.onOpenInAsk(x.draft?.sentence ?? `Tell me more about this: ${x.title}`, `${x.title}. ${x.explain} ${x.figures.map((f) => `${f.label}: ${f.value}`).join("; ")}`)} />
+              <InsightCard key={i.id} insight={i} canDraft={owner.signedIn && !owner.sample} busy={p.busy} onDraft={p.onDraft} onOpenHerding={p.onOpenHerding ?? (() => navigate("/app/fold/herding"))} onOpenThread={(t) => navigate(t ? `/app/ask/${encodeURIComponent(t)}` : "/app")} onAsk={(x) => p.onOpenInAsk(x.draft?.sentence ?? `Tell me more about this: ${x.title}`, `${x.title}. ${x.explain} ${x.figures.map((f) => `${f.label}: ${f.value}`).join("; ")}`)} />
             ))}
           </ul>
         )}

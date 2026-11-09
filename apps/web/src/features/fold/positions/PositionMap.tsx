@@ -11,7 +11,7 @@
 import { actionPreview, apyMeaning, healthMeaning, ltvMeaning, MEANINGS, positionKindInfo, rangeMeaning, STATE_MEANINGS, type Position, type PositionAction, type PositionState } from "@lykia/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Button, cx } from "../../../mosaic";
+import { Button, LykoFace, cx } from "../../../mosaic";
 import type { PositionMap as PositionMapData, VenueSlot } from "../data";
 import { ago, amountText, compactMoney, healthGauge, money, orderPens, penOf, positionPasture, rangeBar, rowDomId, STATE_COLOR, stateLabel, SUMMARY_STATES, type Pen } from "../positionsModel";
 import { AssetStone, StateIcon, VenueTile } from "./art";
@@ -23,6 +23,8 @@ export interface PositionMapProps {
   readonly signedIn: boolean;
   readonly onSignIn: () => void;
   readonly onAction: (p: Position, a: PositionAction) => void;
+  /** "Ask about this": a scoped question to Lyko on watch, with the position as context. */
+  readonly onAskAbout?: (p: Position) => void;
   readonly busy?: boolean;
 }
 
@@ -181,7 +183,7 @@ function RangeBar({ p }: { readonly p: NonNullable<Position["range"]> }) {
   );
 }
 
-function Detail({ p, floor, now, onAction, busy }: { readonly p: Position; readonly floor: number; readonly now: number; readonly onAction: (p: Position, a: PositionAction) => void; readonly busy?: boolean }) {
+function Detail({ p, floor, now, onAction, onAskAbout, busy }: { readonly p: Position; readonly floor: number; readonly now: number; readonly onAction: (p: Position, a: PositionAction) => void; readonly onAskAbout?: ((p: Position) => void) | undefined; readonly busy?: boolean }) {
   const hf = p.health?.factor ? Number(p.health.factor) : null;
   return (
     <div className="ps-detail">
@@ -274,13 +276,42 @@ function Detail({ p, floor, now, onAction, busy }: { readonly p: Position; reado
           </ul>
         </div>
       ) : null}
+      {onAskAbout ? (
+        <button type="button" className="ps-act ps-act--ask ps-act--detail" onClick={() => onAskAbout(p)}>
+          <LykoFace mood="watching" scale={0.8} />
+          {"Ask Lyko on watch about this"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/** The row's action strip: its plain next action as a real button, and "Ask about this". */
+function ActionStrip({ p, onAction, onAskAbout, busy }: { readonly p: Position; readonly onAction: (p: Position, a: PositionAction) => void; readonly onAskAbout?: ((p: Position) => void) | undefined; readonly busy?: boolean | undefined }) {
+  const next = p.actions[0];
+  if (!next && !onAskAbout) return null;
+  return (
+    <div className="ps-row__strip" role="group" aria-label={`Act on ${p.label}`}>
+      {next ? (
+        <button type="button" className="ps-act ps-act--go" disabled={busy} onClick={() => onAction(p, next)} title={actionPreview(next)}>
+          <span className="ps-act__k" aria-hidden="true">{"NEXT"}</span>
+          {next.label}
+          {next.mode === "ask" ? <small>{"· in Ask"}</small> : null}
+        </button>
+      ) : null}
+      {onAskAbout ? (
+        <button type="button" className="ps-act ps-act--ask" onClick={() => onAskAbout(p)} aria-label={`Ask Lyko on watch about ${p.label}`}>
+          <LykoFace mood="watching" scale={0.8} />
+          {"Ask about this"}
+        </button>
+      ) : null}
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ rows */
 
-function Row({ p, open, flash, floor, now, onToggle, onAction, busy }: { readonly p: Position; readonly open: boolean; readonly flash: boolean; readonly floor: number; readonly now: number; readonly onToggle: () => void; readonly onAction: (p: Position, a: PositionAction) => void; readonly busy?: boolean }) {
+function Row({ p, open, flash, floor, now, onToggle, onAction, onAskAbout, busy }: { readonly p: Position; readonly open: boolean; readonly flash: boolean; readonly floor: number; readonly now: number; readonly onToggle: () => void; readonly onAction: (p: Position, a: PositionAction) => void; readonly onAskAbout?: ((p: Position) => void) | undefined; readonly busy?: boolean }) {
   const value = p.valueUsd === null ? null : Number(p.valueUsd);
   const symbols = [...new Set(p.assets.map((a) => a.symbol))];
   return (
@@ -302,17 +333,17 @@ function Row({ p, open, flash, floor, now, onToggle, onAction, busy }: { readonl
           <StateBadge state={p.state} small />
           <span>{p.doing}</span>
         </span>
-        {!open && p.actions[0] ? <span className="ps-row__next">{`Next: ${p.actions[0].label.toLowerCase()}${p.actions[0].mode === "ask" ? " (ask Lyko)" : ""}`}</span> : null}
         <span className="ps-row__chev" aria-hidden="true">{open ? "−" : "+"}</span>
       </button>
-      {open ? <Detail p={p} floor={floor} now={now} onAction={onAction} busy={busy} /> : null}
+      {!open ? <ActionStrip p={p} onAction={onAction} onAskAbout={onAskAbout} busy={busy} /> : null}
+      {open ? <Detail p={p} floor={floor} now={now} onAction={onAction} onAskAbout={onAskAbout} busy={busy} /> : null}
     </li>
   );
 }
 
 /* ------------------------------------------------------------------ pens */
 
-function PenCard({ pen, slot, open, flash, floor, now, signedIn, onSignIn, onToggle, onAction, busy, index }: { readonly pen: Pen; readonly slot: VenueSlot; readonly open: ReadonlySet<string>; readonly flash: string | null; readonly floor: number; readonly now: number; readonly signedIn: boolean; readonly onSignIn: () => void; readonly onToggle: (id: string) => void; readonly onAction: (p: Position, a: PositionAction) => void; readonly busy?: boolean; readonly index: number }) {
+function PenCard({ pen, slot, open, flash, floor, now, signedIn, onSignIn, onToggle, onAction, onAskAbout, busy, index }: { readonly pen: Pen; readonly slot: VenueSlot; readonly open: ReadonlySet<string>; readonly flash: string | null; readonly floor: number; readonly now: number; readonly signedIn: boolean; readonly onSignIn: () => void; readonly onToggle: (id: string) => void; readonly onAction: (p: Position, a: PositionAction) => void; readonly onAskAbout?: ((p: Position) => void) | undefined; readonly busy?: boolean; readonly index: number }) {
   const read = pen.read;
   if (!read) {
     return (
@@ -388,7 +419,7 @@ function PenCard({ pen, slot, open, flash, floor, now, signedIn, onSignIn, onTog
       </header>
       <ul className="ps-rows">
         {pen.positions.map((p) => (
-          <Row key={p.id} p={p} open={open.has(p.id)} flash={flash === p.id} floor={floor} now={now} onToggle={() => onToggle(p.id)} onAction={onAction} busy={busy} />
+          <Row key={p.id} p={p} open={open.has(p.id)} flash={flash === p.id} floor={floor} now={now} onToggle={() => onToggle(p.id)} onAction={onAction} onAskAbout={onAskAbout} busy={busy} />
         ))}
       </ul>
       {read.coverage ? <p className="ps-pen__note">{read.coverage}</p> : null}
@@ -398,7 +429,7 @@ function PenCard({ pen, slot, open, flash, floor, now, signedIn, onSignIn, onTog
 
 /* ------------------------------------------------------------------- map */
 
-export function PositionMap({ map, signedIn, onSignIn, onAction, busy }: PositionMapProps) {
+export function PositionMap({ map, signedIn, onSignIn, onAction, onAskAbout, busy }: PositionMapProps) {
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set());
   const [flash, setFlash] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -445,7 +476,7 @@ export function PositionMap({ map, signedIn, onSignIn, onAction, busy }: Positio
         </section>
         <div className="ps-pens">
           {full.map((pen, i) => (
-            <PenCard key={pen.venue} index={i} pen={pen} slot={slotOf(pen.venue)} open={open} flash={flash} floor={floor} now={now} signedIn={signedIn} onSignIn={onSignIn} onToggle={toggle} onAction={onAction} busy={busy} />
+            <PenCard key={pen.venue} index={i} pen={pen} slot={slotOf(pen.venue)} open={open} flash={flash} floor={floor} now={now} signedIn={signedIn} onSignIn={onSignIn} onToggle={toggle} onAction={onAction} onAskAbout={onAskAbout} busy={busy} />
           ))}
         </div>
         {empty.length > 0 ? (

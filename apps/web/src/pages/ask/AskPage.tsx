@@ -11,7 +11,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { navigate } from "../../app/routes/history";
-import { Link } from "../../app/routes/Link";
 import { useUiStore } from "../../app/state/uiStore";
 import { useRouteParam } from "../../app/routes/useRoute";
 import { Composer } from "../../features/ask/Composer";
@@ -34,20 +33,10 @@ import { useSession } from "../../lib/session";
 import type { ThreadSummaryView } from "@lykia/core/api/fold";
 import { mergeThreads } from "../../features/fold/model";
 import { HowItWorks } from "../../features/help/Help";
+import { NextStepBar, StarterGrid } from "../../features/ask/Starters";
+import type { Starter } from "../../features/ask/starters";
 
 const SAMPLE_OWNER = "0x000000000000000000000000000000000000dEaD" as const;
-
-/** Quick actions: each drops an intent into the composer for you to finish. Nothing is sent until you press PLAN IT. */
-const QUICK = [
-  { en: "Pay someone", q: "Pay 250 USDC to ", kick: "ARC MEMO · ONE TX", hint: "Name, address or @contact, an amount, a note" },
-  { en: "Put idle USDC to work", q: "Put my idle USDC to work at low risk", kick: "EARN · MORPHO · AAVE V4", hint: "Keeps your liquidity floor in the wallet" },
-  { en: "Hedge into EUR", q: "Convert 200 USDC to EURC", kick: "CONVERT · CHECKED RATE", hint: "Checked against the reference EUR rate" },
-  { en: "Set something running", q: "Every Friday at 17:00, pay ", kick: "RUNS ON ITS OWN", hint: "Automations, orders, watches" },
-  { en: "Give a bot a budget", q: "Give my bot $20 a day for 7 days to pay invoices", kick: "LEASH · A BUDGET FOR A BOT", hint: "A limit it cannot go past; stop it anytime" },
-] as const;
-
-/** Example requests, sent as they are with one tap. */
-const EXAMPLES = ["What can you do?", "Where can I earn on EURC?", "Where can I bridge USDC to?", "What if EURC drops 5%?", "Tell me if my health factor drops below 1.5", "Where is my money and what is it doing?"] as const;
 
 export default function AskPage({ reviewId = null }: { readonly reviewId?: string | null } = {}) {
   const environment = useEnvironment();
@@ -185,6 +174,13 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
       : {}),
   };
   const empty = convo.messages.length === 0 && !serverThread.data;
+  // A starter either asks at once or fills the composer with its blanks selected.
+  const pick = (st: Starter) => (st.kind === "ask" ? ask(st.text) : setPrefill(st.text));
+  // History phrases ("again", "same as last week") only mean something once there is a history.
+  const hasHistory = threads.length > 0 || convo.messages.length > 0;
+  const lastAnswer = [...convo.messages].reverse().find((m) => m.role === "assistant") ?? null;
+  const walletLine = address ? "LYKO ONLY PROPOSES · YOUR WALLET SIGNS" : "NO WALLET · DRY RUNS FOR A SAMPLE ADDRESS · CONNECT TO PLAN YOURS";
+  const composer = <Composer onSubmit={ask} busy={status === "streaming"} onStop={stop} autoFocus memoryChips={hasHistory} prefill={prefill} hints />;
   const firstUser = convo.messages.findIndex((m) => m.role === "user");
 
   return (
@@ -227,33 +223,17 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
         <div className="m-convo__scroll" ref={scrollRef}>
           <div className="m-convo__col">
             {empty ? (
-              <div className="m-center m-ask-empty">
-                <LykoFace mood="happy" scale={3} className="mx-auto" />
-                <h1 className="m-title">{"What should your money do?"}</h1>
-                <p className="m-sub">{"Say the outcome in one sentence. Lykia plans it across Arc protocols and Circle rails, your Fence (your spending rules) checks every step, and you sign once."}</p>
-                <div className="p-examples" role="list" aria-label="Try asking">
-                  <span className="m-kick">{"TRY ASKING · ONE TAP SENDS IT"}</span>
+              <div className="m-ask-empty m-ask-hero">
+                <div className="m-ask-hero__head">
+                  <LykoFace mood="happy" scale={2.4} />
                   <div>
-                    {EXAMPLES.map((e) => (
-                      <button key={e} type="button" role="listitem" className="m-chip" onClick={() => ask(e)}>
-                        {e}
-                      </button>
-                    ))}
+                    <h1 className="m-title">{"What should your money do?"}</h1>
+                    <p className="m-sub">{"Say it in one sentence. Lyko plans it across Arc and Circle rails, your Fence checks every step, and you sign once."}</p>
                   </div>
                 </div>
-                <span className="m-kick p-examples__or">{"OR START FROM ONE OF THESE · YOU FINISH THE SENTENCE"}</span>
-                <div className="m-starters m-starters--quick" role="list" aria-label="Quick actions">
-                  {QUICK.map((s) => (
-                    <button key={s.en} type="button" role="listitem" className="m-starter" onClick={() => setPrefill(s.q)}>
-                      <span className="m-kick">{s.kick}</span>
-                      <b>{s.en}</b>
-                      <span className="m-small m-muted">{s.hint}</span>
-                    </button>
-                  ))}
-                </div>
-                <p className="m-small m-muted" style={{ marginTop: 14 }}>
-                  {"Everything you own and everything in motion lives in "}<Link to="/app/fold">{"The Fold"}</Link>{"; Lyko on watch keeps an eye on it there."}
-                </p>
+                {composer}
+                <StarterGrid onPick={pick} />
+                <p className="m-kick m-center m-ask-hero__foot">{walletLine}</p>
                 <HowItWorks area="ask" inAsk />
               </div>
             ) : null}
@@ -267,14 +247,17 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
                 )
               : null}
             {convo.messages.map((m, i) => (m.role === "user" ? <UserMessage key={m.id} text={m.text} morph={i === firstUser} /> : <AssistantMessage key={m.id} m={m} onChoose={choose} />))}
+            {lastAnswer && status !== "streaming" ? <NextStepBar key={lastAnswer.id} m={lastAnswer} onPick={pick} /> : null}
           </div>
         </div>
-        <div className="m-convo__dock">
-          <div className="m-convo__col">
-            <Composer onSubmit={ask} busy={status === "streaming"} onStop={stop} autoFocus memoryChips prefill={prefill} />
-            <p className="m-kick m-center" style={{ marginTop: 8 }}>{address ? ("LYKO ONLY PROPOSES · YOUR WALLET SIGNS") : "NO WALLET · DRY RUNS FOR A SAMPLE ADDRESS · CONNECT TO PLAN YOURS"}</p>
+        {empty ? null : (
+          <div className="m-convo__dock">
+            <div className="m-convo__col">
+              {composer}
+              <p className="m-kick m-center" style={{ marginTop: 8 }}>{walletLine}</p>
+            </div>
           </div>
-        </div>
+        )}
       </section>
 
       {showArtifact && proposal ? (

@@ -143,8 +143,6 @@ html[data-night="on"] .fd-tabhead p, html[data-night="on"] .fd-tabhead h2 span {
 .fd-trail__top .m-seal { transform: none; font-size: 9.5px; padding: 3px 7px; }
 .fd-trail__meta { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; color: var(--ink-2); }
 .fd-trail__meta code { font-family: "JetBrains Mono Variable", monospace; font-size: 11.5px; padding: 2px 6px; background: #efe5cf; color: var(--navy); overflow-wrap: anywhere; }
-.fd-trail__go { align-self: center; display: grid; place-items: center; width: 40px; height: 40px; text-decoration: none; font-size: 22px; color: var(--navy); box-shadow: inset 0 0 0 2px var(--grout); }
-.fd-trail__go:hover { box-shadow: inset 0 0 0 2px var(--navy); }
 .fd-trail__item--refused .fd-trail__top b, .fd-trail__item--failed .fd-trail__top b { color: var(--terra-2); }
 
 .fd-explain__sum { font-size: 15px; line-height: 1.55; }
@@ -265,7 +263,6 @@ html[data-night="on"] .fd-tabhead p, html[data-night="on"] .fd-tabhead h2 span {
 .fd-insight__top .m-tag { flex: none; margin-top: 1px; }
 .fd-insight__top b { font-size: 14.5px; line-height: 1.35; overflow-wrap: anywhere; }
 .fd-insight__text { font-size: 13.5px; color: var(--ink-2); line-height: 1.5; }
-.fd-insight__acts { display: flex; gap: 6px; flex-wrap: wrap; }
 .fd-why-btn { align-self: flex-start; border: 0; background: transparent; padding: 4px 0; min-height: 32px; cursor: pointer; font-family: Silkscreen, monospace; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sea-2); text-decoration: underline; text-underline-offset: 3px; }
 .fd-figures { padding: 2px 10px; background: #f6edd9; }
 .fd-art { padding: 10px 12px; background: var(--cream); box-shadow: inset 0 0 0 2px var(--grout); font-size: 13.5px; display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
@@ -811,7 +808,7 @@ html[data-night="on"] .ps-summary__states li, html[data-night="on"] .ps-health, 
 .fd-run { padding-top: 0; overflow: hidden; }
 .fd-run::before { content: ""; display: block; height: 14px; margin: 0 -16px 12px; background-color: var(--lime); background-image: var(--meander); background-repeat: repeat-x; background-size: auto 14px; border-bottom: 2px solid var(--navy); }
 .fd-run__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
-.fd-run__head h3 { font-family: "Press Start 2P", Silkscreen, monospace; font-size: 15px; letter-spacing: 0.04em; margin: 0 0 4px; }
+.fd-run__head h3 { font-family: Silkscreen, monospace; font-size: 15px; letter-spacing: 0.04em; margin: 0 0 4px; }
 .fd-run__tally { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
 .fd-run__stone { --rk: var(--navy); display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 5px; border: 2px solid var(--rk); background: var(--cream); color: var(--ink); font-size: 12.5px; cursor: pointer; box-shadow: 2px 2px 0 var(--grout); transition: transform 120ms var(--ease-out); }
 .fd-run__stone:hover { transform: translateY(-1px); }
@@ -886,7 +883,7 @@ html[data-night="on"] .ps-summary__states li, html[data-night="on"] .ps-health, 
 /* ------------------------------------------------------------ Fence · Safety */
 .fd-safe { padding-top: 0; overflow: hidden; scroll-margin-top: 120px; }
 .fd-safe::before { content: ""; display: block; height: 14px; margin: 0 -16px 12px; background-color: var(--lime); background-image: var(--meander); background-repeat: repeat-x; background-size: auto 14px; border-bottom: 2px solid var(--navy); }
-.fd-safe__top h3 { font-family: "Press Start 2P", Silkscreen, monospace; font-size: 15px; letter-spacing: 0.04em; margin: 0 0 4px; }
+.fd-safe__top h3 { font-family: Silkscreen, monospace; font-size: 15px; letter-spacing: 0.04em; margin: 0 0 4px; }
 .fd-safe__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .fd-safe__panel { --rk: var(--navy); display: flex; flex-direction: column; gap: 8px; padding: 12px; background: var(--cream); border: 2px solid var(--grout); box-shadow: inset 0 4px 0 var(--rk); min-width: 0; }
 .fd-safe__head { display: flex; gap: 10px; align-items: center; }
@@ -922,3 +919,66 @@ html[data-night="on"] .ps-summary__states li, html[data-night="on"] .ps-health, 
   .fd-bar__btns .m-btn { min-height: 40px; font-size: 10.5px; }
   .fd-samplebar { padding: 6px 10px; font-size: 12.5px; }
 }
+
+/* A position row's action strip: its next action and "Ask about this", one tap each.
+ * Desktop: quiet until the row is hovered or focused. Touch: always at full strength. */
+.ps-row__strip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 2px 10px 46px; margin-top: -4px; }
+.ps-act { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 10px; border: 0; cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink); background: var(--cream); box-shadow: inset 0 0 0 2px var(--grout), inset 0 -3px 0 var(--grout); transition: transform 120ms var(--ease-out), box-shadow 120ms, opacity 120ms, background 120ms; }
+.ps-act small { font-size: 11px; font-weight: 400; color: var(--ink-2); }
+.ps-act:hover:not(:disabled), .ps-act:focus-visible { transform: translateY(-1px); box-shadow: inset 0 0 0 2px var(--navy), inset 0 -3px 0 var(--navy); outline: none; }
+.ps-act:disabled { opacity: 0.55; cursor: progress; }
+.ps-act__k { padding: 1px 4px; background: var(--sc, var(--sea)); color: #fff8e6; font-family: Silkscreen, monospace; font-size: 8.5px; font-weight: 400; letter-spacing: 0.08em; }
+.ps-act--go { color: var(--sea-2); }
+.ps-act--ask { color: var(--ink-2); font-weight: 500; }
+.ps-act--detail { margin-top: 10px; }
+@media (hover: hover) and (pointer: fine) {
+  .ps-row .ps-act--ask { opacity: 0; pointer-events: none; }
+  .ps-row .ps-act--go { background: transparent; box-shadow: none; padding-left: 0; }
+  .ps-row:hover .ps-act--ask, .ps-row:focus-within .ps-act--ask { opacity: 1; pointer-events: auto; }
+  .ps-row:hover .ps-act--go, .ps-row:focus-within .ps-act--go { background: var(--cream); box-shadow: inset 0 0 0 2px var(--grout), inset 0 -3px 0 var(--grout); padding-left: 10px; }
+  .ps-row .ps-act--detail { opacity: 1; pointer-events: auto; }
+}
+@media (max-width: 640px) {
+  .ps-row__strip { padding-left: 2px; }
+  .ps-act { min-height: 40px; }
+}
+.fd-trail__acts { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 6px; margin-top: -2px; }
+.fd-insight__acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.fd-insight__note { flex-basis: 100%; font-size: 11.5px; color: var(--ink-2); }
+.m-handoff { display: grid; gap: 6px; justify-items: start; padding: 8px 10px; background: #e8f4f5; box-shadow: inset 3px 0 0 var(--sea); }
+.fd-askbar__t { display: grid; gap: 1px; line-height: 1.15; }
+.fd-askbar__t b { font-family: "Pixelify Sans", monospace; font-size: 16px; font-weight: 700; color: #fff6de; }
+.fd-askbar__t small { font-size: 12px; color: #c9d3e6; }
+/* Lyko on watch inside the phone sheet: the panel fills the sheet, its own frame and height off. */
+.ct-sheet .fd-lyko { border: 0; box-shadow: none; max-height: none; height: auto; }
+.ct-sheet .fd-lyko__scroll { max-height: 52vh; }
+.fd-watchsheet .ct-sheet__head { justify-content: flex-end; margin-bottom: 0; }
+.fd-watchsheet .ct-sheet__head h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.fd-watchsheet .fd-lyko__head { padding: 12px 14px; gap: 10px; }
+.fd-watchsheet .fd-lyko__head p, .fd-watchsheet .fd-lyko__how { display: none; }
+
+/* Your Lyko: target mix as three preset stones, fine-tune behind a disclosure. */
+.yl-presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.yl-preset { display: grid; gap: 6px; justify-items: start; padding: 12px; border: 0; cursor: pointer; text-align: left; font: inherit; color: var(--ink); background: var(--cream); box-shadow: inset 0 0 0 2px var(--grout), inset 0 -4px 0 var(--grout); transition: transform 120ms var(--ease-out), box-shadow 120ms; animation: m-start-in 320ms steps(4, end) both; animation-delay: calc(var(--i, 0) * 60ms); }
+.yl-preset b { font-family: "Pixelify Sans", monospace; font-size: 17px; font-weight: 700; }
+.yl-preset:hover, .yl-preset:focus-visible { transform: translateY(-2px); box-shadow: inset 0 0 0 2px var(--navy), inset 0 -4px 0 var(--grout); outline: none; }
+.yl-preset--on { box-shadow: inset 0 0 0 3px var(--terra), inset 0 -5px 0 var(--terra-2); background: #fff8ea; }
+.yl-preset__nums { font-size: 11.5px; color: var(--ink-2); }
+.yl-ministrip { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; width: 100%; }
+.yl-ministrip i { height: 14px; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18); }
+.yl-fine { margin-top: 4px; }
+.yl-fine > summary { cursor: pointer; font-family: Silkscreen, monospace; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sea-2); min-height: 32px; display: flex; align-items: center; }
+.yl-fine[open] > summary { margin-bottom: 8px; }
+
+/* What Lyko watches for: four themed stones, one switch each, the items inside. */
+.yl-groups { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.yl-group { padding: 10px 12px; background: var(--cream); box-shadow: inset 4px 0 0 var(--tone), inset 0 0 0 2px var(--grout); }
+.yl-group[data-on="false"] { opacity: 0.72; }
+.yl-group__top { display: flex; align-items: center; gap: 10px; }
+.yl-group__stone { display: grid; place-items: center; flex: none; width: 40px; height: 40px; background-color: #efe5cf; background-image: linear-gradient(rgba(19, 35, 58, 0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(19, 35, 58, 0.07) 1px, transparent 1px); background-size: 8px 8px; box-shadow: inset 0 0 0 2px var(--tone); }
+.yl-group__words { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.yl-group__words b { font-family: "Pixelify Sans", monospace; font-size: 16px; font-weight: 700; }
+.yl-group__words small { font-size: 12.5px; color: var(--ink-2); line-height: 1.35; }
+.yl-group__more > summary { cursor: pointer; margin-top: 6px; font-size: 12px; color: var(--sea-2); min-height: 28px; display: flex; align-items: center; }
+.yl-group__more .yl-checks { grid-template-columns: minmax(0, 1fr); margin-top: 4px; }
+@media (max-width: 760px) { .yl-presets, .yl-groups { grid-template-columns: minmax(0, 1fr); } }

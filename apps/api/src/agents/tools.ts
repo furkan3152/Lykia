@@ -501,11 +501,11 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
       if (!who) {
         const link = alertDraftLink(draft);
         tc.drafts?.push({ kind: "alert", saved: false, label: described, href: link });
-        return { summary: `Alert drafted (not saved): ${described}`, data: { saved: false, alert: draft, description: described, link, next: SIGN_IN_NOTE } };
+        return { summary: `Watch drafted (not saved): ${described}`, data: { saved: false, alert: draft, description: described, link, next: SIGN_IN_NOTE } };
       }
       const rule = await alertsService(tc.ctx).create({ owner: who.owner, environment: tc.environment, ...draft });
       tc.drafts?.push({ kind: "alert", saved: true, label: described, href: "/app/fold/herding?show=watches" });
-      return { summary: `Alert armed: ${described}`, data: { saved: true, id: rule.id, description: described, channels: rule.channels, cooldownSeconds: rule.cooldownSeconds, manage: "/app/fold/herding?show=watches" } };
+      return { summary: `Watch set: ${described}`, data: { saved: true, id: rule.id, description: described, channels: rule.channels, cooldownSeconds: rule.cooldownSeconds, manage: "/app/fold/herding?show=watches" } };
     },
   }),
   spec({

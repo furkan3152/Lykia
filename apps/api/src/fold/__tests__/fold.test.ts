@@ -174,8 +174,13 @@ describe("fold API", () => {
     const feed = await call<{ entries: { status: string }[] }>("GET", `/v1/fold/feed?owner=${OWNER}`);
     assert.ok(feed.body.entries.length >= 4);
     assert.ok(feed.body.entries.some((e) => e.status === "stopped"));
-    const trails = await call<{ items: { kind: string }[] }>("GET", `/v1/fold/trails?owner=${OWNER}`);
+    const trails = await call<{ items: { kind: string }[]; totals: { feesUsd: string } }>("GET", `/v1/fold/trails?owner=${OWNER}`);
     assert.ok(trails.body.items.some((i) => i.kind === "proposal"));
+    // One fee figure: the yield explanation reads the same total the Trails card shows.
+    const yieldCard = await call<{ lines: { label: string; value: string }[] }>("GET", `/v1/fold/explain?owner=${OWNER}&question=yield`);
+    assert.equal(yieldCard.status, 200);
+    const feeLine = yieldCard.body.lines.find((l) => l.label.startsWith("Lykia fees"));
+    assert.equal(feeLine?.value, `$${trails.body.totals.feesUsd}`);
   });
 
   it("lists every instruction in one read model with the proposals waiting for a signature", async () => {

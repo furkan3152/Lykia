@@ -460,3 +460,78 @@ html[data-night="on"] .m-work__head { background: #1d3150; color: #c9d3e6; box-s
   .m-pen__meta { grid-column: 2 / -1; flex-direction: row; justify-content: flex-start; gap: 8px; align-items: center; }
 }
 @media (prefers-reduced-motion: reduce) { .m-stones__stone { animation: none; } }
+
+/* ---------------------------------------------- Ask Lyko: the first screen
+ * The composer is the hero; the starting points sit right under it, always
+ * on the first screen. Each tile is a tessera: a pixel icon on its own stone.
+ */
+.m-ask-hero { display: grid; gap: 14px; padding: 4px 0 12px; text-align: left; }
+.m-ask-hero__head { display: flex; align-items: center; gap: 16px; text-align: left; }
+.m-ask-hero__head .m-title, .m-ask-hero__head .m-sub { text-align: left; }
+.m-ask-hero__head > canvas, .m-ask-hero__head > svg { flex: none; }
+.m-ask-hero .m-title { margin: 0; font-size: clamp(24px, 3vw, 34px); line-height: 1.1; }
+.m-ask-hero .m-sub { margin: 6px 0 0; font-size: 15px; line-height: 1.45; max-width: 60ch; }
+.m-ask-hero .m-composer { box-shadow: 0 6px 0 rgba(19, 35, 58, 0.08); }
+.m-ask-hero .m-composer textarea { font-size: 18px; min-height: 34px; }
+.m-ask-hero__foot { margin: 0; }
+.m-ask-hero .p-how { margin: 0 auto; }
+
+.m-composer__hint { margin: 4px 0 0; padding-left: 10px; font-size: 12.5px; line-height: 1.4; color: var(--ink-2); box-shadow: inset 3px 0 0 var(--grout); }
+.m-composer__hint[data-tone="todo"] { box-shadow: inset 3px 0 0 var(--ochre); color: #6f4f12; }
+.m-composer__hint[data-tone="ready"] { box-shadow: inset 3px 0 0 var(--olive); color: #2c5a31; }
+.m-composer__hint[data-tone="question"] { box-shadow: inset 3px 0 0 var(--sea); color: var(--sea-2); }
+.m-composer__send { animation: m-send-in 200ms steps(3, end) both; }
+@keyframes m-send-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.m-slot { display: inline-block; margin: 0 1px; padding: 0 4px; background: #efe5cf; box-shadow: inset 0 -2px 0 var(--ochre); font-family: "JetBrains Mono Variable", monospace; font-size: 0.92em; color: var(--ink-2); }
+
+.m-startgrid { display: grid; gap: 12px; }
+.m-startgrid__group { display: grid; gap: 6px; }
+.m-startgrid__row { display: grid; gap: 8px; }
+.m-startgrid__row--do { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.m-startgrid__row--ask { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.m-start { --tone: var(--grout); --stone: #efe5cf; display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 56px; padding: 8px 10px; border: 0; cursor: pointer; text-align: left; background: var(--cream); color: var(--ink); box-shadow: inset 0 0 0 2px var(--grout), inset 0 -4px 0 var(--grout); transition: transform 120ms var(--ease-out), box-shadow 120ms; animation: m-start-in 320ms steps(4, end) both; animation-delay: calc(var(--i, 0) * 60ms); }
+.m-start:hover, .m-start:focus-visible { transform: translateY(-2px); box-shadow: inset 0 0 0 2px var(--navy), inset 0 -4px 0 var(--tone); outline: none; }
+.m-start:active { transform: translateY(1px); }
+.m-start__stone { display: grid; place-items: center; flex: none; width: 40px; height: 40px; background-color: var(--stone); background-image: linear-gradient(rgba(19, 35, 58, 0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(19, 35, 58, 0.07) 1px, transparent 1px); background-size: 8px 8px; box-shadow: inset 0 0 0 2px var(--tone); }
+.m-start__body { display: grid; gap: 2px; min-width: 0; }
+.m-start__body b { font-family: "Pixelify Sans", monospace; font-size: 16px; font-weight: 700; line-height: 1.1; }
+.m-start__body small { font-size: 12px; line-height: 1.35; color: var(--ink-2); overflow-wrap: anywhere; }
+.m-start[data-icon="earn"] { --tone: var(--olive); --stone: #e5edd8; }
+.m-start[data-icon="send"] { --tone: var(--terra); --stone: #f7e0d8; }
+.m-start[data-icon="bridge"] { --tone: var(--sea); --stone: #d8ecef; }
+.m-start[data-icon="watch"] { --tone: var(--ochre); --stone: #f7ebc9; }
+.m-start[data-icon="have"] { --tone: #1d4e89; --stone: #dfe8f3; }
+.m-start[data-icon="can"] { --tone: var(--navy); --stone: var(--navy); }
+.m-start--ask { min-height: 48px; }
+.m-start--ask .m-start__stone { width: 34px; height: 34px; }
+@keyframes m-start-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 760px) {
+  .m-startgrid__row--do { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .m-ask-hero { gap: 12px; padding-top: 0; }
+  .m-ask-hero__head { gap: 12px; }
+  .m-ask-hero .m-title { font-size: 24px; }
+  .m-ask-hero .m-sub { font-size: 13.5px; margin-top: 4px; }
+  .m-ask-hero .m-composer textarea { font-size: 16px; }
+  .m-start { min-height: 52px; padding: 6px 8px; gap: 8px; }
+  .m-start__stone { width: 34px; height: 34px; }
+  .m-start__body b { font-size: 15px; }
+  .m-start__body small { font-size: 11px; }
+  .m-start--ask .m-start__body small { display: none; }
+}
+
+/* After an answer: one next step, then a few follow-ups. */
+.m-nextbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-left: 54px; padding: 10px 12px; background: #f6edd9; box-shadow: inset 3px 0 0 var(--terra), inset 0 -2px 0 var(--grout); }
+.m-nextbar__go { flex: none; }
+.m-nextbar__more { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.m-nextbar__more--after { padding-left: 12px; border-left: 2px dashed var(--grout); }
+.m-nextbar__chip { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; }
+@media (max-width: 640px) {
+  .m-nextbar { margin-left: 0; }
+  .m-nextbar__go { width: 100%; }
+  .m-nextbar__more--after { padding-left: 0; border-left: 0; }
+  .m-nextbar__chip { min-height: 44px; }
+}

@@ -3,7 +3,7 @@
  * visitor sees. Node tests import this file directly, so it imports types
  * and @lykia/core only.
  */
-import { ALLOCATION_LABELS, allocationOf, currentMix, FOLD_TABS, LYKIA_TERMS, roomTodayLine, sampleSnapshot as coreSampleSnapshot, type AllocationBucket, type Fence, type FoldPreferences, type FoldTab } from "@lykia/core";
+import { ALLOCATION_LABELS, explorerTx, networkFor, type Position, allocationOf, currentMix, FOLD_TABS, LYKIA_TERMS, roomTodayLine, sampleSnapshot as coreSampleSnapshot, type AllocationBucket, type Fence, type FoldPreferences, type FoldTab } from "@lykia/core";
 import type { PackAgentView } from "@lykia/core/api/agents";
 import { sampleAutopilot } from "./autopilot/model";
 import { sampleLeashes } from "./leash/model";
@@ -355,7 +355,7 @@ export const TRAIL_FILTERS: readonly { readonly id: TrailFilter; readonly label:
   { id: "settled", label: "Settled" },
   { id: "plans", label: "Plans" },
   { id: "refused", label: "Refused and failed" },
-  { id: "orders", label: "Orders and alerts" },
+  { id: "orders", label: "Orders and watches" },
 ];
 
 export function filterTrails(list: readonly FoldTrailEntry[], filter: TrailFilter): FoldTrailEntry[] {
@@ -569,3 +569,68 @@ export function whistleGroups(items: readonly WhistleItem[]): { kind: WhistleIte
   return order.map((kind) => ({ kind, label: WHISTLE_KIND_LABEL[kind], items: items.filter((i) => i.kind === kind) })).filter((g) => g.items.length > 0);
 }
 
+
+/* ------------------------------------------------------- acting from a row */
+
+/**
+ * "Ask about this" on a position: one scoped question for Lyko on watch and
+ * the position as context (what it is, what it is doing, its value and the
+ * block it was read at), so the answer is about this row and nothing else.
+ */
+export function askAboutPosition(p: Position): { readonly question: string; readonly context: string } {
+  const next = p.actions[0] ? ` Its next action: ${p.actions[0].label.toLowerCase()} ("${p.actions[0].sentence}").` : "";
+  return {
+    question: `About my ${p.label} (${p.venueName}): what is it doing, and what should I do with it?`,
+    context: `Position ${p.label} at ${p.venueName}: ${p.doing}. State ${p.state}. Value ${p.valueUsd ?? "unpriced"} USD, read at block ${p.block ?? "n/a"}.${next}`.slice(0, 1000),
+  };
+}
+
+export interface TrailLink {
+  readonly label: string;
+  readonly href: string;
+  readonly external: boolean;
+}
+
+/**
+ * Where a trail row leads: its Herding row while it still runs or waits,
+ * else its transaction on the explorer (full hashes only), else its plan.
+ */
+export function trailLink(t: FoldTrailEntry): TrailLink | null {
+  if (t.kind === "running" || t.kind === "planned" || t.kind === "order" || t.kind === "alert" || t.kind === "proposal") return { label: "In Herding", href: "/app/fold/herding", external: false };
+  const tx = t.transactions.find((h) => /^0x[0-9a-fA-F]{64}$/.test(h));
+  if (tx) return { label: "Transaction", href: explorerTx(networkFor(t.environment), tx), external: true };
+  if (t.link && t.link.startsWith("/app/")) return { label: "The plan", href: t.link, external: false };
+  return null;
+}
+
+/** "Ask why" on a trail row: a question Lyko on watch answers from the trail, with the row as context. */
+export function askWhyTrail(t: FoldTrailEntry): { readonly question: string; readonly context: string } {
+  const what = t.kind === "refused" ? "was this refused" : t.kind === "failed" ? "did this fail" : t.kind === "settled" ? "did this happen, and what did it cost" : "is this here";
+  return {
+    question: `Why ${what}: "${t.title}"?`,
+    context: `Trail entry (${t.kind}, ${t.at}, Arc ${t.environment}): ${t.title}. ${t.detail}${t.verdict ? ` Fence verdict: ${t.verdict.decision} (${t.verdict.digest.slice(0, 18)}).` : ""}${t.feeUsd ? ` Fee $${t.feeUsd}.` : ""}`.slice(0, 1000),
+  };
+}
+
+/** The yield explanation with its fee line set to the Trails total, so the page shows one fee figure. */
+export function withTrailFees<T extends { readonly lines: readonly { readonly label: string; readonly value: string }[] }>(artifact: T, feesUsd: string | null): T {
+  if (feesUsd === null) return artifact;
+  return { ...artifact, lines: artifact.lines.map((l) => (l.label.startsWith("Lykia fees") ? { ...l, value: `$${feesUsd}` } : l)) };
+}
+
+/**
+ * The insight's one primary action, decided from what it carries:
+ * - sent to Ask already: open that exact thread;
+ * - drafted already: open Herding, where the draft waits to be signed;
+ * - a draft Lyko can write here (owner signed in): write it now and open the sign sheet in place;
+ * - otherwise (the sample, or reading another address): Ask Lyko with the sentence written out.
+ */
+export type InsightAction = { readonly kind: "thread"; readonly label: string } | { readonly kind: "herding"; readonly label: string } | { readonly kind: "draft"; readonly label: string } | { readonly kind: "ask"; readonly label: string };
+
+export function insightAction(insight: FoldInsight, canDraft: boolean): InsightAction {
+  if (insight.sent) return { kind: "thread", label: "Open the plan" };
+  if (insight.handled) return { kind: "herding", label: "Sign it in Herding" };
+  if (insight.draft && canDraft) return { kind: "draft", label: insight.draft.label };
+  if (insight.draft) return { kind: "ask", label: `${insight.draft.label} in Ask` };
+  return { kind: "ask", label: "Ask Lyko" };
+}

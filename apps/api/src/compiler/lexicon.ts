@@ -680,7 +680,7 @@ function alertTemplate(c: Ctx, clause: string): boolean {
     const trigger = triggerIn(clause);
     if (!trigger) return false;
     c.elements.push({ id: id(c), kind: "alert", when: trigger.when, quote: clip(clause) });
-    goal(c, "Watch and alert");
+    goal(c, "Watch for a change");
     return true;
   }
   const keepHealth = /\bkeep\s+(?:my\s+|the\s+)?(?:health(?:\s+factor)?|hf)\s+(?:above|over|at least)\s+(\d+(?:\.\d+)?)/iu.exec(clause);
