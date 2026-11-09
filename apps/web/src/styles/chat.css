@@ -399,3 +399,27 @@ html[data-night="on"] .m-work__head { background: #1d3150; color: #c9d3e6; box-s
 /* Ask Lyko: the one-tap Stop Autopilot on its offer card. */
 .m-mini.m-mini--stop { background: var(--terra); color: #fff; box-shadow: inset 0 0 0 2px var(--terra); cursor: pointer; }
 .m-mini.m-mini--stop:disabled { opacity: 0.7; cursor: default; }
+
+/* Sources: where a card's figures came from, set as a small stamp of tesserae under the figures. */
+.m-source { display: flex; align-items: center; gap: 7px; margin: 0; padding: 5px 9px 6px; font-size: 12px; line-height: 1.35; color: var(--ink-2); background: repeating-linear-gradient(90deg, #f4ecd8 0 10px, #efe5cd 10px 11px); box-shadow: inset 0 -2px 0 #e6dbc0, inset 3px 0 0 var(--tone, var(--sea)); min-width: 0; animation: m-lay 360ms steps(4, end) both; animation-delay: 240ms; }
+.m-source__tile { width: 8px; height: 8px; flex: none; background: var(--tone, var(--sea)); box-shadow: 2px 2px 0 var(--grout); }
+.m-source__k { font-family: Silkscreen, monospace; font-size: 9px; letter-spacing: 0.1em; color: var(--navy); }
+.m-source__v { min-width: 0; overflow-wrap: anywhere; }
+.m-source[data-stale] { background: repeating-linear-gradient(90deg, #f6e6bf 0 10px, #efd9a3 10px 11px); box-shadow: inset 0 -2px 0 #e3c98a, inset 3px 0 0 var(--warn); }
+.m-source[data-stale] .m-source__tile { background: var(--warn); }
+.m-source[data-sample] .m-source__tile { background: repeating-linear-gradient(45deg, var(--ochre) 0 2px, #fbf5e6 2px 4px); }
+.m-source--compact { padding: 3px 7px 4px; font-size: 11px; animation: none; }
+
+/* Facts: Lyko on watch's sourced answer, one figure per tessera. */
+.m-factrows { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; }
+.m-factrows > li { display: grid; gap: 4px; align-content: start; padding: 9px 10px 8px; background: #f6efdc; box-shadow: inset 0 -3px 0 #ebe1ca, inset 0 0 0 1px #efe4c9; animation: m-lay 420ms steps(5, end) both; animation-delay: calc(var(--i, 0) * 70ms); min-width: 0; }
+.m-factrows__label { font-family: Silkscreen, monospace; font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.m-factrows__value { font-family: "Pixelify Sans", monospace; font-size: 20px; color: var(--navy); overflow-wrap: anywhere; }
+.m-factrows__note { font-size: 12.5px; color: var(--ink-2); }
+.m-factrows > li[data-unavailable] .m-factrows__value { color: var(--ink-2); font-size: 15px; letter-spacing: 0.02em; }
+.m-factrows > li[data-unavailable] { background: repeating-linear-gradient(135deg, #f6efdc 0 6px, #f1e7cf 6px 8px); }
+.m-factrows > li[data-stale] { box-shadow: inset 0 -3px 0 #e3c98a, inset 3px 0 0 var(--warn); }
+
+/* The order card's title leaves room for its Fence seal (the seal drops under the title on phones). */
+.m-card2[data-kind="order"] .m-card2__head { padding-right: 168px; }
+@media (max-width: 640px) { .m-card2[data-kind="order"] .m-card2__head { padding-right: 16px; } }

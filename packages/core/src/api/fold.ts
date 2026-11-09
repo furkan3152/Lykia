@@ -5,6 +5,7 @@ import type { Decision } from "../fenceEvaluate.js";
 import type { FoldInsightKind, FoldPreferenceEffect, FoldPreferences, FoldShocks, ShockResult } from "../fold.js";
 import type { UnsignedTransaction } from "../intent.js";
 import type { ArcEnvironment } from "../networks.js";
+import type { BlockSource } from "./answer.js";
 
 /** One figure behind an insight's "Why?", with a human label. */
 export interface FoldFigure {
@@ -33,6 +34,8 @@ export interface FoldInsight {
   readonly handled: boolean;
   /** A watch task Ask Lyko handed to Lyko on watch raised this insight. */
   readonly origin?: { readonly agent: AgentRole; readonly instructionId: string };
+  /** Where its figures were read: the source, the time and the Arc block (the card shows "source · block or time"). */
+  readonly from?: BlockSource;
   /** Handed to Ask Lyko ("Sent to Ask Lyko · planned"), with the plan it became. */
   readonly sent?: { readonly instructionId: string; readonly status: AgentInstructionStatus; readonly intentId: string | null; readonly threadId: string | null };
 }
@@ -85,7 +88,7 @@ export interface FoldFeedEntry {
   readonly note: string | null;
 }
 
-export type InstructionSource = "automation" | "standing" | "alert" | "agent" | "order" | "recurring" | "watch";
+export type InstructionSource = "automation" | "standing" | "alert" | "agent" | "order" | "recurring" | "watch" | "plan";
 
 /** One standing instruction, whatever created it, in one shape. */
 export interface FoldInstruction {
@@ -108,6 +111,10 @@ export interface FoldInstruction {
   /** The sentence that prefills Ask Lyko to change it. */
   readonly editSentence: string;
   readonly environment: ArcEnvironment | null;
+  /** A chat plan still in progress: Stop ends every step not started yet (POST /v1/intents/:id/stop). */
+  readonly stop?: { readonly intentId: string };
+  /** An open LykiaOrders order: Cancel is a transaction the owner signs (GET /v1/orders/:hash/cancel-tx). */
+  readonly cancel?: { readonly hash: string; readonly environment: ArcEnvironment };
 }
 
 export interface FoldInstructionsResponse {
@@ -144,9 +151,11 @@ export interface FoldExplainArtifact {
   readonly kind: "yield" | "whatif" | "week" | "approvals";
   readonly title: string;
   readonly summary: string;
-  readonly lines: readonly { readonly label: string; readonly value: string; readonly note: string | null }[];
+  readonly lines: readonly { readonly label: string; readonly value: string; readonly note: string | null; readonly from?: BlockSource }[];
   readonly sources: readonly string[];
   readonly at: string;
+  /** The Arc block the figures were read at, when one read was used. */
+  readonly block?: string | null;
 }
 
 export interface FoldSummaryResponse {
@@ -166,6 +175,8 @@ export interface FoldWhatIfResponse {
   readonly shocks: FoldShocks;
   readonly result: ShockResult;
   readonly sentence: string;
+  /** Where the holdings came from: the position map, when and at which block it was read. */
+  readonly from?: BlockSource;
 }
 
 export type FoldQuestion = "yield" | "whatif" | "week" | "approvals";
@@ -194,4 +205,29 @@ export interface ThreadSummaryView {
   readonly last: string | null;
   /** Where the last message was written: "ask" or "fold". */
   readonly origin: "ask" | "fold";
+}
+
+/* ------------------------------------------------------------ the Whistle */
+
+export type WhistleItemKind = "automation" | "standing" | "agent-automation" | "agent" | "leash" | "autopilot" | "alert";
+
+/** One thing the Whistle stopped, with how to let it run again. */
+export interface WhistleItem {
+  readonly kind: WhistleItemKind;
+  readonly id: string;
+  readonly label: string;
+  readonly environment: ArcEnvironment | null;
+  /** "paused" now; "resumed" once let go; "kept" when it was already stopped before the Whistle. */
+  readonly state: "paused" | "resumed";
+}
+
+export interface WhistleResponse {
+  readonly owner: Address;
+  readonly blownAt: string | null;
+  readonly items: readonly WhistleItem[];
+  /** blowWhistle() on the owner's LykiaAccount, to stop every on-chain session too; null when the owner has no account. */
+  readonly transaction: UnsignedTransaction | null;
+  readonly account: Address | null;
+  readonly counts: Readonly<Record<WhistleItemKind, number>>;
+  readonly note: string;
 }

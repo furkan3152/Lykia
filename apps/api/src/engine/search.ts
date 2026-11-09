@@ -209,7 +209,7 @@ export class RouteSearch {
   async candidates(input: RouteSearchInput, appetite: RiskTier): Promise<{ list: Candidate[]; pruned: { label: string; reason: string }[] }> {
     const env = input.environment;
     const base = [...input.actions];
-    const list: Candidate[] = [{ label: "As asked (best venue per step)", strategy: "as-asked", actions: base }];
+    const list: Candidate[] = [{ label: "As asked", strategy: "as-asked", actions: base }];
     const pruned: { label: string; reason: string }[] = [];
     const earnable = earnableAssets(KNOWLEDGE_ROWS);
     const replace = (index: number, actions: PlanAction[]) => [...base.slice(0, index), ...actions, ...base.slice(index + 1)];
@@ -406,14 +406,14 @@ export class RouteSearch {
     const carry = yieldM - usdMicros(s.borrowCostUsd) - usdMicros(s.riskUsd);
     if (carry > 0n && oneOff > 0n) lines.push(`One-off costs (${fmt(oneOff)} USD) are earned back in about ${Math.ceil((Number(oneOff) / Number(carry)) * horizonDays)} days at today's rates.`);
     if (usdMicros(s.borrowCostUsd) > 0n && carry <= 0n) lines.push("The borrow costs more than the position earns at today's rates (negative carry).");
-    if (runnerUp && e.totalMicros !== null && runnerUp.totalMicros !== null && ranked[0] === e) lines.push(`Beats “${runnerUp.candidate.label}” by ${fmt(e.totalMicros - runnerUp.totalMicros)} USD.`);
+    if (runnerUp && e.totalMicros !== null && runnerUp.totalMicros !== null && e.totalMicros >= runnerUp.totalMicros) lines.push(`Beats “${plannedLabel(runnerUp)}” by ${fmt(e.totalMicros - runnerUp.totalMicros)} USD.`);
     const reasons = graph.steps.map((st) => st.route?.reason).filter((r): r is string => typeof r === "string");
     lines.push(...reasons);
     const couldFail = [...new Set(graph.steps.flatMap((st) => failuresFor(e.result.plans[st.id]?.adapter)))];
     const fenceLines = [`Fence: ${graph.verdict.decision}${graph.verdict.signable ? "" : " (not signable)"}.`, ...graph.verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message)];
     return {
       id: graph.id,
-      label: e.candidate.label,
+      label: plannedLabel(e),
       strategy: e.candidate.strategy,
       actions: e.candidate.actions,
       steps: graph.steps.map((st) => ({ id: st.id, kind: st.kind, venue: st.venue, summary: st.summary })),
@@ -426,14 +426,23 @@ export class RouteSearch {
   }
 }
 
-function compareEvaluated(a: Evaluated, b: Evaluated): number {
+/**
+ * The one ranking: higher net USD first. Steps already cost a cent each in the
+ * net, so only exact ties fall through to fewer steps, fewer signatures, then
+ * the label. The route labelled best is always the one with the highest net.
+ */
+export function compareEvaluated(a: Pick<Evaluated, "totalMicros" | "score" | "candidate">, b: Pick<Evaluated, "totalMicros" | "score" | "candidate">): number {
   if (a.totalMicros === null && b.totalMicros !== null) return 1;
   if (b.totalMicros === null && a.totalMicros !== null) return -1;
-  if (a.totalMicros !== null && b.totalMicros !== null) {
-    const diff = b.totalMicros - a.totalMicros;
-    if (diff > 5_000n || diff < -5_000n) return diff > 0n ? 1 : -1;
-  }
+  if (a.totalMicros !== null && b.totalMicros !== null && a.totalMicros !== b.totalMicros) return a.totalMicros > b.totalMicros ? -1 : 1;
   return a.score.steps - b.score.steps || a.score.signatures - b.score.signatures || a.candidate.label.localeCompare(b.candidate.label);
+}
+
+/** "As asked" says which venues the planner picked, so the label never claims a best it did not score. */
+function plannedLabel(e: Evaluated): string {
+  if (e.candidate.strategy !== "as-asked") return e.candidate.label;
+  const venues = [...new Set(e.result.graph.steps.filter((st) => st.kind !== "approve").map((st) => st.route?.chosen.label ?? st.venue))];
+  return venues.length > 0 ? `As asked: ${venues.join(" then ")}` : "As asked";
 }
 
 /** The route's inputs that no earlier step produces: what the wallet must hold. */

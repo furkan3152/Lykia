@@ -2,8 +2,11 @@
  * Herding · instructions. The drafts waiting for your signature (from
  * automations, insights and chats) first, then one list of every standing
  * instruction with its status, next run, last result and the Fence verdict
- * the next run is expected to get. Pause and resume need no signature;
- * changes go through Ask Lyko.
+ * the next run is expected to get (orders included: their verdict is the
+ * Fence and beta cap on one execution today, never a stamped "allow").
+ * Pause, resume and remove need no signature; a plan from Ask stops with
+ * Stop; an open order is cancelled with one transaction, reviewed in the
+ * same modal as a plan; changes go through Ask Lyko.
  */
 import type { FoldInstruction, FoldProposal } from "@lykia/core/api/fold";
 import { useState } from "react";
@@ -31,8 +34,12 @@ export function HerdingTab(props: {
   readonly onOpen: (p: FoldProposal) => void;
   readonly onStop: (p: FoldProposal) => void;
   readonly onToggle: (i: FoldInstruction) => void;
-  /** Watch tasks from Ask Lyko are removed here. */
+  /** Removes an automation, standing order, alert, agent automation or watch (DELETE or remove on its own endpoint). */
   readonly onRemove?: (i: FoldInstruction) => void;
+  /** A plan in progress: stop every step not started yet. */
+  readonly onStopPlan?: (i: FoldInstruction) => void;
+  /** An open order: cancel it with a transaction the owner signs. */
+  readonly onCancel?: (i: FoldInstruction) => void;
   readonly onEdit: (i: FoldInstruction) => void;
   readonly onNew: () => void;
   readonly busyId: string | null;
@@ -81,7 +88,7 @@ export function HerdingTab(props: {
         <header className="fd-card__head fd-card__head--row">
           <div>
             <h3 id="herd-h">{"Everything that runs on its own"}</h3>
-            <span className="m-small m-muted">{`${props.sample ? "Sample. " : ""}Recurring payments, automations, orders, alerts and watches. ${props.waiting && props.waiting.length === 0 ? "Nothing waits for your signature." : ""}`}</span>
+            <span className="m-small m-muted">{`${props.sample ? "Sample. " : ""}Plans from Ask, recurring payments, automations, orders, alerts and watches. ${props.waiting ? (props.waiting.length === 0 ? "Nothing waits for your signature." : `${props.waiting.length} draft${props.waiting.length === 1 ? " waits" : "s wait"} above.`) : ""}`}</span>
           </div>
           <Button size="sm" tone="sea" onClick={props.onNew}>{"+ NEW RULE"}</Button>
         </header>
@@ -110,9 +117,9 @@ export function HerdingTab(props: {
               <span role="columnheader" className="r">{"Actions"}</span>
             </div>
             {list.map((i) => (
-              <div key={i.id} className={cx("fd-herd__row", i.status === "paused" && "fd-herd__row--paused")} role="row">
+              <div key={i.id} className={cx("fd-herd__row", i.status === "paused" && "fd-herd__row--paused", i.source === "plan" && "fd-herd__row--plan")} role="row">
                 <span role="cell" className="fd-herd__name">
-                  <Tag tone={i.source === "watch" ? "ochre" : "ghost"}>{i.sourceLabel}</Tag>
+                  <Tag tone={i.source === "watch" || i.source === "plan" ? "ochre" : "ghost"}>{i.sourceLabel}</Tag>
                   <b>{i.name}</b>
                   <small>{i.trigger}</small>
                 </span>
@@ -124,14 +131,21 @@ export function HerdingTab(props: {
                   {i.nextVerdict ? <small>{i.nextVerdict.reason}</small> : null}
                 </span>
                 <span role="cell" className="r fd-herd__acts">
+                  {i.stop && props.onStopPlan ? (
+                    <Button size="sm" tone="terra" disabled={props.busyId === i.id} onClick={() => props.onStopPlan!(i)} title="Stop every step not started yet; settled steps stay settled">{"STOP"}</Button>
+                  ) : null}
+                  {i.cancel && props.onCancel ? (
+                    <Button size="sm" tone="terra" disabled={props.busyId === i.id} onClick={() => props.onCancel!(i)} title="One transaction you sign; nothing else moves">{"CANCEL"}</Button>
+                  ) : null}
                   {i.controllable && (i.status === "active" || i.status === "paused") ? (
                     <Button size="sm" tone="ghost" disabled={props.busyId === i.id || props.sample} onClick={() => props.onToggle(i)}>{i.status === "paused" ? "RESUME" : "PAUSE"}</Button>
                   ) : null}
-                  {i.source === "watch" && props.onRemove ? (
+                  {i.controllable && props.onRemove && i.source !== "order" && i.source !== "plan" ? (
                     <Button size="sm" tone="ghost" disabled={props.busyId === i.id || props.sample} onClick={() => props.onRemove!(i)}>{"REMOVE"}</Button>
-                  ) : (
+                  ) : null}
+                  {i.source !== "watch" ? (
                     <Button size="sm" tone="ghost" onClick={() => props.onEdit(i)}>{"CHANGE IT"}</Button>
-                  )}
+                  ) : null}
                 </span>
               </div>
             ))}

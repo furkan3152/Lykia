@@ -39,6 +39,7 @@ import { consentsModule } from "./consents.js";
 import { leashModule } from "./leash.js";
 import { autopilotModule } from "./autopilot.js";
 import { instructionsModule } from "./instructions.js";
+import { whistleModule } from "./whistle.js";
 
 // developersModule goes first: its gate checks every request that presents a Lykia-Key.
-export const MODULES: readonly ApiModule[] = [developersModule, platformModule, projectsModule, leagueModule, authModule, systemModule, arcModule, flockModule, fenceModule, languageModule, intentsModule, standingModule, routesModule, knowledgeModule, scentModule, tagModule, agentModule, instructionsModule, personalModule, circleModule, circleStackModule, ownershipModule, jobsModule, ordersModule, alertsModule, discoverModule, ecosystemModule, adminModule, securityModule, devflowsModule, aggregatorModule, aiModule, integrationsModule, dataModule, foldModule, consentsModule, leashModule, autopilotModule, mcpModule];
+export const MODULES: readonly ApiModule[] = [developersModule, platformModule, projectsModule, leagueModule, authModule, systemModule, arcModule, flockModule, fenceModule, languageModule, intentsModule, standingModule, routesModule, knowledgeModule, scentModule, tagModule, agentModule, instructionsModule, personalModule, circleModule, circleStackModule, ownershipModule, jobsModule, ordersModule, alertsModule, discoverModule, ecosystemModule, adminModule, securityModule, devflowsModule, aggregatorModule, aiModule, integrationsModule, dataModule, foldModule, consentsModule, leashModule, autopilotModule, whistleModule, mcpModule];

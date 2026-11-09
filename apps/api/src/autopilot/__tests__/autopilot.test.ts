@@ -357,11 +357,21 @@ describe("Lyko Autopilot", () => {
   it("the Whistle stops it: from the Fold and on chain", async () => {
     await enableAndLand();
     assert.equal(walletBodies.length, 1, "the same Circle wallet is reused");
+    // The Whistle pauses Autopilot on the server at once (nothing is signed), and lists it so it can be resumed.
     const blown = await json(await call("/v1/pack/whistle", { headers: owner(), body: { owner: OWNER, environment: "mainnet" } }));
     assert.equal(blown.autopilot.stopped, true);
-    assert.equal((await ap().get(OWNER, "mainnet"))!.stopped?.by, "whistle");
+    assert.ok(blown.whistle.items.some((i: { kind: string; state: string }) => i.kind === "autopilot" && i.state === "paused"));
+    const held = (await ap().get(OWNER, "mainnet"))!;
+    assert.equal(held.status, "paused");
+    assert.match(held.paused?.reason ?? "", /Whistle/u);
+    const before0 = executions.length;
+    const refused = await ap().run(held, { taskId: null, sentence: `send 1 USDC to ${PAYEE}`, origin: "owner" });
+    assert.notEqual(refused.status, "executed");
+    assert.equal(executions.length, before0, "nothing is signed while the Whistle holds it");
+    const resumed = await json(await call("/v1/whistle/resume", { headers: owner(), body: { owner: OWNER, environment: "mainnet", kind: "autopilot", id: "autopilot:mainnet" } }));
+    assert.ok(resumed.items.some((i: { kind: string; state: string }) => i.kind === "autopilot" && i.state === "resumed"));
+    assert.equal((await ap().get(OWNER, "mainnet"))!.status, "on");
 
-    await enableAndLand();
     account.whistle = true;
     const before = executions.length;
     const r = await ap().run((await ap().get(OWNER, "mainnet"))!, { taskId: null, sentence: `send 1 USDC to ${PAYEE}`, origin: "owner" });

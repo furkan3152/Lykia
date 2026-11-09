@@ -41,6 +41,7 @@ export * from "./fold.js";
 export * from "./staged.js";
 export * from "./agentInstructions.js";
 export * from "./positions.js";
+export * from "./sampleFold.js";
 export * from "./leash.js";
 export * from "./autopilot.js";
 export * from "./plain.js";

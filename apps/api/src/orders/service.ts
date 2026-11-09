@@ -250,7 +250,7 @@ class OrdersService {
       summary,
       typedData: { domain: orderDomain(env, address), types: ORDER_EIP712_TYPES, primaryType: "Order" as const, message: order },
       approval,
-      perExecution: { fee: fromBaseUnits(slice.fee, sell.decimals), maxTip: fromBaseUnits(maxTip, sell.decimals), swapped: fromBaseUnits(slice.swapped, sell.decimals), minOut: fromBaseUnits(minAmountOut, buy.decimals), symbolIn: sell.symbol, symbolOut: buy.symbol },
+      perExecution: { fee: fromBaseUnits(slice.fee, sell.decimals), maxTip: fromBaseUnits(maxTip, sell.decimals), swapped: fromBaseUnits(slice.swapped, sell.decimals), expectedOut: fromBaseUnits(expected, buy.decimals), minOut: fromBaseUnits(minAmountOut, buy.decimals), symbolIn: sell.symbol, symbolOut: buy.symbol },
       notes: [`Minimum output is set ${basis}, minus ${Number(slippage) / 100}% slippage.`, ...config.notes],
     };
   }

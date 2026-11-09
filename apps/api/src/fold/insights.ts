@@ -25,6 +25,8 @@ import { ownerIntents } from "./trails.js";
 import { settle, withTimeout } from "./util.js";
 import { readPositions } from "../positions/service.js";
 import { fireWatches, sentMarks, watchFactsOf } from "../agents/instructions.js";
+import { blockOf, isoOf } from "../agents/cards.js";
+import type { BlockSource } from "@lykia/core/api/answer";
 
 const usd = (n: number) => `$${n.toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: n > 0 && n < 1 ? 2 : 0 })}`;
 const amount = (n: number) => (n >= 100 ? String(Math.floor(n)) : n.toFixed(2).replace(/\.?0+$/u, ""));
@@ -330,7 +332,11 @@ export async function foldInsights(ctx: AppContext, environment: ArcEnvironment,
   const hidden = new Set<FoldInsightKind>(personal ? inputs.preferences.insights.hidden : []);
   const done = personal ? await handledInsights(ctx, owner) : new Map<string, string>();
   const sent = personal ? await settle(sentMarks(ctx, owner, environment), new Map()) : new Map();
-  const insights: FoldInsight[] = raw.filter((i) => !hidden.has(i.kind)).map((i) => ({ ...i, handled: done.get(i.id) === i.title, ...(sent.get(i.id) && done.get(i.id) === i.title ? { sent: sent.get(i.id) } : {}) }));
+  // Every insight says where its figures were read: the position map for positions, the Flock snapshot for the rest.
+  const snapFrom: BlockSource = { source: "Arc chain · the Flock", readAt: isoOf(inputs.snapshot.at), block: blockOf(inputs.snapshot.block) };
+  const mapFrom: BlockSource | null = inputs.positions ? { source: "Arc chain and venue APIs", readAt: isoOf(inputs.positions.at), block: blockOf(inputs.positions.block) } : null;
+  const fromOf = (kind: FoldInsightKind): BlockSource => (mapFrom && (kind === "health-factor" || kind === "lp-out-of-range" || kind === "yield-change" || kind === "near-threshold" || kind === "unclaimed" || kind === "expiring" || kind === "idle-position" || kind === "watch-task") ? mapFrom : snapFrom);
+  const insights: FoldInsight[] = raw.filter((i) => !hidden.has(i.kind)).map((i) => ({ ...i, from: i.from ?? fromOf(i.kind), handled: done.get(i.id) === i.title, ...(sent.get(i.id) && done.get(i.id) === i.title ? { sent: sent.get(i.id) } : {}) }));
   let brief: FoldInsightsResponse["brief"] = { since: null, lines: [] };
   if (personal) {
     const last = (await seen(ctx).get(owner.toLowerCase()).catch(() => null))?.value ?? null;

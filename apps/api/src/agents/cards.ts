@@ -17,6 +17,7 @@ import type { PositionsResponse } from "@lykia/core";
 import type { AppContext } from "../context.js";
 import { getPreferences } from "../fold/preferences.js";
 import { services } from "../services.js";
+import { FEEDS } from "../arc/prices.js";
 import type { Emit } from "./orchestrator.js";
 
 /* ------------------------------------------------------------------ steps */
@@ -90,7 +91,7 @@ export async function gasCard(ctx: AppContext, environment: ArcEnvironment, owne
   }
   const pulse = ctx.pulse.latest(environment);
   const gwei = pulse?.gasPriceGwei;
-  return { kind: "gas", balance, floor, address: sample ? null : owner, gasPriceGwei: gwei !== undefined && gwei !== null && /^\d+(?:\.\d+)?$/u.test(String(gwei)) ? trimDecimal(String(gwei), 4) : null };
+  return { kind: "gas", balance, floor, address: sample ? null : owner, gasPriceGwei: gwei !== undefined && gwei !== null && /^\d+(?:\.\d+)?$/u.test(String(gwei)) ? trimDecimal(String(gwei), 4) : null, from: { source: "Arc chain · native USDC", readAt: isoOf(snap.at), block: blockOf(snap.block) } };
 }
 
 /** The pasture mosaic: the largest holdings by USD value. */
@@ -101,7 +102,21 @@ export function balanceCard(snap: FlockSnapshot): AnswerBlock | null {
     .sort((a, b) => Number(b.usd ?? -1) - Number(a.usd ?? -1))
     .slice(0, 8)
     .map((h) => ({ symbol: h.symbol, amount: trimDecimal(String(h.amount), 6), usd: h.usd === null ? null : trimDecimal(String(h.usd), 2), where: String(h.where).slice(0, 60) || "wallet" }));
-  return { kind: "balance", totalUsd: snap.totalUsd === null ? null : trimDecimal(snap.totalUsd, 2), holdings };
+  const unpriced = snap.holdings.filter((h) => h.usd === null).length;
+  return { kind: "balance", totalUsd: snap.totalUsd === null ? null : trimDecimal(snap.totalUsd, 2), holdings, ...(unpriced > 0 ? { unpriced } : {}), from: { source: "Arc chain · Chainlink prices", readAt: isoOf(snap.at), block: blockOf(snap.block) } };
+}
+
+/** A read time as the card's ISO form (milliseconds kept, timezone Z). */
+export function isoOf(at: string | number | null | undefined): string {
+  const ms = typeof at === "number" ? at : at ? Date.parse(at) : Number.NaN;
+  return new Date(Number.isFinite(ms) ? ms : Date.now()).toISOString();
+}
+
+/** A block number as a decimal string, or null. */
+export function blockOf(block: string | number | bigint | null | undefined): string | null {
+  if (block === null || block === undefined) return null;
+  const s = String(block);
+  return /^\d{1,20}$/u.test(s) && s !== "0" ? s : null;
 }
 
 /** Where the money is: the largest positions by value with their state and one line each, and the venues that could not be read. */
@@ -113,7 +128,18 @@ export function positionsCard(res: PositionsResponse): AnswerBlock | null {
     .slice(0, 8)
     .map((p) => ({ venue: p.venueName.slice(0, 60), label: p.label.slice(0, 120), state: p.state, valueUsd: p.valueUsd === null ? null : trimDecimal(p.valueUsd, 2), doing: p.doing.slice(0, 200) }));
   const lowest = res.summary.lowestHealth?.factor ?? null;
-  return { kind: "positions", netUsd: res.summary.netUsd === null ? null : trimDecimal(res.summary.netUsd, 2), weightedApyPercent: res.summary.weightedApyPercent, lowestHealth: lowest === null ? null : trimDecimal(lowest, 4), rows, unavailable: res.summary.unavailable.slice(0, 12).map((u) => u.slice(0, 60)) };
+  return {
+    kind: "positions",
+    netUsd: res.summary.netUsd === null ? null : trimDecimal(res.summary.netUsd, 2),
+    weightedApyPercent: res.summary.weightedApyPercent,
+    lowestHealth: lowest === null ? null : trimDecimal(lowest, 4),
+    rows,
+    unavailable: res.summary.unavailable.slice(0, 12).map((u) => u.slice(0, 60)),
+    // Derived figures come from code (core summarizePositions), so prose never has to add them up.
+    ...(res.summary.yearlyYieldUsd !== null ? { yearlyYieldUsd: trimDecimal(res.summary.yearlyYieldUsd, 2) } : {}),
+    ...(res.summary.unpriced > 0 ? { unpriced: res.summary.unpriced } : {}),
+    from: { source: "Arc chain and venue APIs", readAt: isoOf(res.at), block: blockOf(res.block) },
+  };
 }
 
 /** The rate tile for a pair: the oracle reference, and the Fence's FX band when it has one. */
@@ -125,7 +151,17 @@ export async function rateCard(ctx: AppContext, base: string, quote: string, fen
   const rate = quoted ?? reference;
   if (!rate) return null;
   const source = [b?.source, q?.source].filter((s): s is string => Boolean(s) && !/unit of account/u.test(s!)).map((s) => s.replace(/^chainlink:/iu, "Chainlink ")).join(" · ") || null;
-  return { kind: "rate", base, quote, rate, reference: quoted ? reference : null, bandBps: fence.fx?.maxDeviationBps ?? null, source: source ? source.slice(0, 80) : null };
+  const read = [b?.updatedAt, q?.updatedAt].filter((t): t is string => Boolean(t)).sort()[0] ?? null;
+  const stale = [base, quote].map((sym) => staleFeed(prices?.[sym] ?? null)).find((x) => x !== null) ?? null;
+  return { kind: "rate", base, quote, rate, reference: quoted ? reference : null, bandBps: fence.fx?.maxDeviationBps ?? null, source: source ? source.slice(0, 80) : null, from: { source: (source ?? "Lykia reference").slice(0, 80), readAt: isoOf(read ?? Date.now()), block: null, ...(stale ? { stale } : {}) } };
+}
+
+/** "Chainlink EURC/USD round is 30 h old, past its 26 h heartbeat": why a price is stale, or null. */
+export function staleFeed(quote: { readonly symbol: string; readonly source: string; readonly updatedAt: string | null } | null): string | null {
+  if (!quote || !/\(stale\)/u.test(quote.source)) return null;
+  const feed = FEEDS[quote.symbol];
+  const age = quote.updatedAt ? Math.round((Date.now() - Date.parse(quote.updatedAt)) / 3_600_000) : null;
+  return `${feed?.pair ?? quote.symbol} round ${age !== null ? `is ${age} h old, ` : ""}past its ${feed ? Math.round(feed.maxAgeSeconds / 3600) : "?"} h heartbeat`;
 }
 
 /** The rate a planned conversion gets: output per input of its first conversion step. */
@@ -183,4 +219,32 @@ export function infoQuestion(text: string): InfoQuestion | null {
   if (/\b(?:eurc|euro|eur)\b/u.test(t) && /\b(?:rate|price|worth|fx|quote|exchange)\b/u.test(t)) return { kind: "rate", base: "USDC", quote: "EURC" };
   if (/\b(?:balance|balances|holdings|portfolio|my flock|what do i (?:hold|have|own)|how much (?:do i|have i))\b/u.test(t)) return { kind: "balance" };
   return null;
+}
+
+/* ------------------------------------------------------------------ facts */
+
+const dollars = (v: string | number) => `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/**
+ * Lyko on watch's sourced answer from the position map: net worth, what earns and at what blended rate, the yearly
+ * estimate and the lowest health factor, each computed by core (summarizePositions) and stamped with where and when
+ * it was read. A figure that cannot be computed says "unavailable", never an estimate.
+ */
+export function positionsFacts(res: PositionsResponse, title = "Your Fold, read now", options: { readonly sample?: boolean } = {}): AnswerBlock {
+  const at = { source: options.sample ? "sample" : "Arc chain and venue APIs", readAt: isoOf(res.at), block: blockOf(res.block) };
+  const s = res.summary;
+  const unpricedNote = s.unpriced > 0 ? `${s.unpriced} holding${s.unpriced === 1 ? " has" : "s have"} no price and ${s.unpriced === 1 ? "is" : "are"} left out` : null;
+  const earning = res.venues.filter((v) => v.positions.some((p) => p.apy && (p.state === "earning" || p.state === "at-risk")));
+  const first = earning[0];
+  const rateFrom = options.sample ? at : first ? { source: first.source === "api" ? `${first.venueName} rate API`.slice(0, 80) : `${first.venueName} on Arc`.slice(0, 80), readAt: isoOf(first.readAt), block: blockOf(first.block), venue: earning.length === 1 ? first.venueName.slice(0, 60) : `${earning.length} venues` } : at;
+  const lowest = s.lowestHealth;
+  const lowestRead = lowest ? res.venues.find((v) => v.venue === lowest.venue) : undefined;
+  const rows = [
+    { label: "Net worth", value: s.netUsd === null ? (Number(s.pricedNetUsd) !== 0 ? `${dollars(s.pricedNetUsd)} priced` : "unavailable") : dollars(s.netUsd), note: unpricedNote, from: at },
+    { label: "Blended APY on what earns", value: s.weightedApyPercent === null ? "unavailable" : `${s.weightedApyPercent}%`, note: s.weightedApyPercent === null ? "no earning position with a readable rate" : null, from: rateFrom },
+    { label: "Yearly estimate, net of borrowing", value: s.yearlyYieldUsd === null ? "unavailable" : dollars(s.yearlyYieldUsd), note: s.yearlyYieldUsd === null ? null : "at today's rates", from: rateFrom },
+    ...(lowest ? [{ label: "Lowest health factor", value: Number(lowest.factor).toFixed(2), note: `${lowest.label}; your floor is ${res.healthFloor}`.slice(0, 200), from: lowestRead && !options.sample ? { source: `${lowestRead.venueName} on Arc`.slice(0, 80), readAt: isoOf(lowestRead.readAt), block: blockOf(lowestRead.block), venue: lowestRead.venueName.slice(0, 60) } : at }] : []),
+    ...(s.unavailable.length > 0 ? [{ label: "Not read", value: `${s.unavailable.length} venue${s.unavailable.length === 1 ? "" : "s"}`, note: s.unavailable.slice(0, 4).join(", ").slice(0, 200), from: at }] : []),
+  ];
+  return { kind: "facts", title, rows, note: s.unavailable.length > 0 ? "Venues that could not be read are named, never counted as zero." : null };
 }

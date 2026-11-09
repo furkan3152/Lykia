@@ -229,6 +229,8 @@ export interface Leash {
   readonly venues: readonly string[] | null;
   readonly recipients: readonly Address[];
   readonly status: LeashStatus;
+  /** Set while the Whistle holds the leash: its key is refused until the owner resumes it. */
+  readonly paused?: { readonly at: string; readonly by: "whistle" | "owner" } | null;
   readonly session: LeashSession | null;
   /** Absent = "arc". */
   readonly spendFrom?: LeashSpendFrom;
@@ -322,6 +324,7 @@ export function crossedThresholds(before: number, after: number): number[] {
  */
 export type LeashDenyCode =
   | "leash.revoked"
+  | "leash.paused"
   | "leash.expired"
   | "leash.session.pending"
   | "leash.session.invalid"

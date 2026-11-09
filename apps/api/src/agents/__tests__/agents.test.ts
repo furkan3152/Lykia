@@ -133,7 +133,7 @@ describe("Lyko orchestration", () => {
     assert.ok(names.includes("task") && names.includes("tool") && names.includes("proposal") && names.includes("text"));
     // The specialist got its own tools only: no delegate, no ask_owner.
     const specialistCall = client.calls.find((c) => c.system.startsWith("You are Yield keeper"))!;
-    assert.deepEqual(specialistCall.tools.map((t) => t.name).sort(), ["capabilities", "compile_goal", "create_alert", "draft_automation", "draft_order", "fence", "flock", "get_insights", "knowledge", "outrun", "plan_intent", "positions", "prices", "read_instructions", "scent", "search_routes", "venues", "watch_position"]);
+    assert.deepEqual(specialistCall.tools.map((t) => t.name).sort(), ["capabilities", "compile_goal", "create_alert", "draft_automation", "draft_order", "fence", "flock", "get_insights", "knowledge", "outrun", "plan_intent", "positions", "prices", "read_instructions", "scent", "search_routes", "stop_plan", "venues", "watch_position"]);
   });
 
   it("reads the Fence, the beta cap and the fee, and reports the fee behind a plan", async () => {

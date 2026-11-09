@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { navigate } from "../../app/routes/history";
+import { useAsk } from "../../features/ask/store";
 import { usd } from "../../features/desk/format";
 import { apiGet, describeError } from "../../lib/api";
 import { Button, Card, Input, PageHead, Skeleton, Stat, Tag } from "../../mosaic";
@@ -91,7 +92,7 @@ export default function MarketsPage() {
             {hedgeable ? (
               <div className="m-note" style={{ marginTop: 10 }}>
                 {`Hedge on Arc: a stop-loss on ${selected === "BTC-USD" ? "cirBTC" : "EURC"} sells into USDC when Chainlink crosses your level, without leaving Arc.`}
-                <div style={{ marginTop: 8 }}><Button size="sm" onClick={() => navigate("/app/orders")}>{"SET A STOP-LOSS"}</Button></div>
+                <div style={{ marginTop: 8 }}><Button size="sm" onClick={() => { useAsk.getState().setPrefill(`Set a stop-loss on my ${selected === "BTC-USD" ? "cirBTC" : "EURC"}: sell `); navigate("/app"); }}>{"SET A STOP-LOSS IN ASK LYKO"}</Button></div>
               </div>
             ) : null}
           </Card>

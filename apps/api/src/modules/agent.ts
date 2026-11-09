@@ -16,7 +16,7 @@
  *   POST /pack/:id/(pause|resume)        GET /pack/:id/budget
  *   POST /pack/:id/session-tx            unsigned LykiaAccount createSession / createSubSession
  *   POST /pack/:id/session               record the session once the transaction landed
- *   POST /pack/whistle                   unsigned blowWhistle() for the owner's LykiaAccount + whistle.blown webhook
+ *   POST /pack/whistle                   the Whistle (same as POST /v1/whistle) + unsigned blowWhistle() + whistle.blown webhook
  *
  * Writes to the Pack need a Lykia-Session for the owner, or a secret API
  * key with the agents scope (a developer acting for its users). Nothing
@@ -26,7 +26,6 @@ import { DEFAULT_FENCE, evaluateFence, PACK_ROLES, type Address, type ArcEnviron
 import type { Request, Response } from "express";
 import { encodeFunctionData, type Hex } from "viem";
 import { z } from "zod";
-import { autopilotService } from "../autopilot/service.js";
 import { LykiaHttpError } from "../http/errors.js";
 import type { ApiModule } from "../http/router.js";
 import { openSse } from "../http/sse.js";
@@ -37,8 +36,9 @@ import { readSentence } from "../language/reader.js";
 import { fenceForProfile, projectFence, projectPromptBlock, tightenFence } from "@lykia/core";
 import { getProfile } from "../personal/profile.js";
 import { projectOf } from "../platform/projects.js";
-import { createAutomation, listAutomations, runAutomations, setAutomationEnabled } from "../agents/automations.js";
+import { createAutomation, listAutomations, ownerFenceOf, runAutomations, setAutomationEnabled } from "../agents/automations.js";
 import { runDeterministicTurn } from "../agents/deterministic.js";
+import { watchTurn } from "../agents/watch.js";
 import { insightsFor } from "../agents/insights.js";
 import { createProposal } from "../fold/proposals.js";
 import { appendMessages, getThread, listThreads, openThread } from "../agents/memory.js";
@@ -51,6 +51,7 @@ import { sharedLimit } from "../http/sharedLimits.js";
 import { authorizeOwner, environmentOf, environmentSchema, fenceFrom, ownerProof } from "./common.js";
 import { factsSchema } from "./fence.js";
 import { leashService } from "../leash/service.js";
+import { blowWhistle } from "../whistle/service.js";
 
 const ownerQuery = z.object({ owner: evmAddress, environment: environmentSchema.optional() });
 const idParams = z.object({ id: z.string().min(8).max(120) });
@@ -83,6 +84,7 @@ export const agentModule: ApiModule = {
         }),
       );
       const message = body.message ?? body.messages?.[body.messages.length - 1]?.content;
+      const watching = body.origin === "fold";
       if (!message) throw new LykiaHttpError("INVALID_REQUEST", 400, "Send a message.");
       const environment = environmentOf(ctx, body.environment);
       const session = await sessionOf(ctx, req);
@@ -120,8 +122,9 @@ export const agentModule: ApiModule = {
         if (event === "block") blocks.push(data);
         stream?.send(event, data);
       };
-      emit("thread", { threadId: thread.id, mode: client ? "llm" : "reader", ...(sample ? { sample: true } : {}) });
-      if (sample) emit("notice", { kind: "sample", text: `No wallet connected: this is a dry-run plan for a sample address (${SAMPLE_OWNER}). Connect a wallet to plan for real.` });
+      emit("thread", { threadId: thread.id, mode: client ? "llm" : "reader", ...(sample ? { sample: true } : {}), ...(watching ? { origin: "fold" } : {}) });
+      // Lyko on watch only reads: the sample is the Fold's sample flock, not a dry-run plan.
+      if (sample) emit("notice", { kind: "sample", text: watching ? "No wallet connected: these figures are the Fold's sample flock, not read from Arc." : `No wallet connected: this is a dry-run plan for a sample address (${SAMPLE_OWNER}). Connect a wallet to plan for real.` });
       let text = "";
       let proposals: readonly unknown[] = [];
       let stopReason: string;
@@ -129,12 +132,14 @@ export const agentModule: ApiModule = {
         if (client) {
           const seen = await perceive(ctx, { environment, owner, fence, pack, emit, personal: proven !== null });
           const appContext = project ? projectPromptBlock(project) : "";
-          const result = await runTurn({ ctx, client, environment, owner, ownerVerified: proof !== null, ...(proof ? { actor: proof } : {}), fence, pack, history, message, stateLine: seen.line, emit, threadId: thread.id, ...(appContext ? { appContext } : {}) });
+          const result = await runTurn({ ctx, client, environment, owner, ownerVerified: proof !== null, ...(proof ? { actor: proof } : {}), fence, pack, history, message, stateLine: seen.line, emit, threadId: thread.id, ...(appContext ? { appContext } : {}), ...(watching ? { origin: "fold" as const } : {}) });
           text = result.text;
           proposals = result.proposals;
           stopReason = result.stopReason;
         } else {
-          const result = await runDeterministicTurn({ ctx, environment, owner, fence, pack, message, emit, ownerVerified: proof !== null, threadId: thread.id, ...(proof ? { actor: proof } : {}) });
+          const input = { ctx, environment, owner, fence, pack, message, emit, ownerVerified: proof !== null, threadId: thread.id, ...(proof ? { actor: proof } : {}) };
+          // Lyko on watch reads and explains; it never plans, even without a model.
+          const result = watching ? await watchTurn(input) : await runDeterministicTurn(input);
           text = result.text;
           proposals = result.proposals;
           stopReason = result.stopReason;
@@ -145,7 +150,7 @@ export const agentModule: ApiModule = {
         ctx.log.warn("agent turn failed", { code: failure.code, error: error instanceof Error ? error.message.slice(0, 200) : String(error) });
         emit("error", failure);
       }
-      if (sample && text) text = `Sample plan (no wallet connected, dry run): ${text}`;
+      if (sample && text && !watching) text = `Sample plan (no wallet connected, dry run): ${text}`;
       await appendMessages(ctx, thread, [
         { role: "user", text: message, origin: body.origin ?? "ask" },
         { role: "assistant", text: text || "(no answer)", proposals: proposals as never, blocks: blocks as never, origin: body.origin ?? "ask" },
@@ -216,11 +221,13 @@ export const agentModule: ApiModule = {
       await authorizeOwner(ctx, req, body.owner);
       const environment = environmentOf(ctx, body.environment);
       const fired: Promise<unknown>[] = [];
+      // Agent automations run under the owner's own Fence (their profile and preferences), never a default one.
+      const ownerFence = await ownerFenceOf(ctx, body.owner as Address);
       const runs = await runAutomations(ctx, s().pack, body.owner as Address, environment, (a, p) => {
         void s().webhooks.emit("standing_order.fired", a.owner, { automationId: a.id, intentId: p.intentId, decision: p.decision, steps: [...p.steps] }).catch(() => undefined);
         // What an automation produced waits in the Fold's Herding inbox for a signature, instead of vanishing.
-        fired.push(createProposal(ctx, { owner: a.owner, environment, fence: DEFAULT_FENCE, source: { kind: "automation", ref: a.id }, title: a.sentence, planned: { intentId: p.intentId, decision: p.decision, reasons: p.reasons, steps: p.steps } }).catch(() => undefined));
-      });
+        fired.push(createProposal(ctx, { owner: a.owner, environment, fence: ownerFence, source: { kind: "automation", ref: a.id }, title: a.sentence, planned: { intentId: p.intentId, decision: p.decision, reasons: p.reasons, steps: p.steps } }).catch(() => undefined));
+      }, ownerFence);
       await Promise.all(fired);
       res.json({ runs });
     });
@@ -279,13 +286,14 @@ export const agentModule: ApiModule = {
         by = await s().pack.get(body.by);
         if (by.owner !== body.owner.toLowerCase() || !by.capabilities.includes("whistle")) throw new LykiaHttpError("FORBIDDEN", 403, "That agent may not blow the whistle for this owner.");
       }
+      // One Whistle: the same server-side stop as POST /v1/whistle (automations, standing orders, agent automations,
+      // Pack agents, leashes and Autopilot), plus blowWhistle() for the account named here or the owner's LykiaAccount.
+      const whistle = await blowWhistle(ctx, body.owner as Address, environment, body.reason ?? (by ? `blown by ${by.name}` : undefined));
       const transaction = body.account
         ? { chainId: environment === "mainnet" ? 5042 : 5042002, from: (by?.signer ?? body.owner) as Address, to: body.account as Address, data: encodeFunctionData({ abi: BLOW_WHISTLE_ABI, functionName: "blowWhistle" }) as Hex, value: "0", label: "Blow the whistle on the LykiaAccount" }
-        : null;
-      void s().webhooks.emit("whistle.blown", body.owner, { by: by?.id ?? "owner", reason: body.reason ?? null, environment }).catch(() => undefined);
-      // The Whistle stops Autopilot too: server signing ends before the answer goes out.
-      const autopilot = await autopilotService(ctx).stop(body.owner, environment, "whistle", body.reason ? `The Whistle was blown: ${body.reason}` : undefined).catch(() => null);
-      res.json({ transaction, autopilot: autopilot?.autopilot ? { stopped: true, revokeTransaction: autopilot.transaction } : null, note: "Set your Fence to whistle mode in the deck as well; on chain, sending this transaction stops every session except homeward calls." });
+        : whistle.transaction;
+      const autopilot = whistle.items.find((i) => i.kind === "autopilot" && i.environment === environment && i.state === "paused");
+      res.json({ transaction, whistle, autopilot: autopilot ? { stopped: true, paused: true } : null, note: whistle.note });
     });
 
     router.get("/pack/account", async (req, res) => {

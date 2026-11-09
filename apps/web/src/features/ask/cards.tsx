@@ -5,7 +5,7 @@
  * clarifying chips and the calm trouble state. Every animation is laid in
  * steps, like tiles, and stops under prefers-reduced-motion.
  */
-import { gasShortfall } from "@lykia/core/api/answer";
+import { gasShortfall, sourceLine, type BlockSource } from "@lykia/core/api/answer";
 import type { AgentProposal, AnswerBlock } from "@lykia/core/api/agents";
 import { planStages, watchForPlan } from "@lykia/core";
 import type { CreateIntentResponse } from "@lykia/core/api/intents";
@@ -26,13 +26,14 @@ import { useIntent } from "../route/useIntent";
 import { useStopAutopilot } from "../fold/autopilot/data";
 import { useEnvironment } from "../../lib/environment";
 import { STATE_COLOR, stateLabel } from "../fold/positionsModel";
+import { OrderReviewModal } from "../route/OrderReview";
 import type { PositionState } from "@lykia/core";
 
 
 const fmt = (v: string | number, max = 4) => Number(v).toLocaleString("en-US", { maximumFractionDigits: max });
 const usd = (v: string) => `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-function CardShell({ kind, tone, kick, title, icon, children, className }: { readonly kind: string; readonly tone: "sea" | "ochre" | "terra" | "olive" | "navy"; readonly kick: string; readonly title: React.ReactNode; readonly icon?: React.ReactNode; readonly children: React.ReactNode; readonly className?: string }) {
+function CardShell({ kind, tone, kick, title, icon, children, className, from }: { readonly kind: string; readonly tone: "sea" | "ochre" | "terra" | "olive" | "navy"; readonly kick: string; readonly title: React.ReactNode; readonly icon?: React.ReactNode; readonly children: React.ReactNode; readonly className?: string; readonly from?: BlockSource | undefined }) {
   return (
     <section className={cx("m-card2", className)} data-kind={kind} data-tone={tone}>
       <header className="m-card2__head">
@@ -42,8 +43,23 @@ function CardShell({ kind, tone, kick, title, icon, children, className }: { rea
           <span className="m-card2__title">{title}</span>
         </span>
       </header>
-      <div className="m-card2__body">{children}</div>
+      <div className="m-card2__body">
+        {children}
+        {from ? <SourceStamp from={from} /> : null}
+      </div>
     </section>
+  );
+}
+
+/** "source · block or time": where a card's figures came from, set like a small tessera stamp; stale data says so. */
+export function SourceStamp({ from, compact = false }: { readonly from: BlockSource; readonly compact?: boolean }) {
+  const sample = from.source === "sample";
+  return (
+    <p className={cx("m-source", compact && "m-source--compact")} data-stale={from.stale ? true : undefined} data-sample={sample || undefined} title={sourceLine(from)}>
+      <span className="m-source__tile" aria-hidden="true" />
+      <span className="m-source__k">{from.stale ? "STALE" : sample ? "SAMPLE" : "SOURCE"}</span>
+      <span className="m-source__v">{sample ? "not read from Arc" : sourceLine(from)}</span>
+    </p>
   );
 }
 
@@ -71,7 +87,7 @@ function GasCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "gas"
   const SEGMENTS = 12;
   const lit = Math.max(balance > 0 ? 1 : 0, Math.min(SEGMENTS, Math.round((balance / (floor * 2)) * SEGMENTS)));
   return (
-    <CardShell kind="gas" tone={low ? "terra" : "olive"} kick={low ? "GAS · BELOW YOUR FLOOR" : "GAS · ABOVE YOUR FLOOR"} title={low ? "Fuel is low" : "Fuel is fine"} icon={<PixelArt art={DROP} palette={{ k: low ? "#b9472e" : "#3f7f45", w: "#fff6de" }} size={20} />}>
+    <CardShell kind="gas" tone={low ? "terra" : "olive"} kick={low ? "GAS · BELOW YOUR FLOOR" : "GAS · ABOVE YOUR FLOOR"} title={low ? "Fuel is low" : "Fuel is fine"} icon={<PixelArt art={DROP} palette={{ k: low ? "#b9472e" : "#3f7f45", w: "#fff6de" }} size={20} />} from={block.from}>
       <div className="m-gauge" role="meter" aria-valuemin={0} aria-valuemax={floor * 2} aria-valuenow={balance} aria-label={`Gas: ${fmt(balance, 6)} USDC of a ${fmt(floor)} USDC floor`}>
         <div className="m-gauge__stones">
           {Array.from({ length: SEGMENTS }, (_, i) => (
@@ -214,11 +230,11 @@ function PastureCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "
   });
   while (cells.length < CELLS) cells.push("");
   return (
-    <CardShell kind="balance" tone="olive" kick="THE FLOCK · WHAT YOU HOLD" title={
+    <CardShell kind="balance" tone="olive" kick="THE FLOCK · WHAT YOU HOLD" from={block.from} title={
         <span className="m-fig m-fig--xl">
           <span className="m-fig__cur">$</span>
           {Number(block.totalUsd ?? total).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          {block.totalUsd === null ? <small>+ UNPRICED</small> : null}
+          {block.totalUsd === null ? <small>{`+ ${block.unpriced ?? "SOME"} UNPRICED`}</small> : null}
         </span>
       }>
       {priced.length > 0 ? (
@@ -262,7 +278,7 @@ function RateTile({ block }: { readonly block: Extract<AnswerBlock, { kind: "rat
   const bandW = band !== null ? at(band) - 50 : 0;
   const inside = band === null || Math.abs(devBps) <= band;
   return (
-    <CardShell kind="rate" tone="sea" kick={block.reference !== null ? "RATE · YOUR QUOTE" : "RATE · REFERENCE"} title={<span className="m-rate"><span className="m-rate__one">1 {block.base} =</span> <span className="m-fig m-fig--xl">{fmt(rate, 4)}<small>{block.quote}</small></span></span>}>
+    <CardShell kind="rate" tone={block.from?.stale ? "ochre" : "sea"} from={block.from} kick={block.reference !== null ? "RATE · YOUR QUOTE" : "RATE · REFERENCE"} title={<span className="m-rate"><span className="m-rate__one">1 {block.base} =</span> <span className="m-fig m-fig--xl">{fmt(rate, 4)}<small>{block.quote}</small></span></span>}>
       <div className="m-fxband" aria-label={band !== null ? `Within ${(band / 100).toFixed(2)}% of the reference: ${inside ? "yes" : "no"}` : "Reference rate"}>
         <div className="m-fxband__bar">
           {band !== null ? <span className="m-fxband__ok" style={{ left: `${50 - bandW}%`, width: `${bandW * 2}%` }} /> : null}
@@ -331,7 +347,7 @@ export function HerdedCard({ items }: { readonly items: readonly HerdItem[] }) {
             <b>{it.label}</b>
             {it.next ? <span className="m-herdlist__next">Next: {it.next}</span> : null}
             <span className="m-herdlist__state" data-saved={it.saved || undefined}>{it.saved ? "Saved" : "Not saved yet"}</span>
-            <Link to={it.href} className="m-mini">{it.saved ? "Manage" : it.kind === "order" ? "Sign on the Orders page" : "Review and save"}</Link>
+            <Link to={it.href} className="m-mini">{it.saved ? "Manage" : "Review and save"}</Link>
           </li>
         ))}
       </ul>
@@ -541,13 +557,106 @@ export function TroubleCard({ message }: { readonly message: string }) {
   );
 }
 
+
+/* --------------------------------------------------------------- facts */
+
+const LANTERN = ["...kk...", "..kyyk..", ".kyyyyk.", ".kyooyk.", ".kyooyk.", ".kyyyyk.", "..kkkk..", "...kk..."];
+
+/** Lyko on watch's sourced answer, and totals the code derived: each figure a tessera with its own source stamp. */
+function FactsCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "facts" }> }) {
+  return (
+    <CardShell kind="facts" tone="navy" kick="LYKO ON WATCH · READ, WITH SOURCES" title={block.title} icon={<PixelArt art={LANTERN} palette={{ k: "#13233a", y: "#f0c75e", o: "#d9792b" }} size={20} />}>
+      <ul className="m-factrows">
+        {block.rows.map((r, i) => (
+          <li key={`${r.label}${i}`} style={{ "--i": i } as React.CSSProperties} data-unavailable={r.value === "unavailable" || undefined} data-stale={r.from.stale ? true : undefined}>
+            <span className="m-factrows__label">{r.label}</span>
+            <b className="m-factrows__value num">{r.value}</b>
+            {r.note ? <small className="m-factrows__note">{r.note}</small> : null}
+            <SourceStamp from={r.from} compact />
+          </li>
+        ))}
+      </ul>
+      {block.note ? <p className="m-card2__note">{block.note}</p> : null}
+    </CardShell>
+  );
+}
+
+/* --------------------------------------------------------------- order */
+
+const KIND_TITLE: Readonly<Record<Extract<AnswerBlock, { kind: "order" }>["input"]["kind"], string>> = { limit: "Limit order", "stop-loss": "Stop-loss", "take-profit": "Take-profit", dca: "DCA", twap: "TWAP" };
+
+/** An order drafted in the chat: its terms and the Fence's verdict, signed through the same review modal as a plan. */
+function OrderCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "order" }> }) {
+  const [open, setOpen] = useState(false);
+  const [armed, setArmed] = useState(false);
+  const deny = block.decision === "deny";
+  const pe = block.perExecution;
+  const rows = [
+    ...(block.approval ? [{ key: "approve", n: 1, text: block.approval, note: "an exact allowance; funds stay in your wallet" }] : []),
+    { key: "sign", n: block.approval ? 2 : 1, text: `Sign the order once (EIP-712, no gas)`, note: block.executions > 1 ? `${block.executions} executions, keepers run each when it is due` : "a keeper runs it when Chainlink says the price is there" },
+  ];
+  return (
+    <CardShell kind="order" tone={deny ? "terra" : block.decision === "confirm" ? "ochre" : "sea"} kick={armed ? "ORDER · ARMED ON ARC" : deny ? "ORDER · YOUR FENCE SAID NO" : "ORDER · READY TO SIGN"} title={block.summary.toLowerCase().startsWith(KIND_TITLE[block.input.kind].toLowerCase()) ? block.summary : `${KIND_TITLE[block.input.kind]}: ${block.summary}`}>
+      <div className="m-plan__seal">
+        <Seal decision={block.decision} />
+      </div>
+      <dl className="m-facts m-facts--tight">
+        <div>
+          <dt>Each execution sells</dt>
+          <dd><b className="m-fig">{fmt(block.input.amount, 6)}<small>{pe.symbolIn}</small></b></dd>
+        </div>
+        <div>
+          <dt>Gets at least</dt>
+          <dd><b className="m-fig">{fmt(pe.minOut, 6)}<small>{pe.symbolOut}</small></b></dd>
+        </div>
+        <div>
+          <dt>Lykia fee</dt>
+          <dd><b className="m-fig">{fmt(pe.fee, 6)}<small>{pe.symbolIn}</small></b></dd>
+        </div>
+        {block.input.triggerPrice ? (
+          <div>
+            <dt>Trigger</dt>
+            <dd><b className="m-fig">{fmt(block.input.triggerPrice, 4)}<small>USD</small></b></dd>
+          </div>
+        ) : null}
+      </dl>
+      <ol className="m-waypoints m-stages">
+        {rows.map((r, i) => (
+          <li key={r.key} data-state={armed ? "done" : i === 0 ? "active" : "next"} style={{ "--i": i } as React.CSSProperties}>
+            <span className="m-waypoints__n" aria-hidden="true">{armed ? <Mark name="check" size={10} /> : r.n}</span>
+            <span>
+              <span>{r.text}</span>
+              <small className="m-stages__note">{r.note}</small>
+            </span>
+          </li>
+        ))}
+      </ol>
+      {block.reasons.length > 0 ? (
+        <ul className="m-plan__warn">
+          {block.reasons.slice(0, 3).map((r) => <li key={r}>{r}</li>)}
+        </ul>
+      ) : null}
+      <p className="m-card2__note">{deny ? "Nothing can be signed: a rule in your Fence says no. Ask for less, or change the rule." : "Checked against your Fence and the beta cap now, and again when the signed order is stored."}</p>
+      <div className="m-card2__acts">
+        {!deny && !armed ? (
+          <button type="button" className="m-mini m-mini--solid" onClick={() => setOpen(true)}>
+            Review and sign
+          </button>
+        ) : null}
+        <Link to="/app/fold/herding?show=orders" className="m-mini">{armed ? "See it in Herding" : "Herding"}</Link>
+      </div>
+      {open ? <OrderReviewModal block={block} open={open} onClose={() => setOpen(false)} onArmed={() => setArmed(true)} /> : null}
+    </CardShell>
+  );
+}
+
 /* ----------------------------------------------------------- positions */
 
 function PositionsCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "positions" }> }) {
   const money = (v: number) => `${v < 0 ? "−" : ""}$${Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: Math.abs(v) >= 1000 ? 0 : 2 })}`;
-  const note = [block.weightedApyPercent !== null ? `Earning ${block.weightedApyPercent}% weighted` : null, block.lowestHealth !== null ? `lowest health ${Number(block.lowestHealth).toFixed(2)}` : null, block.unavailable.length > 0 ? `not read: ${block.unavailable.join(", ")}` : null].filter(Boolean).join(" · ");
+  const note = [block.weightedApyPercent !== null ? `Earning ${block.weightedApyPercent}% blended` : null, block.yearlyYieldUsd ? `${usd(block.yearlyYieldUsd)} a year net` : null, block.lowestHealth !== null ? `lowest health ${Number(block.lowestHealth).toFixed(2)}` : null, block.unpriced ? `${block.unpriced} unpriced, not counted` : null, block.unavailable.length > 0 ? `not read: ${block.unavailable.join(", ")}` : null].filter(Boolean).join(" · ");
   return (
-    <CardShell kind="positions" tone="olive" kick="THE FLOCK · WHERE YOUR MONEY IS" title={
+    <CardShell kind="positions" tone="olive" kick="THE FLOCK · WHERE YOUR MONEY IS" from={block.from} title={
         <span className="m-fig m-fig--xl">
           {block.netUsd === null ? "partly unpriced" : <><span className="m-fig__cur">$</span>{Number(block.netUsd).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>}
         </span>
@@ -666,6 +775,10 @@ export function BlockCard({ block }: { readonly block: AnswerBlock }) {
       return <CapabilitiesCard block={block} />;
     case "offer":
       return <OfferCard block={block} />;
+    case "facts":
+      return <FactsCard block={block} />;
+    case "order":
+      return <OrderCard block={block} />;
     case "stress":
       return <StressCard block={block} />;
     default:

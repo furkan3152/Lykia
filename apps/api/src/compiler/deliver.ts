@@ -6,11 +6,14 @@
  * Drafts follow the ownerVerified rule: automations and alerts are saved
  * only when the request proved control of the owner's address (a SIWE
  * session, or a secret key acting for it); otherwise nothing is saved and
- * the owner gets a link to the prefilled form. Orders are always signed by
- * the owner on the Orders page; budgets are Fence changes the owner signs.
+ * the owner gets a link to the prefilled form. Orders become order cards in
+ * the chat, checked against the Fence and the beta cap now and signed by the
+ * owner in their wallet; budgets are Fence changes the owner signs.
  */
 import type { Address, ArcEnvironment, Fence } from "@lykia/core";
-import type { AgentProposal, ChatDraftLink, ChatProgramView } from "@lykia/core/api/agents";
+import type { AgentProposal, AnswerBlock, ChatDraftLink, ChatProgramView } from "@lykia/core/api/agents";
+import { ordersService } from "../orders/service.js";
+import { orderVerdict, quoteOf } from "../orders/verdict.js";
 import type { AppContext } from "../context.js";
 import { alertsService } from "../alerts/service.js";
 import { planActions } from "../agents/engine.js";
@@ -33,6 +36,38 @@ export interface Delivered {
   readonly drafts: readonly ChatDraftLink[];
   readonly view: ChatProgramView;
   readonly planError: string | null;
+  /** One signable order card per LykiaOrders order the program drafts (sample owners get none: nothing can be signed). */
+  readonly blocks: readonly AnswerBlock[];
+}
+
+const SAMPLE = "0x000000000000000000000000000000000000dead";
+
+/** The program's orders as order cards: drafted for the owner and judged by the Fence and the beta cap now. */
+async function orderCards(d: DeliverContext, result: CompileResult): Promise<AnswerBlock[]> {
+  if (d.owner.toLowerCase() === SAMPLE) return [];
+  const out: AnswerBlock[] = [];
+  for (const s of result.scheduled) {
+    if (s.kind !== "order" || out.length >= 3) continue;
+    const o = s.order;
+    try {
+      const draft = await ordersService(d.ctx).draft({ ...o, owner: d.owner, environment: d.environment });
+      const verdict = await orderVerdict(d.ctx, { environment: d.environment, owner: d.owner, sell: o.sell, buy: o.buy, perExecution: o.amount, fence: d.fence, quote: quoteOf(draft, o.triggerPrice) });
+      out.push({
+        kind: "order",
+        summary: draft.summary.slice(0, 240),
+        environment: d.environment,
+        decision: verdict.decision,
+        reasons: verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message.slice(0, 300)).slice(0, 6),
+        perExecution: { fee: draft.perExecution.fee, swapped: draft.perExecution.swapped, minOut: draft.perExecution.minOut, symbolIn: draft.perExecution.symbolIn, symbolOut: draft.perExecution.symbolOut },
+        approval: draft.approval ? draft.approval.label.slice(0, 200) : null,
+        executions: draft.order.executions,
+        input: { kind: o.kind, sell: o.sell, buy: o.buy, amount: o.amount, ...(o.executions !== undefined ? { executions: o.executions } : {}), ...(o.intervalSeconds !== undefined ? { intervalSeconds: o.intervalSeconds } : {}), ...(o.triggerPrice !== undefined ? { triggerPrice: o.triggerPrice } : {}), ...(o.triggerAbove !== undefined ? { triggerAbove: o.triggerAbove } : {}) },
+      });
+    } catch {
+      /* not deployed here, or no price: the program view still lists it */
+    }
+  }
+  return out;
 }
 
 /** Plans the program's actions for now as one intent (dry run for the sample owner), with the program digest pinned. */
@@ -121,5 +156,5 @@ export async function deliver(d: DeliverContext, result: CompileResult, override
   const { proposal, error } = await proposalOf(d, result);
   const saved = await draftsOf(d, result);
   const view = programView(result, overrides, saved, proposal?.intentId ?? null, proposal ? { decision: proposal.decision, reasons: proposal.reasons } : undefined);
-  return { proposal, drafts: [...saved.values()], view, planError: error };
+  return { proposal, drafts: [...saved.values()], view, planError: error, blocks: await orderCards(d, result) };
 }

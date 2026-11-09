@@ -2,11 +2,11 @@
  * Herding: one read model over every standing instruction an owner has,
  * whatever created it: unified automations (Rounds), standing orders and the
  * recurring payments the goal compiler saved, alerts (Barks), agent
- * automations and LykiaOrders orders. Each row says what it is, whether it
+ * automations, LykiaOrders orders and plans still in progress. Each row says what it is, whether it
  * runs, when it runs next, how the last run went and what the Fence said
  * (or is expected to say) about the next one.
  */
-import { describeAlert, describeAutomationTrigger, describeTrigger, deriveIntentStatus, nextScheduleRun, type Address, type StandingOrder } from "@lykia/core";
+import { describeAlert, describeAutomationTrigger, describeTrigger, deriveIntentStatus, findToken, fromBaseUnits, nextScheduleRun, type Address, type ArcEnvironment, type StandingOrder } from "@lykia/core";
 import type { FoldInstruction, FoldInstructionsResponse } from "@lykia/core/api/fold";
 import type { AppContext } from "../context.js";
 import { ownerInstructionSources, type StoredAutomation } from "../devflows/automations.js";
@@ -14,9 +14,29 @@ import { automations, listOwned } from "../devflows/stores.js";
 import { services } from "../services.js";
 import { listProposals } from "./proposals.js";
 import { listInstructions } from "../agents/instructions.js";
+import { orderVerdict } from "../orders/verdict.js";
+import { ownerIntents } from "./trails.js";
 import type { WatchPayload } from "@lykia/core";
 
 const iso = (ms: number) => new Date(ms).toISOString();
+/** Plans older than this are not listed as in progress (their quotes are long stale). */
+const PLAN_WINDOW_MS = 7 * 86_400_000;
+
+/** The Fence and beta verdict one execution of an open order would get now; unknown when it cannot be judged. */
+async function orderNextVerdict(ctx: AppContext, owner: Address, environment: ArcEnvironment, o: { readonly tokenIn: string; readonly tokenOut: string; readonly amountIn: string; readonly minAmountOut: string; readonly maxFeeBps: number; readonly maxTip: string; readonly triggerPrice: string; readonly oracle: string }): Promise<{ decision: "allow" | "confirm" | "deny" | "unknown"; reason: string }> {
+  const sell = findToken(environment, o.tokenIn);
+  const buy = findToken(environment, o.tokenOut);
+  if (!sell || !buy) return { decision: "unknown", reason: "Not a registry pair: checked by LykiaOrders on chain only." };
+  try {
+    const triggered = o.oracle !== "0x0000000000000000000000000000000000000000" && BigInt(o.triggerPrice) > 0n;
+    const swapped = BigInt(o.amountIn) - (BigInt(o.amountIn) * BigInt(o.maxFeeBps)) / 10_000n - BigInt(o.maxTip);
+    const quote = { swapped: fromBaseUnits(swapped, sell.decimals), expectedOut: fromBaseUnits((BigInt(o.minAmountOut) * 10_000n) / 9_900n, buy.decimals), ...(triggered ? { triggerPrice: fromBaseUnits(BigInt(o.triggerPrice), 8) } : {}) };
+    const verdict = await orderVerdict(ctx, { environment, owner, sell: sell.symbol, buy: buy.symbol, perExecution: fromBaseUnits(BigInt(o.amountIn), sell.decimals), quote });
+    return { decision: verdict.decision, reason: verdict.reasons.find((r) => r.decision !== "allow")?.message ?? "One execution fits your Fence and the beta cap today; LykiaOrders enforces the price, size and deadline on chain." };
+  } catch (error) {
+    return { decision: "unknown", reason: error instanceof Error ? error.message.slice(0, 160) : "The Fence could not judge it now." };
+  }
+}
 
 /** "in 3 h", "in 2 d", "now" — for a next-run time. */
 export function inWords(at: string | null, now: number): string {
@@ -159,10 +179,39 @@ export async function instructionsFor(ctx: AppContext, owner: Address): Promise<
       nextRunLabel: !open ? o.status : next ? inWords(next, now) : o.waitingFor ? `on ${o.waitingFor}` : "next keeper pass",
       lastRunAt: o.lastExecutedAt,
       lastResult: o.executed > 0 ? `${o.executed} of ${o.order.executions} executed` : "Not filled yet",
-      nextVerdict: { decision: "allow", reason: "Signed once; LykiaOrders enforces the price, size and deadline on chain." },
+      // The real verdict: the owner's Fence and the beta cap on one execution today, as the keeper would face it.
+      nextVerdict: open ? await orderNextVerdict(ctx, owner, environment, o.order) : null,
       controllable: false,
       editSentence: `Change my order "${o.summary}": `,
       environment,
+      ...(open ? { cancel: { hash: o.hash, environment } } : {}),
+    });
+  }
+
+  // Plans started in Ask (or from a draft) that still have steps to sign: one row each, with Stop.
+  const waitingIntents = new Set((await listProposals(ctx, owner).catch(() => [])).filter((p) => p.status === "proposed" || p.status === "approved").map((p) => p.intentId).filter(Boolean));
+  for (const g of await ownerIntents(ctx, owner).catch(() => [])) {
+    const state = deriveIntentStatus(g);
+    if ((state !== "planned" && state !== "running") || waitingIntents.has(g.id) || now - Date.parse(g.createdAt) > PLAN_WINDOW_MS) continue;
+    const steps = g.steps.filter((st) => st.kind !== "approve");
+    const settled = steps.filter((st) => st.status === "settled").length;
+    const next = steps.find((st) => st.status !== "settled");
+    out.push({
+      id: g.id,
+      source: "plan",
+      sourceLabel: "Plan",
+      name: (g.source || steps.map((st) => st.summary).join(" → ")).slice(0, 160),
+      status: "active",
+      trigger: `${settled} of ${steps.length} step${steps.length === 1 ? "" : "s"} settled`,
+      nextRunAt: null,
+      nextRunLabel: next?.status === "submitted" || next?.status === "settling" ? "settling" : "your signature",
+      lastRunAt: g.steps.map((st) => st.settledAt).filter((t): t is string => Boolean(t)).sort().pop() ?? g.createdAt,
+      lastResult: next ? `Next: ${next.summary}`.slice(0, 160) : "All steps settled",
+      nextVerdict: { decision: g.verdict.decision, reason: g.verdict.reasons.find((r) => r.decision !== "allow")?.message ?? "Every rule passed when it was planned; each step is checked again before you sign." },
+      controllable: false,
+      editSentence: `Change my plan "${(g.source || "").slice(0, 80)}": `,
+      environment: g.environment,
+      stop: { intentId: g.id },
     });
   }
 
@@ -200,7 +249,7 @@ export async function instructionsView(ctx: AppContext, owner: Address): Promise
     instructions,
     waiting,
     counts: {
-      running: instructions.filter((i) => i.status === "active" || i.status === "waiting").length,
+      running: instructions.filter((i) => (i.status === "active" || i.status === "waiting") && i.source !== "plan").length,
       paused: instructions.filter((i) => i.status === "paused").length,
       ordersWaiting: instructions.filter((i) => i.source === "order" && (i.status === "active" || i.status === "waiting")).length,
       waitingSignature: waiting.length,

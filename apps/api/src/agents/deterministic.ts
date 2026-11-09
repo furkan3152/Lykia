@@ -11,9 +11,8 @@ import type { Address, ArcEnvironment, Fence, IntentGraph, PackAgent, PlanAction
 import { gasShortfall } from "@lykia/core/api/answer";
 import type { AgentProposal } from "@lykia/core/api/agents";
 import type { AppContext } from "../context.js";
-import { services } from "../services.js";
 import { balanceCard, emitBlock, fenceCard, gasCard, infoQuestion, positionsCard, quotedRate, rateCard, stepsFor, type InfoQuestion } from "./cards.js";
-import { readPositions } from "../positions/service.js";
+import { foldPositions, foldSnapshot } from "../fold/sample.js";
 import { POSITION_STATE_LABELS, type PositionState } from "@lykia/core";
 import { readWithMemory } from "../personal/reader.js";
 import { isGoalLanguage } from "../compiler/lexicon.js";
@@ -116,6 +115,7 @@ async function compiledTurn(input: DeterministicInput): Promise<TurnResult> {
   }
   emit("tool", { agent: "Lyko", name: "compile_goal", ok: result.status !== "refused", summary: result.why.summary });
   for (const d of delivered.drafts) emit("draft", d);
+  for (const b of delivered.blocks) emitBlock(emit, b);
   emit("program", delivered.view);
   if (delivered.proposal) emit("proposal", delivered.proposal);
   if (result.questions.length > 0) emit("clarify", { question: result.questions[0]!.text, options: [...(result.questions[0]!.choices ?? [])] });
@@ -154,7 +154,7 @@ async function infoTurn(input: DeterministicInput, question: InfoQuestion): Prom
   if (question.kind === "positions") {
     if (!input.owner) return done("Connect a wallet so I can read where its money is.");
     const reading = steps.start("wallet", "Reading every venue");
-    const res = await readPositions(input.ctx, input.environment, input.owner, { personal: input.ownerVerified === true }).catch(() => null);
+    const res = await foldPositions(input.ctx, input.environment, input.owner, { personal: input.ownerVerified === true }).catch(() => null);
     if (!res) {
       reading.end("fail", "The venues could not be read");
       return done("I couldn't read your positions just now.\n\n**Next:** try again in a moment.");
@@ -189,7 +189,7 @@ async function infoTurn(input: DeterministicInput, question: InfoQuestion): Prom
   if (!input.owner) return done("Connect a wallet so I can read it.");
   const sample = input.owner.toLowerCase() === SAMPLE;
   const reading = steps.start("wallet", "Reading the wallet");
-  const snap = await services(input.ctx).flock.snapshot(input.environment, input.owner).catch(() => null);
+  const snap = await foldSnapshot(input.ctx, input.environment, input.owner).catch(() => null);
   if (!snap) {
     reading.end("fail", "The wallet could not be read");
     return done("I couldn't read the wallet just now.\n\n**Next:** try again in a moment.");

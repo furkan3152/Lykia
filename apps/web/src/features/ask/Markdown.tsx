@@ -150,8 +150,9 @@ export function RichLine({ text, environment }: { readonly text: string; readonl
 }
 
 /** Lyko's answer text. `lead` draws the first paragraph as the verdict line. */
-export function Markdown({ text, environment, lead = false, className }: { readonly text: string; readonly environment: ArcEnvironment; readonly lead?: boolean; readonly className?: string }) {
-  const blocks = parseMarkdown(text);
+/** `figures`: the text was written by code from card data, so its amounts may be emphasised. Model prose never sets it. */
+export function Markdown({ text, environment, lead = false, className, figures = false }: { readonly text: string; readonly environment: ArcEnvironment; readonly lead?: boolean; readonly className?: string; readonly figures?: boolean }) {
+  const blocks = parseMarkdown(text, { amounts: figures });
   return (
     <div className={cx("m-md", className)}>
       {blocks.map((b, i) => (

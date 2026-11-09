@@ -67,7 +67,11 @@ describe("the Flock", () => {
   });
 
   it("offers one assistant action per holding, phrased so the reader can plan it", () => {
-    const [usdc, eurc, vault, , , debt] = sampleSnapshot(NOW).holdings;
+    const h = sampleSnapshot(NOW).holdings;
+    const usdc = h.find((x) => x.where === "wallet" && x.symbol === "USDC");
+    const eurc = h.find((x) => x.where === "wallet" && x.symbol === "EURC");
+    const vault = h.find((x) => x.kind === "vault");
+    const debt = h.find((x) => x.kind === "debt");
     assert.deepEqual(holdingAction(usdc!, 500), { label: "Put to work", sentence: "Put 3320 USDC to work" });
     assert.equal(holdingAction(usdc!, 5000), null, "under the floor: nothing to suggest");
     assert.equal(holdingAction(eurc!, 500)?.label, "Convert");

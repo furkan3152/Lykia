@@ -3,10 +3,10 @@
  * visitor sees. Node tests import this file directly, so it imports types
  * and @lykia/core only.
  */
-import { ALLOCATION_LABELS, allocationOf, FOLD_TABS, LYKIA_TERMS, roomTodayLine, type AllocationBucket, type Fence, type FoldPreferences, type FoldTab } from "@lykia/core";
+import { ALLOCATION_LABELS, allocationOf, currentMix, FOLD_TABS, LYKIA_TERMS, roomTodayLine, sampleSnapshot as coreSampleSnapshot, type AllocationBucket, type Fence, type FoldPreferences, type FoldTab } from "@lykia/core";
 import type { PackAgentView } from "@lykia/core/api/agents";
 import type { FlockHolding, FlockSnapshot } from "@lykia/core/api/flock";
-import type { FoldInsight, FoldInstruction, FoldProposal, FoldTrailEntry, ThreadSummaryView } from "@lykia/core/api/fold";
+import type { FoldInsight, FoldInstruction, FoldProposal, FoldTrailEntry, ThreadSummaryView, WhistleItem, WhistleItemKind } from "@lykia/core/api/fold";
 
 /* ------------------------------------------------------------------ tabs */
 
@@ -283,10 +283,11 @@ export function mergeThreads(local: readonly { readonly id: string; readonly tit
 
 /* ------------------------------------------------------- herding, trails */
 
-export type HerdingFilter = "all" | "rounds" | "orders" | "alerts" | "recurring" | "watch" | "paused";
+export type HerdingFilter = "all" | "plans" | "rounds" | "orders" | "alerts" | "recurring" | "watch" | "paused";
 
 export const HERDING_FILTERS: readonly { readonly id: HerdingFilter; readonly label: string }[] = [
   { id: "all", label: "All" },
+  { id: "plans", label: "Plans" },
   { id: "rounds", label: "Automations" },
   { id: "orders", label: "Orders" },
   { id: "alerts", label: "Alerts" },
@@ -301,6 +302,8 @@ export function herdingFilterOf(value: string | null): HerdingFilter {
 
 export function filterInstructions(list: readonly FoldInstruction[], filter: HerdingFilter): FoldInstruction[] {
   switch (filter) {
+    case "plans":
+      return list.filter((i) => i.source === "plan");
     case "rounds":
       return list.filter((i) => i.source === "automation" || i.source === "agent" || i.source === "standing");
     case "orders":
@@ -372,36 +375,38 @@ export function agentMeter(a: Pick<PackAgentView, "budget">): { used: number; ca
 const SAMPLE_OWNER = "0x000000000000000000000000000000000000dEaD" as const;
 const at = (minutesAgo: number, now: number) => new Date(now - minutesAgo * 60_000).toISOString();
 
-/** A believable flock for signed-out visitors, always labelled "sample". */
+/**
+ * The signed-out flock: core's one sample fixture (sampleFold.ts), the same one Lyko on watch reads on the API, so
+ * the Fold bar, the Flock tab, the Stress test and Lyko on watch all show one net worth. No block number: nothing
+ * in it was read from Arc.
+ */
 export function sampleSnapshot(now: number): FlockSnapshot {
-  return {
-    address: SAMPLE_OWNER,
-    environment: "mainnet",
-    at: at(0, now),
-    block: null,
-    totalUsd: "12614.20",
-    holdings: [
-      { symbol: "USDC", token: "0x3600000000000000000000000000000000000000", amount: "3820.40", usd: "3820.40", where: "wallet", kind: "token" },
-      { symbol: "EURC", token: "0x89b50855aa3be2f677cd6303cec089b5f319d72a", amount: "1610.00", usd: "1795.80", where: "wallet", kind: "token" },
-      { symbol: "Galaxy USDC", token: "0x8E357432CC12ff425c36432F312968aEb16112AF", amount: "4200.00", usd: "4200.00", where: "morpho-vaults", kind: "vault" },
-      { symbol: "USDC", token: "0x3600000000000000000000000000000000000000", amount: "2400.00", usd: "2400.00", where: "aave-v4", kind: "supply" },
-      { symbol: "USYC", token: "0x0000000000000000000000000000000000000001", amount: "950.00", usd: "998.00", where: "usyc", kind: "token" },
-      { symbol: "USDC", token: "0x3600000000000000000000000000000000000000", amount: "600.00", usd: "-600.00", where: "aave-v4", kind: "debt" },
-    ],
-    gateway: { unifiedUsdc: "0" },
-    health: [{ venue: "aave-v4", healthFactor: "1.38" }],
-    native: { usdc18: "3820400000000000000000" },
-    prices: { EURC: { usd: "1.1154", source: "chainlink:EUR/USD" } },
-    notes: [],
-  };
+  return coreSampleSnapshot(now);
 }
 
-export function sampleInsights(): FoldInsight[] {
+export function sampleInsights(now = 0): FoldInsight[] {
+  // Every figure comes from the sample fixture, so the insights agree with the Fold bar and the Flock tab.
+  const snap = coreSampleSnapshot(now);
+  const usdc = Number(snap.holdings.find((h) => h.where === "wallet" && h.symbol === "USDC")?.usd ?? 0);
+  const floor = 500;
+  const idle = usdc - floor;
+  const money = (n: number, d = 2) => `$${n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d })}`;
+  const health = snap.health[0]?.healthFactor ?? "1.38";
+  const debt = Math.abs(Number(snap.holdings.find((h) => h.kind === "debt")?.usd ?? 0));
+  const mix = currentMix(snap.holdings);
   return [
-    { id: "idle-usdc", kind: "idle-usdc", severity: "act", title: "$3,320 of USDC is resting above your floor", explain: "Your wallet keeps $500 liquid for gas and payments. The rest earns nothing while it sits; a medium-risk lending market or vault on Arc can hold it and you can withdraw any time.", figures: [{ label: "USDC in your wallet", value: "$3,820.40" }, { label: "Your liquidity floor", value: "$500" }, { label: "Idle above the floor", value: "$3,320.40" }], draft: { label: "Put it to work", sentence: "Put 3320 USDC to work at medium risk" }, handled: false },
-    { id: "health-aave-v4", kind: "health-factor", severity: "watch", title: "Your Aave V4 loan is under your safety floor", explain: "Its health is 1.38 and your floor is 1.5. At 1.00 part of your collateral can be sold to repay the loan. Repaying part of the debt raises it.", figures: [{ label: "Loan health now", value: "1.38" }, { label: "Your safety floor", value: "1.5" }, { label: "Repaying a quarter", value: "$150" }], draft: { label: "Repay a quarter", sentence: "Repay 150 USDC on aave-v4" }, handled: false },
-    { id: "fx-drift", kind: "fx-drift", severity: "info", title: "EURC is 14% of the Flock; your target is 10%", explain: "Inside your band of 10 points, so nothing to do yet. Lyko keeps an eye on it.", figures: [{ label: "EURC share now", value: "14%" }, { label: "Your target", value: "10% ± 10" }], draft: null, handled: false },
+    { id: "idle-usdc", kind: "idle-usdc", severity: "act", title: `${money(idle, 0)} of USDC is resting above your floor`, explain: `Your wallet keeps ${money(floor, 0)} liquid for gas and payments. The rest earns nothing while it sits; a medium-risk lending market or vault on Arc can hold it and you can withdraw any time.`, figures: [{ label: "USDC in your wallet", value: money(usdc) }, { label: "Your liquidity floor", value: money(floor, 0) }, { label: "Idle above the floor", value: money(idle) }], draft: { label: "Put it to work", sentence: `Put ${Math.floor(idle)} USDC to work at medium risk` }, handled: false, from: SAMPLE_FROM(now) },
+    { id: "health-aave-v4", kind: "health-factor", severity: "watch", title: "Your Aave V4 loan is under your safety floor", explain: `Its health is ${health} and your floor is 1.5. At 1.00 part of your collateral can be sold to repay the loan. Repaying part of the debt raises it.`, figures: [{ label: "Loan health now", value: health }, { label: "Your safety floor", value: "1.5" }, { label: "Repaying a quarter", value: money(debt / 4, 0) }], draft: { label: "Repay a quarter", sentence: `Repay ${Math.round(debt / 4)} USDC on aave-v4` }, handled: false, from: SAMPLE_FROM(now) },
+    { id: "fx-drift", kind: "fx-drift", severity: "info", title: `EURC is ${Math.round(mix.eurcPct)}% of the Flock; your target is 10%`, explain: "Inside your band of 10 points, so nothing to do yet. Lyko keeps an eye on it.", figures: [{ label: "EURC share now", value: `${Math.round(mix.eurcPct)}%` }, { label: "Your target", value: "10% ± 10" }], draft: null, handled: false, from: SAMPLE_FROM(now) },
   ];
+}
+
+const SAMPLE_FROM = (now: number) => ({ source: "sample", readAt: new Date(now).toISOString(), block: null });
+
+/** The sample's one proposal waiting for a signature: the idle-USDC insight drafted, so the inbox and the bar agree. */
+export function sampleWaiting(now: number): FoldProposal[] {
+  const idle = sampleInsights(now)[0]!;
+  return [{ id: "0x000000000000000000000000000000000000dead:prp_000000000001", owner: SAMPLE_OWNER, environment: "mainnet", source: { kind: "insight", ref: idle.id }, title: idle.title, sentence: idle.draft!.sentence, intentId: null, decision: "allow", reasons: [], steps: [`${idle.draft!.sentence} · Morpho Galaxy USDC`], status: "proposed", outcome: null, createdAt: at(12, now), updatedAt: at(12, now), history: [{ status: "proposed", at: at(12, now), note: null }] }];
 }
 
 export function sampleInstructions(now: number): FoldInstruction[] {
@@ -409,7 +414,8 @@ export function sampleInstructions(now: number): FoldInstruction[] {
   return [
     { ...base, id: "so_sample_rent", source: "recurring", sourceLabel: "Recurring", name: "Pay 1,200 USDC rent to @landlord on the 1st", status: "active", trigger: "monthly on day 1 at 09:00", nextRunAt: at(-60 * 24 * 9, now), nextRunLabel: "in 9 d", lastRunAt: at(60 * 24 * 21, now), lastResult: "Settled · 1 step", nextVerdict: { decision: "allow", reason: "Every rule passed last time." }, editSentence: "Change my rent payment: " },
     { ...base, id: "atm_sample_sweep", source: "automation", sourceLabel: "Automation", name: "Sweep USDC above $5,000 into the Galaxy vault", status: "active", trigger: "USDC balance above 5000", nextRunAt: null, nextRunLabel: "on balance", lastRunAt: at(60 * 30, now), lastResult: "Planned (allow)", nextVerdict: { decision: "unknown", reason: "Planned and checked by the Fence when it fires." }, editSentence: "Change my sweep: " },
-    { ...base, id: "0xsample", source: "order", sourceLabel: "Order", name: "Buy EURC when EUR/USD ≤ 1.09", status: "waiting", trigger: "waiting for condition", nextRunAt: null, nextRunLabel: "on condition", lastRunAt: null, lastResult: "Not filled yet", nextVerdict: { decision: "allow", reason: "Signed once; LykiaOrders enforces the price, size and deadline on chain." }, controllable: false, editSentence: "Change my EURC order: " },
+    { ...base, id: "0xsample", source: "order", sourceLabel: "Order", name: "Buy EURC when EUR/USD ≤ 1.09", status: "waiting", trigger: "waiting for condition", nextRunAt: null, nextRunLabel: "on condition", lastRunAt: null, lastResult: "Not filled yet", nextVerdict: { decision: "allow", reason: "One execution fits your Fence and the beta cap today; LykiaOrders enforces the price, size and deadline on chain." }, controllable: false, editSentence: "Change my EURC order: ", cancel: { hash: "0x00000000000000000000000000000000000000000000000000000000000000a1", environment: "mainnet" } },
+    { ...base, id: "out_sampleplan01", source: "plan", sourceLabel: "Plan", name: "Swap 500 USDC to EURC, then deposit it into Morpho", status: "active", trigger: "1 of 2 steps settled", nextRunAt: null, nextRunLabel: "your signature", lastRunAt: at(25, now), lastResult: "Next: Deposit the EURC into Morpho Galaxy EURC", nextVerdict: { decision: "allow", reason: "Every rule passed when it was planned; each step is checked again before you sign." }, controllable: false, editSentence: "Change my plan: ", stop: { intentId: "out_sampleplan01" } },
     { ...base, id: "al_sample", source: "alert", sourceLabel: "Alert", name: "Health factor below 1.3 on Aave V4", status: "active", trigger: "health below", nextRunAt: null, nextRunLabel: "when it happens", lastRunAt: null, lastResult: "Quiet so far", nextVerdict: { decision: "allow", reason: "Alerts notify; they move nothing." }, editSentence: "Change my health alert: " },
   ];
 }
@@ -429,7 +435,18 @@ export function samplePack(): PackAgentView[] {
   return [agent("agt_payroll", "Payroll", "payroll", "500", "120", "1842"), agent("agt_yield", "Yield keeper", "yield-keeper", "2000", "1710"), agent("agt_fx", "FX hedger", "fx-hedger", "300", "0")];
 }
 
-export const SAMPLE_COUNTS: FoldCounts = { rules: 3, ordersWaiting: 1, agentsWorking: 3, proposalsWaiting: 1 };
+/**
+ * The Fold bar's counts from the lists themselves, the way the API counts them (fold/instructions.ts): rules are the
+ * running instructions that are neither orders nor plans in progress. The sample uses the same formula on its own
+ * lists, so "1 draft waits" in the bar is the one draft Herding shows.
+ */
+export function countsOf(instructions: readonly FoldInstruction[], waiting: readonly FoldProposal[], agents: readonly Pick<PackAgentView, "status">[]): FoldCounts {
+  const running = instructions.filter((i) => (i.status === "active" || i.status === "waiting") && i.source !== "plan");
+  const orders = running.filter((i) => i.source === "order").length;
+  return { rules: running.length - orders, ordersWaiting: orders, agentsWorking: agents.filter((a) => a.status === "active").length, proposalsWaiting: waiting.length };
+}
+
+export const SAMPLE_COUNTS: FoldCounts = countsOf(sampleInstructions(0), sampleWaiting(0), samplePack());
 
 /* ---------------------------------------------------------------- fence */
 
@@ -479,3 +496,32 @@ export function applyFencePatch(f: Fence, patch: Readonly<Record<string, unknown
   }
   return out as unknown as Fence;
 }
+
+/** Where a Herding row is paused, resumed or removed: the endpoint that owns it. Orders are cancelled with a signed transaction instead. */
+export function controlRoute(i: Pick<FoldInstruction, "id" | "source">, action: "pause" | "resume" | "remove"): { method: "post" | "delete"; path: string; body: "owner" | "none"; query: "owner" | "none" } | null {
+  if (i.source === "order" || i.source === "plan") return null;
+  if (i.source === "watch" || i.id.includes(":ins_")) return { method: "post", path: `/v1/agent/instructions/${encodeURIComponent(i.id)}/${action}`, body: "owner", query: "none" };
+  // Automations, standing orders, recurring payments, alerts and agent automations all live behind /v1/automations/:id.
+  if (action === "remove") return { method: "delete", path: `/v1/automations/${encodeURIComponent(i.id)}`, body: "none", query: "owner" };
+  return { method: "post", path: `/v1/automations/${encodeURIComponent(i.id)}/${action}`, body: "none", query: "owner" };
+}
+
+
+/* ---------------------------------------------------------------- whistle */
+
+export const WHISTLE_KIND_LABEL: Readonly<Record<WhistleItemKind, string>> = {
+  automation: "Automation",
+  standing: "Standing order",
+  "agent-automation": "Agent automation",
+  agent: "Pack agent",
+  leash: "Leash · key off",
+  autopilot: "Autopilot",
+  alert: "Alert",
+};
+
+/** One line per kind, in the order the sheet lists them. */
+export function whistleGroups(items: readonly WhistleItem[]): { kind: WhistleItemKind; label: string; items: WhistleItem[] }[] {
+  const order: WhistleItemKind[] = ["autopilot", "agent", "leash", "automation", "standing", "agent-automation", "alert"];
+  return order.map((kind) => ({ kind, label: WHISTLE_KIND_LABEL[kind], items: items.filter((i) => i.kind === kind) })).filter((g) => g.items.length > 0);
+}
+

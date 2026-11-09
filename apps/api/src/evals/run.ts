@@ -9,13 +9,16 @@
  *   ONLY=studio,defensive   CATEGORY=injection   VERBOSE=1  filters and per-check output
  *
  * Offline runs score the "both" cases (English); live runs score every case,
- * other languages included. Each case is scored check by check (score.ts)
+ * other languages included. Offline runs also score whole Lyko turns
+ * (turns.ts): grounding, binding route choice, Lyko on watch's sourced
+ * answers and the Whistle. Each case is scored check by check (score.ts)
  * and a summary table is printed. Exit code 1 when a scored case fails.
  */
 import { compileOffline } from "../compiler/service.js";
 import { EVAL_CASES, type EvalCase } from "./intents.js";
 import { scoreResult, type CaseScore } from "./score.js";
 import { evalState, PRESET_BALANCES } from "./states.js";
+import { runTurnCases } from "./turns.js";
 
 const BASE = process.env.BASE?.replace(/\/+$/u, "") ?? null;
 const READER = (process.env.READER ?? (BASE ? "llm" : "deterministic")) as "llm" | "deterministic" | "auto";
@@ -59,6 +62,8 @@ async function main(): Promise<void> {
       scores.push({ id: c.id, category: c.category, passed: false, checks: [], score: 0, error: error instanceof Error ? error.message : String(error) });
     }
   }
+  // Whole turns (scripted model, fake Arc): offline only.
+  if (!BASE) scores.push(...(await runTurnCases(ONLY, CATEGORY)));
   console.log(`${pad("case", 26)} ${pad("category", 14)} ${pad("result", 6)} ${pad("checks", 7)} failing`);
   console.log("-".repeat(100));
   for (const s of scores) {

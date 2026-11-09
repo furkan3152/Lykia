@@ -49,27 +49,66 @@ const APP_HREF = /^\/app(?:\/[A-Za-z0-9_-]+)*(?:\?[A-Za-z0-9_=&%.-]*)?$/u;
 
 export const FENCE_BLOCK_DECISIONS = ["deny", "confirm"] as const;
 
+/**
+ * Where a block's figures came from: the source (a chain read, an oracle,
+ * an official API), when it was read, the Arc block when there is one, the
+ * venue, and why it is stale when it is (a Chainlink round older than its
+ * heartbeat, a cached read). Shown on the card as "source · block or time".
+ */
+export interface BlockSource {
+  readonly source: string;
+  readonly readAt: string;
+  readonly block: string | null;
+  readonly venue?: string | null;
+  /** Set when the figure is older than its source promises; the card says so. */
+  readonly stale?: string | null;
+}
+
+/** One sourced figure: a label, a value the code computed or read, and where it came from. */
+export interface FactRow {
+  readonly label: string;
+  readonly value: string;
+  readonly note?: string | null;
+  readonly from: BlockSource;
+}
+
+/** A drafted LykiaOrders order the owner reviews and signs in the chat (the draft is rebuilt and re-checked at signing). */
+export interface OrderBlockInput {
+  readonly kind: "limit" | "stop-loss" | "take-profit" | "dca" | "twap";
+  readonly sell: string;
+  readonly buy: string;
+  readonly amount: string;
+  readonly executions?: number;
+  readonly intervalSeconds?: number;
+  readonly triggerPrice?: string;
+  readonly triggerAbove?: boolean;
+}
+
 export type AnswerBlock =
   /** Native USDC (gas on Arc) against the owner's gas floor. */
-  | { readonly kind: "gas"; readonly balance: string; readonly floor: string; readonly address: string | null; readonly gasPriceGwei: string | null }
+  | { readonly kind: "gas"; readonly balance: string; readonly floor: string; readonly address: string | null; readonly gasPriceGwei: string | null; readonly from?: BlockSource }
   /** The Fence refused (or wants a confirmation): the rules that decided, and the room left under the caps. */
   | { readonly kind: "fence"; readonly decision: (typeof FENCE_BLOCK_DECISIONS)[number]; readonly rules: readonly { readonly rule: string; readonly message: string }[]; readonly headroom: readonly { readonly label: string; readonly value: string }[] }
   /** What the owner holds: the largest holdings with their USD value (null when unpriced). */
-  | { readonly kind: "balance"; readonly totalUsd: string | null; readonly holdings: readonly { readonly symbol: string; readonly amount: string; readonly usd: string | null; readonly where: string }[] }
+  | { readonly kind: "balance"; readonly totalUsd: string | null; readonly holdings: readonly { readonly symbol: string; readonly amount: string; readonly usd: string | null; readonly where: string }[]; readonly unpriced?: number; readonly from?: BlockSource }
   /** A quoted conversion rate against the reference rate and the Fence's band. */
-  | { readonly kind: "rate"; readonly base: string; readonly quote: string; readonly rate: string; readonly reference: string | null; readonly bandBps: number | null; readonly source: string | null }
+  | { readonly kind: "rate"; readonly base: string; readonly quote: string; readonly rate: string; readonly reference: string | null; readonly bandBps: number | null; readonly source: string | null; readonly from?: BlockSource }
   /** Alerts, automations and orders Lyko set up (saved) or drafted (a link to finish). */
   | { readonly kind: "herded"; readonly items: readonly { readonly kind: "alert" | "automation" | "order" | "watch"; readonly label: string; readonly saved: boolean; readonly href: string; readonly next: string | null }[] }
   /** A step that settled on chain. */
   | { readonly kind: "settled"; readonly summary: string; readonly tx: string }
   /** Where the owner's money is and what it is doing: the largest positions with their state, and the venues that could not be read. */
-  | { readonly kind: "positions"; readonly netUsd: string | null; readonly weightedApyPercent: string | null; readonly lowestHealth: string | null; readonly rows: readonly PositionsCardRow[]; readonly unavailable: readonly string[] }
+  | { readonly kind: "positions"; readonly netUsd: string | null; readonly weightedApyPercent: string | null; readonly lowestHealth: string | null; readonly rows: readonly PositionsCardRow[]; readonly unavailable: readonly string[]; readonly yearlyYieldUsd?: string | null; readonly unpriced?: number; readonly from?: BlockSource }
   /** What Lyko can do, from the capability map: titled sections of items with a plain note each. */
   | { readonly kind: "capabilities"; readonly title: string; readonly sections: readonly CapabilitySection[] }
   /** A feature Lyko offers for the owner's words: what it is, why it fits, where it lives. */
   | { readonly kind: "offer"; readonly feature: string; readonly title: string; readonly line: string; readonly href: string; readonly cta: string }
   /** A Stress test answer: one scenario, the value before and after, and the closest liquidation. */
-  | { readonly kind: "stress"; readonly scenario: string; readonly sentence: string; readonly beforeUsd: string; readonly afterUsd: string; readonly closest: { readonly venue: string; readonly health: string; readonly roomPercent: string } | null };
+  | { readonly kind: "stress"; readonly scenario: string; readonly sentence: string; readonly beforeUsd: string; readonly afterUsd: string; readonly closest: { readonly venue: string; readonly health: string; readonly roomPercent: string } | null }
+  /** Sourced figures: a read-only answer from Lyko on watch, or totals the code derived (a blended APY, a yearly estimate). */
+  | { readonly kind: "facts"; readonly title: string; readonly rows: readonly FactRow[]; readonly note: string | null }
+  /** A LykiaOrders order drafted in the chat: its terms, the Fence and beta verdict at draft time, and the inputs to rebuild it for signing. */
+  | { readonly kind: "order"; readonly summary: string; readonly environment: "mainnet" | "testnet"; readonly decision: "allow" | "confirm" | "deny"; readonly reasons: readonly string[]; readonly perExecution: { readonly fee: string; readonly swapped: string; readonly minOut: string; readonly symbolIn: string; readonly symbolOut: string }; readonly approval: string | null; readonly executions: number; readonly input: OrderBlockInput };
 
 export interface CapabilitySection {
   readonly label: string;
@@ -89,7 +128,30 @@ export interface PositionsCardRow {
 const POSITION_CARD_STATES = ["earning", "idle", "borrowing", "at-risk", "out-of-range", "pending", "escrowed", "committed", "watching"] as const;
 
 export type AnswerBlockKind = AnswerBlock["kind"];
-export const ANSWER_BLOCK_KINDS: readonly AnswerBlockKind[] = ["gas", "fence", "balance", "rate", "herded", "settled", "positions", "capabilities", "offer", "stress"];
+export const ANSWER_BLOCK_KINDS: readonly AnswerBlockKind[] = ["gas", "fence", "balance", "rate", "herded", "settled", "positions", "capabilities", "offer", "stress", "facts", "order"];
+
+const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/u;
+const ORDER_KINDS_ALLOWED = ["limit", "stop-loss", "take-profit", "dca", "twap"] as const;
+
+/** A validated BlockSource, null when absent, undefined when off-shape. */
+export function parseBlockSource(raw: unknown): BlockSource | null | undefined {
+  if (raw === undefined || raw === null) return null;
+  const o = raw !== null && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : null;
+  if (!o) return undefined;
+  const source = typeof o.source === "string" && o.source.length > 0 && o.source.length <= 80 ? o.source : null;
+  const readAt = typeof o.readAt === "string" && ISO_TIME.test(o.readAt) ? o.readAt : null;
+  const block = o.block === null || o.block === undefined ? null : typeof o.block === "string" && /^\d{1,20}$/u.test(o.block) ? o.block : undefined;
+  const venue = o.venue === null || o.venue === undefined ? null : typeof o.venue === "string" && o.venue.length <= 60 ? o.venue : undefined;
+  const stale = o.stale === null || o.stale === undefined ? null : typeof o.stale === "string" && o.stale.length <= 200 ? o.stale : undefined;
+  if (!source || !readAt || block === undefined || venue === undefined || stale === undefined) return undefined;
+  return { source, readAt, block, ...(venue ? { venue } : {}), ...(stale ? { stale } : {}) };
+}
+
+/** "Chainlink EURC/USD · block 1234" or "Morpho API · 14:02 UTC": a source line for a card. */
+export function sourceLine(from: BlockSource): string {
+  const when = from.block ? `block ${from.block}` : `${from.readAt.slice(11, 16)} UTC`;
+  return `${from.source}${from.venue ? ` · ${from.venue}` : ""} · ${when}${from.stale ? ` · stale: ${from.stale}` : ""}`;
+}
 
 /** At most this many blocks ride on one answer. */
 export const MAX_BLOCKS = 6;
@@ -122,8 +184,9 @@ export function parseAnswerBlock(raw: unknown): AnswerBlock | null {
       const floor = decimal(o.floor);
       const address = nullable(o.address, (x) => (typeof x === "string" && ADDRESS.test(x) ? x : null));
       const gasPriceGwei = nullable(o.gasPriceGwei, decimal);
-      if (balance === null || floor === null || address === undefined || gasPriceGwei === undefined) return null;
-      return { kind: "gas", balance, floor, address, gasPriceGwei };
+      const from = parseBlockSource(o.from);
+      if (balance === null || floor === null || address === undefined || gasPriceGwei === undefined || from === undefined) return null;
+      return { kind: "gas", balance, floor, address, gasPriceGwei, ...(from ? { from } : {}) };
     }
     case "fence": {
       if (o.decision !== "deny" && o.decision !== "confirm") return null;
@@ -156,8 +219,10 @@ export function parseAnswerBlock(raw: unknown): AnswerBlock | null {
         const where = str(x?.where, 60);
         return symbol && amount !== null && usd !== undefined && where ? { symbol, amount, usd, where } : null;
       });
-      if (holdings.some((h) => h === null)) return null;
-      return { kind: "balance", totalUsd, holdings: holdings as { symbol: string; amount: string; usd: string | null; where: string }[] };
+      const from = parseBlockSource(o.from);
+      const unpriced = o.unpriced === undefined ? 0 : typeof o.unpriced === "number" && Number.isInteger(o.unpriced) && o.unpriced >= 0 && o.unpriced < 1000 ? o.unpriced : null;
+      if (holdings.some((h) => h === null) || from === undefined || unpriced === null) return null;
+      return { kind: "balance", totalUsd, holdings: holdings as { symbol: string; amount: string; usd: string | null; where: string }[], ...(unpriced > 0 ? { unpriced } : {}), ...(from ? { from } : {}) };
     }
     case "rate": {
       const base = typeof o.base === "string" && SYMBOL.test(o.base) ? o.base : null;
@@ -166,8 +231,9 @@ export function parseAnswerBlock(raw: unknown): AnswerBlock | null {
       const reference = nullable(o.reference, decimal);
       const bandBps = nullable(o.bandBps, (x) => (typeof x === "number" && Number.isInteger(x) && x >= 0 && x <= 10_000 ? x : null));
       const source = nullable(o.source, (x) => str(x, 80));
-      if (!base || !quote || rate === null || reference === undefined || bandBps === undefined || source === undefined) return null;
-      return { kind: "rate", base, quote, rate, reference, bandBps, source };
+      const from = parseBlockSource(o.from);
+      if (!base || !quote || rate === null || reference === undefined || bandBps === undefined || source === undefined || from === undefined) return null;
+      return { kind: "rate", base, quote, rate, reference, bandBps, source, ...(from ? { from } : {}) };
     }
     case "herded": {
       if (!Array.isArray(o.items) || o.items.length === 0 || o.items.length > 6) return null;
@@ -200,8 +266,11 @@ export function parseAnswerBlock(raw: unknown): AnswerBlock | null {
       const unavailableRaw = o.unavailable === undefined ? [] : o.unavailable;
       if (!Array.isArray(unavailableRaw) || unavailableRaw.length > 12) return null;
       const unavailable = unavailableRaw.map((u) => str(u, 60));
-      if (rows.some((r) => r === null) || unavailable.some((u) => u === null)) return null;
-      return { kind: "positions", netUsd, weightedApyPercent, lowestHealth, rows: rows as PositionsCardRow[], unavailable: unavailable as string[] };
+      const from = parseBlockSource(o.from);
+      const yearlyYieldUsd = nullable(o.yearlyYieldUsd, decimal);
+      const unpriced = o.unpriced === undefined ? 0 : typeof o.unpriced === "number" && Number.isInteger(o.unpriced) && o.unpriced >= 0 && o.unpriced < 1000 ? o.unpriced : null;
+      if (rows.some((r) => r === null) || unavailable.some((u) => u === null) || from === undefined || yearlyYieldUsd === undefined || unpriced === null) return null;
+      return { kind: "positions", netUsd, weightedApyPercent, lowestHealth, rows: rows as PositionsCardRow[], unavailable: unavailable as string[], ...(yearlyYieldUsd !== null ? { yearlyYieldUsd } : {}), ...(unpriced > 0 ? { unpriced } : {}), ...(from ? { from } : {}) };
     }
     case "capabilities": {
       const title = str(o.title, 120);
@@ -239,6 +308,45 @@ export function parseAnswerBlock(raw: unknown): AnswerBlock | null {
       const closest = c ? { venue: str(c.venue, 60), health: decimal(c.health), roomPercent: decimal(c.roomPercent) } : null;
       if (closest && (!closest.venue || !closest.health || !closest.roomPercent)) return null;
       return scenario && sentence && beforeUsd && afterUsd ? { kind: "stress", scenario, sentence, beforeUsd, afterUsd, closest: closest as { venue: string; health: string; roomPercent: string } | null } : null;
+    }
+    case "facts": {
+      const title = str(o.title, 120);
+      const note = nullable(o.note, (n) => str(n, 300));
+      if (!title || note === undefined || !Array.isArray(o.rows) || o.rows.length === 0 || o.rows.length > 12) return null;
+      const rows = o.rows.map((r) => {
+        const x = obj(r);
+        const label = str(x?.label, 80);
+        const value = str(x?.value, 60);
+        const rowNote = nullable(x?.note, (n) => str(n, 200));
+        const from = parseBlockSource(x?.from);
+        return label && value && rowNote !== undefined && from ? { label, value, ...(rowNote ? { note: rowNote } : {}), from } : null;
+      });
+      if (rows.some((r) => r === null)) return null;
+      return { kind: "facts", title, rows: rows as FactRow[], note };
+    }
+    case "order": {
+      const summary = str(o.summary, 240);
+      const environment = o.environment === "mainnet" || o.environment === "testnet" ? o.environment : null;
+      const decision = o.decision === "allow" || o.decision === "confirm" || o.decision === "deny" ? o.decision : null;
+      const reasons = Array.isArray(o.reasons) && o.reasons.length <= 6 ? o.reasons.map((r) => str(r, 300)) : null;
+      const pe = obj(o.perExecution);
+      const perExecution = pe ? { fee: decimal(pe.fee), swapped: decimal(pe.swapped), minOut: decimal(pe.minOut), symbolIn: typeof pe.symbolIn === "string" && SYMBOL.test(pe.symbolIn) ? pe.symbolIn : null, symbolOut: typeof pe.symbolOut === "string" && SYMBOL.test(pe.symbolOut) ? pe.symbolOut : null } : null;
+      const approval = nullable(o.approval, (a) => str(a, 200));
+      const executions = typeof o.executions === "number" && Number.isInteger(o.executions) && o.executions >= 1 && o.executions <= 1000 ? o.executions : null;
+      const i = obj(o.input);
+      const kind = typeof i?.kind === "string" && (ORDER_KINDS_ALLOWED as readonly string[]).includes(i.kind) ? (i.kind as OrderBlockInput["kind"]) : null;
+      const sell = typeof i?.sell === "string" && SYMBOL.test(i.sell) ? i.sell : null;
+      const buy = typeof i?.buy === "string" && SYMBOL.test(i.buy) ? i.buy : null;
+      const amount = decimal(i?.amount);
+      const int = (v: unknown, lo: number, hi: number) => (v === undefined ? undefined : typeof v === "number" && Number.isInteger(v) && v >= lo && v <= hi ? v : null);
+      const execs = int(i?.executions, 1, 1000);
+      const interval = int(i?.intervalSeconds, 60, 30 * 86_400);
+      const triggerPrice = i?.triggerPrice === undefined ? undefined : decimal(i.triggerPrice);
+      const triggerAbove = i?.triggerAbove === undefined ? undefined : typeof i.triggerAbove === "boolean" ? i.triggerAbove : null;
+      if (!summary || !environment || !decision || !reasons || reasons.some((r) => r === null) || !perExecution || Object.values(perExecution).some((v) => v === null) || approval === undefined || executions === null) return null;
+      if (!kind || !sell || !buy || amount === null || execs === null || interval === null || triggerPrice === null || triggerAbove === null) return null;
+      const input: OrderBlockInput = { kind, sell, buy, amount, ...(execs !== undefined ? { executions: execs } : {}), ...(interval !== undefined ? { intervalSeconds: interval } : {}), ...(triggerPrice !== undefined ? { triggerPrice } : {}), ...(triggerAbove !== undefined ? { triggerAbove } : {}) };
+      return { kind: "order", summary, environment, decision, reasons: reasons as string[], perExecution: perExecution as { fee: string; swapped: string; minOut: string; symbolIn: string; symbolOut: string }, approval, executions, input };
     }
     case "settled": {
       const summary = str(o.summary, 200);

@@ -1,15 +1,17 @@
 /**
  * Automations: bounded standing proposals. An automation watches for an
  * insight (idle cash, FX exposure, ...) or a timer and, when it fires,
- * plans its sentence under the Fence of its Pack agent (or the owner's
- * default Fence). The result is always a proposal the owner signs, or, in
+ * plans its sentence under the owner's Fence (narrowed by its Pack agent's
+ * Fence when it has one). The result is always a proposal the owner signs, or, in
  * `session` mode, a plan an agent may execute through the LykiaAccount
  * session the owner created on chain. The server holds no owner keys, so it
  * never executes anything itself. Each automation runs at most
  * `maxRunsPerDay` times and only while the `agents.keeper` flag allows
  * session mode.
  */
-import { DEFAULT_FENCE, type Address, type ArcEnvironment } from "@lykia/core";
+import { DEFAULT_FENCE, fenceForProfile, intersectFence, riskTierOf, type Address, type ArcEnvironment, type Fence } from "@lykia/core";
+import { getProfile } from "../personal/profile.js";
+import { getPreferences } from "../fold/preferences.js";
 import type { AgentProposal, Automation, InsightKind } from "@lykia/core/api/agents";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
@@ -85,13 +87,23 @@ export interface AutomationRun {
 }
 
 /** Evaluates one owner's automations now. Fired ones produce proposals (never executions). */
-export async function runAutomations(ctx: AppContext, pack: PackService, owner: Address, environment: ArcEnvironment, onFired?: (a: Automation, p: AgentProposal) => void): Promise<AutomationRun[]> {
+/**
+ * The Fence an owner's automations plan under: the owner's profile and Fold preferences (the same Fence the Fold
+ * and Ask Lyko use). An agent's own Fence is intersected with it, so an agent automation is never looser than its owner.
+ */
+export async function ownerFenceOf(ctx: AppContext, owner: Address): Promise<Fence> {
+  const [profile, prefs] = await Promise.all([getProfile(ctx, owner), getPreferences(ctx, owner)]);
+  return fenceForProfile({ ...profile, risk: riskTierOf(prefs.risk) }, DEFAULT_FENCE);
+}
+
+export async function runAutomations(ctx: AppContext, pack: PackService, owner: Address, environment: ArcEnvironment, onFired?: (a: Automation, p: AgentProposal) => void, ownerFence?: Fence): Promise<AutomationRun[]> {
   const all = (await listAutomations(ctx, owner)).filter((a) => a.enabled && a.environment === environment);
   if (all.length === 0) return [];
   const now = ctx.clock.now();
   const day = new Date(now).toISOString().slice(0, 10);
   const runs = ctx.store.counters("automation_runs");
   let kinds: Set<InsightKind> | null = null;
+  let fenceOfOwner: Fence | undefined;
   const out: AutomationRun[] = [];
   for (const a of all) {
     if ((await runs.get(`${a.id}:${day}`)) >= a.maxRunsPerDay) {
@@ -114,7 +126,9 @@ export async function runAutomations(ctx: AppContext, pack: PackService, owner: 
       out.push({ automationId: a.id, fired: false, reason: "Its agent is not active.", proposal: null });
       continue;
     }
-    const outcome = await planSentence(ctx, a.sentence, { environment, owner, fence: agent?.fence ?? DEFAULT_FENCE, proposedByAgent: true, ...(agent?.signer ? { signer: "agent" as const, agent: { address: agent.signer, ...(agent.agentId ? { agentId: agent.agentId } : {}) } } : {}) });
+    fenceOfOwner ??= ownerFence ?? (await ownerFenceOf(ctx, owner));
+    const fence = agent ? intersectFence(fenceOfOwner, agent.fence, agent.name) : fenceOfOwner;
+    const outcome = await planSentence(ctx, a.sentence, { environment, owner, fence, proposedByAgent: true, ...(agent?.signer ? { signer: "agent" as const, agent: { address: agent.signer, ...(agent.agentId ? { agentId: agent.agentId } : {}) } } : {}) });
     await runs.increment(`${a.id}:${day}`, 1, { ttlMs: 2 * 86_400_000 });
     await store(ctx).put(a.id, { ...a, lastRunAt: new Date(now).toISOString() });
     if (outcome.kind !== "planned") {

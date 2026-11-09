@@ -346,7 +346,7 @@ export function actionPreview(a: { readonly mode: "draft" | "ask"; readonly sent
 }
 
 /** The shock model's inputs from the position map: every priced asset of every net position, and the lowest health per venue. */
-export function shockInputsFromPositions(venues: readonly { readonly positions: readonly { readonly venue: string; readonly venueName?: string; readonly venueKind: string; readonly counts: "net" | "overlay"; readonly assets: readonly { readonly symbol: string; readonly valueUsd: string | null; readonly role: string }[]; readonly health?: { readonly factor: string | null } }[] }[]): { holdings: ShockHolding[]; health: { venue: string; healthFactor: string | null }[]; names: Record<string, string> } {
+export function shockInputsFromPositions(venues: readonly { readonly positions: readonly { readonly venue: string; readonly venueName?: string; readonly venueKind: string; readonly counts: "net" | "overlay"; readonly valueUsd?: string | null; readonly assets: readonly { readonly symbol: string; readonly valueUsd: string | null; readonly role: string }[]; readonly health?: { readonly factor: string | null } }[] }[]): { holdings: ShockHolding[]; health: { venue: string; healthFactor: string | null }[]; names: Record<string, string> } {
   const holdings: ShockHolding[] = [];
   const health = new Map<string, number>();
   const names: Record<string, string> = {};
@@ -354,10 +354,21 @@ export function shockInputsFromPositions(venues: readonly { readonly positions: 
     for (const p of v.positions) {
       if (p.counts !== "net") continue;
       if (p.venueName) names[p.venue] = p.venueName;
+      let assetsUsd = 0;
+      let priced = true;
       for (const a of p.assets) {
         if (a.role === "fees") continue;
         const kind: ShockHolding["kind"] = a.role === "borrowed" ? "debt" : p.venueKind === "vault" ? "vault" : a.role === "supplied" || a.role === "collateral" ? "supply" : "token";
         holdings.push({ symbol: a.symbol, where: p.venue, kind, usd: a.valueUsd });
+        if (a.valueUsd === null) priced = false;
+        else assetsUsd += Math.abs(Number(a.valueUsd)) * (a.role === "borrowed" ? -1 : 1);
+      }
+      // What the position is worth beyond its listed assets (uncollected LP fees, accrued yield) still counts, so the
+      // Stress test starts from the same net worth as the Fold bar.
+      const value = p.valueUsd === undefined || p.valueUsd === null ? null : Number(p.valueUsd);
+      if (priced && value !== null && Number.isFinite(value)) {
+        const rest = Math.round((value - assetsUsd) * 100) / 100;
+        if (Math.abs(rest) >= 0.01) holdings.push({ symbol: p.assets.map((a) => a.symbol).join("/") || "USD", where: p.venue, kind: rest < 0 ? "debt" : "token", usd: String(Math.abs(rest)) });
       }
       const hf = p.health?.factor ? Number(p.health.factor) : null;
       if (hf !== null && Number.isFinite(hf)) health.set(p.venue, Math.min(health.get(p.venue) ?? Infinity, hf));

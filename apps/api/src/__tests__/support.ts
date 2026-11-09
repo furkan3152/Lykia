@@ -6,6 +6,8 @@ import type { AddressInfo } from "node:net";
 import type { Express } from "express";
 import { loadConfig, type Config } from "../config.js";
 import type { ArcChains } from "../chains/arc.js";
+import { decodeFunctionData, encodeFunctionResult } from "viem";
+import { MULTICALL3_FROM_ABI } from "../engine/abis.js";
 
 export function testConfig(env: Record<string, string> = {}): Config {
   return loadConfig({ NODE_ENV: "test", LYKIA_LOG_LEVEL: "silent", ...env });
@@ -91,8 +93,21 @@ export class FakeArc {
     }
   }
 
+  /** Without onCall, a route's aggregate3 self-check passes (every call succeeds); anything else returns empty data. */
+  private defaultCall(request: { data?: `0x${string}` }): { data?: `0x${string}` } {
+    try {
+      const decoded = decodeFunctionData({ abi: MULTICALL3_FROM_ABI, data: request.data ?? "0x" });
+      if (decoded.functionName !== "aggregate3") return { data: "0x" };
+      const calls = decoded.args[0] as readonly unknown[];
+      return { data: encodeFunctionResult({ abi: MULTICALL3_FROM_ABI, functionName: "aggregate3", result: calls.map(() => ({ success: true, returnData: "0x" as const })) }) };
+    } catch {
+      return { data: "0x" };
+    }
+  }
+
   client() {
     return {
+      getBalance: async ({ address }: { address: string }) => (this.balances.get(`0x3600000000000000000000000000000000000000:${address.toLowerCase()}`) ?? 0n) * 10n ** 12n,
       multicall: async ({ contracts }: { contracts: readonly Call[] }) =>
         contracts.map((c) => {
           try {
@@ -105,7 +120,7 @@ export class FakeArc {
       // Loose parameter types (never) so subclasses can narrow these to what they model.
       getCode: async (request: never) => this.code.get((request as { address: string }).address.toLowerCase()) as string | undefined,
       getBlockNumber: async () => 1000n,
-      call: async (request: never): Promise<{ data?: `0x${string}` }> => (this.onCall ? this.onCall(request) : { data: "0x" }),
+      call: async (request: never): Promise<{ data?: `0x${string}` }> => (this.onCall ? this.onCall(request) : this.defaultCall(request)),
       getLogs: async (request: never): Promise<unknown[]> => this.logs.filter((l) => !(request as { address?: string }).address || l.address.toLowerCase() === (request as { address: string }).address.toLowerCase()),
       simulateContract: async (call: Call & { args: readonly [{ amountIn: bigint; fee: number }] }) => {
         const params = call.args[0];
@@ -120,9 +135,13 @@ export class FakeArc {
       client: () => this.client(),
       getTransaction: async (_env: string, hash: string) => this.transactions.get(hash.toLowerCase()) ?? null,
       getTxReceipt: async (_env: string, hash: string) => this.receipts.get(hash.toLowerCase()) ?? null,
-      getBalances: async () => {
-        throw new Error("not used");
-      },
+      // The batched balance read, from the same balances map the single reads use.
+      getBalances: async (environment: string, owner: string, tokens: readonly string[]) => ({
+        environment,
+        owner: owner.toLowerCase(),
+        blockNumber: 1000n,
+        balances: tokens.map((token) => ({ token, balance: token === "native" ? (this.balances.get(`0x3600000000000000000000000000000000000000:${owner.toLowerCase()}`) ?? 0n) * 10n ** 12n : (this.balances.get(`${token.toLowerCase()}:${owner.toLowerCase()}`) ?? 0n) })),
+      }),
     } as unknown as ArcChains;
   }
 }

@@ -245,8 +245,9 @@ export interface Reconciled {
 
 /** The model's (already validated, grounded and guarded) program reconciled with the lexicon, then stripped of injected data. */
 export function reconcile(rawModel: Program, language: string | null): Reconciled {
-  // Ground the model's own reading first: the lexicon's deterministic defaults are never second-guessed.
-  const grounded = groundAmounts(rawModel);
+  // Ground the model's own reading against the owner's text (program.text is the request as received, never the
+  // model's restatement); the lexicon's deterministic defaults are never second-guessed.
+  const grounded = groundAmounts(rawModel, rawModel.text);
   const model = grounded.program;
   const english = (language ?? model.language) === "en";
   const lex = english ? lexiconReading(model.text) : null;
@@ -294,9 +295,11 @@ function stated(amount: string, numbers: Set<string>): boolean {
 /**
  * A model may not invent an amount: an exact amount or a runway figure that does not appear in the
  * owner's words is dropped and asked about instead. Shares, "the rest" and documented defaults stay.
+ * `ownerText` is what the owner wrote; when a model restated the request (compile_goal), that restatement
+ * is not evidence.
  */
-function groundAmounts(program: Program): { program: Program; dropped: number } {
-  const numbers = numbersIn(program.text);
+export function groundAmounts(program: Program, ownerText: string): { program: Program; dropped: number } {
+  const numbers = numbersIn(ownerText);
   const questions = [...program.questions];
   const elements = program.elements.filter((e) => {
     const q = "quantity" in e ? e.quantity : null;

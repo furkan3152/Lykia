@@ -3,20 +3,20 @@
  * resolves to the labelled sample; with a wallet, public reads are live;
  * signed in (SIWE), the personal ones are too.
  */
-import { DEFAULT_FOLD_PREFERENCES, POSITION_VENUES, summarizePositions, type AgentInstruction, type ArcEnvironment, type FoldPreferences, type PositionsResponse, type PositionsSummary, type PositionVenueInfo, type VenueRead } from "@lykia/core";
+import { DEFAULT_FOLD_PREFERENCES, POSITION_VENUES, SAMPLE_OWNER, summarizePositions, type AgentInstruction, type ArcEnvironment, type FoldPreferences, type PositionsResponse, type PositionsSummary, type PositionVenueInfo, type VenueRead } from "@lykia/core";
 import type { AgentProposal, PackAgentView } from "@lykia/core/api/agents";
 import type { FlockSnapshot } from "@lykia/core/api/flock";
-import type { FoldAnswerResponse, FoldExplainArtifact, FoldInsightsResponse, FoldInstructionsResponse, FoldProposal, FoldQuestion, FoldSummaryResponse, FoldTrailsResponse, PreferencesResponse } from "@lykia/core/api/fold";
+import type { FoldAnswerResponse, FoldExplainArtifact, FoldInsightsResponse, FoldInstruction, FoldInstructionsResponse, FoldProposal, FoldQuestion, FoldSummaryResponse, FoldTrailsResponse, PreferencesResponse, WhistleItem, WhistleResponse } from "@lykia/core/api/fold";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
 import { useSearchParam } from "../../app/routes/useRoute";
-import { apiGet, apiPost, apiPut } from "../../lib/api";
+import { apiDelete, apiGet, apiPost, apiPut } from "../../lib/api";
 import { useEnvironment } from "../../lib/environment";
 import { useLykiaStore } from "../../lib/lykiaStore";
 import { useSession } from "../../lib/session";
 import { useLykiaWallet } from "../wallet/useLykiaWallet";
-import { sampleInsights, samplePack, sampleSnapshot } from "./model";
+import { controlRoute, sampleInsights, samplePack, sampleSnapshot } from "./model";
 import { samplePositions } from "./positionsModel";
 import { genericPositionInsights } from "@lykia/core";
 
@@ -129,7 +129,7 @@ export function useFoldInsights(o: FoldOwner) {
     queryFn: ({ signal }) => apiGet<FoldInsightsResponse>(`/v1/fold/insights/${o.address}`, { query: { environment: o.environment }, signal, timeoutMs: 20_000 }),
   });
   const at = useMountedAt();
-  const sample = useMemo<FoldInsightsResponse | undefined>(() => (o.sample ? { owner: "0x000000000000000000000000000000000000dEaD", environment: "mainnet", at: new Date(at).toISOString(), insights: [...sampleInsights(), ...genericPositionInsights(samplePositions(at, o.environment).venues.flatMap((v) => v.positions), at).map((g) => ({ ...g, figures: [...g.figures], handled: false }))], brief: { since: null, lines: [] }, personal: false } : undefined), [o.sample, o.environment, at]);
+  const sample = useMemo<FoldInsightsResponse | undefined>(() => (o.sample ? { owner: "0x000000000000000000000000000000000000dEaD", environment: "mainnet", at: new Date(at).toISOString(), insights: [...sampleInsights(at), ...genericPositionInsights(samplePositions(at, o.environment).venues.flatMap((v) => v.positions), at).map((g) => ({ ...g, figures: [...g.figures], handled: false }))], brief: { since: null, lines: [] }, personal: false } : undefined), [o.sample, o.environment, at]);
   return { ...q, data: q.data ?? sample };
 }
 
@@ -160,12 +160,14 @@ export function useTrails(o: FoldOwner) {
   });
 }
 
+/** A structured explanation; signed out, the API answers it from the same sample fixture every widget shows. */
 export function useExplain(o: FoldOwner, question: FoldQuestion, enabled: boolean) {
+  const owner = o.sample ? SAMPLE_OWNER : o.address;
   return useQuery({
-    queryKey: ["fold-explain", o.address, o.environment, question],
-    enabled: enabled && o.signedIn,
+    queryKey: ["fold-explain", owner, o.environment, question],
+    enabled: enabled && (o.signedIn || o.sample),
     staleTime: 60_000,
-    queryFn: ({ signal }) => apiGet<FoldExplainArtifact>("/v1/fold/explain", { query: { owner: o.address, environment: o.environment, question }, signal, timeoutMs: 20_000 }),
+    queryFn: ({ signal }) => apiGet<FoldExplainArtifact>("/v1/fold/explain", { query: { owner, environment: o.sample ? "mainnet" : o.environment, question }, signal, timeoutMs: 20_000 }),
   });
 }
 
@@ -227,7 +229,8 @@ export function useProposals(o: FoldOwner) {
 
 export function useAnswer(o: FoldOwner) {
   return useMutation({
-    mutationFn: (input: { question: FoldQuestion; threadId?: string | null; shocks?: { EURC?: number; cirBTC?: number; ratesBps?: number } }) => apiPost<FoldAnswerResponse>("/v1/fold/answer", { owner: o.address, environment: o.environment, question: input.question, ...(input.threadId ? { threadId: input.threadId } : {}), ...(input.shocks ? { shocks: input.shocks } : {}) }, { timeoutMs: 25_000 }),
+    // Signed out, the chip is answered from the sample fixture (nothing is stored), so it matches the Fold around it.
+    mutationFn: (input: { question: FoldQuestion; threadId?: string | null; shocks?: { EURC?: number; cirBTC?: number; ratesBps?: number } }) => apiPost<FoldAnswerResponse>("/v1/fold/answer", { owner: o.sample ? SAMPLE_OWNER : o.address, environment: o.sample ? "mainnet" : o.environment, question: input.question, ...(input.threadId && !o.sample ? { threadId: input.threadId } : {}), ...(input.shocks ? { shocks: input.shocks } : {}) }, { timeoutMs: 25_000 }),
   });
 }
 
@@ -239,20 +242,56 @@ export function useMarkSeen(o: FoldOwner) {
   });
 }
 
-/** Pause or resume a Herding instruction (no signature needed for automations, standing orders and alerts). */
+/** Pause, resume or remove a Herding instruction (no signature needed for automations, standing orders and alerts). */
 export function useInstructionControl(o: FoldOwner) {
   const qc = useQueryClient();
   return useMutation({
-    // Watch tasks from Ask Lyko live with the agent instructions; everything else is an automation.
-    mutationFn: (input: { id: string; action: "pause" | "resume" | "remove"; source?: string }) =>
-      input.source === "watch" || input.id.includes(":ins_")
-        ? apiPost(`/v1/agent/instructions/${encodeURIComponent(input.id)}/${input.action}`, { owner: o.address })
-        : apiPost(`/v1/automations/${encodeURIComponent(input.id)}/${input.action}`, {}, { query: { owner: o.address } }),
+    mutationFn: async (input: { id: string; action: "pause" | "resume" | "remove"; source: FoldInstruction["source"] }) => {
+      const route = controlRoute(input, input.action);
+      if (!route) throw new Error("Orders are cancelled with a signed transaction, and plans are stopped with Stop.");
+      const query = route.query === "owner" ? { owner: o.address } : undefined;
+      if (route.method === "delete") return apiDelete(route.path, { ...(query ? { query } : {}) });
+      return apiPost(route.path, route.body === "owner" ? { owner: o.address } : {}, { ...(query ? { query } : {}) });
+    },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["fold-instructions"] });
       void qc.invalidateQueries({ queryKey: ["fold-insights"] });
     },
   });
+}
+
+/** Stop a plan in progress (the owner's session is the proof): every step not started yet is stopped. */
+export function useStopPlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (intentId: string) => apiPost(`/v1/intents/${encodeURIComponent(intentId)}/stop`, {}),
+    onSuccess: () => {
+      for (const k of ["fold-instructions", "fold-positions", "fold-summary", "fold-trails"]) void qc.invalidateQueries({ queryKey: [k] });
+    },
+  });
+}
+
+/** The Whistle on the server: what it holds, blow it, resume one item or everything. */
+export function useWhistle(o: FoldOwner) {
+  const qc = useQueryClient();
+  const state = useQuery({
+    queryKey: ["whistle", o.address, o.environment],
+    enabled: o.signedIn,
+    queryFn: ({ signal }) => apiGet<WhistleResponse>("/v1/whistle", { query: { owner: o.address, environment: o.environment }, signal }),
+  });
+  const refresh = (data: WhistleResponse) => {
+    qc.setQueryData(["whistle", o.address, o.environment], data);
+    for (const k of ["fold-instructions", "fold-summary", "pack", "autopilot", "leashes", "fold-positions"]) void qc.invalidateQueries({ queryKey: [k] });
+  };
+  const blow = useMutation({
+    mutationFn: (reason?: string) => apiPost<WhistleResponse>("/v1/whistle", { owner: o.address, environment: o.environment, ...(reason ? { reason } : {}) }),
+    onSuccess: refresh,
+  });
+  const resume = useMutation({
+    mutationFn: (item?: Pick<WhistleItem, "kind" | "id">) => apiPost<WhistleResponse>("/v1/whistle/resume", { owner: o.address, environment: o.environment, ...(item ? { kind: item.kind, id: item.id } : {}) }),
+    onSuccess: refresh,
+  });
+  return { state, blow, resume };
 }
 
 /** "Send to Ask Lyko": the insight becomes a staged plan on the shared thread, marked From Lyko on watch. */

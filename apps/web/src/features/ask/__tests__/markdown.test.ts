@@ -8,11 +8,11 @@ import { firstSentence, inlineText, parseInline, parseMarkdown, safeHref, type B
 const ADDR = "0x7a3f9c21b4e8d05f6a1c3e9b2d4f6a8c0e1b3d5f";
 const TX = "0x9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
 
-async function render(text: string): Promise<string> {
+async function render(text: string, figures = false): Promise<string> {
   // The web build compiles JSX automatically; node tests use the classic transform, which reads React from the global scope.
   (globalThis as { React?: unknown }).React = React;
   const { Markdown } = await import("../Markdown");
-  return renderToStaticMarkup(React.createElement(Markdown, { text, environment: "mainnet", lead: true }));
+  return renderToStaticMarkup(React.createElement(Markdown, { text, environment: "mainnet", lead: true, figures }));
 }
 
 describe("markdown parser", () => {
@@ -55,6 +55,15 @@ describe("markdown parser", () => {
     assert.equal(tx && "v" in tx ? tx.v : "", TX, "a 64-hex hash is never cut into an address");
   });
 
+  it("never emphasises figures in the model's free prose; only text written from card data gets them", () => {
+    const prose = parseMarkdown("About **206.76 USDC** more sits in Gateway, at $3.20 a day.");
+    const flat = JSON.stringify(prose);
+    assert.doesNotMatch(flat, /"t":"amount"/u, "model prose keeps its figures plain");
+    assert.match(flat, /206\.76 USDC/u);
+    const data = parseMarkdown("Deposit 1,250.50 USDC into Galaxy USDC", { amounts: true });
+    assert.match(JSON.stringify(data), /"t":"amount"/u);
+  });
+
   it("follows only http(s) links and in-app paths", () => {
     assert.equal(safeHref("https://explorer.arc.io/tx/0xabc"), "https://explorer.arc.io/tx/0xabc");
     assert.equal(safeHref("/app/fold/fence"), "/app/fold/fence");
@@ -93,7 +102,8 @@ describe("markdown renderer", () => {
     const html = await render(`Gas is low: 0.04 USDC.\n\n- **Short by:** 0.46 USDC\n- Top up ${ADDR}`);
     assert.match(html, /class="m-md__p m-md__lead"/u);
     assert.match(html, /<ul class="m-md__ul">/u);
-    assert.match(html, /class="m-fig">0\.46<small>USDC<\/small>/u);
+    assert.doesNotMatch(html, /class="m-fig"/u, "model prose: figures stay plain");
+    assert.match(await render("- **Short by:** 0.46 USDC", true), /class="m-fig">0\.46<small>USDC<\/small>/u, "text written from card data keeps them");
     assert.match(html, new RegExp(`href="https://explorer\\.arc\\.io/address/${ADDR}"`, "u"));
     assert.match(html, /aria-label="Copy address"/u);
     assert.ok(!html.includes("**"));

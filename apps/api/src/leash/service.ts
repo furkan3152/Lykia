@@ -654,6 +654,7 @@ export class LeashService implements LeashHost {
     const agent = agentIn as PackAgent | null;
     if (leash.status === "revoked") return [{ code: "leash.revoked", message: "This leash was revoked." }];
     if (leash.status === "expired" || Date.parse(leash.expiresAt) <= this.now()) return [{ code: "leash.expired", message: `This leash expired at ${leash.expiresAt}.` }];
+    if (leash.paused) return [{ code: "leash.paused", message: leash.paused.by === "whistle" ? "The Whistle is blown: this leash's key is disabled until the owner resumes it in the Fold." : "This leash is paused by the owner." }];
     if (!agent || agent.status === "revoked") return [{ code: "leash.revoked", message: "This leash's Pack agent was revoked." }];
     if (agent.status === "paused") return [{ code: "leash.revoked", message: `${agent.name} is paused by the owner.` }];
     return [];

@@ -22,7 +22,7 @@
  * agents scope). Nothing here signs or moves funds: drafts are plans under
  * the owner's Fence, with Lykia's fee and the beta cap, for the owner to sign.
  */
-import { DEFAULT_FENCE, FOLD_INSIGHT_KINDS, POSITION_STATES, POSITION_VENUES, fenceForProfile, foldPreferenceEffects, NO_SHOCK, riskTierOf, type Address, type FoldShocks } from "@lykia/core";
+import { DEFAULT_FENCE, FOLD_INSIGHT_KINDS, isSampleOwner, POSITION_STATES, POSITION_VENUES, fenceForProfile, foldPreferenceEffects, NO_SHOCK, riskTierOf, type Address, type FoldShocks } from "@lykia/core";
 import type { FoldSummaryResponse, PreferencesResponse } from "@lykia/core/api/fold";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
@@ -250,7 +250,8 @@ export const foldModule: ApiModule = {
 
     router.get("/fold/explain", ctx.limits.heavy, async (req, res) => {
       const { owner, environment, question } = parseQuery(req, OwnerQuery.extend({ question: questionSchema }));
-      await authorizeOwner(ctx, req, owner);
+      // The sample flock is public: signed out, the Fold explains the same fixture it shows.
+      if (!isSampleOwner(owner)) await authorizeOwner(ctx, req, owner);
       res.json(await explain(ctx, environmentOf(ctx, environment), owner as Address, question));
     });
 
@@ -262,7 +263,8 @@ export const foldModule: ApiModule = {
 
     router.post("/fold/answer", ctx.limits.heavy, async (req, res) => {
       const body = parseBody(req, z.object({ owner: evmAddress, environment: environmentSchema.optional(), question: questionSchema, threadId: z.string().max(120).optional(), shocks: shockSchema.partial().optional() }));
-      await authorizeOwner(ctx, req, body.owner);
+      // The sample flock is public: a signed-out visitor's chip is answered from the same fixture the Fold shows (nothing is stored).
+      if (!isSampleOwner(body.owner)) await authorizeOwner(ctx, req, body.owner);
       const shocks = body.shocks ? { ...NO_SHOCK, ...body.shocks } : undefined;
       res.json(await answer(ctx, environmentOf(ctx, body.environment), body.owner as Address, body.question, body.threadId, shocks));
     });

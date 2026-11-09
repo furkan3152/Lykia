@@ -8,6 +8,7 @@
  * token names, memos and card text are written by strangers.
  */
 import { liveCapabilityMap } from "../capabilities/map.js";
+import { isSampleOwner } from "@lykia/core";
 import {
   ALERT_CHANNELS,
   ALERT_KINDS,
@@ -43,12 +44,15 @@ import {
   type PlanAction,
 } from "@lykia/core";
 import type { AgentProposal, AnswerBlock, ChatDraftLink, ChatProgramView } from "@lykia/core/api/agents";
-import { fenceCard, quotedRate, rateCard } from "./cards.js";
+import { fenceCard, positionsFacts, quotedRate, rateCard } from "./cards.js";
+import { grounded, groundActions, intervalStated, recordToolData, searchBinds, timeStated, venueNamed, type Ground } from "./grounding.js";
+import { orderVerdict, quoteOf } from "../orders/verdict.js";
+import { readWithMemory } from "../personal/reader.js";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { EXECUTABLE_VENUES } from "../engine/adapters.js";
 import { services } from "../services.js";
-import { planSentence } from "./engine.js";
+import { planActions } from "./engine.js";
 import { knowledgePaths } from "../engine/search.js";
 import { ordersService } from "../orders/service.js";
 import { alertInputIssue, alertsService } from "../alerts/service.js";
@@ -57,7 +61,7 @@ import { readSentence } from "../language/reader.js";
 import { compileIntent } from "../compiler/service.js";
 import { deliver } from "../compiler/deliver.js";
 import type { LlmTool } from "./llm.js";
-import { readPositions } from "../positions/service.js";
+import { foldPositions, foldSnapshot } from "../fold/sample.js";
 import { foldInsights } from "../fold/insights.js";
 import { createWatch, listInstructions } from "./instructions.js";
 import { WATCH_KINDS, type PlanPayload, type WatchCondition, type WatchPayload } from "@lykia/core";
@@ -96,6 +100,14 @@ export interface ToolContext {
   readonly planned?: { readonly actions: readonly PlanAction[]; readonly proposal: AgentProposal }[];
   /** The shared thread this turn writes to; hand-offs to Lyko on watch are filed under it. */
   readonly threadId?: string;
+  /**
+   * What this turn may cite: the owner's own words (the message and the recent thread), and every number a tool
+   * returned. Tools that take amounts, recipients or venues ground them here; a tool that needs the owner sets the
+   * question and the turn ends with it.
+   */
+  readonly ground?: Ground;
+  /** Lyko on watch (origin: the Fold): read-only tools, and each read lands as a sourced facts card. */
+  readonly readOnly?: boolean;
 }
 
 export interface ToolOutcome {
@@ -132,6 +144,15 @@ const verifiedOwner = (tc: ToolContext): { owner: Address; actor: NonNullable<To
   return { owner: tc.owner, actor: tc.actor ?? { developer: tc.owner.toLowerCase(), via: "session" } };
 };
 
+/** Ends the turn with one short question instead of a guess (grounding.ts). */
+function askOwner(tc: ToolContext, question: string, options: readonly string[], why: string): { summary: string; data: unknown } {
+  if (tc.ground) tc.ground.question = { question, options };
+  return { summary: "Needs a detail", data: { asked: question, options, why, next: "The owner answers this question; do not guess the value." } };
+}
+
+/** A value the model wrote is acceptable when the owner stated it or a tool returned it this turn; without a ground (tests, scripts) it is not checked. */
+const ok = (tc: ToolContext, value: string | number | undefined): boolean => value === undefined || !tc.ground || grounded(tc.ground, value);
+
 const SIGN_IN_NOTE = "Nothing was saved: this chat has not proven control of the owner's address. The owner opens the link, signs in with the wallet (one message, no transaction), checks the prefilled form and saves it there.";
 const DECIMAL = /^(?:0|[1-9]\d*)(?:\.\d+)?$/u;
 const decimal = z.string().max(40).regex(DECIMAL);
@@ -162,7 +183,7 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
     schema: z.object({}).strict(),
     json: obj({}),
     async run(_input, tc) {
-      const snap = await services(tc.ctx).flock.snapshot(tc.environment, needOwner(tc));
+      const snap = await foldSnapshot(tc.ctx, tc.environment, needOwner(tc));
       return { summary: `Flock read: total ${snap.totalUsd === null ? "partly unpriced" : `$${snap.totalUsd}`}, ${snap.holdings.length} holdings`, data: snap };
     },
   }),
@@ -173,12 +194,14 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
     schema: z.object({}).strict(),
     json: obj({}),
     async run(_input, tc) {
-      const res = await readPositions(tc.ctx, tc.environment, needOwner(tc), { personal: tc.ownerVerified });
+      const res = await foldPositions(tc.ctx, tc.environment, needOwner(tc), { personal: tc.ownerVerified });
       const all = res.venues.flatMap((v) => v.positions);
+      if (tc.readOnly && !tc.blocks?.some((b) => b.kind === "facts")) tc.blocks?.push(positionsFacts(res, undefined, { sample: isSampleOwner(tc.owner) }));
       return {
         summary: `${all.length} position(s); net ${res.summary.netUsd === null ? "partly unpriced" : `$${res.summary.netUsd}`}${res.summary.unavailable.length > 0 ? `; not read: ${res.summary.unavailable.join(", ")}` : ""}`,
         data: {
           summary: res.summary,
+          read: { at: res.at, block: res.block, note: "Cite figures with their source and this block or time; say unavailable for anything not here." },
           healthFloor: res.healthFloor,
           positions: all.map((p) => ({ venue: p.venue, kind: p.venueKind, label: p.label, state: p.state, amount: p.amount, symbol: p.symbol, valueUsd: p.valueUsd, doing: p.doing, apy: p.apy?.percent ?? null, health: p.health?.factor ?? null, inRange: p.range?.inRange ?? null, feesUsd: p.fees?.valueUsd ?? null, ...(p.claimable ? { claimable: p.claimable } : {}), ...(p.blocks ? { blocks: p.blocks } : {}), actions: p.actions.filter((a) => a.mode === "draft").map((a) => a.sentence) })),
           venues: res.venues.map((v) => ({ venue: v.venue, status: v.status, ...(v.reason ? { reason: v.reason } : {}), ...(v.coverage ? { coverage: v.coverage } : {}) })),
@@ -317,7 +340,7 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
   spec({
     name: "draft_order",
     description:
-      "Draft a conditional order on LykiaOrders: limit, stop-loss, take-profit (one execution at a trigger price) or dca, twap (several executions at an interval). Registry tokens only; triggers need a Chainlink pair (e.g. EURC/USD, BTC/USD via cirBTC). Returns the order summary, per-execution fee and minimum output, and the allowance still needed. Nothing is signed: the owner signs the order on the Orders page.",
+      "Draft a conditional order on LykiaOrders: limit, stop-loss, take-profit (one execution at a trigger price) or dca, twap (several executions at an interval). Registry tokens only; triggers need a Chainlink pair (e.g. EURC/USD, BTC/USD via cirBTC). Returns the order summary, per-execution fee and minimum output, the allowance still needed and the Fence and beta verdict. Nothing is signed: the chat shows an order card the owner reviews and signs in their wallet.",
     capability: "propose",
     schema: z
       .object({
@@ -346,11 +369,29 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
     ),
     async run(input: { kind: OrderKind; sell: string; buy: string; amount: string; executions?: number; intervalSeconds?: number; triggerPrice?: string; triggerAbove?: boolean }, tc) {
       const owner = needOwner(tc);
+      // Every figure of the order comes from the owner (or a tool this turn): no invented size, trigger or schedule.
+      if (!ok(tc, input.amount)) return askOwner(tc, `How much ${input.sell} should each execution of the ${input.kind} order sell?`, ["Let me type an amount"], `${input.amount} ${input.sell} was not stated.`);
+      if (!ok(tc, input.triggerPrice)) return askOwner(tc, `At what ${input.sell === "USDC" ? input.buy : input.sell} price should the order trigger?`, ["Let me type a price"], `The trigger ${input.triggerPrice} was not stated.`);
+      if (input.executions !== undefined && !ok(tc, input.executions)) return askOwner(tc, "How many slices should the order run?", ["4 slices", "6 slices", "10 slices"], `${input.executions} slices were not stated.`);
+      if (input.intervalSeconds !== undefined && tc.ground && !intervalStated(tc.ground, input.intervalSeconds)) return askOwner(tc, "How often should a slice run?", ["Every hour", "Every 4 hours", "Every day"], "The interval was not stated.");
       const draft = await ordersService(tc.ctx).draft({ ...input, owner, environment: tc.environment });
-      tc.blocks?.push({ kind: "herded", items: [{ kind: "order", label: draft.summary.slice(0, 200), saved: false, href: "/app/orders", next: "Sign it on the Orders page" }] });
+      // The Fence and the mainnet beta cap judge one execution now (and again when the signed order is stored).
+      const verdict = await orderVerdict(tc.ctx, { environment: tc.environment, owner, sell: input.sell, buy: input.buy, perExecution: input.amount, fence: tc.agent.fence, quote: quoteOf(draft, input.triggerPrice) });
+      const reasons = verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message.slice(0, 300)).slice(0, 6);
+      tc.blocks?.push({
+        kind: "order",
+        summary: draft.summary.slice(0, 240),
+        environment: tc.environment,
+        decision: verdict.decision,
+        reasons,
+        perExecution: { fee: draft.perExecution.fee, swapped: draft.perExecution.swapped, minOut: draft.perExecution.minOut, symbolIn: draft.perExecution.symbolIn, symbolOut: draft.perExecution.symbolOut },
+        approval: draft.approval ? draft.approval.label.slice(0, 200) : null,
+        executions: draft.order.executions,
+        input: { kind: input.kind, sell: input.sell, buy: input.buy, amount: input.amount, ...(input.executions !== undefined ? { executions: input.executions } : {}), ...(input.intervalSeconds !== undefined ? { intervalSeconds: input.intervalSeconds } : {}), ...(input.triggerPrice !== undefined ? { triggerPrice: input.triggerPrice } : {}), ...(input.triggerAbove !== undefined ? { triggerAbove: input.triggerAbove } : {}) },
+      });
       return {
-        summary: `Order drafted: ${draft.summary}`,
-        data: { summary: draft.summary, hash: draft.hash, executions: draft.order.executions, intervalSeconds: draft.order.interval, perExecution: draft.perExecution, approvalNeeded: draft.approval ? draft.approval.label : null, notes: draft.notes, next: "The owner signs this order (EIP-712) on the Orders page; funds stay in the wallet until a keeper executes it." },
+        summary: `Order drafted (${verdict.decision}): ${draft.summary}`,
+        data: { summary: draft.summary, hash: draft.hash, executions: draft.order.executions, intervalSeconds: draft.order.interval, perExecution: draft.perExecution, approvalNeeded: draft.approval ? draft.approval.label : null, notes: draft.notes, fence: { decision: verdict.decision, reasons }, next: verdict.decision === "deny" ? "The Fence refused it: say which rule and offer the nearest compliant order." : "The order card in this chat opens the review: the owner approves the allowance if needed and signs the order (EIP-712) in their wallet; funds stay in the wallet until a keeper executes it." },
       };
     },
   }),
@@ -381,7 +422,13 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
       ["kind"],
     ),
     async run(input: { kind: WatchCondition["kind"]; threshold?: string; venue?: string; token?: "USDC" | "EURC"; amount?: string; percent?: string }, tc) {
-      const venue = input.venue ? { venue: input.venue } : {};
+      // The Fence's health floor is the documented default threshold; any other figure must be the owner's.
+      const floor = tc.agent.fence.lending?.minHealthFactor ?? "1.5";
+      if (input.threshold !== undefined && Number(input.threshold) !== Number(floor) && !ok(tc, input.threshold)) return askOwner(tc, "Below which health factor should Lyko on watch tell you?", [`${floor}, my Fence floor`, "Let me type a number"], `${input.threshold} was not stated.`);
+      if (!ok(tc, input.amount)) return askOwner(tc, `Above how much idle ${input.token ?? "USDC"} should Lyko on watch tell you?`, ["Let me type an amount"], `${input.amount} was not stated.`);
+      if (!ok(tc, input.percent)) return askOwner(tc, "Below which APY should Lyko on watch tell you?", ["Let me type a percent"], `${input.percent}% was not stated.`);
+      // A venue the owner did not name is dropped: the watch then covers every venue of that kind.
+      const venue = input.venue && (!tc.ground || venueNamed(tc.ground, tc.environment, input.venue)) ? { venue: input.venue } : {};
       const condition: WatchCondition | null =
         input.kind === "health-below" ? { kind: "health-below", threshold: input.threshold ?? tc.agent.fence.lending?.minHealthFactor ?? "1.5", ...venue }
         : input.kind === "lp-out-of-range" ? { kind: "lp-out-of-range", ...venue }
@@ -435,6 +482,7 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
       ["kind"],
     ),
     async run(input: { kind: AlertKind; token?: string; threshold?: string; channels?: AlertChannel[]; cooldownSeconds?: number }, tc) {
+      if (!ok(tc, input.threshold)) return askOwner(tc, input.kind.startsWith("price-") ? `At what ${input.token ?? "EURC"} price should the alert bark?` : input.kind === "health-below" ? "Below which health factor should the alert bark?" : "From how many tokens should the alert bark?", ["Let me type a number"], `The threshold ${input.threshold} was not stated.`);
       const issue = alertInputIssue({ environment: tc.environment, kind: input.kind, ...(input.token ? { token: input.token } : {}), ...(input.threshold ? { threshold: input.threshold } : {}) });
       if (issue) throw new Error(issue);
       const usesToken = input.kind.startsWith("price-") || input.kind.startsWith("transfer-");
@@ -500,6 +548,15 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
     ),
     async run(input: AutomationToolInput, tc) {
       const trigger = input.trigger as AutomationTrigger;
+      if ((trigger.type === "price" || trigger.type === "balance") && !ok(tc, trigger.value)) return askOwner(tc, trigger.type === "price" ? `At what ${trigger.feed} price should it run?` : `At what ${trigger.token} balance should it run?`, ["Let me type a number"], `The trigger value ${trigger.value} was not stated.`);
+      if (trigger.type === "schedule" && tc.ground && !timeStated(tc.ground, trigger.at)) return askOwner(tc, "At what time should it run, and in which time zone?", ["09:00 UTC", "17:00 Europe/Istanbul", "Let me type a time"], `The time ${trigger.at} was not stated.`);
+      if (input.action.type === "plan" && tc.ground) {
+        const sentenceActions = readSentence(input.action.sentence).actions;
+        const invented = sentenceActions.map((a) => (a as { amount?: { exact?: string } }).amount?.exact).find((x) => x !== undefined && !grounded(tc.ground!, x));
+        if (invented !== undefined) return askOwner(tc, `How much should each run use? ${invented} was not something you said.`, ["Everything above my floor", "Let me type an amount"], `${invented} in the plan sentence was not stated.`);
+        const venue = sentenceActions.map((a) => (a as { venue?: string }).venue).find((v) => typeof v === "string" && !venueNamed(tc.ground!, tc.environment, v));
+        if (venue) throw new Error(`The owner named no venue: drop "${venue}" from the plan sentence so each run uses the route search's best venue.`);
+      }
       const issues = validateAutomationTrigger(trigger);
       if (trigger.type === "schedule" && trigger.every === "week" && !trigger.weekday) issues.push({ path: "trigger.weekday", message: "A weekly run needs a weekday." });
       if (trigger.type === "schedule" && trigger.every === "month" && !trigger.day) issues.push({ path: "trigger.day", message: "A monthly run needs a day from 1 to 28." });
@@ -541,12 +598,14 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
     json: obj({ goal: { type: "string", maxLength: 1000, description: "The owner's request in their own words." }, overrides: { type: "object", description: "Assumption id -> value, e.g. {\"share:e3\": \"25%\", \"schedule.timezone\": \"Europe/Berlin\"}", additionalProperties: { type: "string" } } }, ["goal"]),
     async run(input: { goal: string; overrides?: Record<string, string> }, tc) {
       const owner = needOwner(tc);
-      const result = await compileIntent(tc.ctx, { text: input.goal, owner, environment: tc.environment, fence: tc.agent.fence, search: false, proposedByAgent: true, ...(input.overrides ? { overrides: input.overrides } : {}) });
+      // Amounts are grounded against the owner's own words, never against the model's restatement of them.
+      const result = await compileIntent(tc.ctx, { text: input.goal, ...(tc.ground ? { ownerText: tc.ground.ownerText } : {}), owner, environment: tc.environment, fence: tc.agent.fence, search: false, proposedByAgent: true, ...(input.overrides ? { overrides: input.overrides } : {}) });
       const who = verifiedOwner(tc);
       const delivered = await deliver({ ctx: tc.ctx, environment: tc.environment, owner, fence: tc.agent.fence, verified: who ? who.actor : null, agent: { name: tc.agent.name, role: tc.agent.role }, proposedByAgent: true }, result, input.overrides ?? {});
       if (delivered.proposal) tc.proposals.push(delivered.proposal);
       tc.drafts?.push(...delivered.drafts);
       tc.programs?.push(delivered.view);
+      tc.blocks?.push(...delivered.blocks);
       const v = delivered.view;
       return {
         summary: `Compiled (${result.status}): ${result.why.summary}`,
@@ -579,7 +638,27 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
     json: obj({ sentence: { type: "string", maxLength: 400 }, why: { type: "string", maxLength: 300, description: "One line: why this plan serves the goal." } }, ["sentence"]),
     async run(input: { sentence: string; why?: string }, tc) {
       const owner = needOwner(tc);
-      const outcome = await planSentence(tc.ctx, input.sentence, { environment: tc.environment, owner, fence: tc.agent.fence, proposedByAgent: true });
+      const parsed = await readWithMemory(tc.ctx, tc.ownerVerified ? owner : null, input.sentence);
+      if (parsed.clarify.length > 0 || parsed.actions.length === 0) return { summary: "Needs a detail", data: { clarify: parsed.clarify.length > 0 ? parsed.clarify : [parsed.reply] } };
+      // Grounding: every amount, recipient and venue comes from the owner, a tool this turn, or a documented default.
+      let actions = [...parsed.actions];
+      const notes: string[] = [];
+      if (tc.ground) {
+        const g = await groundActions(tc.ctx, tc.ground, actions, { environment: tc.environment, owner, personal: tc.ownerVerified });
+        if (!g.ok) return askOwner(tc, g.question, g.options, g.reason);
+        actions = g.actions;
+        notes.push(...g.notes);
+      }
+      // Route choice is binding: for earn, convert and bridge without an owner-named venue, the deterministic search picks the route and plan_intent plans exactly its winner.
+      let routeLine: string | null = null;
+      if (searchBinds(actions)) {
+        const result = await services(tc.ctx).search.search({ environment: tc.environment, owner, actions, fence: tc.agent.fence, proposedByAgent: true, spent: await services(tc.ctx).intents.spent(tc.environment, owner), source: input.sentence });
+        recordToolData(tc.ground, { best: result.best ? { label: result.best.label, net: result.best.score.totalUsd, steps: result.best.explanation.steps } : null });
+        if (!result.best) return { summary: "Refused: no route passed", data: { refused: [...result.pruned.slice(0, 4).map((p) => `${p.label}: ${p.reason}`), ...result.failedChecks.map((f) => `${f.label}: ${f.reason}`)].join("; ") || "No route passed the Fence and the checks." } };
+        actions = [...result.best.actions];
+        routeLine = `Route search winner: ${result.best.label} (net ${result.best.score.totalUsd ?? "unpriced"} USD over 90 days; beat ${result.alternatives.length} other option${result.alternatives.length === 1 ? "" : "s"}).`;
+      }
+      const outcome = await planActions(tc.ctx, actions, input.sentence, { environment: tc.environment, owner, fence: tc.agent.fence, proposedByAgent: true });
       if (outcome.kind === "clarify") return { summary: "Needs a detail", data: { clarify: outcome.questions } };
       if (outcome.kind === "refused") return { summary: `Refused: ${outcome.message}`, data: { refused: outcome.message } };
       const { intent } = outcome.result;
@@ -591,7 +670,7 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
         reasons: intent.verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message),
         warnings: intent.warnings,
         attribution: [{ agent: tc.agent.name, role: tc.agent.role, part: input.sentence }],
-        rationale: input.why ?? "",
+        rationale: [input.why ?? "", ...notes, routeLine ?? ""].filter(Boolean).join(" ").slice(0, 600),
       };
       tc.proposals.push(proposal);
       tc.planned?.push({ actions: outcome.actions, proposal });
@@ -602,14 +681,35 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
       if (tile) tc.blocks?.push(tile);
       // The protocol fee explains why a step moves a little less (or a send costs a little more) than the sentence said.
       const fees = intent.steps.flatMap((st) => (st.fee ? [{ step: st.id, fee: `${fromBaseUnits(st.fee.amount, st.fee.decimals)} ${st.fee.symbol}`, bps: st.fee.bps, basis: FEE_BASIS[st.fee.basis] }] : []));
-      return { summary: `Planned (${intent.verdict.decision}): ${proposal.steps.join(" → ")}`, data: { intentId: proposal.intentId, steps: proposal.steps, decision: proposal.decision, reasons: proposal.reasons, warnings: proposal.warnings, ...(fees.length > 0 ? { lykiaFees: fees } : {}) } };
+      const compared = intent.steps.map((st) => st.route?.reason).filter((r): r is string => Boolean(r));
+      return { summary: `Planned (${intent.verdict.decision}): ${proposal.steps.join(" → ")}`, data: { intentId: proposal.intentId, steps: proposal.steps, decision: proposal.decision, reasons: proposal.reasons, warnings: proposal.warnings, ...(notes.length > 0 ? { grounding: notes } : {}), ...(routeLine ? { route: routeLine } : {}), ...(compared.length > 0 ? { why: compared } : {}), ...(fees.length > 0 ? { lykiaFees: fees } : {}) } };
+    },
+  }),
+  spec({
+    name: "stop_plan",
+    description: "Stop a plan in progress for the owner: every step not started yet is stopped; settled steps stay settled. Use it when the owner says stop, cancel or never mind about a plan from this chat (its intentId is in the plan's tool result or read_instructions). Owner-only; it also shows in the Fold's Herding list.",
+    capability: "propose",
+    schema: z.object({ intentId: z.string().regex(/^out_[A-Za-z0-9_-]{6,32}$/u) }).strict(),
+    json: obj({ intentId: { type: "string", description: "The plan's id, out_…" } }, ["intentId"]),
+    async run(input: { intentId: string }, tc) {
+      const who = verifiedOwner(tc);
+      if (!who) return { summary: "Not stopped: the owner is not signed in", data: { stopped: false, next: "Stopping is the owner's call: sign in with the wallet (one message, no transaction), or press Stop on the plan in the Fold." } };
+      const { intent } = await services(tc.ctx).intents.get(input.intentId);
+      if (intent.owner.toLowerCase() !== who.owner.toLowerCase()) throw new Error("That plan belongs to another owner.");
+      const stopped = await services(tc.ctx).intents.stop(input.intentId);
+      const steps = stopped.intent.steps;
+      return { summary: `Stopped ${input.intentId}`, data: { stopped: true, intentId: input.intentId, settled: steps.filter((st) => st.status === "settled").length, stoppedSteps: steps.filter((st) => st.status === "stopped").length, manage: "/app/fold/herding" } };
     },
   }),
 ];
 
-/** Tools an agent may see: its capabilities decide, and a dry-run-only Fence still plans (dry runs). */
-export function toolsFor(agent: ActingAgent): ToolSpec<unknown>[] {
-  return AGENT_TOOLS.filter((t) => agent.capabilities.includes(t.capability));
+/** Lyko on watch reads, never plans: positions, the Flock, insights, the capability map, its hand-offs and reference prices. */
+export const WATCH_TOOL_NAMES = ["positions", "flock", "get_insights", "capabilities", "read_instructions", "prices"] as const;
+
+/** Tools an agent may see: its capabilities decide, and a dry-run-only Fence still plans (dry runs). Read-only mode keeps the watch tools only. */
+export function toolsFor(agent: ActingAgent, options: { readonly readOnly?: boolean } = {}): ToolSpec<unknown>[] {
+  const allowed = AGENT_TOOLS.filter((t) => agent.capabilities.includes(t.capability));
+  return options.readOnly ? allowed.filter((t) => (WATCH_TOOL_NAMES as readonly string[]).includes(t.name) && t.capability === "read") : allowed;
 }
 
 export function toolDefinitions(tools: readonly ToolSpec<unknown>[]): LlmTool[] {
@@ -617,13 +717,15 @@ export function toolDefinitions(tools: readonly ToolSpec<unknown>[]): LlmTool[] 
 }
 
 /** Runs a tool call from the model. Unknown tools, tools outside the agent's set and bad input never run. */
-export async function runTool(name: string, rawInput: unknown, tc: ToolContext, allowed: readonly ToolSpec<unknown>[] = toolsFor(tc.agent)): Promise<ToolOutcome> {
+export async function runTool(name: string, rawInput: unknown, tc: ToolContext, allowed: readonly ToolSpec<unknown>[] = toolsFor(tc.agent, { readOnly: tc.readOnly === true })): Promise<ToolOutcome> {
   const tool = allowed.find((t) => t.name === name);
   if (!tool) return failure(`${tc.agent.name} has no tool named ${name}.`);
   const parsed = tool.schema.safeParse(rawInput ?? {});
   if (!parsed.success) return failure(`Invalid input for ${name}: ${parsed.error.issues.map((i) => i.message).join("; ")}`);
   try {
     const { summary, data } = await tool.run(parsed.data, tc);
+    // What a tool returned this turn may be cited by later calls and by the final text (grounding.ts, numberGuard.ts).
+    recordToolData(tc.ground, data);
     return { ok: true, summary, content: wrapUntrusted(data) };
   } catch (error) {
     return failure(error instanceof Error ? error.message : `${name} failed.`);

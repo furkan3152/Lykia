@@ -9515,6 +9515,45 @@
           }
         },
         {
+          "name": "What the Whistle holds for the owner: every automation, standing order, agent automation, Pack agent, leash and Autopilot it stopped, each with its state",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/whistle",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "whistle"
+              ],
+              "query": [
+                {
+                  "key": "owner",
+                  "value": "",
+                  "disabled": false
+                },
+                {
+                  "key": "environment",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "What the Whistle holds for the owner: every automation, standing order, agent automation, Pack agent, leash and Autopilot it stopped, each with its state\n\nAuth: session."
+          }
+        },
+        {
           "name": "Add an agent to the Pack",
           "request": {
             "method": "POST",
@@ -9835,6 +9874,87 @@
               }
             },
             "description": "Blow the Whistle: stop all new risk\n\nAuth: key, scope: agents."
+          }
+        },
+        {
+          "name": "Blow the Whistle: pause every automation, standing order and recurring payment, agent automation, Pack agent, leash (its key is refused) and Autopilot for the owner, on the server, at once. Returns exactly what was stopped and the unsigned blowWhistle() for the owner's LykiaAccount when it exists",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/whistle",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "whistle"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Blow the Whistle: pause every automation, standing order and recurring payment, agent automation, Pack agent, leash (its key is refused) and Autopilot for the owner, on the server, at once. Returns exactly what was stopped and the unsigned blowWhistle() for the owner's LykiaAccount when it exists\n\nAuth: session."
+          }
+        },
+        {
+          "name": "Let one item the Whistle stopped run again ({ kind, id }), or every item when none is named. Things that were paused before the Whistle stay paused",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Lykia-Key",
+                "value": "{{lykiaKey}}"
+              },
+              {
+                "key": "Lykia-Version",
+                "value": "{{lykiaVersion}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/whistle/resume",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "whistle",
+                "resume"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Let one item the Whistle stopped run again ({ kind, id }), or every item when none is named. Things that were paused before the Whistle stay paused\n\nAuth: session."
           }
         }
       ]

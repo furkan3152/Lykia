@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { navigate } from "../../app/routes/history";
 import { HowItWorks } from "../help/Help";
 import { Composer } from "../ask/Composer";
+import { SourceStamp } from "../ask/cards";
 import { AssistantMessage, UserMessage } from "../ask/Answer";
 import { ChatActionsContext, type ChatActions } from "../ask/actions";
 import { storedMessage } from "../ask/model";
@@ -55,6 +56,7 @@ function InsightCard({ insight, onDraft, onAsk, onSend, onOpenThread, busy, send
               ))}
             </dl>
           ) : null}
+          {why && insight.from ? <SourceStamp from={insight.from} compact /> : null}
         </>
       ) : null}
       <div className="fd-insight__acts">
@@ -79,6 +81,7 @@ function InsightCard({ insight, onDraft, onAsk, onSend, onOpenThread, busy, send
   );
 }
 
+/** A chip's answer: every line with the source and the block or time it was read; "unavailable" lines look it. */
 function ArtifactBubble({ a }: { readonly a: FoldExplainArtifact }) {
   return (
     <div className="fd-art">
@@ -87,9 +90,11 @@ function ArtifactBubble({ a }: { readonly a: FoldExplainArtifact }) {
       {a.lines.length > 0 ? (
         <dl>
           {a.lines.slice(0, 6).map((l) => (
-            <div key={l.label}>
+            <div key={l.label} data-unavailable={l.value === "unavailable" || undefined}>
               <dt>{l.label}</dt>
               <dd className="num">{l.value}</dd>
+              {l.note ? <small className="fd-art__note">{l.note}</small> : null}
+              {l.from ? <SourceStamp from={l.from} compact /> : null}
             </div>
           ))}
         </dl>
@@ -149,12 +154,13 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
   }, [recent.length, answers.length]);
 
   const ask = (question: FoldQuestion, label: string) => {
-    if (owner.signedIn) {
+    // Signed in, or the sample: the API answers from the same reads (or the same fixture) the Fold shows, with sources.
+    if (owner.signedIn || owner.sample) {
       answer.mutate(
         { question, threadId: convo.threadId, ...(question === "whatif" ? { shocks: { EURC: -5 } } : {}) },
         {
           onSuccess: (r) => {
-            adopt(r.threadId, r.question);
+            if (!owner.sample) adopt(r.threadId, r.question);
             setAnswers((a) => [...a, { id: Date.now(), question: r.question, artifact: r.artifact }]);
           },
           onError: (e) => toast.error("Lyko could not answer", { description: describeError(e), from: "LYKO" }),
@@ -162,14 +168,14 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
       );
       return;
     }
-    // Signed out or another address: the what-if runs on the same shared model here; the rest needs the owner.
+    // Another address, not signed in: the what-if runs on the same shared model here; the rest needs the owner.
     if (question === "whatif" && p.snapshot) {
       const shocks = { ...NO_SHOCK, EURC: -5 };
       const result = applyFoldShocks(p.snapshot.holdings, p.snapshot.health, shocks);
       setAnswers((a) => [...a, { id: Date.now(), question: label, artifact: { kind: "whatif", title: "If EURC drops 5%", summary: describeShock(result, shocks, p.minHealth), lines: [], sources: ["the shared shock model"], at: new Date().toISOString() } }]);
       return;
     }
-    setAnswers((a) => [...a, { id: Date.now(), question: label, artifact: { kind: question, title: label, summary: owner.sample ? "This is the sample flock. Connect a wallet and sign in (one message, no transaction), and I will answer this for your own." : "Sign in as this address (one message, no transaction) and I will answer this from your own records.", lines: [], sources: [], at: new Date().toISOString() } }]);
+    setAnswers((a) => [...a, { id: Date.now(), question: label, artifact: { kind: question, title: label, summary: "Sign in as this address (one message, no transaction) and I will answer this from your own records.", lines: [], sources: [], at: new Date().toISOString() } }]);
   };
 
   // Lyko on watch hands the insight to Ask Lyko: planned on the server as a staged plan, written to the shared thread.
@@ -247,7 +253,7 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
 
         <div className="fd-msg">
           <LykoTile mood={open.length === 0 ? "resting" : "happy"} size={32} />
-          <div className="fd-bubble">{p.loading && !p.insights ? "Counting the flock…" : <Markdown text={openingLine(insights, owner.sample)} environment={owner.environment} />}</div>
+          <div className="fd-bubble">{p.loading && !p.insights ? "Counting the flock…" : <Markdown text={openingLine(insights, owner.sample)} environment={owner.environment} figures />}</div>
         </div>
 
         {open.length === 0 && !p.loading ? (

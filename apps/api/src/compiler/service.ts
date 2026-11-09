@@ -46,7 +46,7 @@ import {
   type WatchCondition,
 } from "@lykia/core";
 import type { Request } from "express";
-import { readAssist, type AssistReading } from "@lykia/core";
+import { readAssist, sampleSnapshot, type AssistReading } from "@lykia/core";
 import { capabilityMap } from "../capabilities/map.js";
 import type { AppContext } from "../context.js";
 import { agentServices } from "../agents/index.js";
@@ -57,17 +57,22 @@ import { memoryService } from "../personal/memory.js";
 import { getProfile } from "../personal/profile.js";
 import { projectOf } from "../platform/projects.js";
 import { services } from "../services.js";
-import { lexiconReading, readDeterministic, reconcile } from "./hybrid.js";
+import { groundAmounts, lexiconReading, readDeterministic, reconcile } from "./hybrid.js";
 import { readProgramWithModel } from "./llm.js";
 
 const SAMPLE_OWNER = "0x000000000000000000000000000000000000dead";
-/** No wallet connected: a sample wallet, always flagged as what-if, so a compiled plan can still be previewed as a dry run. */
-const SAMPLE_BALANCES: Readonly<Record<string, string>> = Object.freeze({ USDC: "2500", EURC: "0" });
+/** No wallet connected: the Fold's sample flock's wallet (core sampleFold), always flagged as what-if, so a compiled plan can still be previewed as a dry run. */
+const SAMPLE_BALANCES: Readonly<Record<string, string>> = Object.freeze(Object.fromEntries(sampleSnapshot(0).holdings.filter((h) => h.where === "wallet" && h.kind === "token").map((h) => [h.symbol, h.amount])));
 const PREVIEW_TIMEOUT_MS = 15_000;
 const MAX_PREVIEWS = 6;
 
 export interface CompileInput {
   readonly text: string;
+  /**
+   * The owner's own words when `text` was written by a model (Ask Lyko's compile_goal): amounts are grounded against
+   * these, so a figure the model added to its restatement is asked about, never planned. Defaults to `text`.
+   */
+  readonly ownerText?: string;
   readonly owner?: Address | null;
   readonly environment?: ArcEnvironment;
   /** Assumption id -> the owner's choice (see core programCompile.ts Assumption). */
@@ -152,7 +157,16 @@ function watchOf(text: string): { watch?: { condition: WatchCondition; label: st
  * with the deterministic lexicon (hybrid.ts), else the English lexicon.
  * Every path goes through the deterministic guard.
  */
-export async function readGoal(llm: LlmClient | null, text: string, contacts: readonly { name: string; address: string }[] = [], reader: CompileInput["reader"] = "auto"): Promise<{ program: Program; source: "llm" | "deterministic"; note: string | null; language: string | null }> {
+export async function readGoal(llm: LlmClient | null, text: string, contacts: readonly { name: string; address: string }[] = [], reader: CompileInput["reader"] = "auto", ownerText?: string): Promise<{ program: Program; source: "llm" | "deterministic"; note: string | null; language: string | null }> {
+  const read = await readGoalUngrounded(llm, text, contacts, reader);
+  if (ownerText === undefined || ownerText === text) return read;
+  // The text came from a model: every exact amount, on every path (the lexicon reads it too), must be in the owner's words.
+  const grounded = groundAmounts(read.program, ownerText);
+  if (grounded.dropped === 0) return read;
+  return { ...read, program: grounded.program, note: [read.note, "Amounts the owner did not state were turned into questions."].filter(Boolean).join(" ") };
+}
+
+async function readGoalUngrounded(llm: LlmClient | null, text: string, contacts: readonly { name: string; address: string }[], reader: CompileInput["reader"]): Promise<{ program: Program; source: "llm" | "deterministic"; note: string | null; language: string | null }> {
   if (llm && reader !== "deterministic") {
     try {
       const result = await readProgramWithModel(llm, text, contacts);
@@ -225,7 +239,8 @@ function linkOf(d: ScheduledDraft): { link: string; valid: boolean } {
       return { link: alertDraftLink(d.draft), valid };
     }
     case "order":
-      return { link: "/app/orders", valid: true };
+      // Signed from its order card in the chat; once armed it lives in Herding.
+      return { link: "/app/fold/herding?show=orders", valid: true };
     case "standing":
       return { link: "/app/automations", valid: true };
     case "budget":
@@ -301,7 +316,7 @@ export async function compileIntent(ctx: AppContext, input: CompileInput, http: 
   const sample = !owner && !input.balances && input.owner?.toLowerCase() === SAMPLE_OWNER;
   const state = await programState(ctx, environment, owner, input.balances ?? (sample ? SAMPLE_BALANCES : undefined));
   const llm = input.reader === "deterministic" ? null : agentServices(ctx).llm();
-  const read = await readGoal(llm, input.text, state.contacts ?? [], input.reader);
+  const read = await readGoal(llm, input.text, state.contacts ?? [], input.reader, input.ownerText);
   if (sample) read.note = `${read.note ? `${read.note} ` : ""}No wallet is connected: amounts use a sample wallet of ${SAMPLE_BALANCES.USDC} USDC (what-if).`;
   const compiled = compileProgram(read.program, state, input.overrides ? { overrides: input.overrides } : {});
   const fence = await fenceFor(ctx, input, http, owner, compiled);

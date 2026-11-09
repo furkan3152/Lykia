@@ -8,19 +8,21 @@
  */
 import { DEFAULT_BETA_CAP, fenceForProfile, DEFAULT_PROFILE, riskTierOf, type FoldTab, type Position, type PositionAction } from "@lykia/core";
 import type { PackAgentView } from "@lykia/core/api/agents";
-import type { FoldInsight, FoldInstruction, FoldProposal } from "@lykia/core/api/fold";
+import type { FoldInsight, FoldInstruction, FoldProposal, WhistleItem } from "@lykia/core/api/fold";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { navigate } from "../../app/routes/history";
 import { useRouteParam, useSearchParam } from "../../app/routes/useRoute";
 import { mediaMatches, subscribeMedia } from "../../app/state/media";
 import { useAsk } from "../../features/ask/store";
-import { useMountedAt, useFoldInsights, useFoldOwner, useFoldPack, useFoldSnapshot, useFoldSummary, useExplain, useInstructions, usePositions, usePreferences, useProposals, useSampleSnapshot, useTrails, useInstructionControl } from "../../features/fold/data";
+import { useMountedAt, useFoldInsights, useFoldOwner, useFoldPack, useFoldSnapshot, useFoldSummary, useExplain, useInstructions, usePositions, usePreferences, useProposals, useSampleSnapshot, useStopPlan, useTrails, useInstructionControl, useWhistle } from "../../features/fold/data";
 import { useFoldBadge } from "../../features/fold/badge";
 import { DraftSheet } from "../../features/fold/DraftSheet";
 import { FoldBar } from "../../features/fold/FoldBar";
 import { LykoOnWatch } from "../../features/fold/LykoOnWatch";
-import { badgeCount, FOLD_TAB_META, headroom, herdingFilterOf, LYKO_TAB, SAMPLE_COUNTS, sampleInstructions, sampleTrails, tabForKey, tabFromParam, visibleTabs, type PhoneTab } from "../../features/fold/model";
+import { badgeCount, countsOf, FOLD_TAB_META, headroom, herdingFilterOf, LYKO_TAB, sampleInstructions, samplePack, sampleTrails, sampleWaiting, tabForKey, tabFromParam, visibleTabs, type PhoneTab } from "../../features/fold/model";
+import { WhistleSheet } from "../../features/fold/WhistleSheet";
+import { CancelOrderModal } from "../../features/route/OrderReview";
 import { FenceTab } from "../../features/fold/tabs/FenceTab";
 import { FlockTab } from "../../features/fold/tabs/FlockTab";
 import { HerdingTab } from "../../features/fold/tabs/HerdingTab";
@@ -53,7 +55,13 @@ export default function FoldPage() {
   const siwe = useSiwe();
   const phone = useMedia(PHONE);
   const fence = useLykiaStore((s) => s.fence);
-  const whistle = fence.mode === "whistle";
+  // The Whistle is the server's: blown when it holds anything for the owner (or the deck's Fence is in whistle mode).
+  const wh = useWhistle(owner);
+  const held = (wh.state.data?.items ?? []).filter((i) => i.state === "paused").length;
+  const whistle = fence.mode === "whistle" || held > 0;
+  const [whistleOpen, setWhistleOpen] = useState(false);
+  const [cancelling, setCancelling] = useState<{ hash: string; name: string; environment: "mainnet" | "testnet" } | null>(null);
+  const stopPlan = useStopPlan();
   const qc = useQueryClient();
   const { preferences } = usePreferences(owner);
   const tabs = visibleTabs(preferences);
@@ -84,8 +92,10 @@ export default function FoldPage() {
   const mountedAt = useMountedAt();
   const sampleInstr = useMemo(() => (owner.sample ? sampleInstructions(mountedAt) : undefined), [owner.sample, mountedAt]);
   const sampleTrail = useMemo(() => (owner.sample ? sampleTrails(mountedAt) : undefined), [owner.sample, mountedAt]);
+  const sampleWait = useMemo(() => (owner.sample ? sampleWaiting(mountedAt) : undefined), [owner.sample, mountedAt]);
   const instructionList = instructions.data?.instructions ?? sampleInstr;
-  const waiting = instructions.data?.waiting ?? (owner.sample ? [] : undefined);
+  // Signed out, the inbox shows the sample's one draft, so the bar's "1 draft waits" and Herding agree.
+  const waiting = instructions.data?.waiting ?? sampleWait;
   const trailItems = trails.data?.items ?? sampleTrail;
 
   const minHealth = Number(fence.lending?.minHealthFactor ?? fenceForProfile({ ...DEFAULT_PROFILE, risk: riskTierOf(preferences.risk) }).lending?.minHealthFactor ?? "1.2");
@@ -93,7 +103,7 @@ export default function FoldPage() {
   // Lykia's beta limit applies on mainnet (the sample flock is a mainnet flock).
   const betaCap = owner.sample ? (beta.data ?? DEFAULT_BETA_CAP) : owner.environment === "mainnet" ? (beta.data === undefined ? DEFAULT_BETA_CAP : beta.data) : null;
   const room = headroom(owner.sample ? 1240 : (summary.data?.spent.dayUsd ?? 0), fenceDaily, betaCap ? (summary.data?.beta?.perDayUsd ?? betaCap.perDayUsd) : null);
-  const counts = owner.sample ? SAMPLE_COUNTS : summary.data ? summary.data.counts : { rules: 0, ordersWaiting: 0, agentsWorking: pack.data?.agents.filter((a) => a.status === "active").length ?? 0 };
+  const counts = owner.sample ? countsOf(sampleInstr ?? [], sampleWait ?? [], samplePack()) : summary.data ? summary.data.counts : { rules: 0, ordersWaiting: 0, agentsWorking: pack.data?.agents.filter((a) => a.status === "active").length ?? 0 };
   const badge = badgeCount(insights.data?.insights ?? [], waiting?.length ?? 0);
   useEffect(() => {
     useFoldBadge.getState().set(badge);
@@ -202,14 +212,66 @@ export default function FoldPage() {
     setBusyId(i.id);
     try {
       await control.mutateAsync({ id: i.id, action: "remove", source: i.source });
-      toast.success("Watch removed", { description: i.name, from: "LYKO" });
+      toast.success(i.source === "watch" ? "Watch removed" : "Removed", { description: i.name, from: "LYKO" });
     } catch (e) {
       toast.error("Not removed", { description: describeError(e), from: "LYKO" });
     } finally {
       setBusyId(null);
     }
   };
-  const whistleAll = () => runCommand(whistle ? "release" : "whistle");
+  // WHISTLE · STOP ALL: one server call stops everything for the owner; the sheet lists what stopped, each with Resume.
+  const whistleAll = () => {
+    if (owner.sample) {
+      toast.info("This is the sample flock", { description: "Sign in with your wallet and the Whistle stops your automations, agents, leashes and Autopilot at once.", from: "LYKO" });
+      return;
+    }
+    if (!owner.signedIn) {
+      runCommand(whistle ? "release" : "whistle");
+      void siwe.signIn();
+      return;
+    }
+    if (!whistle) runCommand("whistle");
+    setWhistleOpen(true);
+  };
+  const resumeOne = async (item: WhistleItem) => {
+    setBusyId(item.id);
+    try {
+      const after = await wh.resume.mutateAsync(item);
+      toast.success("Running again", { description: item.label, from: "LYKO" });
+      if (!after.items.some((i) => i.state === "paused") && fence.mode === "whistle") runCommand("release");
+    } catch (e) {
+      toast.error("Not resumed", { description: describeError(e), from: "LYKO" });
+    } finally {
+      setBusyId(null);
+    }
+  };
+  const resumeAll = () => {
+    setBusyId("all");
+    runCommand("release");
+    setTimeout(() => setBusyId(null), 600);
+  };
+  const stopPlanRow = async (i: FoldInstruction) => {
+    if (!i.stop) return;
+    if (needWallet()) return;
+    setBusyId(i.id);
+    try {
+      await stopPlan.mutateAsync(i.stop.intentId);
+      toast.success("Plan stopped", { description: `${i.name}. Steps already settled stay settled.`, from: "LYKO" });
+    } catch (e) {
+      toast.error("Not stopped", { description: describeError(e), from: "LYKO" });
+    } finally {
+      setBusyId(null);
+    }
+  };
+  const cancelOrderRow = (i: FoldInstruction) => {
+    if (!i.cancel) return;
+    if (owner.sample) {
+      toast.info("This is the sample flock", { description: "Connect a wallet to cancel your own orders.", from: "LYKO" });
+      return;
+    }
+    if (needWallet()) return;
+    setCancelling({ hash: i.cancel.hash, name: i.name, environment: i.cancel.environment });
+  };
   const whistleAgent = async (a: PackAgentView) => {
     if (needWallet()) return;
     setBusyId(a.id);
@@ -273,8 +335,8 @@ export default function FoldPage() {
 
           <div className="fd-panel" role="tabpanel" aria-label={meta ? `${meta.label} · ${meta.sub}` : "Lyko on watch"}>
             {effectiveTab === "flock" ? <FlockTab snapshot={snapshot} map={positions} minHealth={minHealth} signedIn={owner.signedIn} onSignIn={() => void siwe.signIn()} onAction={onPosition} onAsk={(t) => openInAsk(t, "A Stress test question from the Fold.")} busy={draft.isPending} openWhatIf={whatifOpen} /> : null}
-            {effectiveTab === "trails" ? <TrailsTab now={mountedAt} items={trailItems} totals={trails.data?.totals ?? (owner.sample ? { settled: 2, failed: 0, refused: 1, feesUsd: "54.00" } : undefined)} explain={explain.data ?? (owner.sample ? { kind: "yield", title: "Where your yield comes from", summary: "$6,600 earns about $372 a year (2.95% on the whole Flock); $5,616 rests in the wallet.", lines: [{ label: "Galaxy USDC · morpho-vaults", value: "$4,200", note: "6.10% a year ≈ $256" }, { label: "USDC · aave-v4", value: "$2,400", note: "4.80% a year ≈ $115" }, { label: "Borrowed USDC · aave-v4", value: "−$600", note: "interest accrues against your yield" }, { label: "Resting in the wallet", value: "$5,616", note: "earns nothing; kept liquid" }, { label: "Lykia fees, last 30 days", value: "$54.00", note: "1% of what moved" }], sources: ["sample"], at: new Date(mountedAt).toISOString() } : undefined)} explainLoading={explain.isLoading} sample={owner.sample} signedIn={owner.signedIn} onSignIn={() => void siwe.signIn()} /> : null}
-            {effectiveTab === "herding" ? <HerdingTab instructions={instructionList} waiting={waiting} sample={owner.sample} signedIn={owner.signedIn} initialFilter={show} onSignIn={() => void siwe.signIn()} onOpen={setOpenDraft} onStop={(p) => void stopP(p)} onToggle={(i) => void toggle(i)} onRemove={(i) => void remove(i)} onEdit={(i) => openInAsk(i.editSentence, `Herding item ${i.id}: ${i.name} (${i.trigger}; ${i.status}; next ${i.nextRunLabel}).`)} onNew={() => openInAsk("Every Friday at 17:00, pay ", "A new standing instruction from Herding.")} busyId={busyId} /> : null}
+            {effectiveTab === "trails" ? <TrailsTab now={mountedAt} items={trailItems} totals={trails.data?.totals ?? (owner.sample ? { settled: 2, failed: 0, refused: 1, feesUsd: "54.00" } : undefined)} explain={explain.data} explainLoading={explain.isLoading} sample={owner.sample} signedIn={owner.signedIn} onSignIn={() => void siwe.signIn()} /> : null}
+            {effectiveTab === "herding" ? <HerdingTab instructions={instructionList} waiting={waiting} sample={owner.sample} signedIn={owner.signedIn} initialFilter={show} onSignIn={() => void siwe.signIn()} onOpen={setOpenDraft} onStop={(p) => void stopP(p)} onToggle={(i) => void toggle(i)} onRemove={(i) => void remove(i)} onStopPlan={(i) => void stopPlanRow(i)} onCancel={cancelOrderRow} onEdit={(i) => openInAsk(i.editSentence, `Herding item ${i.id}: ${i.name} (${i.trigger}; ${i.status}; next ${i.nextRunLabel}).`)} onNew={() => openInAsk("Every Friday at 17:00, pay ", "A new standing instruction from Herding.")} busyId={busyId} /> : null}
             {effectiveTab === "pack" ? <AutopilotSection owner={owner} watches={instructionList} onSignIn={() => void siwe.signIn()} /> : null}
             {effectiveTab === "pack" ? <LeashSection owner={owner} onSignIn={() => void siwe.signIn()} /> : null}
             {effectiveTab === "pack" ? <PackTab agents={pack.data?.agents} sample={owner.sample} busyId={busyId} onWhistle={(a) => void whistleAgent(a)} onNew={() => openInAsk("Create a payroll agent with a 500 USDC daily budget", "A new agent from the Pack.")} onAsk={(a) => openInAsk(`How is ${a.name} doing, and what did it do today?`, `Agent ${a.name} (${a.role}), ${a.status}; daily cap ${a.budget.caps.dailyUsd ?? "none"}, spent today ${a.budget.spent.dayUsd}.`)} /> : null}
@@ -296,6 +358,8 @@ export default function FoldPage() {
       ) : null}
 
       <DraftSheet proposal={openDraft} onClose={() => setOpenDraft(null)} onMove={moveP} />
+      <WhistleSheet open={whistleOpen} onClose={() => setWhistleOpen(false)} state={wh.state.data} busyId={busyId} onResume={(i) => void resumeOne(i)} onResumeAll={resumeAll} />
+      {cancelling ? <CancelOrderModal key={cancelling.hash} order={cancelling} open onClose={() => setCancelling(null)} /> : null}
       {owner.address && !owner.signedIn && !owner.sample ? (
         <div className="fd-signin m-wrap m-wrap--wide">
           <span className="m-small">{"Reading this address in public. Sign in as its owner to see instructions, trails and drafts, and to act."}</span>

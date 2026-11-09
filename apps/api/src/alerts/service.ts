@@ -203,7 +203,7 @@ class AlertsService {
 
   /** Fires every order-filled rule of `owner`. Called when the keeper executes an order. */
   async orderFilled(owner: Address, summary: string): Promise<void> {
-    for (const rule of await this.list(owner)) if (rule.kind === "order-filled" && !rule.paused) await this.fire(rule, "Order executed", summary, "/app/orders");
+    for (const rule of await this.list(owner)) if (rule.kind === "order-filled" && !rule.paused) await this.fire(rule, "Order executed", summary, "/app/fold/herding?show=orders");
   }
 
   // ------------------------------------------------------------------ Telegram

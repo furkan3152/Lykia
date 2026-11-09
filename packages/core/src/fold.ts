@@ -227,6 +227,8 @@ export interface ShockHolding {
   readonly where: string;
   readonly kind: "token" | "vault" | "supply" | "debt";
   readonly usd: string | number | null;
+  /** The row's own name ("Galaxy USDC", "Aave V4 Main Spoke · cirBTC supplied"), so two vaults never share a label. */
+  readonly label?: string;
 }
 
 /** The asset whose price moves a holding: cirBTC and EURC (also inside vault names), else none. */
@@ -267,6 +269,8 @@ export function applyFoldShocks(holdings: readonly ShockHolding[], health: reado
   let unpriced = 0;
   const rows: ShockRow[] = [];
   let earning = 0;
+  let rawBefore = 0;
+  let rawAfter = 0;
   for (const h of holdings) {
     if (h.usd === null) {
       unpriced += 1;
@@ -282,7 +286,9 @@ export function applyFoldShocks(holdings: readonly ShockHolding[], health: reado
     const debt = h.kind === "debt";
     const sign = debt ? -1 : 1;
     if (h.kind === "vault" || h.kind === "supply") earning += v * factor;
-    rows.push({ label: `${h.symbol} · ${h.where}`, asset, before: sign * v, after: sign * v * factor, debt });
+    rawBefore += sign * v;
+    rawAfter += sign * v * factor;
+    rows.push({ label: h.label ?? `${h.symbol} · ${h.where}`, asset, before: cents(sign * v), after: cents(sign * v * factor), debt });
   }
   const hf = health.map((x) => {
     const before = x.healthFactor === null ? null : Number(x.healthFactor);
@@ -294,16 +300,26 @@ export function applyFoldShocks(holdings: readonly ShockHolding[], health: reado
     }, 0);
     return { venue: x.venue, before, after: before === null || now <= 0 ? before : before * (then / now) };
   });
-  const afters = hf.map((x) => x.after).filter((x): x is number => x !== null);
+  const healthRows = hf.map((x) => ({ venue: x.venue, before: x.before === null ? null : hundredths(x.before), after: x.after === null ? null : hundredths(x.after) }));
+  const afters = healthRows.map((x) => x.after).filter((x): x is number => x !== null);
+  // Totals are summed from the unrounded values and rounded once, so they equal the position map's net to the cent.
   return {
     rows,
-    before: rows.reduce((a, r) => a + r.before, 0),
-    after: rows.reduce((a, r) => a + r.after, 0),
+    before: cents(rawBefore),
+    after: cents(rawAfter),
     unpriced,
-    health: hf,
-    yearlyYieldDelta: (earning * shocks.ratesBps) / 10_000,
+    health: healthRows,
+    yearlyYieldDelta: cents((earning * shocks.ratesBps) / 10_000),
     worstHealth: afters.length > 0 ? Math.min(...afters) : null,
   };
+}
+
+/** Money to the cent and ratios to the hundredth: no float noise ("12614.199999999999") leaves the shock model. */
+function cents(n: number): number {
+  return Math.round((n + Number.EPSILON * Math.sign(n)) * 100) / 100;
+}
+function hundredths(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 /** One sentence for a shock result, the way the assistant says it. */
@@ -315,10 +331,10 @@ export function describeShock(result: ShockResult, shocks: FoldShocks, minHealth
   const usd = (n: number) => `$${Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
   parts.push(`${moved.length > 0 ? `With ${moved.join(", ")}` : "With no shock"}, the Flock goes from ${usd(result.before)} to ${usd(result.after)} (${delta < 0 ? "−" : "+"}${usd(delta)}).`);
   if (result.worstHealth === null) parts.push("Nothing is borrowed, so nothing can be liquidated.");
-  else if (result.worstHealth < 1) parts.push(`The lowest health factor would be about ${result.worstHealth.toFixed(2)}: below 1, so a position could be liquidated.`);
-  else if (result.worstHealth < minHealth) parts.push(`The lowest health factor would be about ${result.worstHealth.toFixed(2)}, under your Fence floor of ${minHealth}.`);
-  else parts.push(`The lowest health factor stays near ${result.worstHealth.toFixed(2)}, above your floor of ${minHealth}.`);
-  if (shocks.ratesBps !== 0 && result.yearlyYieldDelta !== 0) parts.push(`Yearly yield would change by about ${result.yearlyYieldDelta < 0 ? "−" : "+"}${usd(result.yearlyYieldDelta)}.`);
+  else if (result.worstHealth < 1) parts.push(`The lowest health factor would be ${result.worstHealth.toFixed(2)} (an estimate): below 1, so a position could be liquidated.`);
+  else if (result.worstHealth < minHealth) parts.push(`The lowest health factor would be ${result.worstHealth.toFixed(2)} (an estimate), under your Fence floor of ${minHealth}.`);
+  else parts.push(`The lowest health factor would be ${result.worstHealth.toFixed(2)} (an estimate), above your floor of ${minHealth}.`);
+  if (shocks.ratesBps !== 0 && result.yearlyYieldDelta !== 0) parts.push(`Yearly yield would change by ${result.yearlyYieldDelta < 0 ? "−" : "+"}${usd(result.yearlyYieldDelta)}.`);
   if (result.unpriced > 0) parts.push(`${result.unpriced} unpriced holding(s) are left out.`);
   return parts.join(" ");
 }

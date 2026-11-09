@@ -6,8 +6,11 @@
  * elements, which escape every string. Supported: paragraphs, "- " and
  * "1. " lists, "#" to "###" headings (drawn small), **bold**, *italics* or
  * _italics_, `inline code` and [links](https://…). On top of that, Arc
- * addresses and transaction hashes become chips, and USDC / EURC / USD
- * amounts become emphasised figures. Anything else stays plain text.
+ * addresses and transaction hashes become chips. USDC / EURC / USD amounts
+ * become emphasised figures only in text the code wrote from block data
+ * (plan steps, Fence lines): in the model's free prose a figure stays plain,
+ * so emphasis never lends weight to a number no card carries. Anything else
+ * stays plain text.
  */
 
 export type Inline =
@@ -46,14 +49,14 @@ const ADDRESS = /0x[0-9a-fA-F]{40}(?![0-9a-fA-F])/u;
 const AMOUNT = /(?<![\w.$])(\$\s?\d{1,3}(?:,\d{3})+(?:\.\d+)?|\$\s?\d+(?:\.\d+)?|(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\s?(?:USDC|EURC|USD|USYC|cirBTC)\b)/u;
 
 /** Plain text with chips: addresses, tx hashes and amounts. "->" reads as an arrow. */
-function decorate(text: string): Inline[] {
+function decorate(text: string, amounts: boolean): Inline[] {
   const out: Inline[] = [];
   let rest = text.replace(/\s->\s/gu, " → ");
   while (rest.length > 0) {
     const hits = [
       { kind: "tx" as const, m: TX.exec(rest) },
       { kind: "address" as const, m: ADDRESS.exec(rest) },
-      { kind: "amount" as const, m: AMOUNT.exec(rest) },
+      { kind: "amount" as const, m: amounts ? AMOUNT.exec(rest) : null },
     ].filter((h): h is { kind: "tx" | "address" | "amount"; m: RegExpExecArray } => h.m !== null);
     if (hits.length === 0) {
       out.push({ t: "text", v: rest });
@@ -85,13 +88,13 @@ function merge(nodes: Inline[]): Inline[] {
 }
 
 /** Inline markup: code first (its contents stay literal), then links, bold and italics. Unclosed markers stay text. */
-export function parseInline(src: string, depth = 0): Inline[] {
-  if (depth > 4) return decorate(src);
+export function parseInline(src: string, depth = 0, amounts = true): Inline[] {
+  if (depth > 4) return decorate(src, amounts);
   const out: Inline[] = [];
   let buf = "";
   let i = 0;
   const flush = () => {
-    if (buf) out.push(...decorate(buf));
+    if (buf) out.push(...decorate(buf, amounts));
     buf = "";
   };
   while (i < src.length) {
@@ -119,8 +122,8 @@ export function parseInline(src: string, depth = 0): Inline[] {
           const label = src.slice(i + 1, close);
           const href = safeHref(src.slice(close + 2, end));
           flush();
-          if (href) out.push({ t: "link", href, c: parseInline(label, depth + 1) });
-          else out.push(...parseInline(label, depth + 1));
+          if (href) out.push({ t: "link", href, c: parseInline(label, depth + 1, amounts) });
+          else out.push(...parseInline(label, depth + 1, amounts));
           i = end + 1;
           continue;
         }
@@ -130,7 +133,7 @@ export function parseInline(src: string, depth = 0): Inline[] {
       const end = src.indexOf("**", i + 2);
       if (end > i + 2) {
         flush();
-        out.push({ t: "strong", c: parseInline(src.slice(i + 2, end), depth + 1) });
+        out.push({ t: "strong", c: parseInline(src.slice(i + 2, end), depth + 1, amounts) });
         i = end + 2;
         continue;
       }
@@ -141,7 +144,7 @@ export function parseInline(src: string, depth = 0): Inline[] {
       const end = opens ? findClose(src, ch, i + 1) : -1;
       if (end > i + 1) {
         flush();
-        out.push({ t: "em", c: parseInline(src.slice(i + 1, end), depth + 1) });
+        out.push({ t: "em", c: parseInline(src.slice(i + 1, end), depth + 1, amounts) });
         i = end + 1;
         continue;
       }
@@ -163,18 +166,23 @@ function findClose(src: string, ch: string, from: number): number {
   return -1;
 }
 
-/** Block structure: paragraphs, lists and small headings. Lines inside a paragraph join with a space. */
-export function parseMarkdown(src: string): Block[] {
+/**
+ * Block structure: paragraphs, lists and small headings. Lines inside a paragraph join with a space.
+ * `amounts`: emphasise figures (only for text the code wrote from data; never for model prose).
+ */
+export function parseMarkdown(src: string, options: { readonly amounts?: boolean } = {}): Block[] {
+  const amounts = options.amounts === true;
+  const inline = (x: string) => parseInline(x, 0, amounts);
   const lines = src.replace(/\r\n?/gu, "\n").slice(0, 20_000).split("\n");
   const blocks: Block[] = [];
   let para: string[] = [];
   let list: { kind: "ul" | "ol"; start: number; items: string[] } | null = null;
   const endPara = () => {
-    if (para.length > 0) blocks.push({ t: "p", c: parseInline(para.join(" ")) });
+    if (para.length > 0) blocks.push({ t: "p", c: inline(para.join(" ")) });
     para = [];
   };
   const endList = () => {
-    if (list) blocks.push(list.kind === "ul" ? { t: "ul", items: list.items.map((x) => parseInline(x)) } : { t: "ol", start: list.start, items: list.items.map((x) => parseInline(x)) });
+    if (list) blocks.push(list.kind === "ul" ? { t: "ul", items: list.items.map(inline) } : { t: "ol", start: list.start, items: list.items.map(inline) });
     list = null;
   };
   for (const raw of lines) {
@@ -188,7 +196,7 @@ export function parseMarkdown(src: string): Block[] {
     if (heading) {
       endPara();
       endList();
-      blocks.push({ t: "h", level: Math.min(3, heading[1]!.length) as 1 | 2 | 3, c: parseInline(heading[2]!) });
+      blocks.push({ t: "h", level: Math.min(3, heading[1]!.length) as 1 | 2 | 3, c: inline(heading[2]!) });
       continue;
     }
     const bullet = /^\s{0,6}[-*•]\s+(.*)$/u.exec(line);

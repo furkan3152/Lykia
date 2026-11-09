@@ -86,5 +86,7 @@ export async function assertLeashKeyAllowed(ctx: AppContext, leashId: string, me
   if (!leash) throw new LykiaHttpError("UNAUTHORIZED", 401, "This leash key belongs to no leash.");
   if (leash.status === "revoked") throw new LykiaHttpError("LEASH_REVOKED", 403, "This leash was revoked; its key no longer works.", { leashId });
   if (leash.status === "expired" || Date.parse(leash.expiresAt) <= ctx.clock.now()) throw new LykiaHttpError("LEASH_EXPIRED", 403, "This leash has expired; its key no longer works.", { leashId, expiresAt: leash.expiresAt });
+  // The Whistle disables the key at once; resuming the leash in the Fold lets it work again.
+  if (leash.paused) throw new LykiaHttpError("LEASH_PAUSED", 403, "The Whistle is blown: this leash's key is disabled until its owner resumes it.", { leashId, pausedAt: leash.paused.at });
   if (!allowedRoute(leashId, method, path)) throw new LykiaHttpError("LEASH_KEY_SCOPE", 403, "A leash key can only plan, submit and read inside its own leash (and use MCP with the leash's tools).", { leashId, allowed: [`GET /v1/leashes/${leashId}`, `GET /v1/leashes/${leashId}/trail`, `POST /v1/leashes/${leashId}/plan`, `POST /v1/leashes/${leashId}/submit`, "POST /v1/mcp"] });
 }

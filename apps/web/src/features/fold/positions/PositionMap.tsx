@@ -437,7 +437,7 @@ export function PositionMap({ map, signedIn, onSignIn, onAction, busy }: Positio
         <section className="ps-map m-frame m-frame--thin" aria-labelledby="ps-map-h">
           <header className="fd-card__head fd-card__head--row">
             <h3 id="ps-map-h">{"Your money at a glance"}</h3>
-            <span className="m-kick">{map.sample ? "SAMPLE · " : ""}{map.block ? `READ AT BLOCK ${Number(map.block).toLocaleString("en-US")}` : "READING…"}</span>
+            <span className="m-kick">{map.sample ? "SAMPLE · NOT READ FROM ARC" : map.block ? `READ AT BLOCK ${Number(map.block).toLocaleString("en-US")}` : map.loading ? "READING…" : "READ JUST NOW"}</span>
           </header>
           <p className="m-small m-muted ps-map__mean">{"Each stone is a position, sized by what it is worth and coloured by what it is doing. Tap one to see its row."}</p>
           <Pasture map={map} onPick={pick} />
