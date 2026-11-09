@@ -104,8 +104,10 @@
 .m-dock { display: none; }
 @media (max-width: 900px) { .m-nav { display: none; } }
 @media (max-width: 900px) {
+  :root { --mdock-h: 78px; }
   .m-dock {
     position: fixed;
+    height: calc(var(--mdock-h) + env(safe-area-inset-bottom));
     z-index: 45;
     left: 0;
     right: 0;

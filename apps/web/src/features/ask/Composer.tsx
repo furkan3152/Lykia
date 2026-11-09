@@ -99,8 +99,8 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
   return (
     <div className={cx("m-frame m-composer", morph && "vt-composer", className)}>
       <LykoFace mood={busy ? "herding" : text ? "alert" : "watching"} scale={1.8} />
-      <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
-        <span className="m-composer__meta">{meta ?? "ASK LYKO · SAY IT IN PLAIN WORDS"}</span>
+      <div className="m-composer__body">
+        <span className="m-composer__meta">{meta ?? "ASK LYKO"}</span>
         <textarea
           ref={ref}
           rows={1}
@@ -152,13 +152,13 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
           </p>
         ) : null}
         {memoryChips ? (
-          <div className="m-memchips">
+          <div className="m-memchips" role="group" aria-label="From your history">
             {MEMORY_PHRASES.en.map((phrase) => (
-              <button key={phrase} type="button" className="m-chip" style={{ fontSize: 12, padding: "3px 8px" }} onClick={() => { setText((t) => (t ? `${t} ${phrase}` : phrase)); ref.current?.focus(); }}>
+              <button key={phrase} type="button" className="m-chip" onClick={() => { setText((t) => (t ? `${t} ${phrase}` : phrase)); ref.current?.focus(); }}>
                 ⟲ {phrase}
               </button>
             ))}
-            <button type="button" className="m-chip" style={{ fontSize: 12, padding: "3px 8px" }} onClick={() => { const next = text ? `${text} @` : "@"; setText(next); setCaret(next.length); ref.current?.focus(); }}>
+            <button type="button" className="m-chip" onClick={() => { const next = text ? `${text} @` : "@"; setText(next); setCaret(next.length); ref.current?.focus(); }}>
               @ {"contact"}
             </button>
           </div>

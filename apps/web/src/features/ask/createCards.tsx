@@ -186,6 +186,19 @@ function AgentDraftCard({ block }: { readonly block: Extract<AnswerBlock, { kind
   );
 }
 
+/** A venue as "Name · 0xabcd…1234": the name may end in an ellipsis, the address keeps its own line. */
+function PenVenue({ venue }: { readonly venue: string }) {
+  const at = venue.lastIndexOf(" · 0x");
+  const name = at > 0 ? venue.slice(0, at) : venue;
+  const address = at > 0 ? venue.slice(at + 3) : null;
+  return (
+    <span className="m-pen__venue" title={venue}>
+      <span className="m-pen__name">{name}</span>
+      {address ? <span className="num m-pen__addr">{address}</span> : null}
+    </span>
+  );
+}
+
 function YieldsCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "yields" }> }) {
   const actions = useChatActions();
   const top = Math.max(1, ...block.rows.map((r) => Number(r.apyPercent ?? 0)));
@@ -203,7 +216,7 @@ function YieldsCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "y
                   {Array.from({ length: 8 }, (_, k) => <i key={k} data-on={k < h} />)}
                 </span>
                 <b className="num m-pen__apy">{r.apyPercent === null ? "n/a" : `${r.apyPercent}%`}</b>
-                <span className="m-pen__venue">{r.venue}</span>
+                <PenVenue venue={r.venue} />
                 <span className="m-pen__meta">
                   <Tag tone={r.risk === "low" ? "ok" : r.risk === "medium" ? "ochre" : "bad"}>{`${r.risk} risk`}</Tag>
                   <small>{r.source}</small>

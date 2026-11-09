@@ -171,7 +171,6 @@
 .p-examples > div { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .p-examples .m-chip { min-height: 36px; }
 .p-examples__or { display: block; margin: 12px 0 2px; text-align: center; }
-.m-ask-empty .p-how { margin-top: 8px; }
 .m-ask-empty .p-how__panel { right: auto; left: 50%; transform: translateX(-50%); }
 @media (max-width: 640px) { .p-examples .m-chip { min-height: 44px; } }
 

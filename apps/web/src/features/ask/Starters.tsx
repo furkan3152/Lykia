@@ -30,7 +30,7 @@ export function StarterGrid({ onPick }: { readonly onPick: (s: Starter) => void 
   return (
     <div className="m-startgrid">
       <div className="m-startgrid__group" role="group" aria-label="Do something">
-        <span className="m-kick">{"DO SOMETHING · YOU FILL THE BLANKS"}</span>
+        <p className="m-startgrid__label"><span className="m-kick">{"DO SOMETHING"}</span><span>{"You fill the blanks"}</span></p>
         <div className="m-startgrid__row m-startgrid__row--do">
           {DO_STARTERS.map((s, i) => (
             <button key={s.id} type="button" className="m-start" data-icon={s.icon} style={{ "--i": i } as React.CSSProperties} onClick={() => onPick(s)}>
@@ -44,7 +44,7 @@ export function StarterGrid({ onPick }: { readonly onPick: (s: Starter) => void 
         </div>
       </div>
       <div className="m-startgrid__group" role="group" aria-label="Ask a question">
-        <span className="m-kick">{"OR ASK · ONE TAP SENDS IT"}</span>
+        <p className="m-startgrid__label"><span className="m-kick">{"OR ASK"}</span><span>{"One tap sends it"}</span></p>
         <div className="m-startgrid__row m-startgrid__row--ask">
           {ASK_STARTERS.map((s, i) => (
             <button key={s.id} type="button" className="m-start m-start--ask" data-icon={s.icon} style={{ "--i": i + 4 } as React.CSSProperties} onClick={() => onPick(s)}>
@@ -71,7 +71,8 @@ export function NextStepBar({ m, onPick }: { readonly m: ChatMessage; readonly o
   const step = nextStep(m);
   const more = step.kind === "choose" ? [] : followUps(m);
   const proposal = step.kind === "review" ? m.proposals[step.index] : undefined;
-  if (step.kind === "none" && more.length === 0) return null;
+  const go = Boolean(proposal && openReview) || step.kind === "fold";
+  if (!go && more.length === 0) return null;
   return (
     <div className="m-nextbar" role="group" aria-label="What next">
       {proposal && openReview ? (
@@ -87,12 +88,14 @@ export function NextStepBar({ m, onPick }: { readonly m: ChatMessage; readonly o
       {more.length > 0 ? (
         <div className={cx("m-nextbar__more", step.kind !== "none" && "m-nextbar__more--after")}>
           <span className="m-kick">{"NEXT, YOU COULD"}</span>
-          {more.map((s) => (
-            <button key={s.id} type="button" className="m-chip m-nextbar__chip" onClick={() => onPick(s)}>
-              <IntentIcon icon={s.icon} size={14} />
-              {s.label}
-            </button>
-          ))}
+          <div className="m-nextbar__chips">
+            {more.map((s) => (
+              <button key={s.id} type="button" className="m-chip m-nextbar__chip" onClick={() => onPick(s)}>
+                <IntentIcon icon={s.icon} size={14} />
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
       ) : null}
     </div>

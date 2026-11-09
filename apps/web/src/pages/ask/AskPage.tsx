@@ -179,8 +179,11 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
   // History phrases ("again", "same as last week") only mean something once there is a history.
   const hasHistory = threads.length > 0 || convo.messages.length > 0;
   const lastAnswer = [...convo.messages].reverse().find((m) => m.role === "assistant") ?? null;
-  const walletLine = address ? "LYKO ONLY PROPOSES · YOUR WALLET SIGNS" : "NO WALLET · DRY RUNS FOR A SAMPLE ADDRESS · CONNECT TO PLAN YOURS";
-  const composer = <Composer onSubmit={ask} busy={status === "streaming"} onStop={stop} autoFocus memoryChips={hasHistory} prefill={prefill} hints />;
+  // One short line, sentence case: long notes in pixel caps wrap into two lines on a phone.
+  const walletLine = address ? "Lyko only proposes · your wallet signs" : "Sample mode · connect to plan yours";
+  const walletBadge = address ? "YOU SIGN" : "SAMPLE MODE";
+  const threadTitle = threads.find((t) => t.id === convo.threadId)?.title ?? (lastUser || null);
+  const composer = <Composer onSubmit={ask} busy={status === "streaming"} onStop={stop} autoFocus memoryChips={hasHistory} prefill={prefill} hints {...(empty ? {} : { className: "m-composer--dock", placeholder: "Reply, or ask something new…" })} />;
   const firstUser = convo.messages.findIndex((m) => m.role === "user");
 
   return (
@@ -210,17 +213,21 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
       </aside>
 
       <section className="m-convo">
-        <div className="m-convo__scene">
-          <div className="flex items-center gap-2">
-            <button type="button" className="m-btn m-btn--ghost m-btn--sm m-railbtn" onClick={() => setRailOpen((o) => !o)} aria-label="Threads">
-              ☰
-            </button>
-            <div className="vt-scene m-frame m-frame--thin" style={{ flex: 1, padding: 0 }}>
+        {/* Narrow screens: the threads button, the thread's name and the mode, in one slim row. */}
+        <div className="m-convo__top">
+          <button type="button" className="m-btn m-btn--ghost m-btn--sm m-railbtn" onClick={() => setRailOpen((o) => !o)} aria-label="Threads" aria-expanded={railOpen}>
+            ☰
+          </button>
+          <span className="m-convo__title">{empty ? "New plan" : (threadTitle ?? "This thread")}</span>
+          <span className="m-askbadge" data-tone={address ? "ok" : "sample"} title={walletLine}>{walletBadge}</span>
+        </div>
+        <div className="m-convo__scroll" ref={scrollRef}>
+          {/* The bay scrolls with the conversation: it never sits over a message. */}
+          <div className="m-convo__scene" data-slim={empty ? undefined : true}>
+            <div className="vt-scene m-frame m-frame--thin">
               <MosaicCanvas build={(t) => strip({ lit, night, running: status === "streaming" }, t)} width={STRIP_W} height={STRIP_H} tile={4} fps={10} dataKey={`${lit}-${status}-${night}`} assembleKey="strip" label="The bay, folded into a strip; Lyko runs while he works" />
             </div>
           </div>
-        </div>
-        <div className="m-convo__scroll" ref={scrollRef}>
           <div className="m-convo__col">
             {empty ? (
               <div className="m-ask-empty m-ask-hero">
@@ -233,7 +240,7 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
                 </div>
                 {composer}
                 <StarterGrid onPick={pick} />
-                <p className="m-kick m-center m-ask-hero__foot">{walletLine}</p>
+                <p className="m-asknote m-ask-hero__foot">{walletLine}</p>
                 <HowItWorks area="ask" inAsk />
               </div>
             ) : null}
@@ -254,7 +261,7 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
           <div className="m-convo__dock">
             <div className="m-convo__col">
               {composer}
-              <p className="m-kick m-center" style={{ marginTop: 8 }}>{walletLine}</p>
+              <p className="m-asknote m-convo__note">{walletLine}</p>
             </div>
           </div>
         )}
