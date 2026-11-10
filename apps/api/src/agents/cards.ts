@@ -207,6 +207,75 @@ export function quotedRate(intent: Pick<IntentGraph, "steps">): { base: string; 
   return null;
 }
 
+/** "$124.6M", "$12.4k", "$950": a TVL as people read it. */
+export function compactUsd(v: string | number): string {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "unknown";
+  if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}bn`;
+  if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e4) return `$${(n / 1e3).toFixed(1)}k`;
+  return `$${Math.round(n).toLocaleString("en-US")}`;
+}
+
+const percentOf = (fraction: string | null | undefined): string | null => (fraction === null || fraction === undefined || !Number.isFinite(Number(fraction)) ? null : `${(Number(fraction) * 100).toFixed(2)}%`);
+const units = (amount: string, decimals: number): string => {
+  try {
+    return trimDecimal(fromBaseUnits(BigInt(amount), decimals), 6);
+  } catch {
+    return amount;
+  }
+};
+
+/**
+ * What a plan costs and why it goes where it goes: Lykia's fee per step, the least each step can deliver, and for a
+ * routed step the place chosen and the ones it beat (rate, size, or what each would deliver). Every figure a model
+ * may want to say about a plan is here, so the owner sees it beside the plan.
+ */
+export function planFactsCard(intent: Pick<IntentGraph, "steps" | "createdAt">): AnswerBlock | null {
+  const from = { source: "Lykia's planner and route search", readAt: isoOf(intent.createdAt), block: null };
+  const rows: { label: string; value: string; note: string | null; from: typeof from }[] = [];
+  const short = (summary: string) => summary.replace(/\s*\(.*$/u, "").slice(0, 60);
+  for (const st of intent.steps) {
+    if (st.kind === "approve") continue;
+    if (st.fee) rows.push({ label: `Lykia fee · ${short(st.summary)}`.slice(0, 80), value: `${units(st.fee.amount, st.fee.decimals)} ${st.fee.symbol}`, note: `${Number((st.fee.bps / 100).toFixed(2))}% ${st.fee.basis === "on-top" ? "paid on top of the amount" : st.fee.basis === "output" ? "taken from the borrowed amount" : "taken from the amount"}`, from });
+    const out = st.outputs.find((o) => o.minimum && !o.symbol.includes("@"));
+    if (out?.minimum) rows.push({ label: `At least · ${short(st.summary)}`.slice(0, 80), value: `${units(out.minimum, out.decimals)} ${out.symbol}`.slice(0, 60), note: `expected ${units(out.amount, out.decimals)} ${out.symbol}; less and the step fails, nothing moves`.slice(0, 200), from });
+    const route = st.route;
+    if (route) {
+      const decimals = st.outputs[0]?.decimals ?? 6;
+      const symbol = st.outputs[0]?.symbol.replace(/@.*$/u, "") ?? "";
+      // The headline figure goes in the value (what it delivers, its rate, or the health after); the rest in the note.
+      const describe = (o: (typeof route)["chosen"]) => {
+        const apy = percentOf(o.apy);
+        const head = o.amountOut ? `${units(o.amountOut, decimals)} ${symbol}` : apy ? `${apy} APY` : o.healthFactor ? `health after ${Number(o.healthFactor).toFixed(2)}` : `${o.risk} risk`;
+        const rest = [o.amountOut && apy ? `${apy} APY` : null, o.tvlUsd ? `${compactUsd(o.tvlUsd)} TVL` : null, o.amountOut || apy || o.healthFactor ? `${o.risk} risk` : null, o.amountOut && o.healthFactor ? `health after ${Number(o.healthFactor).toFixed(2)}` : null, !o.amountOut && apy && o.healthFactor ? `health after ${Number(o.healthFactor).toFixed(2)}` : null];
+        return { value: head.slice(0, 60), note: rest.filter(Boolean).join(" · ").slice(0, 200) || null };
+      };
+      rows.push({ label: `Chosen · ${route.chosen.label}`.slice(0, 80), ...describe(route.chosen), from });
+      for (const alt of route.alternatives.filter((a) => a.executable).slice(0, 2)) rows.push({ label: `Also compared · ${alt.label}`.slice(0, 80), ...describe(alt), from });
+    }
+  }
+  if (rows.length === 0) return null;
+  return { kind: "facts", title: "What this plan costs, and why this route", rows: rows.slice(0, 8), note: "Figures from the plan itself; the route is rebuilt and checked again before you sign." };
+}
+
+/** The Fence as numbers: caps, when Lyko asks, slippage and the loan floor. Shown when a turn reads the rules. */
+export function fenceFactsCard(fence: Fence, beta: { readonly perStepUsd: string; readonly perDayUsd: string } | null, readAt: string): AnswerBlock | null {
+  const from = { source: "Your Fence", readAt: isoOf(readAt), block: null };
+  const money = (v: string) => `$${Number(v).toLocaleString("en-US")}`;
+  const caps = fence.caps ?? {};
+  const rows = [
+    caps.perStepUsd ? { label: "Most in one step", value: money(caps.perStepUsd), note: null, from } : null,
+    caps.perIntentUsd ? { label: "Most in one plan", value: money(caps.perIntentUsd), note: null, from } : null,
+    caps.dailyUsd ? { label: "Most in one day", value: money(caps.dailyUsd), note: null, from } : null,
+    fence.confirm?.aboveUsd ? { label: "Lyko asks you above", value: money(fence.confirm.aboveUsd), note: null, from } : null,
+    fence.limits?.maxSlippageBps !== undefined ? { label: "Slippage at most", value: `${(fence.limits.maxSlippageBps / 100).toFixed(2)}%`, note: null, from } : null,
+    fence.lending?.minHealthFactor ? { label: "Loans never under health", value: fence.lending.minHealthFactor, note: null, from } : null,
+    beta ? { label: "Lykia's beta limit, above every Fence", value: `${money(beta.perStepUsd)} a step · ${money(beta.perDayUsd)} a day`, note: null, from: { ...from, source: "Lykia's beta limit" } } : null,
+  ].filter((r): r is NonNullable<typeof r> => r !== null);
+  return rows.length > 0 ? { kind: "facts", title: `${fence.label ?? "Your"} Fence, in numbers`.slice(0, 120), rows: rows.slice(0, 8), note: null } : null;
+}
+
 /** The Fence gate: the rules that refused or want a confirmation, and the room left under the caps. */
 export function fenceCard(intent: Pick<IntentGraph, "verdict">, fence: Fence): AnswerBlock | null {
   const decision = intent.verdict.decision;

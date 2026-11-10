@@ -27,7 +27,7 @@ import { instructionsView } from "../fold/instructions.js";
 import { ownerIntents, trailsFor } from "../fold/trails.js";
 import { fromBaseUnits } from "@lykia/core";
 import { turkishIntent } from "../language/turkish.js";
-import { blockOf, emitBlock, fenceCard, isoOf, stepsFor } from "./cards.js";
+import { blockOf, emitBlock, fenceCard, isoOf, planFactsCard, stepsFor } from "./cards.js";
 import type { DeterministicInput } from "./deterministic.js";
 import { planActions, preflightOf } from "./engine.js";
 import { idleAboveFloor, newGround } from "./grounding.js";
@@ -168,6 +168,7 @@ async function plan(input: DeskInput, actions: readonly PlanAction[], title: str
   const { intent } = outcome.result;
   routing.end(intent.verdict.decision === "deny" ? "fail" : intent.verdict.decision === "confirm" ? "warn" : "ok", `${plural(intent.steps.length, "step")} · ${intent.verdict.decision === "deny" ? "refused by the Fence" : intent.verdict.decision === "confirm" ? "needs your confirmation" : "inside the Fence"}`, intent.steps.map((st) => st.summary).join(" → "));
   emitBlock(input.emit, fenceCard(intent, input.fence));
+  emitBlock(input.emit, planFactsCard(intent));
   return {
     proposal: { intentId: outcome.result.stored ? intent.id : null, title, steps: intent.steps.map((st) => st.summary), decision: intent.verdict.decision, reasons: intent.verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message), warnings: intent.warnings, ...preflightOf(intent), attribution: [{ agent: "Lyko", role: "orchestrator", part: title }], rationale: "" },
     refused: null,
@@ -530,7 +531,7 @@ async function whyFailed(input: DeskInput, words: readonly string[]): Promise<Tu
 /* ---------------------------------------------------------- self-knowledge */
 
 function knowledgeRows(entries: readonly KnowledgeEntry[], now: string): FactRow[] {
-  return entries.slice(0, 8).map((e) => ({ label: e.name.slice(0, 120), value: (e.value ?? (e.topic === "not-built" ? "not built" : e.topic === "off" ? "off here" : e.topic === "unknowable" ? "cannot be known" : "explained below")).slice(0, 200), note: e.plain.slice(0, 200), from: { source: e.source.slice(0, 80), readAt: now, block: null } }));
+  return entries.slice(0, 8).map((e) => ({ label: e.name.slice(0, 80), value: (e.value ?? (e.topic === "not-built" ? "not built" : e.topic === "off" ? "off here" : e.topic === "unknowable" ? "cannot be known" : "explained below")).slice(0, 60), note: e.plain.slice(0, 200), from: { source: e.source.slice(0, 80), readAt: now, block: null } }));
 }
 
 /** Answers a question about Lykia itself from the capability map: no model, every figure a constant the code enforces. */

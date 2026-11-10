@@ -35,9 +35,12 @@ export function blockNumbers(blocks: readonly AnswerBlock[]): Set<string> {
     else if (typeof v === "string") {
       const n = /^-?\d+(?:\.\d+)?$/u.test(v.trim()) ? normalizeNumber(v.trim().replace(/^-/u, "")) : null;
       if (n !== null) out.add(n);
-      for (const m of v.matchAll(/\d[\d,]*(?:\.\d+)?/gu)) {
-        const x = normalizeNumber(m[0]);
+      for (const m of v.matchAll(/\d[\d,]*(?:\.\d+)?(?:\s?(k|m|bn)\b)?/giu)) {
+        const x = normalizeNumber(m[0].replace(/\s?(?:k|m|bn)$/iu, ""));
         if (x !== null) out.add(x);
+        // "$124.6M" on a card stands for 124,600,000: both readings are evidence.
+        const scaled = m[1] ? normalizeNumber(m[0].replace(/\s?(?:k|m|bn)$/iu, ""), m[1]) : null;
+        if (scaled !== null) out.add(scaled);
       }
     } else if (Array.isArray(v)) for (const x of v) visit(x, depth + 1);
     else if (typeof v === "object") for (const x of Object.values(v as Record<string, unknown>)) visit(x, depth + 1);
@@ -98,6 +101,28 @@ function scan(text: string, evidence: readonly number[]): Found[] {
     out.push({ raw: whole.trim(), sourced });
   }
   return out;
+}
+
+/** What the owner sees besides the cards: a plan's title, steps, warnings, refusals and checks, the options offered, and the work steps. */
+export interface Visible {
+  readonly proposals?: readonly { readonly title?: string; readonly steps?: readonly string[]; readonly warnings?: readonly string[]; readonly reasons?: readonly string[]; readonly preflight?: readonly unknown[] }[];
+  readonly options?: readonly string[];
+  /** Anything else drawn on screen: compiled programs, draft links, work-step results. */
+  readonly other?: readonly unknown[];
+}
+
+/** Every number the owner can see on screen, outside the cards. */
+export function visibleNumbers(v: Visible): Set<string> {
+  const shown = [...(v.proposals ?? []).map((p) => ({ title: p.title, steps: p.steps, warnings: p.warnings, reasons: p.reasons, preflight: p.preflight })), v.options ?? [], v.other ?? []];
+  return blockNumbers(shown as unknown as AnswerBlock[]);
+}
+
+/**
+ * The evidence prose may cite, by rule: what the owner wrote, and what the owner can see (cards, plans, options).
+ * A figure a tool returned but no card shows is not evidence: the owner could not check it.
+ */
+export function visibleGround(ground: Ground | undefined, v: Visible): Ground {
+  return { ownerText: ground?.ownerText ?? "", ownerNumbers: ground?.ownerNumbers ?? new Set(), toolNumbers: visibleNumbers(v), toolAddresses: new Set(), question: null };
 }
 
 /** The evidence for a turn: what tools returned, what the owner wrote, and every number on a card. */

@@ -44,7 +44,7 @@ import {
   type PlanAction,
 } from "@lykia/core";
 import type { AgentProposal, AnswerBlock, ChatDraftLink, ChatProgramView } from "@lykia/core/api/agents";
-import { fenceCard, hiddenLine, materialPositions, positionsCard, positionsFacts, quotedRate, rateCard } from "./cards.js";
+import { fenceCard, fenceFactsCard, hiddenLine, materialPositions, planFactsCard, positionsCard, positionsFacts, quotedRate, rateCard } from "./cards.js";
 import { grounded, groundActions, intervalStated, recordToolData, searchBinds, timeStated, venueNamed, type Ground } from "./grounding.js";
 import { orderVerdict, quoteOf } from "../orders/verdict.js";
 import { readWithMemory } from "../personal/reader.js";
@@ -364,6 +364,11 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
     json: obj({}),
     async run(_input, tc) {
       const { fee, beta } = tc.ctx.config;
+      // The rules as numbers on a card, so an answer about them may quote them.
+      if (!tc.blocks?.some((b) => b.kind === "facts" && /Fence, in numbers$/u.test(b.title))) {
+        const card = fenceFactsCard(tc.agent.fence, tc.environment === "mainnet" ? beta : null, new Date(tc.ctx.clock.now()).toISOString());
+        if (card) tc.blocks?.push(card);
+      }
       return {
         summary: `Fence ${tc.agent.fence.label ?? "custom"} (${tc.agent.fence.mode ?? "live"})`,
         data: { fence: tc.agent.fence, betaCap: tc.environment === "mainnet" ? beta : null, protocolFee: { bps: fee.bps, note: "Taken from the amount on swaps, conversions, deposits and bridges; paid on top of an exact send." } },
@@ -713,6 +718,9 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
       tc.planned?.push({ actions: outcome.actions, proposal });
       const gate = fenceCard(intent, tc.agent.fence);
       if (gate) tc.blocks?.push(gate);
+      // The fee, the least it delivers and why this route: on a card beside the plan, so the answer may say them.
+      const costs = planFactsCard(intent);
+      if (costs && !tc.blocks?.some((b) => b.kind === "facts" && costs.kind === "facts" && b.title === costs.title)) tc.blocks?.push(costs);
       const fx = intent.verdict.decision === "deny" ? null : quotedRate(intent);
       const tile = fx ? await rateCard(tc.ctx, fx.base, fx.quote, tc.agent.fence, fx.rate) : null;
       if (tile) tc.blocks?.push(tile);

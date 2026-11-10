@@ -45,23 +45,39 @@ function selfReference(text: string): string {
     .replace(/\bAsk Lyko plans it\b/giu, "I plan it here");
 }
 
-const SAMPLE_REWRITES: readonly (readonly [RegExp, string])[] = [
-  [/\byour (?:own )?wallet\b/gu, "the sample wallet"],
-  [/\bYour (?:own )?wallet\b/gu, "The sample wallet"],
-  [/\byour ((?:Fence|fence|rules|caps?|limits?|(?:\d+(?:\.\d+)? )?(?:(?:health|liquidity|gas|cash) )?floor)\b)/gu, "the default $1"],
-  [/\bYour ((?:Fence|fence|rules|caps?|limits?|(?:\d+(?:\.\d+)? )?(?:(?:health|liquidity|gas|cash) )?floor)\b)/gu, "The default $1"],
-  [/\byour (money|funds|balances?|holdings|positions?|loans?|debt|collateral|portfolio|net worth|flock|Flock|fold|Fold|USDC|EURC|cirBTC|idle [A-Za-z]+|gas|health factor|vaults?|deposits?|liquidity)\b/gu, "the sample wallet's $1"],
-  [/\bYour (money|funds|balances?|holdings|positions?|loans?|debt|collateral|portfolio|net worth|flock|Flock|fold|Fold|USDC|EURC|cirBTC|idle [A-Za-z]+|gas|health factor|vaults?|deposits?|liquidity)\b/gu, "The sample wallet's $1"],
-  [/\byou (hold|have|own|owe|earn|borrowed|supplied|deposited)\b/gu, "the sample wallet $1s"],
-  [/\bYou (hold|have|own|owe|earn|borrowed|supplied|deposited)\b/gu, "The sample wallet $1s"],
-];
-const THIRD_PERSON: Readonly<Record<string, string>> = { haves: "has", borroweds: "borrowed", supplieds: "supplied", depositeds: "deposited" };
+/** Words that make "your wallet" a request ("connect your wallet"), a negation ("not your money") or a promise ("once your wallet ..."), never a claim. */
+const NOT_A_CLAIM = /\b(?:connect(?:ing|ed|s)?|link(?:ing)?|sign(?:ing)? in with|switch(?:ing)?|open(?:ing)?|use|using|not|never|isn't|aren't|once|when|until|after|with|from|to)\s+(?:to\s+)?$/iu;
+const HOLDINGS = "money|funds|balances?|holdings|positions?|loans?|debts?|collateral|portfolio|net worth";
 
-/** For the sample address: nothing in the answer is "yours". */
+/**
+ * For the sample address: claims that the reader owns what was read are rewritten, and nothing else. "Your money is
+ * in Aave" and "you hold 187 USDC" become the sample wallet's; "connect your wallet", "not your money", "your
+ * account" and "your Fence" are left as they are.
+ */
 export function sampleWording(text: string): string {
-  let out = text;
-  for (const [re, to] of SAMPLE_REWRITES) out = out.replace(re, to);
-  return out.replace(/\b(haves|borroweds|supplieds|depositeds)\b/gu, (w) => THIRD_PERSON[w] ?? w);
+  const claim = (re: RegExp, to: (m: string, ...g: string[]) => string) => (input: string) =>
+    input.replace(re, (...args: unknown[]) => {
+      const m = args[0] as string;
+      const offset = args[args.length - 2] as number;
+      const whole = args[args.length - 1] as string;
+      const before = whole.slice(Math.max(0, offset - 40), offset);
+      if (NOT_A_CLAIM.test(before)) return m;
+      return to(m, ...(args.slice(1, -2) as string[]));
+    });
+  const cap = (s: string, like: string) => (/^[A-Z]/u.test(like) ? `${s.charAt(0).toUpperCase()}${s.slice(1)}` : s);
+  const steps = [
+    // "Your wallet holds 187 USDC", "your wallet has", "your wallet is worth": the wallet is the sample's.
+    claim(/\b[Yy]our wallet(?= (?:holds|has|contains|is worth|shows|carries|keeps))/gu, (m) => cap("the sample wallet", m)),
+    // "in your wallet": money sitting there.
+    claim(/\bin your wallet\b/gu, () => "in the sample wallet"),
+    // "your money is in Aave", "your positions", "your loan".
+    claim(new RegExp(`\\b[Yy]our (${HOLDINGS})\\b`, "gu"), (m, what) => cap(`the sample wallet's ${what}`, m)),
+    // "your USDC sits idle": a token named as owned, followed by what it is doing.
+    claim(/\b[Yy]our (USDC|EURC|cirBTC|WETH)(?= (?:sits|is|earns|has|was|balance))/gu, (m, what) => cap(`the sample wallet's ${what}`, m)),
+    // "You hold 187 USDC", "you have 3 positions", "you owe 600 USDC".
+    claim(/\b[Yy]ou (hold|own|owe|have)(?= (?:\$?\d|no |nothing|a loan|loans|positions?|an? \w+ position))/gu, (m, verb) => cap(`the sample wallet ${verb === "have" ? "has" : `${verb}s`}`, m)),
+  ];
+  return steps.reduce((out, step) => step(out), text);
 }
 
 export interface ProseOptions {
@@ -70,9 +86,17 @@ export interface ProseOptions {
 }
 
 /** Cleans a model's prose: internals and self-comments dropped, self-references and sample wording rewritten. */
+/** A price shown with more decimals than anyone reads ("$1.11923186") is rounded: four places under $10, two above. */
+export function roundPrices(text: string): string {
+  return text.replace(/(\$\s?)(\d+)\.(\d{5,})(?!\d)/gu, (_m, sign: string, int: string, frac: string) => {
+    const v = Number(`${int}.${frac}`);
+    return `${sign}${v < 10 ? v.toFixed(4) : v.toFixed(2)}`;
+  });
+}
+
 export function cleanProse(text: string, options: ProseOptions = {}): string {
   if (!text) return text;
-  let out = dropSentences(text, (s) => namesInternals(s) || commentsOnItself(s));
+  let out = dropSentences(roundPrices(text), (s) => namesInternals(s) || commentsOnItself(s));
   out = selfReference(out);
   if (options.sample) out = sampleWording(out);
   // A leftover placeholder (from text a model copied out of an old turn) takes its sentence with it.
@@ -81,6 +105,17 @@ export function cleanProse(text: string, options: ProseOptions = {}): string {
 }
 
 const dollars = (v: string) => `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** The answer code writes when a model's prose did not survive: the plan on screen first, then the cards. */
+export function summaryOfTurn(blocks: readonly AnswerBlock[], proposals: readonly { readonly decision: string; readonly steps: readonly string[]; readonly reasons: readonly string[] }[]): string {
+  const p = proposals[0];
+  if (p) {
+    if (p.decision === "deny") return `The Fence said no to this plan.\n\n${p.reasons.slice(0, 2).map((r) => `- ${r}`).join("\n")}\n\n**Next:** ask for less, or change the rule in your Fence.`.replace(/\n\n\n/gu, "\n\n");
+    const steps = proposals.flatMap((x) => x.steps);
+    return `The plan is ready to review: ${steps.length} step${steps.length === 1 ? "" : "s"}, checked against your Fence.\n\n${steps.slice(0, 3).map((st) => `- ${st}`).join("\n")}\n\n**Next:** review it on the card and sign it in your wallet.`;
+  }
+  return summaryFromBlocks(blocks);
+}
 
 /**
  * A short answer written by code from the cards of a turn, for when a model's prose did not survive the checks. Every

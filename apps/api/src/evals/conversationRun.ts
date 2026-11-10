@@ -12,6 +12,8 @@ import { FakeArc, offlineFetch, serve, testConfig, type Served } from "../__test
 import { createWatch } from "../agents/instructions.js";
 import { leashService } from "../leash/service.js";
 import { issueToken } from "../platform/session.js";
+import { setLlmClient } from "../agents/index.js";
+import { driftingModel } from "./driftingModel.js";
 import { services } from "../services.js";
 import { CONVERSATIONS, scoreConversation, type ChatAnswer, type ConversationCase } from "./conversations.js";
 import type { CaseScore } from "./score.js";
@@ -98,6 +100,7 @@ export async function runConversation(c: ConversationCase, print = false): Promi
   const served = await serve(createApp(ctx));
   try {
     await prepare(ctx, arc, c);
+    if (c.model === "drifting") setLlmClient(ctx, driftingModel());
     const token = c.who === "owner" ? issueToken(ctx, OWNER).token : null;
     const answers: ChatAnswer[] = [];
     let threadId: string | undefined;

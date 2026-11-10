@@ -346,7 +346,7 @@ export function readAssist(text: string, map: CapabilityMap): AssistReading | nu
   // Ask, don't guess.
   if (/\b(bridge|move|send)\b/u.test(t) && /\b(bridge|another chain|other chain|cross-chain|off arc)\b/u.test(t) && !namesChain(t)) {
     const opts = destinations.slice(0, 4);
-    return { kind: "clarify", missing: "destination", question: `Bridge to which chain? ${opts.join(" · ")}`, options: opts.map((d) => `${text.trim().replace(/[.?!]+$/u, "")} to ${d}`) };
+    return { kind: "clarify", missing: "destination", question: `${/\d/u.test(t) ? text.trim().replace(/[.?!]+$/u, "") : "Bridge"} to which chain?`, options: opts.map((d) => `${text.trim().replace(/[.?!]+$/u, "")} to ${d}`) };
   }
   if (/^(bridge|swap|convert|send|pay|deposit|withdraw|repay|borrow)\b/u.test(t) && !AMOUNT.test(t) && !/\b(my|all|everything|the rest|idle)\b/u.test(t)) {
     const verb = t.split(/\s+/u)[0]!;

@@ -22,8 +22,8 @@
  */
 import { AUTOPILOT_BETA, DEFAULT_BETA_CAP, DEFAULT_FEE_BPS, FENCE_PRESETS, LEASH_LIMITS, ALERT_LIMITS, STILE_BETA, ORDERS_MAX_EXECUTIONS } from "@lykia/core";
 import type { AnswerBlock } from "@lykia/core/api/answer";
-import { blockNumbers, guardNumbers } from "../agents/numberGuard.js";
-import { numbersIn, type Ground } from "../agents/grounding.js";
+import { guardNumbers, visibleGround } from "../agents/numberGuard.js";
+import { numbersIn } from "../agents/grounding.js";
 import { PLACEHOLDER } from "../agents/prose.js";
 import type { CaseScore, Check } from "./score.js";
 
@@ -56,6 +56,8 @@ export interface ConversationCase {
   readonly setup?: readonly ("loan" | "collateral" | "running" | "paused")[];
   /** Offline only: it depends on prepared state a deployed account will not have. */
   readonly offlineOnly?: boolean;
+  /** Offline: answered by the drifting scripted model (driftingModel.ts) instead of the reader, to test the model path. */
+  readonly model?: "drifting";
   readonly turns: readonly { readonly say: string; readonly expect: Expect }[];
 }
 
@@ -88,7 +90,7 @@ export const CONVERSATIONS: readonly ConversationCase[] = [
   { id: "withdraw", category: "act", who: "owner", turns: [{ say: "Withdraw 100 USDC from my vault", expect: { outcome: ["sign", "ask", "refuse"] } }] },
   { id: "gateway", category: "act", who: "owner", turns: [{ say: "Deposit 30 USDC into Gateway", expect: { outcome: ["sign", "refuse"] } }] },
   { id: "rebalance", category: "act", who: "owner", turns: [{ say: "Rebalance to 60% USDC and 40% EURC", expect: { outcome: ["sign", "ask"] } }] },
-  { id: "multi-step", category: "act", who: "owner", turns: [{ say: "Swap 100 EURC to USDC, then deposit it into Morpho", expect: { outcome: "sign", step: /USDC/u } }] },
+  { id: "multi-step", category: "act", who: "owner", turns: [{ say: "Swap 100 EURC to USDC, then deposit it into Morpho", expect: { outcome: ["sign", "ask"], step: /USDC/u } }] },
   { id: "goal-language", category: "act", who: "owner", turns: [{ say: "Keep 500 USDC liquid and earn the rest", expect: { outcome: ["sign", "ask"] } }] },
   { id: "fix-health", category: "act", who: "owner", setup: ["loan", "collateral"], offlineOnly: true, turns: [{ say: "Fix the health of my at-risk loans", expect: { outcome: "ask", block: "facts", option: /^Repay \d+(?:\.\d+)? USDC on aave-v4$/u, text: /under the 1\.5 floor/u, notText: /Ask Lyko/u } }] },
   { id: "fix-health-tr", category: "act", who: "owner", setup: ["loan", "collateral"], offlineOnly: true, turns: [{ say: OWNER_FIX_TR, expect: { outcome: "ask", block: "facts", option: /^Repay \d+(?:\.\d+)? USDC on aave-v4$/u, notText: /Ask Lyko|SAMPLE/u } }] },
@@ -232,6 +234,17 @@ export const CONVERSATIONS: readonly ConversationCase[] = [
   { id: "know-capabilities-tr", category: "self", who: "guest", turns: [{ say: "Neler yapabilirsin?", expect: { outcome: ["read", "ask"], block: "capabilities" } }] },
   { id: "know-forecast-tr", category: "self", who: "guest", turns: [{ say: "EURC y\u00fckselecek mi?", expect: { outcome: "refuse", text: /does not guess|Nobody knows/u } }] },
   { id: "know-liquidated-tr", category: "self", who: "guest", turns: [{ say: "Likide olursam ne olur?", expect: { outcome: "read", block: "facts", text: /collateral/u } }] },
+  /* ------------------------------ the model path, with a model that drifts */
+  { id: "model-empty-clarify", category: "act", who: "guest", model: "drifting", offlineOnly: true, turns: [{ say: "Do something nice with it", expect: { outcome: "ask", text: /^\*\*Sample address, not your wallet\.\*\* What should I do with it\?/u, option: /Put it to work/u, block: "sample" } }] },
+  { id: "model-send-no-recipient", category: "act", who: "guest", model: "drifting", offlineOnly: true, turns: [{ say: "Send 50 USDC", expect: { outcome: "ask", text: /Who should get the 50 USDC\?/u, block: "sample" } }] },
+  { id: "model-bridge-no-chain", category: "act", who: "guest", model: "drifting", offlineOnly: true, turns: [{ say: "Bridge 50 USDC", expect: { outcome: "ask", text: /Bridge 50 USDC to which chain\?/u, option: /^Bridge 50 USDC to Base$/u } }] },
+  { id: "model-second-one", category: "follow-up", who: "guest", model: "drifting", offlineOnly: true, turns: [{ say: "Bridge 50 USDC", expect: { outcome: "ask" } }, { say: "the second one", expect: { outcome: "sign", step: /Arbitrum/u } }] },
+  { id: "model-fee-in-prose", category: "act", who: "guest", model: "drifting", offlineOnly: true, turns: [{ say: "Convert 100 USDC to EURC", expect: { outcome: "sign", block: "facts", text: /Lykia fee is 1 USDC/u, notText: /12,345|1\.11923186/u } }] },
+  { id: "model-fence-limits", category: "act", who: "guest", model: "drifting", offlineOnly: true, turns: [{ say: "Walk me through my rules", expect: { outcome: ["read", "refuse", "ask"], block: "facts", text: /at most \$1000 a step, \$2500 a plan and \$5000 a day/u } }] },
+  { id: "model-sample-wording", category: "guest", who: "guest", model: "drifting", offlineOnly: true, turns: [{ say: "Tell me a story about this wallet?", expect: { outcome: ["read", "refuse"], text: /not your money\. Your EURC watch is not saved\. Connecting your wallet lets me save it to your account, and your Fence stays as it is\./u, notText: /sample wallet's money|Connecting the sample wallet|sample wallet's EURC watch|the default Fence/u } }] },
+  { id: "model-change-fence", category: "act", who: "guest", model: "drifting", offlineOnly: true, turns: [{ say: "Make my Fence more careful", expect: { outcome: "ask", option: /Careful/u, block: ["offer", "sample"] } }] },
+  { id: "model-stop-everything", category: "act", who: "guest", model: "drifting", offlineOnly: true, turns: [{ say: "Stop everything", expect: { outcome: "ask", option: /whistle/iu, block: ["offer", "sample"] } }] },
+  { id: "model-do-it-alone", category: "follow-up", who: "guest", model: "drifting", offlineOnly: true, turns: [{ say: "do it", expect: { outcome: "ask", text: /Do what\?/u } }] },
   { id: "know-bank-tr", category: "self", who: "guest", turns: [{ say: "Bankama para g\u00f6nderebilir misin?", expect: { outcome: "refuse", text: /^No\./u } }] },
 ];
 
@@ -270,6 +283,8 @@ export function outcomeOf(a: ChatAnswer): Outcome {
   void options;
   // A question ends the turn as a question. An honest no starts with "No" (or says it cannot), whatever chips follow.
   if (a.stopReason === "clarify") return "ask";
+  // A plan the Fence refused is a refusal, whatever cards explain it.
+  if (a.proposals.length > 0 && a.proposals.every((p) => p.decision === "deny")) return "refuse";
   if (/^(?:\*\*Sample[^*]*\*\*\s*)?(?:No[.,:]|No wallet\b|I can't\b|I cannot\b|I couldn't\b|I won't\b)/u.test(a.reply)) return "refuse";
   if (blocks.some((b) => READ_CARDS.has(b.kind))) return "read";
   return "refuse";
@@ -280,8 +295,10 @@ const check = (name: string, ok: boolean, detail?: string): Check => ({ name, ok
 /** Every figure in the prose is on a card, in a plan step, in an option, in a work step or in the owner's own words. */
 function unsourcedFigures(a: ChatAnswer, said: readonly string[]): string[] {
   const blocks = blocksOf(a);
-  const extra = JSON.stringify([a.proposals, optionsOf(a), a.events.filter((e) => e.event === "step" || e.event === "draft" || e.event === "program" || e.event === "tool").map((e) => e.data)]);
-  const ground: Ground = { ownerText: said.join("\n"), ownerNumbers: numbersIn(said.join("\n")), toolNumbers: new Set([...numbersIn(extra), ...blockNumbers(blocks)]), toolAddresses: new Set(), question: null };
+  // The same evidence the server's guard uses: what the owner wrote and what is on screen (cards, plans, options,
+  // work-step results, programs and drafts). A figure only a tool saw does not count.
+  const other = a.events.filter((e) => e.event === "step" || e.event === "draft" || e.event === "program").map((e) => (e.event === "step" ? [(e.data as { result?: string }).result ?? "", (e.data as { detail?: string }).detail ?? ""] : e.data));
+  const ground = visibleGround({ ownerText: said.join("\n"), ownerNumbers: numbersIn(said.join("\n")), toolNumbers: new Set(), toolAddresses: new Set(), question: null }, { proposals: a.proposals as never, options: optionsOf(a), other });
   // A quoted sentence ("say “convert 100 USDC to EURC”") is something the owner could say, not a claim about their money.
   const claims = a.reply.replace(/“[^”\n]*”/gu, "“…”");
   return [...guardNumbers(claims, ground, blocks).removed];
@@ -303,6 +320,7 @@ export function structureChecks(c: ConversationCase, a: ChatAnswer, said: readon
     check("no fixture card in an Ask answer", c.origin === "fold" || !fixture, blocks.map((b) => b.kind).join(",")),
     check("every figure in the prose has a source", unsourced.length === 0, `${unsourced.join(", ")} in: ${a.reply}`),
     check("at most three bullets", bullets <= 3, String(bullets)),
+    check("prices are rounded", !/\$\s?\d+\.\d{5,}/u.test(a.reply), a.reply),
     check("English only", !/[\u00e7\u011f\u0131\u015f\u00f6\u00fc\u00c7\u011e\u0130\u015e\u00d6\u00dc]/u.test(a.reply), a.reply),
   ];
 }

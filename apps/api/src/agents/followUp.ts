@@ -116,8 +116,9 @@ function rowSentences(blocks: readonly AnswerBlock[] | undefined): string[] {
 /** Resolves a short follow-up against the thread. `message` is the owner's words (English or Turkish). */
 export function resolveFollowUp(message: string, thread: readonly ThreadTurn[]): FollowUp {
   const text = message.trim();
-  if (text.length === 0 || text.length > 90 || thread.length === 0) return { kind: "none" };
+  if (text.length === 0 || text.length > 90) return { kind: "none" };
   const t = text.toLowerCase().replace(/[’]/gu, "'");
+  if (thread.length === 0) return YES.test(t) ? { kind: "ask", question: "Do what? Tell me the move and the amount.", options: [] } : { kind: "none" };
   const prev = lastAssistant(thread);
   const options = prev?.options ?? [];
   const request = lastRequest(thread);

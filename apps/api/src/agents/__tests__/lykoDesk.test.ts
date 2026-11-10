@@ -11,7 +11,7 @@
  */
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
-import { AUTOPILOT_BETA, buildSelfKnowledge, canTargets, DEFAULT_FEE_BPS, FENCE_PRESET_IDS, FLAG_PLAIN, isSampleOwner, knowledgeEntries, LYKIA_TERMS, PREFLIGHT_CHECKS, readKnowledge, SAMPLE_OWNER, samplePositions, STILE_BETA, type Address } from "@lykia/core";
+import { AUTOPILOT_BETA, buildSelfKnowledge, canTargets, DEFAULT_FEE_BPS, DEFAULT_FENCE, FENCE_PRESET_IDS, FLAG_PLAIN, isSampleOwner, knowledgeEntries, LYKIA_TERMS, PREFLIGHT_CHECKS, readKnowledge, SAMPLE_OWNER, samplePositions, STILE_BETA, type Address } from "@lykia/core";
 import type { AnswerBlock } from "@lykia/core/api/answer";
 import { FEATURE_FLAGS } from "@lykia/core/api/platform";
 import { createApp } from "../../app.js";
@@ -29,8 +29,9 @@ import { newGround, recordToolData } from "../grounding.js";
 import { healthReport } from "../health.js";
 import { setLlmClient } from "../index.js";
 import type { LlmClient, LlmRequest, LlmResponse } from "../llm.js";
-import { guardNumbers } from "../numberGuard.js";
-import { cleanProse, PLACEHOLDER, sampleWording, summaryFromBlocks } from "../prose.js";
+import { guardNumbers, visibleGround } from "../numberGuard.js";
+import { cleanProse, PLACEHOLDER, roundPrices, sampleWording, summaryFromBlocks } from "../prose.js";
+import { missingRecipient } from "../chat.js";
 
 const OWNER = "0x82916bee18fcef517b26c72d7cb5f13694e1db41" as Address;
 const USDC = "0x3600000000000000000000000000000000000000";
@@ -130,7 +131,8 @@ describe("Ask Lyko: right, acting, never nonsense", () => {
     const m = await chat({ message: "Tell me a story about my 187.28 USDC and my 500 floor" });
     setLlmClient(ctx, null);
     assert.match(m.reply, /^\*\*Sample address, not your wallet\.\*\*/u);
-    assert.doesNotMatch(m.reply.replace(/^\*\*[^*]+\*\*/u, ""), /\byour wallet\b|\byour money\b|\byour floor\b/iu, m.reply);
+    // Claims of ownership go; "your floor" (the rules) and "tell me what to do with your money" (a request) stay.
+    assert.doesNotMatch(m.reply.replace(/^\*\*[^*]+\*\*/u, ""), /\bin your wallet\b|\byour wallet (?:holds|has)\b|\byour money is\b|\bYou hold\b/u, m.reply);
     assert.match(m.reply, /the sample wallet/u);
   });
 
@@ -142,8 +144,52 @@ describe("Ask Lyko: right, acting, never nonsense", () => {
     assert.ok(!blocksOf(a).some((b) => b.kind === "sample"));
   });
 
-  it("sampleWording leaves nothing that reads as the reader's own", () => {
-    assert.equal(sampleWording("You hold $5 in your wallet, above your 500 floor, under your Fence."), "The sample wallet holds $5 in the sample wallet, above the default 500 floor, under the default Fence.");
+  it("sampleWording rewrites claims of ownership about balances and positions, and nothing else", () => {
+    assert.equal(sampleWording("You hold $5 in your wallet."), "The sample wallet holds $5 in the sample wallet.");
+    assert.equal(sampleWording("Your wallet holds 187.28 USDC and your money is idle."), "The sample wallet holds 187.28 USDC and the sample wallet's money is idle.");
+    assert.equal(sampleWording("You have no loans."), "The sample wallet has no loans.");
+    // The sentences the live model wrote, which the first rewrite turned into nonsense: left exactly as written.
+    for (const kept of [
+      "Ready as a proposal: this is a dry run on the sample address, not your money.",
+      "Connecting your wallet lets me save it to your account.",
+      "Your EURC watch below $1.05 is not saved, because no wallet is connected.",
+      "Connect your wallet to sign it.",
+      "It stays inside your Fence and your 1.5 floor.",
+      "You have to connect a wallet first.",
+      "Once your wallet is connected, I plan it.",
+    ]) assert.equal(sampleWording(kept), kept, kept);
+  });
+
+  it("prices are rounded in prose, and a price only a tool saw is not evidence", () => {
+    assert.equal(roundPrices("EURC is $1.11923186 now and $12.123456 later; 49.487503 USDC stays."), "EURC is $1.1192 now and $12.12 later; 49.487503 USDC stays.");
+    const ground = newGround("tell me if EURC falls below 1.05");
+    recordToolData(ground, { EURC: { usd: "1.11923186" }, fees: [{ fee: "0.2 USDC" }] });
+    // The old evidence (anything a tool returned) let both through; what the owner can see does not.
+    assert.deepEqual(guardNumbers("EURC is $1.1192 now. The fee is 0.2 USDC.", ground, []).removed, []);
+    const seen = visibleGround(ground, { proposals: [{ title: "send", steps: ["Send 20 USDC to 0x11…11"], warnings: [], reasons: [] }], options: [] });
+    assert.deepEqual(guardNumbers("EURC is $1.1192 now. The fee is 0.2 USDC. You send 20 USDC. Below 1.05 I tell you.", seen, []).removed, ["$1.1192", "0.2 USDC"]);
+  });
+
+  it("the cards that carry a plan's cost and the Fence's limits are valid cards with the code's figures", async () => {
+    const { planFactsCard, fenceFactsCard } = await import("../cards.js");
+    const { parseAnswerBlock } = await import("@lykia/core/api/answer");
+    const usdc = { symbol: "USDC", token: USDC as Address, decimals: 6, usd: null };
+    const intent = { createdAt: new Date().toISOString(), steps: [{ kind: "deposit", summary: "Deposit 99 USDC into Aave V4 Main Spoke (supply)", inputs: [{ ...usdc, amount: "99000000" }], outputs: [{ ...usdc, symbol: "USDC@aave", amount: "99000000" }], fee: { bps: 100, recipient: OWNER, symbol: "USDC", token: USDC as Address, decimals: 6, amount: "1000000", usd: "1", basis: "input" }, route: { chosen: { venue: "aave-v4", label: "Aave V4 Main Spoke", apy: "0.0287", tvlUsd: "124600000", risk: "low", executable: true, notes: [] }, alternatives: [{ venue: "morpho-vaults", label: "Morpho Galaxy USDC", apy: "0.0253", tvlUsd: "80000000", risk: "low", executable: true, notes: [] }], reason: "Compared 2 venues." } }] } as never;
+    const card = parseAnswerBlock(planFactsCard(intent));
+    assert.ok(card && card.kind === "facts", "valid");
+    const text = JSON.stringify(card);
+    for (const want of ["1 USDC", "1% taken from the amount", "2.87% APY", "$124.6M TVL", "2.53% APY"]) assert.ok(text.includes(want), want);
+    // "$124.6M" on the card is evidence for "$124.6M" in prose.
+    assert.deepEqual(guardNumbers("Aave pays 2.87% on $124.6M; the fee is 1 USDC.", newGround("x"), [card]).removed, []);
+    const fence = parseAnswerBlock(fenceFactsCard(DEFAULT_FENCE, { perStepUsd: "1000", perDayUsd: "5000" }, new Date().toISOString()));
+    assert.ok(fence && fence.kind === "facts");
+    for (const want of ["$1,000", "$2,500", "$5,000", "$500", "1.00%", "1.5"]) assert.ok(JSON.stringify(fence).includes(want), want);
+  });
+
+  it("a send with no recipient is asked by code, never sent to a model", () => {
+    assert.deepEqual(missingRecipient("Send 50 USDC"), { amount: "50", token: "USDC" });
+    assert.deepEqual(missingRecipient("pay 1,000 dollars"), { amount: "1000", token: "USDC" });
+    for (const text of ["Send 50 USDC to 0x1111111111111111111111111111111111111111", "Send 50 USDC to Ayla", "Give my bot $20 a day", "Pay 5 USDC every Friday"]) assert.equal(missingRecipient(text), null, text);
   });
 
   /* --------------------------------------------------- 3. it acts */
@@ -329,7 +375,8 @@ describe("Ask Lyko: right, acting, never nonsense", () => {
     assert.equal((resolveFollowUp("the last one", asked) as { sentence: string }).sentence, "Bridge 50 USDC to Arbitrum");
     assert.equal(resolveFollowUp("yes", asked).kind, "ask", "two choices: it asks which");
     assert.equal(resolveFollowUp("the fourth one", asked).kind, "ask");
-    assert.equal(resolveFollowUp("do it", []).kind, "none");
+    assert.equal(resolveFollowUp("do it", []).kind, "ask", "nothing before it: it asks what");
+    assert.equal(resolveFollowUp("convert 100 USDC to EURC", []).kind, "none");
     assert.equal(resolveFollowUp("do it", [{ role: "user", text: "hello" }, { role: "assistant", text: "Hi." }]).kind, "ask");
     assert.equal(resolveFollowUp("Convert 100 USDC to EURC", thread).kind, "none", "a full request stands on its own");
     // Amounts are scaled by arithmetic; addresses and invoice numbers are left alone.

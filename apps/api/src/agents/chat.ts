@@ -31,7 +31,17 @@ import { resolveFollowUp, type ThreadTurn } from "./followUp.js";
 import type { LlmClient } from "./llm.js";
 import { runTurn, type Emit, type TurnResult } from "./orchestrator.js";
 import { perceive } from "./perception.js";
-import { cleanProse, PLACEHOLDER, sampleWording } from "./prose.js";
+import { cleanProse, PLACEHOLDER, sampleWording, summaryOfTurn } from "./prose.js";
+
+/** "Send 50 USDC" with no one to send it to: the amount and token, or null. Bots, budgets and schedules are not this. */
+export function missingRecipient(text: string): { amount: string; token: string } | null {
+  const t = text.trim();
+  if (/0x[0-9a-f]{6,}|@\w|\b(?:to|for)\s+(?!work\b|invoice)\w+|\b(?:bot|agent|leash|every|daily|a day|weekly|monthly|autopilot)\b/iu.test(t)) return null;
+  const m = /^(?:please\s+)?(?:send|pay|transfer)\s+\$?(\d[\d,]*(?:\.\d+)?)\s*(USDC|EURC|cirBTC|WETH|dollars?|usd)?\s*[.!]?$/iu.exec(t);
+  if (!m) return null;
+  const token = !m[2] || /^(?:dollars?|usd)$/iu.test(m[2]) ? "USDC" : m[2].toUpperCase() === "CIRBTC" ? "cirBTC" : m[2].toUpperCase();
+  return { amount: m[1]!.replace(/,/gu, ""), token };
+}
 import { watchTurn } from "./watch.js";
 
 export interface ChatTurnInput {
@@ -91,6 +101,7 @@ export async function chatTurn(input: ChatTurnInput): Promise<ChatTurnResult> {
   const blocks: AnswerBlock[] = [];
   const options: string[] = [];
   let buffered = "";
+  let lastQuestion: string | null = null;
   // The words are held back until the last pass; everything else streams as it happens.
   const emit: Emit = (event, data) => {
     if (event === "text") {
@@ -99,6 +110,7 @@ export async function chatTurn(input: ChatTurnInput): Promise<ChatTurnResult> {
     }
     if (event === "block") blocks.push(data as AnswerBlock);
     if (event === "clarify") {
+      lastQuestion = String((data as { question?: string }).question ?? "");
       options.length = 0;
       options.push(...((data as { options?: readonly string[] }).options ?? []).map(String).slice(0, 4));
     }
@@ -108,6 +120,8 @@ export async function chatTurn(input: ChatTurnInput): Promise<ChatTurnResult> {
 
   let message = input.message;
   let meant: string | null = null;
+  // A feature offered or drafted from the map (the Whistle, a Fence preset, a Leash): signed out, it is shown with Connect.
+  let offered = false;
   let path = "reader";
   let result: TurnResult | null = null;
   const finishNow = (text: string, proposals: AgentProposal[] = [], stop: TurnResult["stopReason"] = "end_turn"): TurnResult => {
@@ -178,10 +192,18 @@ export async function chatTurn(input: ChatTurnInput): Promise<ChatTurnResult> {
     if (known) {
       result = knowledgeTurn(base, known.reading, known.map);
       path = "knowledge";
-    } else if (!watching && assist && assist.kind !== "clarify" && assist.kind !== "create" && assist.kind !== "offer") {
-      // Capability answers are a code-built card on both paths: the model adds nothing to a list it would only recite.
+    } else if (!watching && assist) {
+      // The capability map's answers are code on both paths: a capability card, a feature offered with its options,
+      // a draft, or the one question to ask ("Bridge 50 USDC to which chain?") with options in a fixed order.
       result = await assistTurn({ ...base, message: english }, assist, map);
       path = "map";
+      offered = assist.kind === "offer" || assist.kind === "create";
+    } else if (!watching && missingRecipient(english)) {
+      // "Send 50 USDC": the one thing missing is who gets it. Code asks; a model is not needed to ask it.
+      const m = missingRecipient(english)!;
+      steps.start("intent", "Reading your request").end("warn", "Needs one detail", "Who gets it");
+      path = "map";
+      result = finishNow(`Who should get the ${m.amount} ${m.token}?\n\n**Next:** paste the address (0x…), or name a saved contact.`, [], "clarify");
     } else if (!watching && info) {
       // Plain reads (gas, holdings, where the money is, a rate) need no model round: one read, one card.
       result = await infoTurn({ ...base, message: english }, info);
@@ -216,7 +238,18 @@ export async function chatTurn(input: ChatTurnInput): Promise<ChatTurnResult> {
   // The last pass over the words, then the sample label.
   let text = cleanProse(buffered || result.text);
   if (PLACEHOLDER.test(text)) text = text.split("\n").filter((line) => !PLACEHOLDER.test(line)).join("\n").trim();
-  if (sample && text && touchesMoney(blocks, result.proposals, text, path === "model")) {
+  // Never an empty answer: a question is said, a plan is described, otherwise code says what is on screen.
+  if (text.replace(/\*\*Next:?\*\*[^\n]*/giu, "").trim().length === 0) {
+    const asked = lastQuestion as string | null;
+    const question = asked ? asked.trim() : "";
+    text = question ? `${question}\n\n**Next:** ${options.length > 0 ? "pick one below, or say it your way." : "answer it, and I plan the rest."}` : summaryOfTurn(blocks, result.proposals);
+  }
+  // Signed out, a question or a feature offered still says first whose money it would be, and carries Connect.
+  if (sample && !blocks.some((b) => b.kind === "sample") && (result.stopReason === "clarify" || offered) && !/^\*\*Sample/u.test(text)) {
+    text = `${input.origin === "fold" ? SAMPLE_FOLD_LEAD : SAMPLE_LEAD} ${text}`;
+    emitBlock(emit, { kind: "sample", address: SAMPLE_OWNER, line: offered ? "No wallet is connected: this shows what would happen. Connect a wallet to do it for your own money." : "No wallet is connected: what you pick is planned as a dry run for a sample address. Connect a wallet to plan your own.", cta: "Connect a wallet" });
+  }
+  if (sample && text && !/^\*\*Sample/u.test(text) && touchesMoney(blocks, result.proposals, text, path === "model")) {
     const fold = input.origin === "fold";
     const lead = fold ? SAMPLE_FOLD_LEAD : SAMPLE_LEAD;
     // Nothing in an answer about the sample is "yours".

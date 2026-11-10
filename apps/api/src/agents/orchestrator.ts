@@ -25,8 +25,8 @@ import { planActions, preflightOf } from "./engine.js";
 import { textOf, toolCallsOf, type LlmClient, type LlmMessage } from "./llm.js";
 import { fixtureScope, readOnce, runTool, toolDefinitions, toolsFor, wrapUntrusted, type ActingAgent, type ToolContext } from "./tools.js";
 import { newGround } from "./grounding.js";
-import { allowedFigures, guardNumbers } from "./numberGuard.js";
-import { cleanProse, summaryFromBlocks } from "./prose.js";
+import { allowedFigures, guardNumbers, visibleGround } from "./numberGuard.js";
+import { cleanProse, roundPrices, summaryOfTurn } from "./prose.js";
 import { isSampleOwner } from "@lykia/core";
 import type { AnswerBlock } from "@lykia/core/api/answer";
 import { balanceCard, emitBlock, gasCard, positionsCard, rateCard, stepsFor } from "./cards.js";
@@ -290,8 +290,20 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
   const readOnly = input.origin === "fold";
   // Every block that reaches the owner this turn: the number guard checks the prose against them.
   const shownBlocks: AnswerBlock[] = [];
+  // Everything else the owner sees this turn: the last question with its options, work-step results, programs and drafts.
+  let asked: { question: string; options: string[] } | null = null;
+  const seenOther: unknown[] = [];
   const emit: Emit = (event, data) => {
     if (event === "block") shownBlocks.push(data as AnswerBlock);
+    if (event === "clarify") {
+      const c = data as { question?: string; options?: readonly string[] };
+      asked = { question: String(c.question ?? ""), options: [...(c.options ?? [])].map(String) };
+    }
+    if (event === "step") {
+      const st = data as { result?: string; detail?: string };
+      seenOther.push([st.result ?? "", st.detail ?? ""]);
+    }
+    if (event === "program" || event === "draft") seenOther.push(data);
     input.emit(event, data);
   };
   // The owner's own words (this message and the recent thread) ground every value a tool takes.
@@ -385,13 +397,16 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
     emit("text", { text });
     return { text, proposals: final, stopReason: "clarify", delegations, modelCalls };
   }
-  // The number guard: a figure with no source in this turn's tools, cards or the owner's words never reaches the owner.
+  // The number guard: a figure in the prose must be one the owner can see this turn (a card, a plan, an option) or
+  // wrote themselves. A figure a tool returned but no card shows is not enough: the owner could not check it.
   for (const b of tc.blocks ?? []) if (!shownBlocks.includes(b)) shownBlocks.push(b);
-  let guarded = guardNumbers(main.text, ground, shownBlocks);
+  const lastAsked = asked as { question: string; options: string[] } | null;
+  const seen = visibleGround(ground, { proposals: final, options: lastAsked?.options ?? [], other: seenOther });
+  let guarded = guardNumbers(roundPrices(main.text), seen, shownBlocks);
   if (guarded.removed.length > 0) {
     ctx.log.info("number guard rejected figures", { count: guarded.removed.length });
     // One retry: the model rewrites its answer with the figures it may use listed. No tools, so nothing new is read.
-    const allowed = allowedFigures(ground, shownBlocks);
+    const allowed = allowedFigures(seen, shownBlocks);
     const retry = await client
       .turn({
         system,
@@ -401,13 +416,17 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
       })
       .catch(() => null);
     modelCalls += 1;
-    const rewritten = retry ? guardNumbers(textOf(retry), ground, shownBlocks) : null;
+    const rewritten = retry ? guardNumbers(roundPrices(textOf(retry)), seen, shownBlocks) : null;
     // The rewrite is used when it is clean; otherwise the first answer stands with its offending sentences dropped.
     if (rewritten && rewritten.removed.length === 0 && rewritten.text.trim().length > 0) guarded = rewritten;
   }
   let prose = cleanProse(guarded.text, { sample });
-  // Nothing survived the checks: the answer is written by code from the cards.
-  if (prose.replace(/\*\*Next:?\*\*[^\n]*/giu, "").trim().length < 12) prose = main.text.trim().length > 0 || shownBlocks.length > 0 ? summaryFromBlocks(shownBlocks) : prose;
+  // A turn that ends in a question always says the question, in code's words, even when the model wrote nothing.
+  if (main.stop === "clarify" && lastAsked && lastAsked.question.trim().length > 0 && prose.replace(/\*\*Next:?\*\*[^\n]*/giu, "").trim().length < 12) {
+    prose = `${lastAsked.question.trim()}\n\n**Next:** ${lastAsked.options.length > 0 ? "pick one below, or say it your way." : "answer it, and I plan the rest."}`;
+  }
+  // Nothing survived the checks: the answer is written by code from what is on screen.
+  if (prose.replace(/\*\*Next:?\*\*[^\n]*/giu, "").trim().length < 12) prose = summaryOfTurn(shownBlocks, final);
   // Preflight leads: a block or a warning is said first, in code's own sentence, before anything about signing.
   const lead = preflightLead(final.flatMap((p) => p.preflight ?? []));
   const text = lead ? `${lead}\n\n${prose}`.trim() : prose;

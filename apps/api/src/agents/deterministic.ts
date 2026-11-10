@@ -11,7 +11,7 @@ import type { Address, ArcEnvironment, Fence, IntentGraph, PackAgent, PlanAction
 import { gasShortfall } from "@lykia/core/api/answer";
 import type { AgentProposal } from "@lykia/core/api/agents";
 import type { AppContext } from "../context.js";
-import { balanceCard, emitBlock, fenceCard, gasCard, hiddenLine, infoQuestion, materialPositions, positionsCard, quotedRate, rateCard, stepsFor, type InfoQuestion } from "./cards.js";
+import { balanceCard, emitBlock, fenceCard, gasCard, planFactsCard, hiddenLine, infoQuestion, materialPositions, positionsCard, quotedRate, rateCard, stepsFor, type InfoQuestion } from "./cards.js";
 import { foldPositions, foldSnapshot } from "../fold/sample.js";
 import { POSITION_STATE_LABELS, type PositionState } from "@lykia/core";
 import { readWithMemory } from "../personal/reader.js";
@@ -355,6 +355,8 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
   }
   // Cards: the Fence gate for a refusal or a confirmation, the rate tile for a conversion.
   for (const intent of intents) emitBlock(emit, fenceCard(intent, input.fence));
+  // What each plan costs and why its route won, on a card: the figures the answer quotes are on screen.
+  for (const intent of intents) emitBlock(emit, planFactsCard(intent));
   const fx = intents.filter((i) => i.verdict.decision !== "deny").map(quotedRate).find((q) => q !== null);
   if (fx) emitBlock(emit, await rateCard(input.ctx, fx.base, fx.quote, input.fence, fx.rate));
   const dry = input.fence.mode === "dry-run" || input.owner.toLowerCase() === SAMPLE;
