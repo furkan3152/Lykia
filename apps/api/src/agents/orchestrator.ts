@@ -324,13 +324,15 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
   const onExtra = async (name: string, raw: unknown): Promise<{ content: string; ok: boolean; summary: string; stop?: boolean }> => {
     const args = (raw ?? {}) as Record<string, unknown>;
     if (name === "ask_owner") {
-      // The model wrote this question and its options: they are not a source. Each figure in them must already be on
-      // screen or in the owner's words; a sentence or an option that states any other figure is left out.
+      // The model wrote this question and its options: they are not a source. A figure in the question must already be
+      // on screen or in the owner's words, or its sentence is left out.
       const visible = visibleGround(ground, { other: seenOther });
       const asked = String(args.question ?? "").slice(0, 300);
       const question = guardNumbers(roundPrices(asked), visible, shownBlocks).text.trim() || (/\b(how much|amount)\b/iu.test(asked) ? "How much should I use?" : "Could you say a little more about what you want?");
       const options = (Array.isArray(args.options) ? args.options.map(String) : [])
-        .filter((o) => guardNumbers(o, visible, shownBlocks).removed.length === 0)
+        // A round amount offered as a choice ("500") is a suggestion the owner picks; a precise figure ("All 187.28 USDC")
+        // claims a fact, so it must already be on screen.
+        .filter((o) => guardNumbers(o, visible, shownBlocks).removed.every((f) => /^[$€]?\d{1,3}(?:,\d{3})*(?:\s?[A-Za-z]+)?$|^[$€]?\d+(?:\s?[A-Za-z]+)?$/u.test(f.trim())))
         .slice(0, 4);
       emit("clarify", { question, options });
       return { content: wrapUntrusted({ asked: true }), ok: true, summary: "Asked the owner", stop: true };
