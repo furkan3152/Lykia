@@ -6,7 +6,7 @@
  * "stop everything" offers the Whistle); and a request missing something
  * essential gets one short question with options from the map.
  */
-import { betaCapExplain, LYKIA_TERMS, readStressQuestion, shockInputsFromPositions, stressAnswer, type AssistReading, type CapabilityMap } from "@lykia/core";
+import { LYKIA_TERMS, readStressQuestion, shockInputsFromPositions, stressAnswer, type AssistReading, type CapabilityMap } from "@lykia/core";
 import type { CapabilitySection } from "@lykia/core/api/answer";
 import type { DeterministicInput } from "./deterministic.js";
 import { emitBlock, stepsFor } from "./cards.js";
@@ -16,6 +16,13 @@ import type { TurnResult } from "./orchestrator.js";
 
 const SAMPLE = "0x000000000000000000000000000000000000dead";
 const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+/** A card line holds at most 200 characters: cut at the last whole sentence that fits, never mid-word. */
+function clip(text: string, max = 200): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  const stop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf(": "));
+  return stop > 60 ? cut.slice(0, stop + 1).replace(/:$/u, ".") : `${cut.slice(0, cut.lastIndexOf(" "))}…`;
+}
 
 function finish(input: DeterministicInput, text: string, options: readonly string[] = [], question?: string): TurnResult {
   if (options.length > 0) input.emit("clarify", { question: question ?? "Pick one, or say it your way:", options: [...options].slice(0, 4) });
@@ -38,8 +45,9 @@ export async function assistTurn(input: DeterministicInput, reading: AssistReadi
         kind: "capabilities",
         title: `What I can do on ${net}`,
         sections: [
-          { label: "Move money", items: map.actions.slice(0, 9).map((a) => ({ name: a.label, note: `${a.plain} Through ${a.venues.slice(0, 3).map((v) => v.name).join(", ")}${a.venues.length > 3 ? ` and ${a.venues.length - 3} more` : ""}.` })) },
-          { label: "Keep watch and stay safe", items: map.features.slice(0, 8).map((f) => ({ name: f.name, note: f.plain })) },
+          { label: "Move money", items: map.actions.slice(0, 9).map((a) => ({ name: a.label, note: clip(`${a.plain} Through ${a.venues.slice(0, 3).map((v) => v.name).join(", ")}${a.venues.length > 3 ? ` and ${a.venues.length - 3} more` : ""}.`) })) },
+          { label: "Keep watch and stay in control", items: map.features.slice(0, 11).map((f) => ({ name: f.name, note: clip(f.plain) })) },
+          { label: "What I do not do", items: map.knowledge.notBuilt.slice(0, 6).map((e) => ({ name: e.name, note: clip(e.plain) })) },
         ],
       });
       return finish(input, `I plan money moves on ${net}, check every step against your Fence (your spending rules), and you sign once.\n\n- **Moves:** ${map.actions.map((a) => a.label.toLowerCase()).join(", ")}\n- **Bridges:** USDC to ${new Set(map.bridges.filter((b) => b.id !== "gateway").flatMap((b) => b.destinations.map((d) => d.key))).size} chains\n- **On watch:** watches, alerts, orders, Leashes and the Whistle\n\n**Next:** pick one below, or say what you want your money to do.`, map.features.slice(0, 4).map((f) => f.say));
@@ -65,7 +73,10 @@ export async function assistTurn(input: DeterministicInput, reading: AssistReadi
       const t = LYKIA_TERMS[reading.term];
       steps.start("intent", "Reading your question").end("ok", `${t.word} · ${t.plain}`);
       const feature = map.features.find((f) => f.id === reading.term || (reading.term === "fence" && f.id === "fence-presets"));
-      const beta = reading.term === "fence" && map.environment === "mainnet" ? `\n- **On top of it:** ${betaCapExplain().sentence} ${betaCapExplain().why}` : "";
+      // The beta limit's figures are the deployment's own and ride on a card, like every other figure.
+      const cap = reading.term === "fence" ? map.knowledge.limits.find((e) => e.id === "beta-cap") : undefined;
+      const beta = cap ? `\n- **On top of it:** ${cap.name}, ${cap.value}, while Lykia is in beta` : "";
+      if (cap) emitBlock(input.emit, { kind: "facts", title: "Above every Fence", rows: [{ label: cap.name, value: cap.value ?? "", note: clip(cap.plain), from: { source: cap.source.slice(0, 80), readAt: new Date(input.ctx.clock.now()).toISOString(), block: null } }], note: null });
       if (feature) emitBlock(input.emit, { kind: "offer", feature: feature.id, title: `${t.word} · ${t.plain}`, line: t.line, href: feature.href, cta: `Open ${t.word}` });
       return finish(input, `${t.word} means ${t.plain}.\n\n- **What it does:** ${t.line}${beta}\n\n**Next:** ${feature ? `say “${feature.say}”` : "ask me to set one up"}.`, feature ? [feature.say] : []);
     }

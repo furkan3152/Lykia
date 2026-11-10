@@ -48,7 +48,7 @@ function shockHoldings(map: PositionsResponse): ShockHolding[] {
 
 export async function whatIfFor(ctx: AppContext, environment: ArcEnvironment, owner: Address, shocks: FoldShocks): Promise<FoldWhatIfResponse> {
   // The same position map the Fold bar and the Flock tab show, so "worth now" equals their net worth.
-  const [map, floor] = await Promise.all([foldPositions(ctx, environment, owner, { personal: false }), minHealth(ctx, owner)]);
+  const [map, floor] = await Promise.all([foldPositions(ctx, environment, owner, { personal: false, fixture: "fold" }), minHealth(ctx, owner)]);
   const health = healthFromPositions(map).map((h) => ({ venue: h.venue, healthFactor: h.healthFactor }));
   const result = applyFoldShocks(shockHoldings(map), health, shocks);
   return { owner: owner.toLowerCase() as Address, environment, shocks, result, sentence: describeShock(result, shocks, floor), from: { source: isSampleOwner(owner) ? "sample" : "Arc chain and venue APIs", readAt: isoOf(map.at), block: blockOf(map.block) } };
@@ -104,7 +104,7 @@ export async function explain(ctx: AppContext, environment: ArcEnvironment, owne
     };
   }
   // yield: from the position map; every rate is the venue's own, every total is core's (summarizePositions).
-  const map = await foldPositions(ctx, environment, owner, { personal: false });
+  const map = await foldPositions(ctx, environment, owner, { personal: false, fixture: "fold" });
   const sample = isSampleOwner(owner);
   const mapFrom: BlockSource = { source: sample ? "sample" : "Arc chain and venue APIs", readAt: isoOf(map.at), block: blockOf(map.block) };
   const all = map.venues.flatMap((v) => v.positions.filter((p) => p.counts === "net"));

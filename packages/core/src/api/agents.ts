@@ -13,7 +13,8 @@ export type { AnswerBlock, AnswerBlockKind, ChatStep, ChatStepKind, ChatStepStat
 
 /** Server-Sent Events of POST /v1/agent/chat, in the order they can appear. */
 export type ChatEvent =
-  | { readonly event: "thread"; readonly data: { readonly threadId: string; readonly mode: "llm" | "reader" } }
+  /** `sample`: no wallet is connected. `fixture`: the turn was answered from the Fold's sample flock and is not part of the Ask thread. */
+  | { readonly event: "thread"; readonly data: { readonly threadId: string; readonly mode: "llm" | "reader"; readonly sample?: boolean; readonly origin?: "fold"; readonly fixture?: boolean } }
   | { readonly event: "reading"; readonly data: { readonly what: string; readonly ok: boolean } }
   | { readonly event: "thinking-summary"; readonly data: { readonly agent: string; readonly text: string } }
   | { readonly event: "task"; readonly data: { readonly agent: string; readonly role: PackRole; readonly task: string } }
@@ -128,6 +129,10 @@ export interface ThreadMessage {
   readonly blocks?: readonly AnswerBlock[];
   /** Where it was written: Ask Lyko (default) or Lyko on watch in the Fold. Both share one thread. */
   readonly origin?: "ask" | "fold";
+  /** The choices an assistant message offered (its chips), so "the second one" can be resolved on the next turn. */
+  readonly options?: readonly string[];
+  /** For a short follow-up ("do it", "half of that"): the full request code resolved it to. */
+  readonly meant?: string;
   /** A hand-off between the two agents this message carries: who sent what to whom. */
   readonly instruction?: { readonly id: string; readonly from: AgentRole; readonly to: AgentRole; readonly kind: AgentInstructionKind; readonly label: string };
 }

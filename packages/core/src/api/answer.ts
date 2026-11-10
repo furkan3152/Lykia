@@ -119,7 +119,7 @@ export type AnswerBlock =
   /** A step that settled on chain. */
   | { readonly kind: "settled"; readonly summary: string; readonly tx: string }
   /** Where the owner's money is and what it is doing: the largest positions with their state, and the venues that could not be read. */
-  | { readonly kind: "positions"; readonly netUsd: string | null; readonly weightedApyPercent: string | null; readonly lowestHealth: string | null; readonly rows: readonly PositionsCardRow[]; readonly unavailable: readonly string[]; readonly yearlyYieldUsd?: string | null; readonly unpriced?: number; readonly from?: BlockSource }
+  | { readonly kind: "positions"; readonly netUsd: string | null; readonly weightedApyPercent: string | null; readonly lowestHealth: string | null; readonly rows: readonly PositionsCardRow[]; readonly unavailable: readonly string[]; readonly yearlyYieldUsd?: string | null; readonly unpriced?: number; /** Dust and unpriced lines folded out of the rows ("55 small or unpriced lines hidden"). */ readonly hidden?: number; /** The sum over priced positions, shown when some are unpriced. */ readonly pricedNetUsd?: string | null; readonly from?: BlockSource }
   /** What Lyko can do, from the capability map: titled sections of items with a plain note each. */
   | { readonly kind: "capabilities"; readonly title: string; readonly sections: readonly CapabilitySection[] }
   /** A feature Lyko offers for the owner's words: what it is, why it fits, where it lives. */
@@ -139,7 +139,23 @@ export type AnswerBlock =
   | { readonly kind: "agent-draft"; readonly name: string; readonly role: string; readonly dailyUsd: string; readonly mission: string | null; readonly environment: "mainnet" | "testnet" }
   /** Live yields for one token, best first, each with its risk and source (the answer to "where can I earn on EURC?"). */
   | { readonly kind: "yields"; readonly token: string; readonly rows: readonly YieldRow[]; readonly best: string | null; readonly from: BlockSource }
+  /** No wallet is connected: the answer is about a sample address, not the reader's money. Drawn first, with a Connect action. */
+  | { readonly kind: "sample"; readonly address: string; readonly line: string; readonly cta: string }
+  /** Things in motion that match what the owner named, each with the one control Herding offers for it. Nothing changes until the owner presses it. */
+  | { readonly kind: "running"; readonly title: string; readonly items: readonly RunningItem[]; readonly note: string | null }
   | { readonly kind: "order"; readonly summary: string; readonly environment: "mainnet" | "testnet"; readonly decision: "allow" | "confirm" | "deny"; readonly reasons: readonly string[]; readonly perExecution: { readonly fee: string; readonly swapped: string; readonly minOut: string; readonly symbolIn: string; readonly symbolOut: string }; readonly approval: string | null; readonly executions: number; readonly input: OrderBlockInput };
+
+/** One running thing on a card in Ask: the same row and the same control the Fold's Herding list shows. */
+export interface RunningItem {
+  readonly id: string;
+  readonly source: string;
+  readonly name: string;
+  readonly sourceLabel: string;
+  readonly status: string;
+  readonly nextLine: string | null;
+  /** The call Herding makes for this row (pause, resume, stop or cancel); null when it has no control. */
+  readonly control: { readonly action: "pause" | "resume" | "stop" | "cancel"; readonly label: string; readonly method: "get" | "post" | "delete"; readonly path: string; readonly query?: Readonly<Record<string, string>>; readonly body?: Readonly<Record<string, string>>; readonly sign?: "order-cancel" | "revoke-session" } | null;
+}
 
 export interface CapabilitySection {
   readonly label: string;
@@ -159,7 +175,7 @@ export interface PositionsCardRow {
 const POSITION_CARD_STATES = ["earning", "idle", "borrowing", "at-risk", "out-of-range", "pending", "escrowed", "committed", "watching"] as const;
 
 export type AnswerBlockKind = AnswerBlock["kind"];
-export const ANSWER_BLOCK_KINDS: readonly AnswerBlockKind[] = ["gas", "fence", "balance", "rate", "herded", "settled", "positions", "capabilities", "offer", "stress", "facts", "order"];
+export const ANSWER_BLOCK_KINDS: readonly AnswerBlockKind[] = ["gas", "fence", "balance", "rate", "herded", "settled", "positions", "capabilities", "offer", "stress", "facts", "order", "sample", "running"];
 
 const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/u;
 const ORDER_KINDS_ALLOWED = ["limit", "stop-loss", "take-profit", "dca", "twap"] as const;
@@ -300,8 +316,10 @@ export function parseAnswerBlock(raw: unknown): AnswerBlock | null {
       const from = parseBlockSource(o.from);
       const yearlyYieldUsd = nullable(o.yearlyYieldUsd, decimal);
       const unpriced = o.unpriced === undefined ? 0 : typeof o.unpriced === "number" && Number.isInteger(o.unpriced) && o.unpriced >= 0 && o.unpriced < 1000 ? o.unpriced : null;
-      if (rows.some((r) => r === null) || unavailable.some((u) => u === null) || from === undefined || yearlyYieldUsd === undefined || unpriced === null) return null;
-      return { kind: "positions", netUsd, weightedApyPercent, lowestHealth, rows: rows as PositionsCardRow[], unavailable: unavailable as string[], ...(yearlyYieldUsd !== null ? { yearlyYieldUsd } : {}), ...(unpriced > 0 ? { unpriced } : {}), ...(from ? { from } : {}) };
+      const hidden = o.hidden === undefined ? 0 : typeof o.hidden === "number" && Number.isInteger(o.hidden) && o.hidden >= 0 && o.hidden < 10_000 ? o.hidden : null;
+      const pricedNetUsd = nullable(o.pricedNetUsd, decimal);
+      if (rows.some((r) => r === null) || unavailable.some((u) => u === null) || from === undefined || yearlyYieldUsd === undefined || unpriced === null || hidden === null || pricedNetUsd === undefined) return null;
+      return { kind: "positions", netUsd, weightedApyPercent, lowestHealth, rows: rows as PositionsCardRow[], unavailable: unavailable as string[], ...(yearlyYieldUsd !== null ? { yearlyYieldUsd } : {}), ...(unpriced > 0 ? { unpriced } : {}), ...(hidden > 0 ? { hidden } : {}), ...(pricedNetUsd !== null ? { pricedNetUsd } : {}), ...(from ? { from } : {}) };
     }
     case "capabilities": {
       const title = str(o.title, 120);
@@ -432,6 +450,53 @@ export function parseAnswerBlock(raw: unknown): AnswerBlock | null {
       });
       if (rows.some((r) => r === null)) return null;
       return { kind: "yields", token, rows: rows as YieldRow[], best, from };
+    }
+    case "sample": {
+      const address = typeof o.address === "string" && /^0x[0-9a-fA-F]{40}$/u.test(o.address) ? o.address : null;
+      const line = str(o.line, 300);
+      const cta = str(o.cta, 40);
+      return address && line && cta ? { kind: "sample", address, line, cta } : null;
+    }
+    case "running": {
+      const title = str(o.title, 160);
+      const note = nullable(o.note, (x) => str(x, 300));
+      if (!title || note === undefined || !Array.isArray(o.items) || o.items.length === 0 || o.items.length > 6) return null;
+      const items = o.items.map((raw): RunningItem | null => {
+        const r = obj(raw);
+        if (!r) return null;
+        const id = str(r.id, 160);
+        const source = str(r.source, 40);
+        const name = str(r.name, 240);
+        const sourceLabel = str(r.sourceLabel, 60);
+        const status = str(r.status, 24);
+        const nextLine = nullable(r.nextLine, (x) => str(x, 300));
+        if (!id || !source || !name || !sourceLabel || !status || nextLine === undefined) return null;
+        const c = r.control === null || r.control === undefined ? null : obj(r.control);
+        if (r.control !== null && r.control !== undefined && !c) return null;
+        let control: RunningItem["control"] = null;
+        if (c) {
+          const action = (["pause", "resume", "stop", "cancel"] as const).find((a) => a === c.action);
+          const method = (["get", "post", "delete"] as const).find((m) => m === c.method);
+          const label = str(c.label, 24);
+          // Only Lykia's own API paths: a card can never point a control anywhere else.
+          const path = typeof c.path === "string" && /^\/v1\/[A-Za-z0-9/_%.:-]{1,200}$/u.test(c.path) && !c.path.includes("..") ? c.path : null;
+          const pairs = (v: unknown): Record<string, string> | null | undefined => {
+            if (v === null || v === undefined) return null;
+            const m = obj(v);
+            if (!m) return undefined;
+            const entries = Object.entries(m);
+            return entries.length <= 6 && entries.every(([k, x]) => k.length <= 40 && typeof x === "string" && x.length <= 120) ? (m as Record<string, string>) : undefined;
+          };
+          const query = pairs(c.query);
+          const body = pairs(c.body);
+          const sign = c.sign === undefined || c.sign === null ? null : c.sign === "order-cancel" || c.sign === "revoke-session" ? c.sign : undefined;
+          if (!action || !method || !label || !path || query === undefined || body === undefined || sign === undefined) return null;
+          control = { action, label, method, path, ...(query ? { query } : {}), ...(body ? { body } : {}), ...(sign ? { sign } : {}) };
+        }
+        return { id, source, name, sourceLabel, status, nextLine, control };
+      });
+      if (items.some((i) => i === null)) return null;
+      return { kind: "running", title, items: items as RunningItem[], note };
     }
     case "settled": {
       const summary = str(o.summary, 200);

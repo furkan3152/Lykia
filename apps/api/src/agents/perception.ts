@@ -4,7 +4,7 @@
  * Pack roster. It rides in the user turn (the system prompt stays stable
  * for caching). Reads that fail are reported, never invented.
  */
-import type { Address, ArcEnvironment, Fence, PackAgent } from "@lykia/core";
+import { isSampleOwner, type Address, type ArcEnvironment, type Fence, type PackAgent } from "@lykia/core";
 import type { FlockSnapshot } from "@lykia/core/api/flock";
 import type { AppContext } from "../context.js";
 import { services } from "../services.js";
@@ -19,7 +19,8 @@ export interface Perception {
 }
 
 export async function perceive(ctx: AppContext, input: { environment: ArcEnvironment; owner: Address | null; fence: Fence; pack: readonly PackAgent[]; emit?: Emit; personal?: boolean }): Promise<Perception> {
-  const parts = [`network=Arc ${input.environment} (chain ${input.environment === "mainnet" ? 5042 : 5042002})`, `owner=${input.owner ?? "not connected"}`, `fence=${input.fence.label ?? "custom"} mode=${input.fence.mode ?? "live"}`];
+  const sample = isSampleOwner(input.owner);
+  const parts = [`network=Arc ${input.environment} (chain ${input.environment === "mainnet" ? 5042 : 5042002})`, sample ? `owner=sample (no wallet connected; reads below are of the sample address ${input.owner}, not the reader's money; plans are dry runs)` : `owner=${input.owner ?? "not connected"}`, sample ? `fence=${input.fence.label ?? "custom"} (the default rules)` : `fence=${input.fence.label ?? "custom"}${input.fence.mode && input.fence.mode !== "live" ? ` (${input.fence.mode === "whistle" ? "the Whistle is blown: only money coming home passes" : "plans are built and checked but cannot be signed"})` : ""}`];
   let flock: FlockSnapshot | null = null;
   if (input.owner) {
     const reading = input.emit ? stepsFor(input.emit).start("wallet", "Reading the wallet") : null;

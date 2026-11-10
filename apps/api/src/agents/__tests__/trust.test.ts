@@ -142,21 +142,22 @@ describe("grounded arguments and binding routes", () => {
 });
 
 describe("the number guard on prose", () => {
-  it("strips invented totals and blended rates, keeps real figures, and points at the card", () => {
+  it("drops the sentences that carry invented totals and blended rates, and keeps the sourced ones whole", () => {
     const ground = newGround("where is my money?");
     recordToolData(ground, { gateway: { unifiedUsdc: "19.4987" }, positions: [{ valueUsd: "4200.00", apy: "6.10" }] });
     const blocks: AnswerBlock[] = [{ kind: "positions", netUsd: "15470.41", weightedApyPercent: "4.05", lowestHealth: "1.38", rows: [], unavailable: [], yearlyYieldUsd: "330.61" }];
-    const text = "About 206.76 USDC more sits in Gateway, 19.50 USDC is there now, the vault earns 6.10% on $4,200, the blend is 5.2% and net worth is $15,470.41 with 4.05% weighted and about $412 a year.";
+    const text = "About 206.76 USDC more sits in Gateway. 19.50 USDC is there now. The vault earns 6.10% on $4,200. The blend is 5.2%. Net worth is $15,470.41 with 4.05% weighted. That is about $412 a year.";
     const out = guardNumbers(text, ground, blocks);
     assert.deepEqual(out.removed, ["About 206.76 USDC", "5.2%", "about $412"]);
-    assert.match(out.text, /^an amount \(see the card\) more sits in Gateway/u);
-    for (const kept of ["19.50 USDC", "6.10%", "$4,200", "$15,470.41", "4.05%"]) assert.ok(out.text.includes(kept), kept);
-    assert.match(out.text, /the blend is a rate \(see the card\)/u);
+    assert.equal(out.text, "19.50 USDC is there now. The vault earns 6.10% on $4,200. Net worth is $15,470.41 with 4.05% weighted.");
+    // One sentence that mixes sourced and invented figures goes whole: a figure is never cut out of a sentence.
+    assert.equal(guardNumbers("19.50 USDC is there now and the blend is 5.2%.", ground, blocks).text, "");
   });
 
-  it("without a card the figure is called unavailable, and counts, steps and years pass", () => {
-    const out = guardNumbers("Ready to sign: 2 steps in 2026, compared 3 venues, worth $9,999.", newGround("hi"), []);
-    assert.equal(out.text, "Ready to sign: 2 steps in 2026, compared 3 venues, worth an amount that is unavailable right now.");
+  it("counts, steps and years pass; a sentence with an unsourced figure is dropped, never patched", () => {
+    const out = guardNumbers("Ready to sign: 2 steps in 2026, compared 3 venues. It is worth $9,999.", newGround("hi"), []);
+    assert.equal(out.text, "Ready to sign: 2 steps in 2026, compared 3 venues.");
+    assert.deepEqual(out.removed, ["$9,999"]);
   });
 
   it("the blended APY and the yearly estimate come from code on the card, not from prose", () => {
@@ -224,13 +225,13 @@ describe("Lyko on watch: read-only and sourced", () => {
     assert.ok(facts.rows.every((r) => r.from.block === null), "the sample carries no block number");
   });
 
-  it("a move asked of Lyko on watch is pointed to Ask Lyko, never planned", async () => {
+  it("a move written in the Fold is planned and judged like any other, and the owner is never sent to Ask Lyko", async () => {
     setLlmClient(ctx, null);
     const token = issueToken(ctx, OWNER).token;
     const res = await fetch(`${served.url}/v1/agent/chat`, { method: "POST", headers: { "content-type": "application/json", Accept: "application/json", "Lykia-Session": token }, body: JSON.stringify({ message: "send 20 USDC to 0x1111111111111111111111111111111111111111", owner: OWNER, environment: "mainnet", origin: "fold" }) });
     const body = (await res.json()) as { reply: string; proposals: unknown[] };
-    assert.equal(body.proposals.length, 0);
-    assert.match(body.reply, /only reads/u);
+    assert.equal(body.proposals.length, 1, "the plan and the Fence's verdict are in the same thread");
+    assert.doesNotMatch(body.reply, /only reads|Ask Lyko/u);
   });
 
   it("chip answers carry where and when each line was read; the stress test totals equal the position map's net", async () => {

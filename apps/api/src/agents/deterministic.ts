@@ -11,7 +11,7 @@ import type { Address, ArcEnvironment, Fence, IntentGraph, PackAgent, PlanAction
 import { gasShortfall } from "@lykia/core/api/answer";
 import type { AgentProposal } from "@lykia/core/api/agents";
 import type { AppContext } from "../context.js";
-import { balanceCard, emitBlock, fenceCard, gasCard, infoQuestion, positionsCard, quotedRate, rateCard, stepsFor, type InfoQuestion } from "./cards.js";
+import { balanceCard, emitBlock, fenceCard, gasCard, hiddenLine, infoQuestion, materialPositions, positionsCard, quotedRate, rateCard, stepsFor, type InfoQuestion } from "./cards.js";
 import { foldPositions, foldSnapshot } from "../fold/sample.js";
 import { POSITION_STATE_LABELS, type PositionState } from "@lykia/core";
 import { readWithMemory } from "../personal/reader.js";
@@ -19,6 +19,7 @@ import { isGoalLanguage } from "../compiler/lexicon.js";
 import { compileIntent } from "../compiler/service.js";
 import { deliver } from "../compiler/deliver.js";
 import { planActions, preflightOf } from "./engine.js";
+import { services } from "../services.js";
 import { createWatch } from "./instructions.js";
 import { preflightLead, readAssist, readWatchRequest } from "@lykia/core";
 import { capabilityMap } from "../capabilities/map.js";
@@ -143,7 +144,7 @@ const amt = (v: string) => (Number(v) >= 1 ? Number(v).toLocaleString("en-US", {
 const usd = (v: string) => `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** Questions about gas, balances or the EURC rate: read the data, answer with a verdict and a card. */
-async function infoTurn(input: DeterministicInput, question: InfoQuestion): Promise<TurnResult> {
+export async function infoTurn(input: DeterministicInput, question: InfoQuestion): Promise<TurnResult> {
   const { emit } = input;
   const steps = stepsFor(emit);
   const done = (text: string) => {
@@ -154,24 +155,30 @@ async function infoTurn(input: DeterministicInput, question: InfoQuestion): Prom
   if (question.kind === "positions") {
     if (!input.owner) return done("Connect a wallet so I can read where its money is.");
     const reading = steps.start("wallet", "Reading every venue");
-    const res = await foldPositions(input.ctx, input.environment, input.owner, { personal: input.ownerVerified === true, fixture: false }).catch(() => null);
+    const res = await foldPositions(input.ctx, input.environment, input.owner, { personal: input.ownerVerified === true, fixture: "chain" }).catch(() => null);
     if (!res) {
       reading.end("fail", "The venues could not be read");
       return done("I couldn't read your positions just now.\n\n**Next:** try again in a moment.");
     }
-    const all = res.venues.flatMap((v) => v.positions);
-    reading.end(res.summary.unavailable.length > 0 ? "warn" : "ok", `${plural(all.length, "position")} in ${plural(res.venues.filter((v) => v.positions.length > 0).length, "venue")}`, res.summary.unavailable.length > 0 ? `Not read: ${res.summary.unavailable.join(", ")}.` : undefined);
-    emitBlock(emit, positionsCard(res));
-    if (all.length === 0) return done(`Nothing is deployed on Arc ${input.environment} for this address${res.summary.unavailable.length > 0 ? `, though ${res.summary.unavailable.join(", ")} could not be read` : ""}.\n\n**Next:** fund it with USDC, or say “put 100 USDC to work”.`);
+    // Dust and unpriced lines are counted in one line, never presented as positions.
+    const material = materialPositions(res);
+    const all = material.shown;
+    const folded = hiddenLine(material.hidden);
+    const whoseMoney = input.owner.toLowerCase() === SAMPLE ? "The sample address's money" : "Your money";
+    reading.end(res.summary.unavailable.length > 0 ? "warn" : "ok", `${plural(all.length, "position")} in ${plural(res.venues.filter((v) => v.positions.some((p) => all.includes(p))).length, "venue")}`, res.summary.unavailable.length > 0 ? `Not read: ${res.summary.unavailable.join(", ")}.` : undefined);
+    const card = emitBlock(emit, positionsCard(res));
+    // The largest lines, copied from the card: every figure in the answer is one the card shows.
+    const largest = card && card.kind === "positions" ? card.rows.filter((r) => r.valueUsd !== null).slice(0, 2) : [];
+    if (all.length === 0) return done(`Nothing of value is on Arc ${input.environment} for this address${res.summary.unavailable.length > 0 ? `, though ${res.summary.unavailable.join(", ")} could not be read` : ""}.${folded ? `\n\n- **Folded away:** ${folded}` : ""}\n\n**Next:** ${input.owner.toLowerCase() === SAMPLE ? "connect a wallet to see your own money." : "fund it with USDC, or say “put 100 USDC to work”."}`);
     const risky = all.filter((p) => p.state === "at-risk" || p.state === "out-of-range");
-    const states = (Object.entries(res.summary.byState) as [PositionState, string][]).filter(([, v]) => Number(v) > 0).sort((a, b) => Number(b[1]) - Number(a[1]));
-    const lead = risky.length > 0 ? `${plural(risky.length, "position")} want${risky.length === 1 ? "s" : ""} attention: ${risky[0]!.doing.charAt(0).toLowerCase()}${risky[0]!.doing.slice(1)}.` : res.summary.netUsd !== null ? `Your money on Arc is worth ${usd(res.summary.netUsd)}, spread over ${plural(all.length, "position")}.` : `You have ${plural(all.length, "position")} on Arc; some are unpriced.`;
+    const lead = risky.length > 0 ? `${plural(risky.length, "position")} want${risky.length === 1 ? "s" : ""} attention: ${risky[0]!.doing.charAt(0).toLowerCase()}${risky[0]!.doing.slice(1)}.` : res.summary.netUsd !== null ? `${whoseMoney} on Arc is worth ${usd(res.summary.netUsd)}, spread over ${plural(all.length, "position")}.` : `${whoseMoney} on Arc is worth ${usd(res.summary.pricedNetUsd)} at the prices that could be read, over ${plural(all.length, "position")}.`;
     const facts = [
-      `- **By state:** ${states.slice(0, 4).map(([k, v]) => `${POSITION_STATE_LABELS[k].toLowerCase()} ${usd(v)}`).join(", ")}`,
+      ...(largest.length > 0 ? [`- **Largest:** ${largest.map((r) => `${r.label} ${Number(r.valueUsd) < 0 ? "−" : ""}${usd(String(Math.abs(Number(r.valueUsd))))} (${POSITION_STATE_LABELS[r.state as PositionState]?.toLowerCase() ?? r.state})`).join(", ")}`] : []),
       ...(res.summary.weightedApyPercent !== null ? [`- **Earning:** ${res.summary.weightedApyPercent}% weighted${res.summary.yearlyYieldUsd !== null ? `, about ${usd(res.summary.yearlyYieldUsd)} a year net of borrowing` : ""}`] : []),
-      ...(res.summary.lowestHealth ? [`- **Lowest health:** ${Number(res.summary.lowestHealth.factor).toFixed(2)} on ${res.summary.lowestHealth.label}`] : res.summary.unavailable.length > 0 ? [`- **Not read:** ${res.summary.unavailable.join(", ")}`] : []),
+      ...(res.summary.lowestHealth ? [`- **Lowest health:** ${Number(res.summary.lowestHealth.factor).toFixed(2)} on ${res.summary.lowestHealth.label}`] : res.summary.unavailable.length > 0 ? [`- **Not read:** ${res.summary.unavailable.join(", ")}`] : folded ? [`- **Folded away:** ${folded}`] : []),
     ].slice(0, 3);
-    const next = risky[0]?.actions[0] ? `say “${risky[0].actions[0].sentence}”` : "open The Fold to see each position";
+    const underFloor = risky.some((p) => p.state === "at-risk");
+    const next = underFloor ? "say “fix my loan health” and I compute the repay that lifts it" : risky[0]?.actions[0] ? `say “${risky[0].actions[0].sentence}”` : "say what the money should do, or open the Fold for each position";
     return done(`${lead}\n\n${facts.join("\n")}\n\n**Next:** ${next}.`);
   }
   if (question.kind === "rate") {
@@ -189,7 +196,7 @@ async function infoTurn(input: DeterministicInput, question: InfoQuestion): Prom
   if (!input.owner) return done("Connect a wallet so I can read it.");
   const sample = input.owner.toLowerCase() === SAMPLE;
   const reading = steps.start("wallet", "Reading the wallet");
-  const snap = await foldSnapshot(input.ctx, input.environment, input.owner, { fixture: false }).catch(() => null);
+  const snap = await foldSnapshot(input.ctx, input.environment, input.owner, { fixture: "chain" }).catch(() => null);
   if (!snap) {
     reading.end("fail", "The wallet could not be read");
     return done("I couldn't read the wallet just now.\n\n**Next:** try again in a moment.");
@@ -238,6 +245,25 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
     return { text, proposals, stopReason, delegations: 0, modelCalls: 0 };
   };
   const choices = (parsed.clarifyChoices?.[0]?.choices ?? []).slice(0, 4).map(String);
+  const standing = parsed.standing ?? [];
+  if (standing.length > 0 && parsed.clarify.length === 0 && parsed.actions.length === 0) {
+    const draft = standing[0]!;
+    reading.end("ok", "Something to repeat", draft.text);
+    const real = input.owner && input.owner.toLowerCase() !== SAMPLE ? input.owner : null;
+    if (!real || input.ownerVerified !== true) {
+      emitBlock(emit, { kind: "herded", items: [{ kind: "automation", label: draft.text.slice(0, 160), saved: false, href: "/app/fold/herding?show=automations", next: real ? "Sign in to save it" : "Connect a wallet to save it" }] });
+      return done(`I read that as something to repeat, but nothing is saved yet: ${real ? "this chat has not proven the wallet is yours" : "no wallet is connected"}.\n\n- **What:** ${draft.text}\n- **Each time it fires:** I plan it under your Fence and you sign it\n\n**Next:** ${real ? "sign in with your wallet (one message, no transaction) and say it again." : "connect a wallet and say it again."}`, []);
+    }
+    const saving = steps.start("draft", "Saving it to Herding");
+    const made = await services(input.ctx).standing.create({ owner: real, environment: input.environment, draft }).catch((error: unknown) => (error instanceof Error ? error : new Error("It could not be saved.")));
+    if (made instanceof Error) {
+      saving.end("fail", "Not saved", made.message);
+      return done(`I couldn't save that: ${made.message}\n\n**Next:** change it and say it again.`, []);
+    }
+    saving.end("ok", "Saved", draft.text);
+    emitBlock(emit, { kind: "herded", items: [{ kind: "automation", label: draft.text.slice(0, 160), saved: true, href: "/app/fold/herding?show=automations", next: "Each time it fires I plan it and you sign it" }] });
+    return done(`Saved: it now runs from Herding in the Fold.\n\n- **What:** ${draft.text}\n- **Each time it fires:** I plan it under your Fence and you sign it; nothing moves on its own\n\n**Next:** nothing to sign now; pause or stop it by name here, or in the Fold.`, []);
+  }
   if (parsed.command || parsed.easterEgg || parsed.actions.length === 0) {
     reading.end(parsed.clarify.length > 0 ? "warn" : "ok", parsed.command ? "A sheepdog command" : parsed.easterEgg ? "A hidden word" : parsed.clarify.length > 0 ? "Needs one detail" : "Nothing to plan");
     if (parsed.clarify.length > 0) emit("clarify", { question: parsed.clarify[0], options: choices });
@@ -305,7 +331,8 @@ export async function runDeterministicTurn(input: DeterministicInput): Promise<T
       reasons: intent.verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message),
       warnings: intent.warnings, ...preflightOf(intent),
       attribution: [{ agent: specialist.name, role: specialist.role, part }],
-      rationale: "",
+      // Why this venue, from the route's own comparison: it travels with the plan, so its figures have a home.
+      rationale: intent.steps.map((st) => st.route?.reason).filter((r): r is string => Boolean(r)).join(" ").slice(0, 600),
     };
     proposals.push(proposal);
     planned.push({ actions: group.actions, proposal });

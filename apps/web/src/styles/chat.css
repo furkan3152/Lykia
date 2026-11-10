@@ -615,3 +615,40 @@ html:not([data-night="on"]) .m-chat { --ink-3: #586577; }
   .m-ask-hero .m-sub { margin-top: var(--sp-2); color: #586577; }
   .m-convo__col:has(> .m-ask-empty) { min-height: 100%; }
 }
+
+/* No wallet connected: the sample card. Said first, in ochre hatching (the mark of every sample figure), with Connect on it. */
+.m-sample { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2) var(--sp-3); margin: 0 0 10px; padding: 0 12px 12px; background: #fffaf0; box-shadow: inset 0 0 0 2px var(--ochre), 3px 3px 0 var(--grout); animation: m-card-in 360ms steps(5, end) both; }
+.m-sample__band { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: var(--sp-1); margin: 0 -12px; padding: 2px; background: var(--grout); }
+.m-sample__band i { height: 8px; background: repeating-linear-gradient(45deg, var(--ochre) 0 2px, #fbf5e6 2px 4px); animation: m-lay 280ms steps(3, end) both; animation-delay: calc(var(--i) * 30ms); }
+.m-sample__band i:nth-child(3n) { background: repeating-linear-gradient(-45deg, var(--ochre) 0 2px, #fbf5e6 2px 4px); }
+.m-sample__body { display: grid; gap: var(--sp-1); min-width: 0; }
+.m-sample__k { font-family: Silkscreen, monospace; font-size: 10px; letter-spacing: 0.08em; color: var(--navy); }
+.m-sample__line { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--ink); }
+.m-sample__addr { justify-self: start; padding: 1px 6px; font-size: 11.5px; color: var(--ink-2); background: #f4ecd8; box-shadow: inset 0 -2px 0 #e6dbc0; }
+.m-sample__cta { display: inline-flex; align-items: center; gap: var(--sp-2); white-space: nowrap; cursor: pointer; }
+.m-sample__done { font-size: 12.5px; color: var(--ink-2); }
+.m-fig__tag { margin-left: 8px; font-family: Silkscreen, monospace; font-size: 9px; letter-spacing: 0.1em; color: var(--ink-3); vertical-align: middle; }
+
+/* Something running, found by name in Ask: the row Herding shows, with its one control. */
+.m-run__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-1); background: var(--grout); box-shadow: 0 0 0 2px var(--grout); }
+.m-run__row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2); padding: 9px 10px; background: #f8f2e3; animation: m-lay 320ms steps(4, end) both; }
+.m-run__row:nth-child(2) { animation-delay: 60ms; }
+.m-run__row:nth-child(3) { animation-delay: 120ms; }
+.m-run__row:nth-child(n + 4) { animation-delay: 180ms; }
+.m-run__row[data-status="paused"] { background: repeating-linear-gradient(90deg, #f4ecd8 0 10px, #efe5cd 10px 11px); }
+.m-run__row[data-done] { background: #eef3e4; }
+.m-run__icon { display: grid; place-items: center; width: 26px; height: 26px; background: #fffaf0; box-shadow: inset 0 0 0 2px var(--navy); }
+.m-run__text { display: grid; gap: var(--sp-1); min-width: 0; }
+.m-run__text b { font-weight: 700; color: var(--navy); overflow-wrap: anywhere; }
+.m-run__k { font-family: Silkscreen, monospace; font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.m-run__next { font-size: 12.5px; color: var(--ink-2); }
+.m-run__done { font-family: Silkscreen, monospace; font-size: 10px; letter-spacing: 0.06em; color: var(--ok, #3f7f45); }
+@media (max-width: 640px) {
+  .m-sample { grid-template-columns: minmax(0, 1fr); }
+  .m-sample__cta { justify-self: start; }
+  .m-run__row { grid-template-columns: 26px minmax(0, 1fr); }
+  .m-run__row > .m-mini, .m-run__row > .m-run__done { grid-column: 2; justify-self: start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .m-sample, .m-sample__band i, .m-run__row { animation: none; }
+}

@@ -19,6 +19,8 @@ import type { StepKind } from "./intent.js";
 import type { PackRole } from "./pack.js";
 import type { AutopilotTaskInput } from "./autopilot.js";
 import { PREFLIGHT_CHECKS } from "./preflight/index.js";
+import { buildSelfKnowledge, selfKnowledgeSummary, type CanTarget, type SelfKnowledge } from "./selfKnowledge.js";
+import type { BetaCap } from "./plain.js";
 
 export const CAPABILITIES_SCHEMA = "lykia.capabilities/v1" as const;
 
@@ -80,7 +82,10 @@ export interface CapabilityMap {
   readonly features: readonly CapabilityFeature[];
   /** What Lyko checks before anything is signed (preflight), and warns about with fixes computed by code. */
   readonly checks: readonly { readonly id: string; readonly name: string; readonly plain: string }[];
+  /** Protocols, not actions: how many Lykia routes through, how many more through another venue's adapter, and how many the registry maps on Arc. */
   readonly coverage: { readonly routable: number; readonly routableVia: number; readonly mapped: number };
+  /** What Lykia knows about itself: limits, fees, plain meanings, what is off or not built, risks and what it cannot know. */
+  readonly knowledge: SelfKnowledge;
 }
 
 export interface CapabilityInputs {
@@ -91,6 +96,12 @@ export interface CapabilityInputs {
   readonly gatewayChains: readonly { readonly key: string; readonly name: string }[];
   /** Routable adapter manifests: their protocol id and the step kinds they add. */
   readonly manifests?: readonly { readonly protocol: string; readonly name: string; readonly verbs: readonly StepKind[] }[];
+  /** Lykia's fee in basis points on this deployment (defaults to the code's base fee). */
+  readonly feeBps?: number;
+  /** The mainnet beta cap of this deployment; null when switched off. */
+  readonly beta?: BetaCap | null;
+  /** Feature flags of this deployment, so the map can say what is off. */
+  readonly flags?: Readonly<Record<string, boolean>>;
 }
 
 /** The plan actions, their step kinds and how to say them. Venues are filled from the registry. */
@@ -167,7 +178,37 @@ export function buildCapabilityMap(input: CapabilityInputs): CapabilityMap {
     .map((t) => ({ symbol: t.symbol, name: t.name, can: t.symbol === "USYC" ? [] : can(t.symbol), bridgeTo: t.symbol === "USDC" ? bridgeTo : [] }));
 
   const cov = registryCoverage(environment, executable);
-  return { schema: CAPABILITIES_SCHEMA, environment, actions, bridges, tokens, features: FEATURES, checks: PREFLIGHT_CHECKS.map((c) => ({ id: c.id, name: c.name, plain: c.plain })), coverage: { routable: cov.routable, routableVia: cov.routableVia, mapped: cov.protocols } };
+  return { schema: CAPABILITIES_SCHEMA, environment, actions, bridges, tokens, features: FEATURES, checks: PREFLIGHT_CHECKS.map((c) => ({ id: c.id, name: c.name, plain: c.plain })), coverage: { routable: cov.routable, routableVia: cov.routableVia, mapped: cov.protocols }, knowledge: buildSelfKnowledge({ environment, ...(input.feeBps !== undefined ? { feeBps: input.feeBps } : {}), ...(input.beta !== undefined ? { beta: input.beta } : {}), ...(input.flags ? { flags: input.flags } : {}) }) };
+}
+
+/** What "can you X" may match with a yes: every action and feature of the map, with the words that name it. */
+export function canTargets(map: CapabilityMap): CanTarget[] {
+  const words: Readonly<Record<string, readonly string[]>> = {
+    send: ["send\\w*", "pay\\w*", "transfer\\w*", "payments?"],
+    convert: ["convert\\w*", "fx", "exchange", "eurc"],
+    swap: ["swap\\w*", "trade", "trading", "buy", "sell"],
+    earn: ["earn\\w*", "yield", "lend\\w*", "deposit\\w*", "invest\\w*", "sav(?:e|ing)\\w*", "interest", "vaults?", "stak\\w+"],
+    withdraw: ["withdraw\\w*", "take (?:it|money) out", "redeem\\w*"],
+    borrow: ["borrow\\w*", "loans?", "credit"],
+    repay: ["repay\\w*", "pay back", "pay off"],
+    bridge: ["bridg\\w+", "cross.?chain", "another chain", "other chains?"],
+    unify: ["gateway", "unified balance"],
+    "fence-presets": ["fence", "rules", "limits"],
+    "stress-test": ["stress test", "what.?if", "scenario"],
+    leash: ["leash(?:es)?", "bot", "agent budget"],
+    autopilot: ["autopilot", "automatic\\w*", "auto.?repay", "auto.?pilot"],
+    watch: ["watch\\w*", "monitor\\w*", "keep an eye", "notify", "alert\\w*", "tell me (?:if|when)"],
+    "staged-plans": ["several steps", "multi.?step", "step by step"],
+    whistle: ["whistle", "stop everything", "emergency stop", "kill switch"],
+    orders: ["orders?", "limit orders?", "stop.?loss", "take.?profit", "dca", "twap", "recurring buy"],
+    alerts: ["telegram", "webhooks?"],
+    automations: ["automat\\w+", "schedule\\w*", "recurring", "every (?:day|week|month|friday|monday)"],
+    payouts: ["payouts?", "invoices?", "payroll", "pay (?:my )?team", "pay several"],
+  };
+  return [
+    ...map.actions.map((a) => ({ name: a.label, plain: a.plain, say: a.say, venues: a.venues.length, words: words[a.id] ?? [a.id] })),
+    ...map.features.map((f) => ({ name: f.name, plain: f.plain, say: f.say, venues: 0, words: words[f.id] ?? [f.id] })),
+  ];
 }
 
 /** Every venue the map routes through (for the test that keeps it complete). */
@@ -188,7 +229,9 @@ export function capabilitySummary(map: CapabilityMap): string {
     ...map.bridges.map((b) => `- Bridge ${b.name}: ${b.destinations.map((d) => d.name).join(", ")}. ${b.when}`),
     `- Features: ${map.features.map((f) => `${f.name} (${f.when})`).join("; ")}`,
     `- Before anything is signed, code checks: ${map.checks.map((c) => c.name).join(", ")}. A plan carries its findings (preflight); when one blocks or warns, lead with it in one sentence and offer its fixes, never the sign button first.`,
+    `- Coverage counts protocols, never actions: ${map.actions.length} actions, through ${map.coverage.routable} protocols (plus ${map.coverage.routableVia} reached through another venue), out of ${map.coverage.mapped} protocols mapped on Arc.`,
     "Proactive: when the owner's words match a feature, offer it or start it instead of explaining it. When an essential detail is missing (destination chain, amount, which position), ask one short question with ask_owner and 2 to 4 options taken from this map; never guess.",
+    selfKnowledgeSummary(map.knowledge),
   ];
   return lines.join("\n");
 }
@@ -261,7 +304,10 @@ export function readAssist(text: string, map: CapabilityMap): AssistReading | nu
       const m = t.match(/\b(btc|eth|sol|bitcoin|ether)\b/u)?.[1] ?? null;
       return { kind: "markets", market: m ? ({ bitcoin: "BTC", ether: "ETH" } as Record<string, string>)[m] ?? m.toUpperCase() : null };
     }
-    if (/\b(earn|yield|yields|apy|rates?|interest|pastures?)\b/u.test(t) && /\b(where|which|best|show|what|list|rates?)\b/u.test(t) && !AMOUNT.test(t)) {
+    // "What is APY?" asks for a meaning, and "the EURC rate" for a conversion rate: neither is a list of yields.
+    const meaning = /^(?:what(?:'s| is| does)|explain)\s+(?:an? |the )?(?:apy|apr|yield|interest)(?:\s+mean)?\??$/u.test(t);
+    const conversion = /\b(?:eurc|euro|eur|fx|exchange|conversion)\b/u.test(t) && !/\b(?:earn|yield|yields|apy|interest|lend|vaults?|savings?|pastures?)\b/u.test(t);
+    if (!meaning && !conversion && /\b(earn|yield|yields|apy|rates?|interest|pastures?)\b/u.test(t) && /\b(where|which|best|show|what|list|rates?)\b/u.test(t) && !AMOUNT.test(t)) {
       return { kind: "yields", token: /\beurc\b/u.test(t) ? "EURC" : "USDC" };
     }
     if (/\bnew (pools?|tokens?|launch(es)?)\b|\blaunchpads?\b|\bwhat(?:'s| is) new on arc\b/u.test(t)) return { kind: "pools" };

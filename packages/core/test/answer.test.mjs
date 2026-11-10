@@ -8,7 +8,7 @@ const ADDR = "0x7a3f9c21b4e8d05f6a1c3e9b2d4f6a8c0e1b3d5f";
 test("the chat stream names its step and block events", () => {
   assert.ok(CHAT_EVENT_NAMES.includes("step"));
   assert.ok(CHAT_EVENT_NAMES.includes("block"));
-  assert.deepEqual([...ANSWER_BLOCK_KINDS].sort(), ["balance", "capabilities", "facts", "fence", "gas", "herded", "offer", "order", "positions", "rate", "settled", "stress"]);
+  assert.deepEqual([...ANSWER_BLOCK_KINDS].sort(), ["balance", "capabilities", "facts", "fence", "gas", "herded", "offer", "order", "positions", "rate", "running", "sample", "settled", "stress"]);
   assert.ok(CHAT_STEP_KINDS.includes("fence") && CHAT_STEP_KINDS.includes("route"));
 });
 

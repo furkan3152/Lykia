@@ -31,11 +31,11 @@ export async function openThread(ctx: AppContext, owner: Address | null, environ
   return thread;
 }
 
-export async function appendMessages(ctx: AppContext, thread: ThreadView, entries: readonly { role: "user" | "assistant"; text: string; proposals?: readonly AgentProposal[]; blocks?: readonly AnswerBlock[]; origin?: "ask" | "fold"; instruction?: ThreadMessage["instruction"] }[]): Promise<ThreadView> {
+export async function appendMessages(ctx: AppContext, thread: ThreadView, entries: readonly { role: "user" | "assistant"; text: string; proposals?: readonly AgentProposal[]; blocks?: readonly AnswerBlock[]; origin?: "ask" | "fold"; instruction?: ThreadMessage["instruction"]; options?: readonly string[]; meant?: string | null }[]): Promise<ThreadView> {
   const at = new Date(ctx.clock.now()).toISOString();
   // Ask Lyko and Lyko on watch write to the same thread; re-read it so neither drops the other's turn.
   const latest = (await threads(ctx).get(thread.id).catch(() => null))?.value ?? thread;
-  const messages: ThreadMessage[] = [...latest.messages, ...entries.map((e) => ({ role: e.role, text: e.text.slice(0, 8_000), at, ...(e.proposals && e.proposals.length > 0 ? { proposals: e.proposals } : {}), ...(e.blocks && e.blocks.length > 0 ? { blocks: parseAnswerBlocks(e.blocks) } : {}), ...(e.origin === "fold" ? { origin: "fold" as const } : {}), ...(e.instruction ? { instruction: e.instruction } : {}) }))].slice(-MAX_THREAD_MESSAGES);
+  const messages: ThreadMessage[] = [...latest.messages, ...entries.map((e) => ({ role: e.role, text: e.text.slice(0, 8_000), at, ...(e.proposals && e.proposals.length > 0 ? { proposals: e.proposals } : {}), ...(e.blocks && e.blocks.length > 0 ? { blocks: parseAnswerBlocks(e.blocks) } : {}), ...(e.origin === "fold" ? { origin: "fold" as const } : {}), ...(e.options && e.options.length > 0 ? { options: e.options.slice(0, 4).map((o) => o.slice(0, 300)) } : {}), ...(e.meant ? { meant: e.meant.slice(0, 400) } : {}), ...(e.instruction ? { instruction: e.instruction } : {}) }))].slice(-MAX_THREAD_MESSAGES);
   const next: ThreadView = { ...latest, messages, updatedAt: at };
   await threads(ctx).put(thread.id, next, { ttlMs: THREAD_TTL_MS });
   return next;

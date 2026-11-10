@@ -11,7 +11,8 @@
  * Offline runs score the "both" cases (English); live runs score every case,
  * other languages included. Offline runs also score whole Lyko turns
  * (turns.ts): grounding, binding route choice, Lyko on watch's sourced
- * answers and the Whistle, and preflight on whole plans (preflight.ts). Each case is scored check by check (score.ts)
+ * answers and the Whistle, preflight on whole plans (preflight.ts), and the conversation suite
+ * (conversations.ts: what people type into Ask Lyko, through the chat route). Each case is scored check by check (score.ts)
  * and a summary table is printed. Exit code 1 when a scored case fails.
  */
 import { compileOffline } from "../compiler/service.js";
@@ -20,6 +21,7 @@ import { scoreResult, type CaseScore } from "./score.js";
 import { evalState, PRESET_BALANCES } from "./states.js";
 import { runTurnCases } from "./turns.js";
 import { runPreflightCases } from "./preflight.js";
+import { runConversationCases } from "./conversationRun.js";
 
 const BASE = process.env.BASE?.replace(/\/+$/u, "") ?? null;
 const READER = (process.env.READER ?? (BASE ? "llm" : "deterministic")) as "llm" | "deterministic" | "auto";
@@ -67,6 +69,8 @@ async function main(): Promise<void> {
   if (!BASE) scores.push(...(await runTurnCases(ONLY, CATEGORY)));
   // Preflight on whole plans (fake Arc): offline only.
   if (!BASE) scores.push(...(await runPreflightCases(ONLY, CATEGORY)));
+  // Whole conversations through the chat route (fake Arc, the reader path): offline only; `npm run eval:live` runs them against a deployment.
+  if (!BASE) scores.push(...(await runConversationCases(ONLY, CATEGORY, process.env.PRINT === "1")));
   console.log(`${pad("case", 26)} ${pad("category", 14)} ${pad("result", 6)} ${pad("checks", 7)} failing`);
   console.log("-".repeat(100));
   for (const s of scores) {

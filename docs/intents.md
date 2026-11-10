@@ -346,6 +346,8 @@ npm run eval:intents -w @lykia/api                                  # offline, t
 BASE=https://api.lykiaai.com npm run eval:intents -w @lykia/api   # live, the model path
 READER=deterministic BASE=http://localhost:3002 npm run eval:intents -w @lykia/api
 ONLY=studio,defensive VERBOSE=1 npm run eval:intents -w @lykia/api
+CATEGORY=talk PRINT=1 npm run eval:intents -w @lykia/api          # the conversation suite only, with each answer
+LYKIA_EVAL_BASE_URL=https://api.lykiaai.com npm run eval:live -w @lykia/api   # the conversation suite, live
 ```
 
 Results:

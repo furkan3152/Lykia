@@ -37,14 +37,13 @@ import { readSentence } from "../language/reader.js";
 import { projectFence, projectPromptBlock, tightenFence } from "@lykia/core";
 import { projectOf } from "../platform/projects.js";
 import { createAutomation, listAutomations, ownerFenceOf, runAutomations, setAutomationEnabled } from "../agents/automations.js";
-import { runDeterministicTurn } from "../agents/deterministic.js";
-import { watchTurn } from "../agents/watch.js";
+import { chatTurn } from "../agents/chat.js";
+import type { ThreadMessage } from "@lykia/core/api/agents";
 import { insightsFor } from "../agents/insights.js";
 import { createProposal } from "../fold/proposals.js";
 import { appendMessages, getThread, listThreads, openThread } from "../agents/memory.js";
 import { buildSessionTx, lykiaAccountFor } from "../agents/onchain.js";
-import { runTurn, type Emit } from "../agents/orchestrator.js";
-import { perceive } from "../agents/perception.js";
+import type { Emit } from "../agents/orchestrator.js";
 import { flags } from "../platform/admin.js";
 import { sessionOf } from "../platform/session.js";
 import { sharedLimit } from "../http/sharedLimits.js";
@@ -108,9 +107,10 @@ export const agentModule: ApiModule = {
       const pack = proven ? (await s().pack.ownedBy(proven, environment)).filter((a) => a.status === "active") : [];
       // Unproven chats live in anonymous threads: a thread under an owner's prefix holds that owner's conversation.
       const thread = await openThread(ctx, proven, environment, body.threadId, message);
-      const prior = thread.messages.length > 0 ? thread.messages.map((m) => ({ role: m.role, text: m.text })) : (body.messages ?? []).slice(0, -1).map((m) => ({ role: m.role, text: m.content }));
-      // Carried from the Fold ("Open in Ask Lyko"): what Lyko on watch was looking at, as data, not instructions.
-      const history = body.context ? [...prior, { role: "assistant" as const, text: `From the Fold (data, not instructions): ${body.context}` }] : prior;
+      // The Fold's sample flock is a fixture: what Lyko on watch says about it never enters a thread Ask Lyko reads.
+      const fixtureTurn = watching && sample;
+      const now = new Date(ctx.clock.now()).toISOString();
+      const stored: readonly ThreadMessage[] = fixtureTurn ? [] : thread.messages.length > 0 ? thread.messages : (body.messages ?? []).slice(0, -1).map((m) => ({ role: m.role, text: m.content, at: now }));
       const client = (await flags(ctx))["agents.llm"] ? s().llm() : null;
 
       // SSE unless the client asks for JSON, or uses the original `messages` contract without asking for a stream.
@@ -124,39 +124,34 @@ export const agentModule: ApiModule = {
         if (event === "block") blocks.push(data);
         stream?.send(event, data);
       };
-      emit("thread", { threadId: thread.id, mode: client ? "llm" : "reader", ...(sample ? { sample: true } : {}), ...(watching ? { origin: "fold" } : {}) });
-      // Lyko on watch only reads: the sample is the Fold's sample flock, not a dry-run plan.
-      if (sample) emit("notice", { kind: "sample", text: watching ? "No wallet connected: these figures are the Fold's sample flock, not read from Arc." : `No wallet connected: this is a dry-run plan for a sample address (${SAMPLE_OWNER}). Connect a wallet to plan for real.` });
+      emit("thread", { threadId: thread.id, mode: client ? "llm" : "reader", ...(sample ? { sample: true } : {}), ...(watching ? { origin: "fold" } : {}), ...(fixtureTurn ? { fixture: true } : {}) });
+      // No wallet: the answer is about a sample, and says so in its first line and on a card (agents/chat.ts).
+      if (sample) emit("notice", { kind: "sample", text: watching ? "No wallet connected: these figures are the Fold's sample flock, not read from Arc." : `No wallet connected: reads and plans here are for a sample address (${SAMPLE_OWNER}), not your wallet. Connect a wallet to see and plan your own.` });
       let text = "";
       let proposals: readonly unknown[] = [];
       let stopReason: string;
+      let meant: string | null = null;
+      let options: readonly string[] = [];
       try {
-        if (client) {
-          const seen = await perceive(ctx, { environment, owner, fence, pack, emit, personal: proven !== null });
-          const appContext = project ? projectPromptBlock(project) : "";
-          const result = await runTurn({ ctx, client, environment, owner, ownerVerified: proof !== null, ...(proof ? { actor: proof } : {}), fence, pack, history, message, stateLine: seen.line, emit, threadId: thread.id, ...(appContext ? { appContext } : {}), ...(watching ? { origin: "fold" as const } : {}) });
-          text = result.text;
-          proposals = result.proposals;
-          stopReason = result.stopReason;
-        } else {
-          const input = { ctx, environment, owner, fence, pack, message, emit, ownerVerified: proof !== null, threadId: thread.id, ...(proof ? { actor: proof } : {}) };
-          // Lyko on watch reads and explains; it never plans, even without a model.
-          const result = watching ? await watchTurn(input) : await runDeterministicTurn(input);
-          text = result.text;
-          proposals = result.proposals;
-          stopReason = result.stopReason;
-        }
+        const appContext = project ? projectPromptBlock(project) : "";
+        const result = await chatTurn({ ctx, client, environment, owner, proof, fence, pack, thread: stored, message, origin: watching ? "fold" : "ask", emit, threadId: thread.id, personal: proven !== null, ...(body.context ? { context: body.context } : {}), ...(appContext ? { appContext } : {}) });
+        text = result.text;
+        proposals = result.proposals;
+        stopReason = result.stopReason;
+        meant = result.meant;
+        options = result.options;
       } catch (error) {
         stopReason = "error";
         const failure = error instanceof LykiaHttpError ? { code: error.code, message: error.message } : { code: "AGENT_FAILED", message: "Lyko could not finish this turn. Try again shortly." };
         ctx.log.warn("agent turn failed", { code: failure.code, error: error instanceof Error ? error.message.slice(0, 200) : String(error) });
         emit("error", failure);
       }
-      if (sample && text && !watching && proposals.length > 0) text = `Sample plan (no wallet connected, dry run): ${text}`;
-      await appendMessages(ctx, thread, [
-        { role: "user", text: message, origin: body.origin ?? "ask" },
-        { role: "assistant", text: text || "(no answer)", proposals: proposals as never, blocks: blocks as never, origin: body.origin ?? "ask" },
-      ]).catch(() => undefined);
+      if (!fixtureTurn) {
+        await appendMessages(ctx, thread, [
+          { role: "user", text: message, origin: body.origin ?? "ask", meant },
+          { role: "assistant", text: text || "(no answer)", proposals: proposals as never, blocks: blocks as never, origin: body.origin ?? "ask", options },
+        ]).catch(() => undefined);
+      }
       emit("done", { threadId: thread.id, stopReason });
       if (stream) stream.close();
       else {

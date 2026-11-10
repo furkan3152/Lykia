@@ -28,8 +28,9 @@ export async function watchTurn(input: DeterministicInput): Promise<TurnResult> 
   const owner = input.owner;
   const sample = isSampleOwner(owner);
   if (MOVE.test(input.message) && !/\?\s*$/u.test(input.message.trim())) {
-    steps.start("intent", "Reading your request").end("ok", "A move: Ask Lyko plans it");
-    return done(input, "Lyko on watch only reads your Fold; moves are planned in Ask Lyko.\n\n**Next:** press Open in Ask Lyko, or use the button on the insight that fits.");
+    // Reached only for the sample flock: a real owner's request to act is planned (agents/chat.ts).
+    steps.start("intent", "Reading your request").end("ok", "A move on the sample flock");
+    return done(input, "This is the sample flock, so there is nothing of yours to move.\n\n**Next:** connect a wallet and I plan this for your own money.");
   }
   if (!owner) return done(input, "Connect a wallet so I can read its Fold.");
   const question = infoQuestion(input.message);
@@ -42,11 +43,11 @@ export async function watchTurn(input: DeterministicInput): Promise<TurnResult> 
     }
     pricing.end(card.from?.stale ? "warn" : "ok", `1 ${card.base} = ${card.rate} ${card.quote}`, card.from ? sourceLine(card.from) : undefined);
     emitBlock(input.emit, card);
-    return done(input, `1 ${card.base} = ${card.rate} ${card.quote} at the reference rate.\n\n- **Source:** ${card.from ? sourceLine(card.from) : "unavailable"}\n\n**Next:** ask Lyko to convert if you want a routed quote.`);
+    return done(input, `1 ${card.base} = ${card.rate} ${card.quote} at the reference rate.\n\n- **Source:** ${card.from ? sourceLine(card.from) : "unavailable"}\n\n**Next:** say “convert 100 ${card.base} to ${card.quote}” for a routed quote.`);
   }
   if (question?.kind === "gas" || question?.kind === "balance") {
     const reading = steps.start("wallet", "Reading the wallet");
-    const snap = await foldSnapshot(input.ctx, input.environment, owner).catch(() => null);
+    const snap = await foldSnapshot(input.ctx, input.environment, owner, { fixture: "fold" }).catch(() => null);
     if (!snap) {
       reading.end("fail", "Unavailable");
       return done(input, "The wallet is unavailable right now: Arc did not answer.\n\n**Next:** ask again in a moment.");
@@ -58,7 +59,7 @@ export async function watchTurn(input: DeterministicInput): Promise<TurnResult> 
     if (card?.kind === "balance") return done(input, `${sample ? "The sample flock holds" : "You hold"} ${card.totalUsd === null ? "a total that is unavailable (some holdings are unpriced)" : `$${Number(card.totalUsd).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}.\n\n- **Source:** ${card.from ? cite(card.from, sample) : "unavailable"}${card.unpriced ? `\n- **Unpriced:** ${card.unpriced} holding${card.unpriced === 1 ? "" : "s"}, shown without a value, never as $0` : ""}\n\n**Next:** open the Flock tab for every position.`);
   }
   const reading = steps.start("wallet", "Reading every venue");
-  const res = await foldPositions(input.ctx, input.environment, owner, { personal: input.ownerVerified === true }).catch(() => null);
+  const res = await foldPositions(input.ctx, input.environment, owner, { personal: input.ownerVerified === true, fixture: "fold" }).catch(() => null);
   if (!res) {
     reading.end("fail", "Unavailable");
     return done(input, "Your positions are unavailable right now: the venues did not answer.\n\n**Next:** ask again in a moment.");
@@ -78,5 +79,5 @@ export async function watchTurn(input: DeterministicInput): Promise<TurnResult> 
     lowest ? `- **Lowest health:** ${lowest.value} · ${cite(lowest.from, sample)}` : res.summary.unavailable.length > 0 ? `- **Not read:** ${res.summary.unavailable.join(", ")} (unavailable, not zero)` : null,
   ].filter((l): l is string => l !== null);
   const lead = net ? `${sample ? "The sample flock is" : "Your Fold is"} worth ${net.value} · ${cite(net.from, sample)}.` : "Your net worth is unavailable.";
-  return done(input, `${lead}\n\n${lines.join("\n")}\n\n**Next:** ${lowest && Number(lowest.value) < Number(res.healthFloor) ? "the loan under your health floor comes first; its insight has a move ready." : "open the Flock tab to see each position."}`);
+  return done(input, `${lead}\n\n${lines.join("\n")}\n\n**Next:** ${lowest && Number(lowest.value) < Number(res.healthFloor) ? "the loan under the health floor comes first; say “fix my loan health”." : "open the Flock tab to see each position."}`);
 }

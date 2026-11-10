@@ -22,4 +22,7 @@ export interface ChatActions {
 }
 
 export const ChatActionsContext = createContext<ChatActions>({ environment: "mainnet" });
+/** True inside an answer about the sample address (no wallet connected): its cards never say "your". */
+export const SampleContext = createContext(false);
+export const useSample = () => useContext(SampleContext);
 export const useChatActions = () => useContext(ChatActionsContext);

@@ -17,7 +17,8 @@ import { qrMatrix, qrSvgPath } from "../../lib/qr";
 import { LykoFace, Seal, Tag } from "../../mosaic";
 import { cx } from "../../mosaic/cx";
 import { Mark, PixelArt } from "../../mosaic/PixelArt";
-import { useChatActions } from "./actions";
+import { useChatActions, useSample } from "./actions";
+import { RunningCard } from "./controlCards";
 import { planTitle, ruleName, type HerdItem } from "./cardModel";
 import { HashChip, RichLine } from "./Markdown";
 import { memoryBadges } from "./memoryRefs";
@@ -82,6 +83,7 @@ function Qr({ text }: { readonly text: string }) {
 
 function GasCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "gas" }> }) {
   const { prefill, environment } = useChatActions();
+  const sample = useSample();
   const [qr, setQr] = useState(false);
   const balance = Number(block.balance);
   const floor = Math.max(Number(block.floor), 1e-9);
@@ -91,7 +93,7 @@ function GasCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "gas"
   const SEGMENTS = 12;
   const lit = Math.max(balance > 0 ? 1 : 0, Math.min(SEGMENTS, Math.round((balance / (floor * 2)) * SEGMENTS)));
   return (
-    <CardShell kind="gas" tone={low ? "terra" : "olive"} kick={low ? "GAS · BELOW YOUR FLOOR" : "GAS · ABOVE YOUR FLOOR"} title={low ? "Fuel is low" : "Fuel is fine"} icon={<PixelArt art={DROP} palette={{ k: low ? "#b9472e" : "#3f7f45", w: "#fff6de" }} size={20} />} from={block.from}>
+    <CardShell kind="gas" tone={low ? "terra" : "olive"} kick={sample ? (low ? "SAMPLE · GAS BELOW THE FLOOR" : "SAMPLE · GAS ABOVE THE FLOOR") : low ? "GAS · BELOW YOUR FLOOR" : "GAS · ABOVE YOUR FLOOR"} title={low ? "Fuel is low" : "Fuel is fine"} icon={<PixelArt art={DROP} palette={{ k: low ? "#b9472e" : "#3f7f45", w: "#fff6de" }} size={20} />} from={block.from}>
       <div className="m-gauge" role="meter" aria-valuemin={0} aria-valuemax={floor * 2} aria-valuenow={balance} aria-label={`Gas: ${fmt(balance, 6)} USDC of a ${fmt(floor)} USDC floor`}>
         <div className="m-gauge__stones">
           {Array.from({ length: SEGMENTS }, (_, i) => (
@@ -223,6 +225,7 @@ function FenceGateCard({ block }: { readonly block: Extract<AnswerBlock, { kind:
 const PASTURE_COLOURS = ["#1e8fa3", "#5f8a3a", "#d9a441", "#b9472e", "#7a5aa8", "#2f4a72", "#c77d2e", "#8aa6b8"];
 
 function PastureCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "balance" }> }) {
+  const sample = useSample();
   const priced = block.holdings.filter((h) => h.usd !== null && Number(h.usd) > 0);
   const total = priced.reduce((n, h) => n + Number(h.usd), 0);
   // A pasture of 24 x 4 stones, each holding's share laid in its colour, the rest grass.
@@ -234,7 +237,7 @@ function PastureCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "
   });
   while (cells.length < CELLS) cells.push("");
   return (
-    <CardShell kind="balance" tone="olive" kick="THE FLOCK · WHAT YOU HOLD" from={block.from} title={
+    <CardShell kind="balance" tone="olive" kick={sample ? "SAMPLE ADDRESS · WHAT IT HOLDS" : "THE FLOCK · WHAT YOU HOLD"} from={block.from} title={
         <span className="m-fig m-fig--xl">
           <span className="m-fig__cur">$</span>
           {Number(block.totalUsd ?? total).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -592,8 +595,11 @@ const LANTERN = ["...kk...", "..kyyk..", ".kyyyyk.", ".kyooyk.", ".kyooyk.", ".k
 
 /** Lyko on watch's sourced answer, and totals the code derived: each figure a tessera with its own source stamp. */
 function FactsCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "facts" }> }) {
+  const sample = useSample();
+  // The Fold's sample flock stamps its rows "sample": the card says so in its heading too.
+  const fixture = block.rows.some((r) => r.from.source === "sample");
   return (
-    <CardShell kind="facts" tone="navy" kick="LYKO ON WATCH · READ, WITH SOURCES" title={block.title} icon={<PixelArt art={LANTERN} palette={{ k: "#13233a", y: "#f0c75e", o: "#d9792b" }} size={20} />}>
+    <CardShell kind="facts" tone="navy" kick={fixture ? "SAMPLE FLOCK · NOT READ FROM ARC" : sample ? "SAMPLE ADDRESS · READ, WITH SOURCES" : "READ, WITH SOURCES"} title={block.title} icon={<PixelArt art={LANTERN} palette={{ k: "#13233a", y: "#f0c75e", o: "#d9792b" }} size={20} />}>
       <ul className="m-factrows">
         {block.rows.map((r, i) => (
           <li key={`${r.label}${i}`} style={{ "--i": i } as React.CSSProperties} data-unavailable={r.value === "unavailable" || undefined} data-stale={r.from.stale ? true : undefined}>
@@ -682,11 +688,15 @@ function OrderCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "or
 
 function PositionsCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "positions" }> }) {
   const money = (v: number) => `${v < 0 ? "−" : ""}$${Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: Math.abs(v) >= 1000 ? 0 : 2 })}`;
-  const note = [block.weightedApyPercent !== null ? `Earning ${block.weightedApyPercent}% blended` : null, block.yearlyYieldUsd ? `${usd(block.yearlyYieldUsd)} a year net` : null, block.lowestHealth !== null ? `lowest health ${Number(block.lowestHealth).toFixed(2)}` : null, block.unpriced ? `${block.unpriced} unpriced, not counted` : null, block.unavailable.length > 0 ? `not read: ${block.unavailable.join(", ")}` : null].filter(Boolean).join(" · ");
+  const sample = useSample();
+  // Dust and unpriced lines are one quiet line, never rows of their own.
+  const folded = block.hidden ? `${block.hidden} small or unpriced line${block.hidden === 1 ? "" : "s"} hidden` : block.unpriced ? `${block.unpriced} unpriced, not counted` : null;
+  const note = [block.weightedApyPercent !== null ? `Earning ${block.weightedApyPercent}% blended` : null, block.yearlyYieldUsd ? `${usd(block.yearlyYieldUsd)} a year net` : null, block.lowestHealth !== null ? `lowest health ${Number(block.lowestHealth).toFixed(2)}` : null, folded, block.unavailable.length > 0 ? `not read: ${block.unavailable.join(", ")}` : null].filter(Boolean).join(" · ");
+  const net = block.netUsd ?? block.pricedNetUsd ?? null;
   return (
-    <CardShell kind="positions" tone="olive" kick="THE FLOCK · WHERE YOUR MONEY IS" from={block.from} title={
+    <CardShell kind="positions" tone="olive" kick={sample ? "SAMPLE ADDRESS · WHERE ITS MONEY IS" : "THE FLOCK · WHERE YOUR MONEY IS"} from={block.from} title={
         <span className="m-fig m-fig--xl">
-          {block.netUsd === null ? "partly unpriced" : <><span className="m-fig__cur">$</span>{Number(block.netUsd).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>}
+          {net === null ? "partly unpriced" : <><span className="m-fig__cur">$</span>{Number(net).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{block.netUsd === null ? <small className="m-fig__tag">{"PRICED"}</small> : null}</>}
         </span>
       }>
       <ul className="m-poslist">
@@ -698,7 +708,7 @@ function PositionsCard({ block }: { readonly block: Extract<AnswerBlock, { kind:
               <span className="m-poslist__state" title={stateLabel(state)}><StateIcon state={state} size={11} /></span>
               <span className="m-poslist__main">
                 <b>{r.label}</b>
-                <small>{r.doing}</small>
+                <small>{sample ? r.doing.replace(/\byour\b/gu, "the") : r.doing}</small>
               </span>
               <span className="m-poslist__usd num" data-tone={v !== null && v < 0 ? "bad" : undefined}>{v === null ? "unpriced" : money(v)}</span>
             </li>
@@ -809,6 +819,11 @@ export function BlockCard({ block }: { readonly block: AnswerBlock }) {
       return <OrderCard block={block} />;
     case "stress":
       return <StressCard block={block} />;
+    case "running":
+      return <RunningCard block={block} />;
+    case "sample":
+      // Drawn first by the message itself (Answer.tsx); never twice.
+      return null;
     default:
       return <CreateCard block={block} />;
   }

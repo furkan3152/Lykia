@@ -4,7 +4,10 @@
  * this turn's tools returned, a card carries, or the owner wrote. Formatting
  * may differ ("1,950.00 USDC" for 1950, "6.1%" for 0.061); arithmetic may
  * not: a total or a blended rate the code did not compute is not in the
- * evidence, so it is taken out and the sentence points at the card instead.
+ * evidence. A figure is never swapped for a placeholder inside a sentence:
+ * the sentence (or the bullet) that carries it is dropped whole, so what is
+ * left stays grammatical. When nothing is left the caller rebuilds the
+ * answer (one retry with the allowed figures, or a summary written by code).
  * Small bare counts ("2 steps", "3 venues") are not money and pass.
  */
 import type { AnswerBlock } from "@lykia/core/api/agents";
@@ -46,6 +49,7 @@ export function blockNumbers(blocks: readonly AnswerBlock[]): Set<string> {
 /** True when the shown figure is one of the evidence values, at the precision it is shown with. */
 function matches(shown: number, decimals: number, percent: boolean, evidence: readonly number[]): boolean {
   const candidates = percent ? [shown, shown / 100] : [shown];
+  if (percent && decimals <= 2 && evidence.some((e) => Number.isInteger(e) && e > 0 && e <= 10_000 && Math.abs(e / 100 - shown) < 1e-9)) return true;
   for (const want of candidates) {
     const places = percent && want !== shown ? decimals + 2 : decimals;
     const step = 10 ** -places;
@@ -67,33 +71,79 @@ function moneyish(raw: { sign: boolean; unit: string | null; decimals: number; v
   return raw.sign || raw.unit !== null || raw.decimals > 0 || raw.suffix || raw.value >= 100;
 }
 
-/**
- * Removes figures with no source from the model's final text. With a card on the answer, the sentence points at it;
- * without one, the figure is called unavailable rather than guessed.
- */
-export function guardNumbers(text: string, ground: Ground | undefined, blocks: readonly AnswerBlock[]): GuardResult {
-  if (!text) return { text, removed: [] };
-  const evidence = [...new Set([...(ground?.toolNumbers ?? []), ...(ground?.ownerNumbers ?? []), ...blockNumbers(blocks)])].map(Number).filter((n) => Number.isFinite(n));
-  const removed: string[] = [];
-  const hasCard = blocks.length > 0;
-  // Code spans and addresses are data, not figures.
+/** One figure found in prose, and whether the evidence carries it. */
+interface Found {
+  readonly raw: string;
+  readonly sourced: boolean;
+}
+
+function scan(text: string, evidence: readonly number[]): Found[] {
+  const out: Found[] = [];
+  // Code spans, addresses, clock times and dates are data, not figures.
   const protectedSpans: [number, number][] = [];
   for (const m of text.matchAll(/`[^`]*`|0x[0-9a-fA-F]{6,}|\b\d{1,2}:\d{2}\b|\b\d{4}-\d{2}-\d{2}\b/gu)) protectedSpans.push([m.index!, m.index! + m[0].length]);
-  const out = text.replace(FIGURE, (whole: string, hedge: string | undefined, sign: string | undefined, int: string, frac: string | undefined, suffix: string | undefined, unitRaw: string | undefined, offset: number) => {
-    if (protectedSpans.some(([a, b]) => offset >= a && offset < b)) return whole;
+  for (const m of text.matchAll(FIGURE)) {
+    const offset = m.index!;
+    if (protectedSpans.some(([a, b]) => offset >= a && offset < b)) continue;
+    const [whole, , sign, int, frac, suffix, unitRaw] = m as unknown as [string, string | undefined, string | undefined, string, string | undefined, string | undefined, string | undefined];
     const unit = unitRaw ? unitRaw.trim() : null;
     const decimals = frac ? frac.length - 1 : 0;
     const base = Number(`${int.replace(/,/gu, "")}${frac ?? ""}`);
     const scale = suffix ? ({ k: 1e3, m: 1e6, bn: 1e9 } as const)[suffix.toLowerCase() as "k" | "m" | "bn"] : 1;
     const value = base * scale;
-    if (!moneyish({ sign: Boolean(sign), unit, decimals, value, suffix: Boolean(suffix) })) return whole;
+    if (!moneyish({ sign: Boolean(sign), unit, decimals, value, suffix: Boolean(suffix) })) continue;
     const percent = unit === "%";
     // A k/m figure was rounded for reading: compare it at the precision it was written with.
-    if (suffix ? evidence.some((e) => Math.abs(Math.abs(e) - value) <= (scale * 10 ** -decimals) / 2) : matches(base, decimals, percent, evidence)) return whole;
-    removed.push(whole.trim());
-    const lead = whole.match(/^\s*/u)?.[0] ?? "";
-    const what = percent ? "a rate" : "an amount";
-    return `${lead}${hasCard ? `${what} (see the card)` : `${what} that is unavailable right now`}`;
-  });
-  return { text: out, removed };
+    const sourced = suffix ? evidence.some((e) => Math.abs(Math.abs(e) - value) <= (scale * 10 ** -decimals) / 2) : matches(base, decimals, percent, evidence);
+    out.push({ raw: whole.trim(), sourced });
+  }
+  return out;
+}
+
+/** The evidence for a turn: what tools returned, what the owner wrote, and every number on a card. */
+export function evidenceOf(ground: Ground | undefined, blocks: readonly AnswerBlock[]): number[] {
+  return [...new Set([...(ground?.toolNumbers ?? []), ...(ground?.ownerNumbers ?? []), ...blockNumbers(blocks)])].map(Number).filter((n) => Number.isFinite(n));
+}
+
+/** Splits a paragraph into sentences without breaking decimals ("1.38") or abbreviations inside a figure. */
+export function sentencesOf(line: string): string[] {
+  return line.split(/(?<=[.!?])\s+(?=[\p{Lu}\p{N}$€*"“([])/u).filter((s) => s.length > 0);
+}
+
+/**
+ * Drops every sentence or bullet that `bad` flags, and returns what is left as tidy markdown. A "**Next:**" line or a
+ * bullet goes whole; a paragraph loses only its offending sentences.
+ */
+export function dropSentences(text: string, bad: (sentence: string) => boolean): string {
+  const lines: string[] = [];
+  for (const line of text.split("\n")) {
+    if (line.trim() === "") {
+      lines.push("");
+      continue;
+    }
+    if (/^\s*(?:[-*•]\s|\d+\.\s|\*\*Next:?\*\*)/u.test(line)) {
+      if (!bad(line)) lines.push(line);
+      continue;
+    }
+    const kept = sentencesOf(line).filter((s) => !bad(s));
+    if (kept.length > 0) lines.push(kept.join(" "));
+  }
+  return lines.join("\n").replace(/\n{3,}/gu, "\n\n").trim();
+}
+
+/**
+ * Checks the model's prose against the turn's evidence. Sentences that state a figure with no source are dropped
+ * whole; `removed` lists the figures that caused it. The text never contains a placeholder.
+ */
+export function guardNumbers(text: string, ground: Ground | undefined, blocks: readonly AnswerBlock[]): GuardResult {
+  if (!text) return { text, removed: [] };
+  const evidence = evidenceOf(ground, blocks);
+  const removed = scan(text, evidence).filter((f) => !f.sourced).map((f) => f.raw);
+  if (removed.length === 0) return { text, removed };
+  return { text: dropSentences(text, (sentence) => scan(sentence, evidence).some((f) => !f.sourced)), removed };
+}
+
+/** The figures a rewrite may use, formatted for the model: the turn's evidence, largest first, at most `limit`. */
+export function allowedFigures(ground: Ground | undefined, blocks: readonly AnswerBlock[], limit = 60): string[] {
+  return evidenceOf(ground, blocks).filter((n) => n !== 0).sort((a, b) => Math.abs(b) - Math.abs(a)).slice(0, limit).map((n) => String(n));
 }

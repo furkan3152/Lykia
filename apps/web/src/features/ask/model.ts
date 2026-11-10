@@ -36,6 +36,8 @@ export interface ChatMessage {
   readonly endedAt?: number;
   /** A hand-off between Lyko on watch and Ask Lyko this message carries (who sent what). */
   readonly instruction?: ThreadMessage["instruction"];
+  /** Said about the Fold's sample flock (nobody signed in): shown in the Fold, never in the Ask thread. */
+  readonly fixture?: boolean;
 }
 
 export interface Conversation {
@@ -88,8 +90,11 @@ function patchLast(c: Conversation, fn: (m: ChatMessage) => ChatMessage): Conver
 
 export function reduce(c: Conversation, e: ChatEvent): Conversation {
   switch (e.event) {
-    case "thread":
+    case "thread": {
+      // A turn about the Fold's sample flock keeps to the Fold: it is marked, and it does not move the Ask thread.
+      if (e.data.fixture) return { ...c, mode: e.data.mode, messages: c.messages.map((m, i) => (i >= c.messages.length - 2 ? { ...m, fixture: true } : m)) };
       return { ...c, threadId: e.data.threadId, mode: e.data.mode };
+    }
     case "reading":
       return patchLast(c, (m) => ({ ...m, trail: [...m.trail, { label: e.data.what, ok: e.data.ok }] }));
     case "task":
@@ -119,7 +124,7 @@ export function reduce(c: Conversation, e: ChatEvent): Conversation {
     case "error":
       return patchLast(c, (m) => ({ ...m, error: e.data.message, streaming: false, endedAt: m.endedAt ?? Date.now() }));
     case "done":
-      return patchLast({ ...c, threadId: e.data.threadId ?? c.threadId }, (m) => ({ ...m, streaming: false, endedAt: m.endedAt ?? Date.now(), steps: (m.steps ?? []).map((st) => (st.state === "running" ? { ...st, state: "warn" as const, result: st.result ?? "Stopped before it finished" } : st)) }));
+      return patchLast({ ...c, threadId: c.messages[c.messages.length - 1]?.fixture ? c.threadId : (e.data.threadId ?? c.threadId) }, (m) => ({ ...m, streaming: false, endedAt: m.endedAt ?? Date.now(), steps: (m.steps ?? []).map((st) => (st.state === "running" ? { ...st, state: "warn" as const, result: st.result ?? "Stopped before it finished" } : st)) }));
     default:
       return c;
   }
@@ -154,6 +159,11 @@ export function failureReasons(m: Pick<ChatMessage, "trail" | "text">): string[]
     if (d && !t.ok && !m.text.includes(d)) seen.add(d);
   }
   return [...seen];
+}
+
+/** The conversation as Ask Lyko shows it: everything except what was said about the Fold's sample flock. */
+export function askMessages(c: Conversation): readonly ChatMessage[] {
+  return c.messages.some((m) => m.fixture) ? c.messages.filter((m) => !m.fixture) : c.messages;
 }
 
 /** The latest proposal in the conversation (the artifact panel shows it). */

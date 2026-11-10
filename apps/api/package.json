@@ -22,6 +22,8 @@
     "prove:autopilot": "tsx src/scripts/proveAutopilot.ts",
     "openapi": "tsx src/scripts/openapi.ts",
     "eval:intents": "tsx src/evals/run.ts",
+    "eval:live": "tsx src/evals/live.ts",
+    "eval:serve": "tsx src/evals/serve.ts",
     "seed:league": "tsx src/scripts/seedLeague.ts"
   },
   "dependencies": {

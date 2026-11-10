@@ -16,7 +16,7 @@ import { useUiStore } from "../../app/state/uiStore";
 import { useRouteParam } from "../../app/routes/useRoute";
 import { Composer } from "../../features/ask/Composer";
 import { clarifyAction } from "../../features/ask/clarify";
-import { latestProposal, storedMessage } from "../../features/ask/model";
+import { askMessages, latestProposal, storedMessage } from "../../features/ask/model";
 import { AssistantMessage, UserMessage } from "../../features/ask/Answer";
 import { ChatActionsContext, type ChatActions } from "../../features/ask/actions";
 import type { AgentProposal } from "@lykia/core/api/agents";
@@ -180,7 +180,9 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
         }
       : {}),
   };
-  const empty = convo.messages.length === 0 && !serverThread.data;
+  // What Lyko on watch said about the Fold's sample flock stays in the Fold.
+  const shown = askMessages(convo);
+  const empty = shown.length === 0 && !serverThread.data;
   // A starter either asks at once or fills the composer with its blanks selected.
   const pick = (st: Starter) => (st.kind === "ask" ? ask(st.text) : setPrefill(st.text));
   // History phrases ("again", "same as last week") only mean something once there is a history.
@@ -199,7 +201,7 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
     : empty
       ? [...DO_STARTERS, ...ASK_STARTERS]
       : lastAnswer && nextStep(lastAnswer).kind !== "choose" ? followUps(lastAnswer) : [];
-  const firstUser = convo.messages.findIndex((m) => m.role === "user");
+  const firstUser = shown.findIndex((m) => m.role === "user");
 
   return (
     <ChatActionsContext.Provider value={actions}>
@@ -272,7 +274,7 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
                   ),
                 )
               : null}
-            {convo.messages.map((m, i) => (m.role === "user" ? <UserMessage key={m.id} text={m.text} morph={i === firstUser} /> : <AssistantMessage key={m.id} m={m} onChoose={choose} />))}
+            {shown.map((m, i) => (m.role === "user" ? <UserMessage key={m.id} text={m.text} morph={i === firstUser} /> : <AssistantMessage key={m.id} m={m} onChoose={choose} />))}
             {lastAnswer && status !== "streaming" ? <NextStepBar key={lastAnswer.id} m={lastAnswer} onPick={pick} chips={!small} /> : null}
           </div>
         </div>

@@ -6,7 +6,8 @@
  */
 import { Link } from "../../app/routes/Link";
 import { cx } from "../../mosaic/cx";
-import { useChatActions } from "./actions";
+import { SampleContext, useChatActions } from "./actions";
+import { SampleCard } from "./controlCards";
 import { herdFromDrafts } from "./cardModel";
 import { BlockCard, ChoiceCard, HerdedCard, PlanCard, TroubleCard } from "./cards";
 import { clarifyLabel } from "./clarify";
@@ -41,6 +42,9 @@ export function AssistantMessage({ m, compact = false, onChoose }: AssistantMess
   const text = displayText(m.text);
   const reasons = m.streaming ? [] : failureReasons(m);
   const herded = (m.blocks ?? []).some((b) => b.kind === "herded");
+  // No wallet connected: the sample card comes first, before any figure, and the cards below stop saying "your".
+  const sample = (m.blocks ?? []).find((b) => b.kind === "sample");
+  const cards = (m.blocks ?? []).filter((b) => b.kind !== "sample");
   const drafts = m.drafts ?? [];
   const threadId = useAsk((st) => st.convo.threadId);
   return (
@@ -51,6 +55,7 @@ export function AssistantMessage({ m, compact = false, onChoose }: AssistantMess
       <div className="m-answer">
         {m.instruction ? <span className="m-msg__handoff">{handoffLine(m.instruction)}</span> : null}
         <Trail steps={steps} streaming={m.streaming} elapsedMs={elapsedOf(m)} notes={(m.notes ?? []).filter((n) => n.trim() !== m.text.trim())} compact={compact} />
+        {sample && sample.kind === "sample" ? <SampleCard block={sample} /> : null}
         {text ? (
           <div className={cx("m-bubble m-bubble--lyko", m.streaming && "m-caret")}>
             <Markdown text={text} environment={environment} lead />
@@ -71,9 +76,11 @@ export function AssistantMessage({ m, compact = false, onChoose }: AssistantMess
           </div>
         ) : null}
         {m.error ? <TroubleCard message={m.error} /> : null}
-        {(m.blocks ?? []).map((b, i) => (
-          <BlockCard key={`${b.kind}${i}`} block={b} />
-        ))}
+        <SampleContext.Provider value={Boolean(sample)}>
+          {cards.map((b, i) => (
+            <BlockCard key={`${b.kind}${i}`} block={b} />
+          ))}
+        </SampleContext.Provider>
         {!herded && drafts.length > 0 ? <HerdedCard items={herdFromDrafts(drafts)} /> : null}
         {m.program && !compact ? <ProgramCard view={m.program} /> : null}
         {compact && (m.program || m.proposals.length > 0) ? (

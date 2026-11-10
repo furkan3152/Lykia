@@ -7,6 +7,24 @@ own dated version history in [docs/platform/changelog.md](docs/platform/changelo
 
 ### Added
 
+- **Ask Lyko decides in code and acts.** Requests that code can decide are
+  answered before any model round, with every figure on a card.
+  - **Loan health:** "fix my loan health" computes the repay (or the added
+    collateral) that lifts each loan under the floor back above it, never
+    more than the wallet holds, and hands over a plan or a choice.
+  - **Everything at once:** repay everything, exit everything to USDC, put
+    idle money to work, the opposite of the last swap.
+  - **Running things by name:** pause, resume, stop, cancel or revoke from
+    Ask, with the control Herding has for that row.
+  - **Follow-ups:** "do it", "half of that", "same but to Base" and "the
+    second one" are resolved against the thread.
+  - **Self-knowledge:** limits, fees, plain meanings, what is off on a
+    deployment, what is not built and what cannot be known are part of the
+    capability map, read from the constants the code enforces.
+- **A conversation suite** (`apps/api/src/evals/conversations.ts`): runs in
+  `npm run eval:intents`, and against a deployed API with
+  `LYKIA_EVAL_BASE_URL=... npm run eval:live -w @lykia/api`.
+
 - **Lyko Autopilot.** Lyko signs the owner's own automations inside a leash
   on the owner's own LykiaAccount.
   - **The key:** a Circle developer-controlled EOA wallet (MPC) made for
@@ -135,6 +153,18 @@ own dated version history in [docs/platform/changelog.md](docs/platform/changelo
 - Contrast and tap targets: sea tags and the network toggle use the darker
   sea, footer headings and notes meet WCAG AA, small buttons and footer
   links are 44 px tall on phones, and a link to `/#section` scrolls to it.
+
+### Fixed
+
+- The Fold's sample flock is used only by the Fold for a signed-out
+  visitor; an Ask turn always reads the chain.
+- With no wallet connected, an answer about money says it is a sample
+  address in its first line and on a card with a Connect action.
+- The number guard drops a sentence with an unsourced figure instead of
+  patching it; placeholder phrases can no longer appear.
+- Tool names, internal terms and remarks about earlier answers are kept
+  out of answers; the capability card is shown again.
+- Dust and unpriced lines are folded into one line on position answers.
 
 ## 0.1.0 (2026-11)
 

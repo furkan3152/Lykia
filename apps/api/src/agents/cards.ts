@@ -119,10 +119,35 @@ export function blockOf(block: string | number | bigint | null | undefined): str
   return /^\d{1,20}$/u.test(s) && s !== "0" ? s : null;
 }
 
+/** Under this value a position is dust: it is counted, never listed. */
+export const DUST_USD = 1;
+
+/**
+ * The positions worth a line, and how many are folded away. Dust and unpriced lines (a wallet full of airdropped
+ * tokens, a dust LP) are not portfolio facts: they are counted in one line ("55 small or unpriced lines hidden").
+ * A debt, anything with a health factor and anything in motion always keeps its line.
+ */
+export function materialPositions(res: PositionsResponse): { readonly shown: PositionsResponse["venues"][number]["positions"]; readonly hidden: number } {
+  const all = res.venues.flatMap((v) => v.positions);
+  const keep = all.filter((p) => {
+    const value = p.valueUsd === null ? null : Number(p.valueUsd);
+    if (value !== null && value < 0) return true;
+    if (p.health?.factor) return true;
+    if (p.counts === "overlay" || p.state === "pending" || p.state === "escrowed" || p.state === "committed" || p.state === "watching") return true;
+    return value !== null && Math.abs(value) >= DUST_USD;
+  });
+  return { shown: keep, hidden: all.length - keep.length };
+}
+
+/** "55 small or unpriced lines hidden", or null when nothing is folded away. */
+export function hiddenLine(hidden: number): string | null {
+  return hidden > 0 ? `${hidden} small or unpriced line${hidden === 1 ? "" : "s"} hidden` : null;
+}
+
 /** Where the money is: the largest positions by value with their state and one line each, and the venues that could not be read. */
 export function positionsCard(res: PositionsResponse): AnswerBlock | null {
-  const rows = res.venues
-    .flatMap((v) => v.positions)
+  const material = materialPositions(res);
+  const rows = material.shown
     .slice()
     .sort((a, b) => Math.abs(Number(b.valueUsd ?? 0)) - Math.abs(Number(a.valueUsd ?? 0)))
     .slice(0, 8)
@@ -137,7 +162,8 @@ export function positionsCard(res: PositionsResponse): AnswerBlock | null {
     unavailable: res.summary.unavailable.slice(0, 12).map((u) => u.slice(0, 60)),
     // Derived figures come from code (core summarizePositions), so prose never has to add them up.
     ...(res.summary.yearlyYieldUsd !== null ? { yearlyYieldUsd: trimDecimal(res.summary.yearlyYieldUsd, 2) } : {}),
-    ...(res.summary.unpriced > 0 ? { unpriced: res.summary.unpriced } : {}),
+    ...(material.hidden > 0 ? { hidden: material.hidden } : {}),
+    ...(res.summary.netUsd === null ? { pricedNetUsd: trimDecimal(res.summary.pricedNetUsd, 2) } : {}),
     from: { source: "Arc chain and venue APIs", readAt: isoOf(res.at), block: blockOf(res.block) },
   };
 }
@@ -233,7 +259,7 @@ const dollars = (v: string | number) => `$${Number(v).toLocaleString("en-US", { 
 export function positionsFacts(res: PositionsResponse, title = "Your Fold, read now", options: { readonly sample?: boolean } = {}): AnswerBlock {
   const at = { source: options.sample ? "sample" : "Arc chain and venue APIs", readAt: isoOf(res.at), block: blockOf(res.block) };
   const s = res.summary;
-  const unpricedNote = s.unpriced > 0 ? `${s.unpriced} holding${s.unpriced === 1 ? " has" : "s have"} no price and ${s.unpriced === 1 ? "is" : "are"} left out` : null;
+  const unpricedNote = s.unpriced > 0 ? "lines without a price are left out, never counted as zero" : null;
   const earning = res.venues.filter((v) => v.positions.some((p) => p.apy && (p.state === "earning" || p.state === "at-risk")));
   const first = earning[0];
   const rateFrom = options.sample ? at : first ? { source: first.source === "api" ? `${first.venueName} rate API`.slice(0, 80) : `${first.venueName} on Arc`.slice(0, 80), readAt: isoOf(first.readAt), block: blockOf(first.block), venue: earning.length === 1 ? first.venueName.slice(0, 60) : `${earning.length} venues` } : at;

@@ -44,7 +44,7 @@ import {
   type PlanAction,
 } from "@lykia/core";
 import type { AgentProposal, AnswerBlock, ChatDraftLink, ChatProgramView } from "@lykia/core/api/agents";
-import { fenceCard, positionsFacts, quotedRate, rateCard } from "./cards.js";
+import { fenceCard, hiddenLine, materialPositions, positionsCard, positionsFacts, quotedRate, rateCard } from "./cards.js";
 import { grounded, groundActions, intervalStated, recordToolData, searchBinds, timeStated, venueNamed, type Ground } from "./grounding.js";
 import { orderVerdict, quoteOf } from "../orders/verdict.js";
 import { readWithMemory } from "../personal/reader.js";
@@ -61,7 +61,7 @@ import { readSentence } from "../language/reader.js";
 import { compileIntent } from "../compiler/service.js";
 import { deliver } from "../compiler/deliver.js";
 import type { LlmTool } from "./llm.js";
-import { foldPositions, foldSnapshot } from "../fold/sample.js";
+import { foldPositions, foldSnapshot, type FixtureScope } from "../fold/sample.js";
 import { foldInsights } from "../fold/insights.js";
 import { createWatch, listInstructions } from "./instructions.js";
 import { AUTOPILOT_BETA, WATCH_KINDS, type AutopilotTaskInput, type PlanPayload, type WatchCondition, type WatchPayload } from "@lykia/core";
@@ -109,6 +109,25 @@ export interface ToolContext {
   readonly ground?: Ground;
   /** Lyko on watch (origin: the Fold): read-only tools, and each read lands as a sourced facts card. */
   readonly readOnly?: boolean;
+  /** Reads made this turn, kept so a second tool or a card does not read Arc again for the same answer. */
+  readonly reads?: Map<string, Promise<unknown>>;
+}
+
+/** The Fold's sample fixture is for Lyko on watch only: every other turn reads the chain, also for the sample address. */
+export const fixtureScope = (tc: Pick<ToolContext, "readOnly">): FixtureScope => (tc.readOnly === true ? "fold" : "chain");
+
+/** One read per turn: the same key returns the same result (a failed read is not kept). */
+export function readOnce<T>(tc: Pick<ToolContext, "reads">, key: string, read: () => Promise<T>): Promise<T> {
+  const reads = tc.reads;
+  if (!reads) return read();
+  const hit = reads.get(key) as Promise<T> | undefined;
+  if (hit) return hit;
+  const made = read();
+  reads.set(key, made);
+  made.catch(() => {
+    if (reads.get(key) === made) reads.delete(key);
+  });
+  return made;
 }
 
 export interface ToolOutcome {
@@ -184,24 +203,34 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
     schema: z.object({}).strict(),
     json: obj({}),
     async run(_input, tc) {
-      const snap = await foldSnapshot(tc.ctx, tc.environment, needOwner(tc), { fixture: tc.readOnly === true });
+      const owner = needOwner(tc);
+      const snap = await readOnce(tc, "snapshot", () => foldSnapshot(tc.ctx, tc.environment, owner, { fixture: fixtureScope(tc) }));
       return { summary: `Flock read: total ${snap.totalUsd === null ? "partly unpriced" : `$${snap.totalUsd}`}, ${snap.holdings.length} holdings`, data: snap };
     },
   }),
   spec({
     name: "positions",
-    description: "Read where the owner's money is and what it is doing, in every venue Lykia supports on Arc: wallet tokens, Aave V4 supplies and borrows with health factors, Morpho vaults (named by curator: Galaxy, Keyrock, Steakhouse, Gauntlet, Bitwise) and Morpho Blue markets, Uniswap v3/v4, Aerodrome Slipstream, Archery, Unitflow V3 and SushiSwap V3 LP positions with range and fees, USYC, the Circle Gateway balance and, for the proven owner, CCTP and Relay transfers in flight, open orders, scheduled payments, leash budgets (what each bot may still spend, from the Arc wallet or a Gateway balance), step-by-step plans with steps still to sign, and watches. Any other kind (a new venue type) arrives with generic detail blocks: gauges with thresholds, ranges, timelines, facts, countdowns and PnL. Each position has a state (earning, idle, borrowing, at-risk, out-of-range, pending, escrowed, committed, watching), a value, an APY where known and one plain line of what it is doing. Venues that could not be read are named, never zeroed. Use it to answer 'where is my money and what is it doing?', then call show_card with card 'positions'.",
+    description: "Read where the owner's money is and what it is doing, in every venue Lykia supports on Arc: wallet tokens, Aave V4 supplies and borrows with health factors, Morpho vaults (named by curator: Galaxy, Keyrock, Steakhouse, Gauntlet, Bitwise) and Morpho Blue markets, Uniswap v3/v4, Aerodrome Slipstream, Archery, Unitflow V3 and SushiSwap V3 LP positions with range and fees, USYC, the Circle Gateway balance and, for the proven owner, CCTP and Relay transfers in flight, open orders, scheduled payments, leash budgets (what each bot may still spend, from the Arc wallet or a Gateway balance), step-by-step plans with steps still to sign, and watches. Any other kind (a new venue type) arrives with generic detail blocks: gauges with thresholds, ranges, timelines, facts, countdowns and PnL. Each position has a state (earning, idle, borrowing, at-risk, out-of-range, pending, escrowed, committed, watching), a value, an APY where known and one plain line of what it is doing. Venues that could not be read are named, never zeroed. Use it to answer 'where is my money and what is it doing?'. The positions card is shown with this read; do not call show_card for it.",
     capability: "read",
     schema: z.object({}).strict(),
     json: obj({}),
     async run(_input, tc) {
-      const res = await foldPositions(tc.ctx, tc.environment, needOwner(tc), { personal: tc.ownerVerified, fixture: tc.readOnly === true });
-      const all = res.venues.flatMap((v) => v.positions);
-      if (tc.readOnly && !tc.blocks?.some((b) => b.kind === "facts")) tc.blocks?.push(positionsFacts(res, undefined, { sample: isSampleOwner(tc.owner) }));
+      const owner = needOwner(tc);
+      const res = await readOnce(tc, "positions", () => foldPositions(tc.ctx, tc.environment, owner, { personal: tc.ownerVerified, fixture: fixtureScope(tc) }));
+      // Dust and unpriced lines are folded into one count: they are not portfolio facts to recite.
+      const material = materialPositions(res);
+      const all = material.shown;
+      const { positions: _count, unpriced: _unpriced, ...totals } = res.summary;
+      if (tc.readOnly && !tc.blocks?.some((b) => b.kind === "facts")) tc.blocks?.push(positionsFacts(res, isSampleOwner(tc.owner) ? "The sample flock" : undefined, { sample: isSampleOwner(tc.owner) }));
+      // In Ask the positions card rides on the read itself: the model does not spend a second round asking for it.
+      if (!tc.readOnly && tc.agent.role === "orchestrator" && !tc.blocks?.some((b) => b.kind === "positions")) {
+        const card = positionsCard(res);
+        if (card) tc.blocks?.push(card);
+      }
       return {
-        summary: `${all.length} position(s); net ${res.summary.netUsd === null ? "partly unpriced" : `$${res.summary.netUsd}`}${res.summary.unavailable.length > 0 ? `; not read: ${res.summary.unavailable.join(", ")}` : ""}`,
+        summary: `${all.length} position(s)${material.hidden > 0 ? `, ${hiddenLine(material.hidden)}` : ""}; net ${res.summary.netUsd === null ? `$${res.summary.pricedNetUsd} priced` : `$${res.summary.netUsd}`}${res.summary.unavailable.length > 0 ? `; not read: ${res.summary.unavailable.join(", ")}` : ""}`,
         data: {
-          summary: res.summary,
+          summary: { ...totals, positionsShown: all.length, ...(material.hidden > 0 ? { hidden: hiddenLine(material.hidden), hiddenRule: "Say this one line at most; never count or describe the hidden lines." } : {}) },
           read: { at: res.at, block: res.block, note: "Cite figures with their source and this block or time; say unavailable for anything not here." },
           healthFloor: res.healthFloor,
           positions: all.map((p) => ({ venue: p.venue, kind: p.venueKind, label: p.label, state: p.state, amount: p.amount, symbol: p.symbol, valueUsd: p.valueUsd, doing: p.doing, apy: p.apy?.percent ?? null, health: p.health?.factor ?? null, inRange: p.range?.inRange ?? null, feesUsd: p.fees?.valueUsd ?? null, ...(p.claimable ? { claimable: p.claimable } : {}), ...(p.blocks ? { blocks: p.blocks } : {}), actions: p.actions.filter((a) => a.mode === "draft").map((a) => a.sentence) })),
@@ -251,12 +280,15 @@ const AGENT_TOOLS: readonly ToolSpec<unknown>[] = [
     name: "capabilities",
     description: "Read Lyko's own capability map, built from code: every action (send, convert, swap, earn, withdraw, borrow, repay, bridge, Gateway) with the venues it routes through on this network, each bridge route (CCTP, Across, Relay, Gateway) with its destination chains and when it is picked, what each token can do and where USDC can be bridged, and the features with when to use them (Fence presets, Stress test, Leash, watches, step-by-step plans, Whistle, orders, alerts, recurring rules, payouts). Use it for 'what can you do', 'where can I bridge to', 'which protocols for ...', and to build the options of a clarifying question.",
     capability: "read",
-    schema: z.object({ section: z.enum(["all", "actions", "bridges", "tokens", "features"]).optional() }).strict(),
-    json: obj({ section: { type: "string", enum: ["all", "actions", "bridges", "tokens", "features"], description: "Optional: one part of the map" } }),
-    async run(input: { section?: "all" | "actions" | "bridges" | "tokens" | "features" }, tc) {
+    schema: z.object({ section: z.enum(["all", "actions", "bridges", "tokens", "features", "knowledge", "checks"]).optional() }).strict(),
+    json: obj({ section: { type: "string", enum: ["all", "actions", "bridges", "tokens", "features", "knowledge", "checks"], description: "Optional: one part of the map. knowledge = limits, fees, plain meanings, what is off or not built, risks and what cannot be known." } }),
+    async run(input: { section?: "all" | "actions" | "bridges" | "tokens" | "features" | "knowledge" | "checks" }, tc) {
       const map = await liveCapabilityMap(tc.ctx, tc.environment);
       const section = input.section ?? "all";
-      const data = section === "all" ? map : { environment: map.environment, [section]: map[section] };
+      // Coverage counts protocols; it is named so nobody reads it as a count of actions.
+      const { coverage, ...rest } = map;
+      const counts = { actions: map.actions.length, bridgeRoutes: map.bridges.length, features: map.features.length, protocolsLykiaRoutesThrough: coverage.routable, protocolsReachedThroughAnotherVenue: coverage.routableVia, protocolsMappedOnArc: coverage.mapped };
+      const data = section === "all" ? { ...rest, counts } : { environment: map.environment, [section]: map[section], counts };
       return { summary: `Capability map: ${map.actions.length} actions, ${map.bridges.length} bridge routes, ${map.features.length} features`, data };
     },
   }),
