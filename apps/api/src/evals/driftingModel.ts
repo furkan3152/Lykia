@@ -72,6 +72,8 @@ export function driftingModel(): LlmClient & { readonly calls: LlmRequest[] } {
         if (/\b(?:fence|rules|limits?)\b/iu.test(words) && has("fence")) return reply([toolUse("fence", {})], "tool_use");
         if (/\d/u.test(words) && /\b(?:send|pay|convert|swap|bridge|deposit|put|borrow|repay|withdraw|rebalance|buy|sell)\b/iu.test(words) && has("plan_intent")) return reply([toolUse("plan_intent", { sentence: words })], "tool_use");
         if (/\?\s*$/u.test(words) && has("positions")) return reply([toolUse("positions", {})], "tool_use");
+        // A vague request to earn: the live model asked with a balance only its own read had seen, in the question and an option.
+        if (/\bsome money\b/iu.test(words) && has("ask_owner")) return reply([toolUse("ask_owner", { question: "How much USDC should go to work? The wallet holds 187.28 USDC.", options: ["All 187.28 USDC", "Half of it", "Pick an amount"] })], "tool_use");
         // Nothing to go on: ask, and write nothing (what the live model did on vague requests).
         if (has("ask_owner")) return reply([toolUse("ask_owner", { question: "What should I do with it?", options: ["Put it to work", "Keep it in the wallet"] })], "tool_use");
         return reply([say("I need one more detail.")], "end_turn");

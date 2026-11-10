@@ -324,8 +324,14 @@ export async function runTurn(input: TurnInput): Promise<TurnResult> {
   const onExtra = async (name: string, raw: unknown): Promise<{ content: string; ok: boolean; summary: string; stop?: boolean }> => {
     const args = (raw ?? {}) as Record<string, unknown>;
     if (name === "ask_owner") {
-      const question = String(args.question ?? "").slice(0, 300);
-      const options = Array.isArray(args.options) ? args.options.map(String).slice(0, 4) : [];
+      // The model wrote this question and its options: they are not a source. Each figure in them must already be on
+      // screen or in the owner's words; a sentence or an option that states any other figure is left out.
+      const visible = visibleGround(ground, { other: seenOther });
+      const asked = String(args.question ?? "").slice(0, 300);
+      const question = guardNumbers(roundPrices(asked), visible, shownBlocks).text.trim() || (/\b(how much|amount)\b/iu.test(asked) ? "How much should I use?" : "Could you say a little more about what you want?");
+      const options = (Array.isArray(args.options) ? args.options.map(String) : [])
+        .filter((o) => guardNumbers(o, visible, shownBlocks).removed.length === 0)
+        .slice(0, 4);
       emit("clarify", { question, options });
       return { content: wrapUntrusted({ asked: true }), ok: true, summary: "Asked the owner", stop: true };
     }
