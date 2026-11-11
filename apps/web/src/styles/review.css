@@ -65,7 +65,7 @@
 .rv-step[data-status="failed"] { box-shadow: inset 0 0 0 2px var(--bad); }
 .rv-step__n { display: grid; place-items: center; width: 30px; height: 30px; font-family: Silkscreen, monospace; font-size: 12px; color: #fff; background: var(--navy); box-shadow: inset 0 -3px 0 #0a1525; }
 .rv-step[data-status="settled"] .rv-step__n { background: var(--ok); box-shadow: inset 0 -3px 0 #2d5d32; }
-.rv-step[data-active] .rv-step__n { background: var(--sea); box-shadow: inset 0 -3px 0 var(--sea-2); }
+.rv-step[data-active] .rv-step__n { background: var(--sea-2); box-shadow: inset 0 -3px 0 #0d4f5c; }
 .rv-step__body { display: grid; gap: 6px; min-width: 0; }
 .rv-step__body > b { overflow-wrap: anywhere; }
 .rv-step__meta { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -152,9 +152,6 @@ html[data-motion="off"] .rv-tiles { display: none; }
 html[data-motion="off"] .rv-scrim, html[data-motion="off"] .rv-dialog, html[data-motion="off"] .rv-lay, html[data-motion="off"] .rv-banner { animation: none !important; }
 
 /* Night. */
-html[data-night="on"] .rv-head, html[data-night="on"] .rv-foot, html[data-night="on"] .rv-card { background: #1b2b47; color: #f2ead7; }
-html[data-night="on"] .rv-fig, html[data-night="on"] .rv-step, html[data-night="on"] .rv-banner { background: #20335a; color: #f2ead7; }
-html[data-night="on"] .rv-memo { background: #16243f; color: #cfc4ad; }
 
 /* Staged plans: the next stage slides in after the one before settles; waiting stages read dimmed. */
 .rv-step[data-status="blocked"] { opacity: 0.55; }
@@ -179,22 +176,22 @@ html[data-night="on"] .rv-memo { background: #16243f; color: #cfc4ad; }
 .pf__h .m-kick, .pf .rv-h .m-kick { color: var(--ink-2); }
 .pf[data-worst="block"] .pf__h { color: var(--terra-2); }
 .pf__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.pf-card { --tone: var(--sea); --tint: #eef7f8; position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; padding: 10px 12px 10px 10px; background: var(--tint); box-shadow: inset 0 0 0 2px var(--tone), inset 6px 0 0 var(--tone), 0 3px 0 var(--grout); animation: pf-in 320ms steps(4, end) both; animation-delay: calc(var(--i, 0) * 70ms); }
-.pf-card[data-severity="block"] { --tone: var(--terra); --tint: #fbe9e3; }
-.pf-card[data-severity="warn"] { --tone: var(--ochre); --tint: #fdf3dc; }
+.pf-card { --tone: var(--sea); --tone-ink: var(--sea-ink); --tint: #eef7f8; position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; padding: 10px 12px 10px 10px; background: var(--tint); box-shadow: inset 0 0 0 2px var(--tone), inset 6px 0 0 var(--tone), 0 3px 0 var(--grout); animation: pf-in 320ms steps(4, end) both; animation-delay: calc(var(--i, 0) * 70ms); }
+.pf-card[data-severity="block"] { --tone: var(--terra); --tone-ink: var(--terra-ink); --tint: #fbe9e3; }
+.pf-card[data-severity="warn"] { --tone: var(--ochre); --tone-ink: var(--ochre-ink); --tint: #fdf3dc; }
 .pf-card--compact { padding: 6px 10px 6px 8px; box-shadow: inset 0 0 0 2px var(--grout), inset 4px 0 0 var(--tone); background: var(--cream); }
 @keyframes pf-in { from { opacity: 0; transform: translateY(-6px); } }
 .pf-card__stone { display: grid; place-items: center; width: 38px; height: 38px; background-color: var(--cream); background-image: linear-gradient(rgba(19, 35, 58, 0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(19, 35, 58, 0.08) 1px, transparent 1px); background-size: 4px 4px; box-shadow: inset 0 0 0 2px var(--tone); }
 .pf-card--compact .pf-card__stone { width: 28px; height: 28px; }
 .pf-card__body { display: grid; gap: 4px; min-width: 0; }
-.pf-card__kick { font-family: Silkscreen, monospace; font-size: 10px; letter-spacing: 0.12em; color: var(--tone); filter: brightness(0.82); }
+.pf-card__kick { font-family: Silkscreen, monospace; font-size: 10px; letter-spacing: 0.12em; color: var(--tone-ink); }
 .pf-card__title { font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }
 .pf-card__why { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--ink-2); }
 .pf-change { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 2px 0 0; font-size: 13px; }
 .pf-change__label { color: var(--ink-2); }
 .pf-change__fig { padding: 1px 6px; background: var(--cream); box-shadow: inset 0 0 0 2px var(--grout); font-weight: 600; }
 .pf-change__fig--after { box-shadow: inset 0 0 0 2px var(--tone); }
-.pf-change__arrow { font-family: "JetBrains Mono Variable", monospace; color: var(--tone); font-weight: 700; }
+.pf-change__arrow { font-family: "JetBrains Mono Variable", monospace; color: var(--tone-ink); font-weight: 700; }
 .pf-why { justify-self: start; padding: 0; border: 0; background: none; cursor: pointer; font-size: 12.5px; color: var(--navy); text-decoration: underline dotted; text-underline-offset: 3px; }
 .pf-figs { display: grid; gap: 6px; margin: 2px 0 0; padding: 8px 10px; background: var(--cream); box-shadow: inset 0 0 0 2px var(--grout); }
 .pf-figs > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; }
@@ -217,9 +214,6 @@ html[data-night="on"] .rv-memo { background: #16243f; color: #cfc4ad; }
 .rv-pf { box-shadow: inset 0 0 0 2px var(--grout), inset 0 4px 0 var(--ochre); }
 .rv-pf .rv-h { margin-bottom: 4px; }
 .m-stageplan .pf { margin-top: 10px; }
-html[data-night="on"] .pf-card { background: #1b2b47; color: #f2ead7; }
-html[data-night="on"] .pf-card__why, html[data-night="on"] .pf-change__label, html[data-night="on"] .pf-chip__detail { color: #c9bfa8; }
-html[data-night="on"] .pf-chip, html[data-night="on"] .pf-change__fig, html[data-night="on"] .pf-figs { background: #22355a; color: #f2ead7; }
 @media (max-width: 640px) {
   .pf-chips { gap: 8px; }
   .pf-chip { flex: 1 1 calc(50% - 8px); }
@@ -227,3 +221,17 @@ html[data-night="on"] .pf-chip, html[data-night="on"] .pf-change__fig, html[data
 }
 @media (prefers-reduced-motion: reduce) { .pf-card, .pf-chip { animation: none; transition: none; } }
 html[data-motion="off"] .pf-card, html[data-motion="off"] .pf-chip { animation: none; transition: none; }
+
+/* Review, one thing at a time: the sentence, "Before you sign", then Sign; the rest behind Details. */
+.rv-lead { margin: 2px 0 0; font-size: 16px; line-height: 1.45; color: var(--ink); max-width: 64ch; }
+.rv-rules { grid-template-columns: minmax(0, 1fr); padding-left: 14px; }
+.rv-rules__list { margin: 2px 0 0; padding-left: 18px; display: grid; gap: 2px; font-size: 14px; line-height: 1.4; }
+.rv-secline { display: flex; align-items: center; gap: 8px; margin: 0; padding: 8px 12px; background: #fbe9e3; box-shadow: inset 4px 0 0 var(--terra); font-size: 13.5px; }
+.rv-details { display: grid; gap: 14px; padding: 0; }
+.rv-details > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; cursor: pointer; list-style: none; padding: 10px 14px; background: var(--lime); box-shadow: inset 0 0 0 2px var(--grout), inset 0 -3px 0 var(--grout); font-family: Silkscreen, monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--navy); }
+.rv-details > summary::-webkit-details-marker { display: none; }
+.rv-details > summary::before { content: "+"; display: inline-grid; place-items: center; width: 18px; height: 18px; background: var(--navy); color: #fff6de; font-family: "JetBrains Mono Variable", monospace; font-size: 12px; }
+.rv-details[open] > summary::before { content: "−"; }
+.rv-details > summary .m-small { font-family: "Space Grotesk Variable", system-ui, sans-serif; letter-spacing: 0; text-transform: none; color: var(--ink-2); }
+.rv-details[open] { gap: 14px; }
+.rv-ref { margin: 0; color: var(--ink-2); font-family: "JetBrains Mono Variable", monospace; }

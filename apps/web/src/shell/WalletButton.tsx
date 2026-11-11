@@ -3,6 +3,7 @@ import { shortAddress } from "@lykia/core";
 import { useEffect, useRef, useState } from "react";
 
 import { useUiStore } from "../app/state/uiStore";
+import { useWalletPresence } from "../app/state/walletPresence";
 import { ConnectModal } from "../features/wallet/ConnectModal";
 import { canRestorePasskey, useWallet } from "../features/wallet/store";
 import { useLykiaWallet } from "../features/wallet/useLykiaWallet";
@@ -18,6 +19,8 @@ export default function WalletButton() {
   const mode = useUiStore((s) => s.mode);
   const [menu, setMenu] = useState(false);
   const tried = useRef<string | null>(null);
+  const present = useWalletPresence((s) => s.set);
+  useEffect(() => present(Boolean(wallet.connected && wallet.address)), [present, wallet.connected, wallet.address]);
 
   // Restore a stored passkey account without a prompt, and follow the network toggle.
   useEffect(() => {

@@ -96,7 +96,7 @@ export function FoldBar(p: FoldBarProps) {
   const show = (c: FoldCard) => p.cards.includes(c);
   const worth = p.total === null ? "—" : usd(p.total);
   return (
-    <section className={cx("fd-bar m-frame", p.whistle && "fd-bar--night")} aria-label="The Fold at a glance">
+    <section className="fd-bar m-frame" data-whistle={p.whistle || undefined} aria-label="The Fold at a glance">
       {show("networth") || show("allocation") ? (
         <div className="fd-bar__worth">
           {show("networth") ? (

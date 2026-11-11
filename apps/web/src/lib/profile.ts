@@ -9,7 +9,8 @@ import { create } from "zustand";
 import { readStorage, writeStorage } from "../app/state/storage";
 import { DEFAULT_LOOK, type LykoLook } from "../mosaic/sprites";
 
-export type Theme = "day" | "night" | "auto";
+/** Day unless the owner picks night. ("auto" from older profiles loads as day: night never follows the system on its own.) */
+export type Theme = "day" | "night";
 export type Currency = "USD" | "EUR" | "TRY";
 export type Risk = "low" | "medium" | "high";
 export type Tone = "friendly" | "concise" | "formal" | "playful";
@@ -71,7 +72,7 @@ export function sanitizeProfile(raw: unknown): Profile {
     language: "en",
     currency: pick(v.currency, ["USD", "EUR", "TRY"], DEFAULT_PROFILE.currency),
     network: pick(v.network, ["mainnet", "testnet"], DEFAULT_PROFILE.network),
-    theme: pick(v.theme, ["day", "night", "auto"], DEFAULT_PROFILE.theme),
+    theme: pick(v.theme, ["day", "night"], DEFAULT_PROFILE.theme),
     risk: pick(v.risk, ["low", "medium", "high"], DEFAULT_PROFILE.risk),
     slippageBps: Number.isInteger(v.slippageBps) && (v.slippageBps as number) >= 0 && (v.slippageBps as number) <= 1000 ? (v.slippageBps as number) : DEFAULT_PROFILE.slippageBps,
     favoriteVenues: Array.isArray(v.favoriteVenues) ? v.favoriteVenues.filter((x) => typeof x === "string").slice(0, 50) : [],

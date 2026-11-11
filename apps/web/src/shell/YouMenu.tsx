@@ -61,7 +61,7 @@ export function YouMenu() {
           ) : null}
           <div style={{ borderTop: "2px dashed var(--grout)", paddingTop: 8, display: "grid", gap: 8 }}>
             <Toggle light label="Network" value={mode} onChange={(m) => setMode(m)} options={[{ value: "mainnet", label: "MAINNET" }, { value: "testnet", label: "TESTNET" }]} />
-            <Toggle light label="Theme" value={profile.theme} onChange={(theme) => setProfile({ ...profile, theme })} options={[{ value: "day", label: "DAY" }, { value: "night", label: "NIGHT" }, { value: "auto", label: "AUTO" }]} />
+            <Toggle light label="Theme" value={profile.theme} onChange={(theme) => setProfile({ ...profile, theme })} options={[{ value: "day", label: "DAY" }, { value: "night", label: "NIGHT" }]} />
           </div>
         </div>
       ) : null}

@@ -44,7 +44,12 @@ export function AssistantMessage({ m, compact = false, onChoose }: AssistantMess
   const herded = (m.blocks ?? []).some((b) => b.kind === "herded");
   // No wallet connected: the sample card comes first, before any figure, and the cards below stop saying "your".
   const sample = (m.blocks ?? []).find((b) => b.kind === "sample");
-  const cards = (m.blocks ?? []).filter((b) => b.kind !== "sample");
+  // Beside a plan, the plan card says what it costs and the review modal asks for the Fence's confirmation:
+  // the separate "confirm first" gate and cost cards would only repeat it. A refusal keeps its gate card.
+  const planned = m.proposals.length > 0 && !compact;
+  const cards = (m.blocks ?? []).filter((b) => b.kind !== "sample" && !(planned && ((b.kind === "fence" && b.decision !== "deny") || (b.kind === "facts" && b.title.startsWith("What this plan costs")))));
+  // Lyko asked a question: it is the only thing to do until it is answered.
+  const asking = Boolean(m.clarify && m.clarify.options.length > 0 && onChoose);
   const drafts = m.drafts ?? [];
   const threadId = useAsk((st) => st.convo.threadId);
   return (
@@ -83,6 +88,7 @@ export function AssistantMessage({ m, compact = false, onChoose }: AssistantMess
         </SampleContext.Provider>
         {!herded && drafts.length > 0 ? <HerdedCard items={herdFromDrafts(drafts)} /> : null}
         {m.program && !compact ? <ProgramCard view={m.program} /> : null}
+        {asking && m.clarify && onChoose ? <ChoiceCard question={m.clarify.question} options={m.clarify.options} label={clarifyLabel} onChoose={onChoose} /> : null}
         {compact && (m.program || m.proposals.length > 0) ? (
           // Lyko on watch does not sign: it hands the plan to Ask Lyko, in the same thread, and says so.
           <div className="m-handoff" role="status">
@@ -90,9 +96,9 @@ export function AssistantMessage({ m, compact = false, onChoose }: AssistantMess
             <Link to={threadId ? `/app/ask/${encodeURIComponent(threadId)}` : "/app"} className="m-btn m-btn--sm">{"REVIEW AND SIGN IN ASK ›"}</Link>
           </div>
         ) : (
-          m.proposals.length > 0 ? <PlanCard proposals={m.proposals} /> : null
+          m.proposals.length > 0 ? <PlanCard proposals={m.proposals} waiting={asking} /> : null
         )}
-        {m.clarify && onChoose ? <ChoiceCard question={m.clarify.question} options={m.clarify.options} label={clarifyLabel} onChoose={onChoose} /> : null}
+        {!asking && m.clarify && onChoose ? <ChoiceCard question={m.clarify.question} options={m.clarify.options} label={clarifyLabel} onChoose={onChoose} /> : null}
       </div>
     </div>
   );

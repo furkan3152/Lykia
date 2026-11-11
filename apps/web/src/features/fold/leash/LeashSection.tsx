@@ -134,7 +134,7 @@ export function LeashSection({ owner, agents, busyId: agentBusy, onPauseAgent, o
   const loading = (leashes.isLoading && !owner.sample) || agents === undefined;
   return (
     <section className="fd-leashes fd-pk" aria-labelledby="fd-pk-h">
-      <header className="fd-leashes__head fd-pk__head">
+      <header className="fd-leashes__head fd-pk__head m-floor">
         <span className="fd-leashes__mark" aria-hidden="true"><LeashMark scale={3} /></span>
         <div>
           <h3 id="fd-pk-h">{"Agents and their leashes"} <span className="p-h-sub">{`· ${LYKIA_TERMS.leash.plain}`}</span></h3>
@@ -142,8 +142,8 @@ export function LeashSection({ owner, agents, busyId: agentBusy, onPauseAgent, o
         </div>
         <span className="fd-pk__count num" aria-label={`${live.length + own.length} agents`}>{live.length + own.length}</span>
       </header>
-      {owner.sample ? <p className="fd-leashes__sample m-small">{"Sample agents and leashes, so you can look around."}</p> : null}
-      {!owner.sample && !owner.signedIn ? <p className="m-small m-muted">{"Sign in as the owner to see and manage your agents and leashes."}</p> : null}
+      {owner.sample ? <p className="fd-leashes__sample m-small m-floor">{"Sample agents and leashes, so you can look around."}</p> : null}
+      {!owner.sample && !owner.signedIn ? <p className="m-small m-muted m-floor">{"Sign in as the owner to see and manage your agents and leashes."}</p> : null}
       <div className="fd-leashes__grid fd-pk__grid">
         {loading ? <div className="m-skel" style={{ height: 260 }} /> : null}
         {live.map((l) => <LeashCard key={l.id} l={l} now={now} busy={busyId === l.id} onRevoke={(x) => void revoke(x)} offer={offer.data} onAsk={(x) => onAsk(`Change ${x.agentName}'s leash: `, `Leash ${x.id} for ${x.agentName}: $${x.budget.perDayUsd} a day, $${x.budget.totalUsd} in all, until ${x.expiresAt}.`)} />)}

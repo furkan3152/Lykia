@@ -111,9 +111,10 @@ export type NextStep =
 
 export function nextStep(m: ChatMessage): NextStep {
   if (m.streaming || m.role !== "assistant") return { kind: "none" };
+  // A question Lyko asked comes first: no plan is signed until it is answered.
+  if (m.clarify && m.clarify.options.length > 0) return { kind: "choose" };
   const reviewable = m.proposals.findIndex((p) => Boolean(p.intentId));
   if (reviewable >= 0) return { kind: "review", index: reviewable };
-  if (m.clarify && m.clarify.options.length > 0) return { kind: "choose" };
   const herded = (m.blocks ?? []).find((b) => b.kind === "herded");
   if (herded || (m.drafts ?? []).length > 0) return { kind: "fold", href: "/app/fold/herding", label: "See it in the Fold" };
   if ((m.blocks ?? []).some((b) => b.kind === "positions" || b.kind === "balance")) return { kind: "fold", href: "/app/fold/flock", label: "Manage it in the Fold" };
@@ -123,6 +124,8 @@ export function nextStep(m: ChatMessage): NextStep {
 /** Two or three follow-ups that fit what the answer showed; a starter fills, a question asks. */
 export function followUps(m: ChatMessage): readonly Starter[] {
   if (m.streaming || m.role !== "assistant" || m.error) return [];
+  // A question waits for its answer; nothing else is offered beside it.
+  if (m.clarify && m.clarify.options.length > 0) return [];
   const kinds = new Set((m.blocks ?? []).map((b) => b.kind));
   const pick = (...ids: string[]) => ids.map((id) => [...DO_STARTERS, ...ASK_STARTERS, ...EXTRA].find((s) => s.id === id)).filter((s): s is Starter => Boolean(s)).slice(0, 3);
   if (m.proposals.length > 0 || m.program) return pick("have", "watch-plan");

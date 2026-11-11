@@ -102,7 +102,7 @@ export function Strike({ onPreview }: { readonly onPreview: (p: Project) => void
         <div className="m-frame m-frame--night forge-anvil__frame">
           <ForgeStrike strikeKey={struck?.id ?? "idle"} label={struck ? `The hammer struck ${struck.name}'s coin` : "The Forge's anvil, a hot blank waiting"} />
         </div>
-        <div className="forge-anvilbox__coin">
+        <div className="forge-anvilbox__coin m-floor">
           {struck ? <Coin key={struck.id} state="live" emblem="triskeles" codename={null} name={struck.name} size={112} delay={600} /> : <Coin state="coming" emblem="triskeles" codename={null} name="Your city" size={112} />}
           {struck ? null : <p className="m-small m-muted m-center" style={{ maxWidth: 360 }}>{"A blank, waiting. Name a city and the hammer strikes it in gold: the League's shared face on one side, your emblem on the other."}</p>}
           {struck ? <p className="m-small m-center"><b>{struck.name}</b>{" · "}<span className="num">{struck.id}</span></p> : null}

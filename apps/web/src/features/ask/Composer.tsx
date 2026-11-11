@@ -151,7 +151,7 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
             {hint.text}
           </p>
         ) : null}
-        {memoryChips ? (
+        {memoryChips && text.trim() === "" ? (
           <div className="m-memchips" role="group" aria-label="From your history">
             {MEMORY_PHRASES.en.map((phrase) => (
               <button key={phrase} type="button" className="m-chip" onClick={() => { setText((t) => (t ? `${t} ${phrase}` : phrase)); ref.current?.focus(); }}>

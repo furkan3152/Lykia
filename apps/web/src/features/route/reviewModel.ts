@@ -71,6 +71,11 @@ export function venueLabel(step: Pick<IntentStep, "venue" | "route" | "kind">): 
   return getProtocol(step.venue)?.name ?? step.venue;
 }
 
+/** "base" -> "Base", "world-chain" -> "World Chain". */
+function destinationName(key: string): string {
+  return key.replace(/(^|-)\w/gu, (c) => c.toUpperCase()).replace(/-/gu, " ");
+}
+
 function figure(a: StepAmount, output: boolean, where: string | null): Figure {
   const [symbol] = a.symbol.split("@");
   return { symbol: symbol ?? a.symbol, amount: displayAmount(a.amount, a.decimals), where, usd: a.usd, minimum: output && a.minimum ? displayAmount(a.minimum, a.decimals) : null };
@@ -102,7 +107,7 @@ export function reviewView(graph: IntentGraph, outrun: Outrun | null): ReviewVie
   const get = sum(
     steps
       .filter((s) => !consumed.has(s.id))
-      .flatMap((s) => s.outputs.map((a) => ({ a, output: true, where: a.symbol.includes("@") ? `in ${venueLabel(s)}` : s.kind === "transfer" ? "to the recipient" : s.kind === "bridge" ? `on ${s.settlement.kind === "cctp" ? s.settlement.destination : "the destination"}` : null }))),
+      .flatMap((s) => s.outputs.map((a) => ({ a, output: true, where: s.kind === "bridge" ? `on ${s.settlement.kind !== "receipt" ? destinationName(s.settlement.destination) : "the destination"}` : a.symbol.includes("@") ? `in ${venueLabel(s)}` : s.kind === "transfer" ? "to the recipient" : null }))),
   );
   const staged = planStages(graph);
   // A staged plan shows the current stage's own figures: what this signature sends and what it gets.

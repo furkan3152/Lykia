@@ -262,7 +262,7 @@ export default function ChatKitPage() {
   return (
     <ChatActionsContext.Provider value={actions}>
       <div className="m-wrap m-chatkit" style={{ maxWidth: 820, padding: "24px 0 64px" }}>
-        <header style={{ display: "grid", gap: 8, marginBottom: 20 }}>
+        <header className="m-floor" style={{ display: "grid", gap: 8, marginBottom: 20 }}>
           <span className="m-kick">ASK LYKO · CHAT KIT</span>
           <h1 className="m-title" style={{ fontSize: 34 }}>Every card, every state</h1>
           <div className="flex gap-2 flex-wrap items-center">

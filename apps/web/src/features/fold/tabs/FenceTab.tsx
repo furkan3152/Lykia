@@ -37,6 +37,8 @@ export interface FenceTabProps {
   readonly onAsk: () => void;
   readonly onWhistle: () => void;
   readonly busy: boolean;
+  /** Nothing of theirs has run yet: the rules and the beta limit stay; the gauges of zeros and the Whistle wait until something runs. */
+  readonly newcomer?: boolean;
 }
 
 /** A Fence an older version kept in this browser: proposed once, kept (signed if it loosens) or let go. */
@@ -85,7 +87,7 @@ function LegacyFence({ legacy, view }: { readonly legacy: Fence; readonly view: 
   );
 }
 
-export function FenceTab({ fence, owner, view, headroom, beta, verdicts, onSuggest, onAsk, onWhistle, busy }: FenceTabProps) {
+export function FenceTab({ fence, owner, view, headroom, beta, verdicts, onSuggest, onAsk, onWhistle, busy, newcomer = false }: FenceTabProps) {
   const rules = fenceSentences(fence).filter((s) => s.source === "yours");
   const legacy = useLykiaStore((s) => s.legacyFence);
   const write = useFenceWrite();
@@ -133,7 +135,7 @@ export function FenceTab({ fence, owner, view, headroom, beta, verdicts, onSugge
               </li>
             ))}
           </ul>
-          {refused.length === 0 ? <p className="fd-quiet">{"Nothing was refused lately. When a rule says no, the reason shows here."}</p> : null}
+          {refused.length === 0 && !newcomer ? <p className="fd-quiet">{"Nothing was refused lately. When a rule says no, the reason shows here."}</p> : null}
           <details className="p-tech">
             <summary className="m-small">{"Technical details"}</summary>
             <p className="m-small m-muted">{"Kept on Lykia's server for your address, the same in Ask Lyko, the Fold and every automation. The same rules are checked before signing, compiled into your Circle wallet policy, and enforced on chain by your Lykia account. Missing facts count as a no."}</p>
@@ -151,6 +153,7 @@ export function FenceTab({ fence, owner, view, headroom, beta, verdicts, onSugge
         ) : null}
       </div>
       <div className="fd-stack">
+        {newcomer ? null : (
         <section className="fd-card m-frame m-frame--thin" aria-labelledby="room-h">
           <header className="fd-card__head">
             <h3 id="room-h">
@@ -161,6 +164,7 @@ export function FenceTab({ fence, owner, view, headroom, beta, verdicts, onSugge
           <p className="p-room">{roomLine(headroom).replace(/^Room left today: /u, "")}</p>
           <HeadroomGauge h={headroom} large />
         </section>
+        )}
         <section className="fd-card m-frame m-frame--thin" aria-labelledby="change-h">
           <header className="fd-card__head">
             <h3 id="change-h">{"Change your rules"}</h3>
@@ -210,6 +214,7 @@ export function FenceTab({ fence, owner, view, headroom, beta, verdicts, onSugge
             </div>
           </details>
         </section>
+        {newcomer && !whistle ? null : (
         <section className="fd-card m-frame m-frame--thin" aria-labelledby="whistle-h">
           <header className="fd-card__head">
             <h3 id="whistle-h">{`${LYKIA_TERMS.whistle.word} · ${LYKIA_TERMS.whistle.plain}`}</h3>
@@ -219,6 +224,7 @@ export function FenceTab({ fence, owner, view, headroom, beta, verdicts, onSugge
             <Button size="sm" tone={whistle ? "ochre" : "navy"} onClick={onWhistle}>{whistle ? "RELEASE · LET THINGS RUN AGAIN" : "BLOW THE WHISTLE"}</Button>
           </div>
         </section>
+        )}
         {refused.length > 0 ? (
           <section className="fd-card m-frame m-frame--thin" aria-labelledby="why-h">
             <header className="fd-card__head">
@@ -238,7 +244,7 @@ export function FenceTab({ fence, owner, view, headroom, beta, verdicts, onSugge
           </section>
         ) : null}
       </div>
-      <div className="fd-span2"><SafetySection owner={owner} fence={fence} /></div>
+      {newcomer ? null : <div className="fd-span2"><SafetySection owner={owner} fence={fence} /></div>}
     </div>
   );
 }

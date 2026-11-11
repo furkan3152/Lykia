@@ -11,6 +11,7 @@ import { navigate } from "../../app/routes/history";
 import { useSearchParam } from "../../app/routes/useRoute";
 import { ReviewDialog } from "../../features/route/ReviewModal";
 import { reviewView } from "../../features/route/reviewModel";
+import { leadSentence } from "../../features/route/plain";
 import type { ReviewPhase } from "../../features/route/useReviewFlow";
 import { classifyTxError } from "../../features/route/txErrors";
 import { PageHead } from "../../mosaic";
@@ -133,6 +134,7 @@ export default function ReviewKitPage() {
         onClose={() => setOpen(false)}
         title={state === "preflight-warn" ? "Buy EURC with 2 USDC" : state === "preflight-block" ? "Send 250 USDC to 0xabcd…1234" : stage ? "Swap 500 USDC to EURC, then deposit it into Morpho" : "Buy EURC with 200 USDC and lend it at the best yield"}
         view={view}
+        lead={state === "loading" ? null : leadSentence(graph)}
         phase={phase}
         failure={failure}
         security={state === "quoting" || state === "loading" || state === "confirm" || state === "denied" || state.startsWith("stage-") || state.startsWith("preflight-") ? null : SECURITY}

@@ -29,6 +29,10 @@ import { FlockTab } from "../../features/fold/tabs/FlockTab";
 import { HerdingTab } from "../../features/fold/tabs/HerdingTab";
 import { LeashSection } from "../../features/fold/leash/LeashSection";
 import { AutopilotSection } from "../../features/fold/autopilot/AutopilotSection";
+import { useAutopilot } from "../../features/fold/autopilot/data";
+import { useLeashes } from "../../features/fold/leash/data";
+import { isNewcomer } from "../../features/fold/newcomer";
+import { NewcomerCard } from "../../features/fold/NewcomerCard";
 import { TrailsTab } from "../../features/fold/tabs/TrailsTab";
 import { useSiwe } from "../../features/session/useSiwe";
 import { useOwnerFence } from "../../features/fence/sync";
@@ -40,7 +44,7 @@ import { useBetaCap } from "../../features/ecosystem/useBetaCap";
 import { apiDelete, apiGet, apiPost, describeError } from "../../lib/api";
 import { useLykiaStore } from "../../lib/lykiaStore";
 import { runCommand } from "../../lib/runCommand";
-import { Button, LykoFace, cx, toast } from "../../mosaic";
+import { Button, LykoFace, toast } from "../../mosaic";
 import { Sheet } from "../../city/Sheet";
 import { askAboutPosition } from "../../features/fold/model";
 import { useQueryClient } from "@tanstack/react-query";
@@ -103,6 +107,19 @@ export default function FoldPage() {
   // Signed out, the inbox shows the sample's one draft, so the bar's "1 draft waits" and Herding agree.
   const waiting = instructions.data?.waiting ?? sampleWait;
   const trailItems = trails.data?.items ?? sampleTrail;
+  const leashesOf = useLeashes(owner);
+  const autopilotOf = useAutopilot(owner);
+  // Nothing of theirs exists yet: Herding, Pack and Fence each show one friendly state with one action.
+  const newcomer = isNewcomer({
+    signedIn: owner.signedIn,
+    sample: owner.sample,
+    running: instructions.data?.instructions?.length,
+    waiting: instructions.data?.waiting?.length,
+    agents: pack.data ? pack.data.agents.filter((a) => a.role !== "orchestrator" && a.status !== "revoked").length : undefined,
+    leashes: leashesOf.data?.leashes.length,
+    autopilot: autopilotOf.data ? Boolean(autopilotOf.data.autopilot) : undefined,
+    trail: trails.data?.items?.length,
+  });
   // One fee figure for the page: the server's total, or the sample trail's through the same core function.
   const trailTotals = trails.data?.totals ?? (sampleTrail ? { settled: sampleTrail.filter((t) => t.kind === "settled").length, failed: sampleTrail.filter((t) => t.kind === "failed").length, refused: sampleTrail.filter((t) => t.kind === "refused").length, feesUsd: trailFeesUsd(sampleTrail, mountedAt) } : undefined);
   // Phones: Lyko on watch opens as a sheet over whichever tab is showing.
@@ -314,7 +331,7 @@ export default function FoldPage() {
   );
 
   return (
-    <div className={cx("fd", whistle && "fd--night")}>
+    <div className="fd">
       <h1 className="sr-only">{"The Fold: everything you own and everything in motion"}</h1>
       <div className="m-wrap m-wrap--wide fd__grid">
         <div className="fd__main">
@@ -358,10 +375,11 @@ export default function FoldPage() {
           <div className="fd-panel" role="tabpanel" aria-label={meta ? `${meta.label} · ${meta.sub}` : "Lyko on watch"}>
             {effectiveTab === "flock" ? <FlockTab snapshot={snapshot} map={positions} minHealth={minHealth} signedIn={owner.signedIn} onSignIn={() => void siwe.signIn()} onAction={onPosition} onAskAbout={onAskAbout} onAsk={(t) => openInAsk(t, "A Stress test question from the Fold.")} busy={draft.isPending} openWhatIf={whatifOpen} /> : null}
             {effectiveTab === "trails" ? <TrailsTab now={mountedAt} items={trailItems} totals={trailTotals} onAskWhy={(question, context) => { carry(context); void useAsk.getState().send(question, { environment: owner.environment, ...(owner.address ? { owner: owner.address as `0x${string}` } : {}), origin: "fold" }); if (phone) setWatchSheet(true); }} explain={explain.data} explainLoading={explain.isLoading} sample={owner.sample} signedIn={owner.signedIn} onSignIn={() => void siwe.signIn()} /> : null}
-            {effectiveTab === "herding" ? <HerdingTab instructions={instructionList} waiting={waiting} sample={owner.sample} signedIn={owner.signedIn} initialFilter={show} onSignIn={() => void siwe.signIn()} onOpen={setOpenDraft} onStop={(p) => void stopP(p)} onControl={(i) => void runControl(i)} onChange={(i) => openInAsk(i.editSentence, `Running item ${i.id}: ${i.name} (${i.trigger}; ${i.status}; next ${i.nextRunLabel}).`)} onAsk={() => openInAsk("", "Something new from Herding.")} busyId={busyId} /> : null}
-            {effectiveTab === "pack" ? <AutopilotSection owner={owner} onAsk={openInAsk} /> : null}
-            {effectiveTab === "pack" ? <LeashSection owner={owner} agents={pack.data?.agents} busyId={busyId} onPauseAgent={(a) => void whistleAgent(a)} onRevokeAgent={(a) => void revokeAgent(a)} onAsk={openInAsk} /> : null}
-            {effectiveTab === "fence" ? <FenceTab fence={fence} owner={owner} view={fenceView.data} headroom={room} beta={betaCap} verdicts={trailItems ?? []} onSuggest={onFenceSuggest} onAsk={() => openInAsk("Change my Fence: ", "A Fence edit from the Fold.")} onWhistle={whistleAll} busy={draft.isPending} /> : null}
+            {newcomer && (effectiveTab === "herding" || effectiveTab === "pack" || effectiveTab === "fence") ? <NewcomerCard tab={effectiveTab} onAsk={(text) => openInAsk(text, `Started from the Fold's ${effectiveTab} tab.`)} /> : null}
+            {effectiveTab === "herding" && !newcomer ? <HerdingTab instructions={instructionList} waiting={waiting} sample={owner.sample} signedIn={owner.signedIn} initialFilter={show} onSignIn={() => void siwe.signIn()} onOpen={setOpenDraft} onStop={(p) => void stopP(p)} onControl={(i) => void runControl(i)} onChange={(i) => openInAsk(i.editSentence, `Running item ${i.id}: ${i.name} (${i.trigger}; ${i.status}; next ${i.nextRunLabel}).`)} onAsk={() => openInAsk("", "Something new from Herding.")} busyId={busyId} /> : null}
+            {effectiveTab === "pack" && !newcomer ? <AutopilotSection owner={owner} onAsk={openInAsk} /> : null}
+            {effectiveTab === "pack" && !newcomer ? <LeashSection owner={owner} agents={pack.data?.agents} busyId={busyId} onPauseAgent={(a) => void whistleAgent(a)} onRevokeAgent={(a) => void revokeAgent(a)} onAsk={openInAsk} /> : null}
+            {effectiveTab === "fence" ? <FenceTab newcomer={newcomer} fence={fence} owner={owner} view={fenceView.data} headroom={room} beta={betaCap} verdicts={trailItems ?? []} onSuggest={onFenceSuggest} onAsk={() => openInAsk("Change my Fence: ", "A Fence edit from the Fold.")} onWhistle={whistleAll} busy={draft.isPending} /> : null}
             {effectiveTab === "lyko" ? panel("tab") : null}
           </div>
         </div>

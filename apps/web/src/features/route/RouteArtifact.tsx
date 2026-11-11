@@ -11,10 +11,11 @@ import { useLykiaStore } from "../../lib/lykiaStore";
 import { useLamp } from "../../lib/pulseStore";
 import { Button, Seal, Skeleton, Tag, cx } from "../../mosaic";
 import { harbor, HARBOR_H, HARBOR_W } from "../../mosaic/scenes";
-import { BetaRibbon } from "../ecosystem/BetaRibbon";
 import { SceneFrame } from "../scenes/SceneFrame";
 import { artifactView, optionOut, pct } from "./model";
 import { useIntent } from "./useIntent";
+import { plainReason, plainRationale, plainRouteWhy, plainStep } from "./plain";
+import { planTitle } from "../ask/cardModel";
 import { ReviewModal } from "./ReviewModal";
 
 export function RouteArtifact({ proposal, intentId, onClose, onReview }: { proposal?: AgentProposal | null; intentId: string | null; onClose?: () => void; onReview?: () => void }) {
@@ -34,7 +35,7 @@ export function RouteArtifact({ proposal, intentId, onClose, onReview }: { propo
   return (
     <div style={{ padding: 16 }}>
       <div className="flex items-center justify-between gap-2" style={{ marginBottom: 12 }}>
-        <span className="m-kick">{intentId ? `OUTRUN · ${intentId}` : "PROPOSAL · DRY RUN"}</span>
+        <span className="m-kick">{intentId ? "THE ROUTE" : "THE ROUTE · DRY RUN"}</span>
         {onClose ? (
           <button type="button" className="m-btn m-btn--ghost m-btn--sm" onClick={onClose} aria-label="Close the route panel">
             ✕
@@ -51,20 +52,19 @@ export function RouteArtifact({ proposal, intentId, onClose, onReview }: { propo
         label="The outrun: the path from the start to the Fold"
       />
       <div style={{ textAlign: "center", margin: "16px 0 8px" }}>
-        <h3 style={{ fontSize: 22 }}>{proposal?.title ?? "The Outrun"}</h3>
+        <h3 style={{ fontSize: 22 }}>{view && view.stops.length === 1 ? plainStep(view.stops[0]!.summary) : proposal?.title ? planTitle(proposal.title) : "The route"}</h3>
         <div style={{ marginTop: 10 }}>
           <Seal decision={decision} />
         </div>
-        <BetaRibbon inline />
       </div>
-      {proposal?.rationale ? <p className="m-small m-muted m-center" style={{ marginBottom: 10 }}>{proposal.rationale}</p> : null}
+      {proposal && plainRationale(proposal.rationale) ? <p className="m-small m-muted m-center" style={{ marginBottom: 10 }}>{plainRationale(proposal.rationale)}</p> : null}
       {view ? (
         <>
           {view.reasons.length > 0 ? (
             <ul style={{ listStyle: "none", padding: 0, margin: "8px 0 12px", display: "grid", gap: 6 }}>
               {view.reasons.map((r, i) => (
                 <li key={i} className={cx("m-note", r.decision === "deny" && "m-note--bad")}>
-                  <b className="mono" style={{ fontSize: 11 }}>{r.rule}</b> {r.message}
+                  {plainReason(r.message, r.rule)}
                 </li>
               ))}
               {view.waived.map((r, i) => (
@@ -79,9 +79,9 @@ export function RouteArtifact({ proposal, intentId, onClose, onReview }: { propo
               <div key={s.id} className="m-stop" data-status={s.status} style={{ animationDelay: `${i * 70}ms` }}>
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <b>{s.summary}</b>
+                    <b>{plainStep(s.summary)}</b>
                     <small>
-                      {s.name.toUpperCase()} · {s.kind.toUpperCase()} · {s.venue.toUpperCase()}
+                      {s.kind.toUpperCase()} · {s.venue.toUpperCase()}
                     </small>
                   </div>
                   <Tag tone={s.status === "settled" ? "ok" : s.status === "failed" ? "bad" : "ghost"}>{s.status}</Tag>
@@ -91,7 +91,7 @@ export function RouteArtifact({ proposal, intentId, onClose, onReview }: { propo
                 {s.route ? (
                   <details style={{ marginTop: 8 }}>
                     <summary className="m-small" style={{ cursor: "pointer" }}>
-                      Why {s.route.chosen.label}? {s.route.reason}
+                      Why {s.route.chosen.label}? {plainRouteWhy(s.route.reason, s.route.chosen.label)}
                     </summary>
                     <table className="m-table" style={{ marginTop: 6 }}>
                       <thead>
@@ -122,8 +122,7 @@ export function RouteArtifact({ proposal, intentId, onClose, onReview }: { propo
               </div>
             ))}
           </div>
-          {view.fold.length > 0 ? <p className="m-kick" style={{ marginTop: 14, textAlign: "center" }}>FOLD · {view.fold.join(" · ")}</p> : null}
-          {view.fees.length > 0 ? <p className="m-small m-muted" style={{ marginTop: 6, textAlign: "center" }}>Lykia fee for this plan · {view.fees.join(" · ")} · repay and withdrawals home are free</p> : null}
+          {view.fees.length > 0 ? <p className="m-small m-muted" style={{ marginTop: 10, textAlign: "center" }}>{`Lykia fee for this plan: ${view.fees.join(" + ")}. Repaying and withdrawing home are free.`}</p> : null}
           {view.warnings.map((w) => (
             <p key={w} className="m-note" style={{ marginTop: 8 }}>
               {w}
@@ -146,12 +145,12 @@ export function RouteArtifact({ proposal, intentId, onClose, onReview }: { propo
         <div className="m-stops">
           {proposal.steps.map((s, i) => (
             <div key={i} className="m-stop" style={{ animationDelay: `${i * 70}ms` }}>
-              <b>{s}</b>
+              <b>{plainStep(s)}</b>
             </div>
           ))}
           {proposal.reasons.map((r) => (
             <p key={r} className={cx("m-note", proposal.decision === "deny" && "m-note--bad")}>
-              {r}
+              {plainReason(r)}
             </p>
           ))}
           {proposal.warnings.map((w) => (
@@ -159,9 +158,6 @@ export function RouteArtifact({ proposal, intentId, onClose, onReview }: { propo
               {w}
             </p>
           ))}
-          {proposal.attribution.length > 0 ? (
-            <p className="m-small m-muted">By {proposal.attribution.map((a) => `${a.agent} (${a.role})`).join(", ")}</p>
-          ) : null}
         </div>
       ) : null}
       {!onReview && intentId ? <ReviewModal key={intentId} intentId={intentId} proposal={proposal ?? null} open={reviewing} onClose={() => setReviewing(false)} /> : null}

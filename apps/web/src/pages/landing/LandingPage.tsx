@@ -105,14 +105,14 @@ export default function LandingPage() {
             </Link>
           ))}
         </nav>
-        <p className="m-small lp-hero-links">
+        <p className="m-small lp-hero-links m-floor">
           <a href="#usdc-circle">{"Where USDC and Circle sit"}</a>
           <span aria-hidden="true">{" · "}</span>
           <a href="#proof">{"Proof on mainnet"}</a>
         </p>
       </header>
 
-      <section className="m-wrap" style={{ marginTop: 28 }} aria-label="Try it">
+      <section className="m-wrap m-floor" style={{ marginTop: 28 }} aria-label="Try it">
         <SceneFrame
           vt
           build={(t) => bay({ pens: pens.map((p) => ({ label: p.label, apy: p.apy })), flock: ["USDC", "EURC", "USDC", "USDC", "cirBTC", "EURC"], wolves: 2, lit, grow: rates.isLoading ? 0.25 : 1 }, t)}
@@ -154,7 +154,7 @@ export default function LandingPage() {
 
       <MeanderBand className="mt-12" />
 
-      <section className="m-wrap" style={{ marginTop: 40 }} aria-labelledby="lp-problem">
+      <section className="m-wrap m-floor" style={{ marginTop: 40 }} aria-labelledby="lp-problem">
         <div className="m-center">
           <span className="m-kick">{"THE PROBLEM"}</span>
           <h2 id="lp-problem" className="m-h2" style={{ marginTop: 8 }}>{"Agents can hold money on Arc. Nobody should hand them a blank cheque."}</h2>
@@ -162,7 +162,7 @@ export default function LandingPage() {
         <ProblemNight items={PROBLEM} />
       </section>
 
-      <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="lp-how">
+      <section className="m-wrap m-floor" style={{ marginTop: 48 }} aria-labelledby="lp-how">
         <div className="m-center">
           <span className="m-kick">{"HOW IT WORKS"}</span>
           <h2 id="lp-how" className="m-h2" style={{ marginTop: 8 }}>{"One sentence in. One checked transaction out."}</h2>
@@ -171,7 +171,7 @@ export default function LandingPage() {
         <p className="m-small m-muted m-center" style={{ marginTop: 12 }}>{"The server never holds your keys; plans come back unsigned for your wallet. A deny comes back with its reasons; nothing is sent."}</p>
       </section>
 
-      <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="lp-league">
+      <section className="m-wrap m-floor" style={{ marginTop: 48 }} aria-labelledby="lp-league">
         <div className="m-center">
           <span className="m-kick">{"THE LEAGUE"}</span>
           <h2 id="lp-league" className="m-h2" style={{ marginTop: 8 }}>{"One engine, a league of cities"}</h2>
@@ -196,7 +196,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="proof" className="m-wrap" style={{ marginTop: 48, scrollMarginTop: 80 }} aria-labelledby="lp-proof">
+      <section id="proof" className="m-wrap m-floor" style={{ marginTop: 48, scrollMarginTop: 80 }} aria-labelledby="lp-proof">
         <div className="m-center">
           <span className="m-kick">{"LIVE ON ARC MAINNET"}</span>
           <h2 id="lp-proof" className="m-h2" style={{ marginTop: 8 }}>{"Proof, not promises"}</h2>
@@ -227,7 +227,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="lp-build">
+      <section className="m-wrap m-floor" style={{ marginTop: 48 }} aria-labelledby="lp-build">
         <div className="m-center">
           <span className="m-kick">{"FOR BUILDERS"}</span>
           <h2 id="lp-build" className="m-h2" style={{ marginTop: 8 }}>{"The engine behind this app is yours to call"}</h2>
@@ -257,7 +257,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="m-wrap" style={{ marginTop: 48 }} aria-labelledby="lp-beta">
+      <section className="m-wrap m-floor" style={{ marginTop: 48 }} aria-labelledby="lp-beta">
         <h2 id="lp-beta" className="sr-only">{"Beta status"}</h2>
         <BetaRibbon inline />
         <p className="m-small m-muted">

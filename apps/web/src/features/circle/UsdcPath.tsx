@@ -56,7 +56,7 @@ export function UsdcCoin({ size = 28 }: { readonly size?: number }) {
 
 export function UsdcPath() {
   return (
-    <section id="usdc-circle" className="m-wrap usdc" style={{ scrollMarginTop: 80 }} aria-labelledby="usdc-title">
+    <section id="usdc-circle" className="m-wrap usdc m-floor" style={{ scrollMarginTop: 80 }} aria-labelledby="usdc-title">
       <div className="m-center">
         <span className="m-kick">{"WHERE USDC AND CIRCLE SIT IN LYKIA"}</span>
         <h2 id="usdc-title" className="m-h2" style={{ marginTop: 8 }}>{"Follow one USDC through a Lykia step"}</h2>

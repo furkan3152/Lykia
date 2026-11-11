@@ -99,6 +99,42 @@ export function gasPlan(): { graph: IntentGraph; proposal: AgentProposal; text: 
   };
 }
 
+/**
+ * A tester's case: "Bridge 1 USDC to Base" on testnet from a wallet holding
+ * 1.02 USDC. The plan is real (Fence and preflight computed by core); the
+ * question is the one Lyko asks when a bridge would leave nothing for gas.
+ */
+export function bridgePlan(): { graph: IntentGraph; proposal: AgentProposal; text: string; clarify: { question: string; options: string[] } } {
+  const id = "out_kitBridgeBase";
+  const source = "Bridge 1 USDC to Base";
+  const bridge: IntentStep = {
+    id: "s1",
+    kind: "bridge",
+    venue: "cctp",
+    summary: "Bridge 0.99 USDC to Base over CCTP (Circle forwards the mint)",
+    signer: "wallet",
+    account: KIT_OWNER,
+    dependsOn: [],
+    inputs: [{ symbol: "USDC", token: USDC, decimals: 6, amount: "1000000", usd: "1.00" }],
+    outputs: [{ symbol: "USDC@base", token: USDC, decimals: 6, amount: "990000", usd: "0.99" }],
+    fee: { bps: 100, recipient: FEE, symbol: "USDC", token: USDC, decimals: 6, amount: "10000", usd: "0.01", basis: "input" },
+    settlement: { kind: "cctp", destination: "base", expectedSeconds: 20 },
+    route: { chosen: { venue: "cctp", label: "CCTP", risk: "low", executable: true, notes: [] }, alternatives: [], reason: "As asked: cctp." },
+    status: "ready",
+    stage: 1,
+  } as IntentStep;
+  const plan = { ...planOf(id, source, [bridge], [{ verb: "bridge", token: "USDC", amount: { exact: "1" }, destination: "base" }]), environment: "testnet" as const };
+  const findings = runPreflight(plan, state("1020000"));
+  const fenceVerdict = evaluateFence(DEFAULT_FENCE, { environment: "testnet", signer: "wallet", owner: KIT_OWNER, proposedByAgent: true, steps: [{ id: "s1", kind: "bridge", venue: "cctp", usd: "1.00", tokens: [], destination: "base", fee: { line: "Lykia fee 1% · 0.01 USDC", usd: "0.01" } }], spent: { dayUsd: "0", weekUsd: "0" }, now: NOW });
+  const graph = { ...graphOf(id, source, [bridge], findings), environment: "testnet", verdict: fenceVerdict } as IntentGraph;
+  return {
+    graph,
+    proposal: { intentId: id, title: "bridge", steps: [bridge.summary], decision: fenceVerdict.decision, reasons: fenceVerdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message), warnings: [], preflight: findings, attribution: [{ agent: "Lyko", role: "orchestrator", part: "bridge" }], rationale: "Route search winner: As asked: cctp (net -0.21 USD over 90 days; beat 0 other options)." },
+    clarify: { question: "How would you like to proceed? Bridging everything leaves no USDC for Arc gas.", options: ["Bridge 1 USDC to Base", "Bridge idle USDC but keep a gas reserve on Arc", "Cancel this bridge"] },
+    text: `${findings[0]?.say ?? ""}\n\n- ${bridge.summary}`,
+  };
+}
+
 /** A lookalike of a supplier the owner paid before (address poisoning). */
 export function poisonedPlan(): { graph: IntentGraph; proposal: AgentProposal; text: string } {
   const id = "out_kitPreflightPoison";

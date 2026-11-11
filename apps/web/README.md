@@ -7,7 +7,10 @@ npm run dev -w @lykia/web        # http://localhost:5176
 npm run build -w @lykia/web      # tsc -b && vite build -> dist/
 npm run typecheck -w @lykia/web
 npm test -w @lykia/web           # node --test, pure modules only
+npm run contrast -w @lykia/web   # every main screen, day and night, 1440 and 390: no text under WCAG AA
 ```
+
+Colours are per surface. Cards (cream, lime, white) keep dark ink in day and night; night darkens only the floor, and text laid straight on the floor (page heads, the footer, the chain strip, Ask's hero, anything marked `.m-floor`) reads `--floor-ink`. The Whistle marks the shell (a line under the header and one banner), never the content. Day is the default; night is a choice in Your Lyko and never follows the system on its own. The contrast check (`scripts/contrast`, part of `npm run verify`) renders the screens against API fixtures in Chrome and fails on any text below 4.5:1 (3:1 for large text) against the background it sits on, or the same colour as it.
 
 Build-time environment (all public values, never secrets):
 

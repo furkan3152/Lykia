@@ -67,21 +67,61 @@ export interface PreflightPanelProps {
   readonly onCancel?: () => void;
   /** Show the chips (the chat while the plan is still open; the review's block fixes). */
   readonly actionable?: boolean;
+  /** Review: the host draws one tick for every "Before you sign" item instead of the panel's own. */
+  readonly tick?: boolean;
+  /** Review: an extra item the owner confirms with the same tick (the Fence's reasons), drawn first. */
+  readonly lead?: React.ReactNode;
+}
+
+/**
+ * The chat's one warning line: the most severe finding that needs the owner,
+ * as a single tessera with its title, and its fixes as chips. The full
+ * story (why, the figures, the tick) is in the review modal.
+ */
+export function PreflightLine({ findings, onFix }: { readonly findings: readonly Finding[] | undefined; readonly onFix?: (fix: FindingFix) => void }) {
+  const view = preflightView(findings, false);
+  const f = view.shown.find((x) => x.severity !== "note");
+  if (!f) return null;
+  const fixes = f.fixes.slice(0, 2);
+  return (
+    <div className="pf pf--line" data-worst={f.severity} role="status">
+      <div className="pf-card pf-card--compact" data-severity={f.severity} data-family={f.family}>
+        <span className="pf-card__stone" aria-hidden="true">
+          <PixelArt art={PREFLIGHT_ART[f.family]} palette={INTENT_PAL} size={20} grout />
+        </span>
+        <div className="pf-card__body">
+          <span className="pf-card__kick">{SEVERITY_WORD[f.severity]}</span>
+          <b className="pf-card__title">{f.title}</b>
+        </div>
+      </div>
+      {fixes.length > 0 && onFix ? (
+        <div className="pf-chips" role="group" aria-label="Fixes Lyko can make">
+          {fixes.map((fix, i) => (
+            <button key={fix.id} type="button" className="pf-chip" data-role="fix" data-kind={fix.kind} style={{ "--i": i } as React.CSSProperties} onClick={() => onFix(fix)}>
+              <span className="pf-chip__label">{fix.label}</span>
+              {fix.detail ? <small className="pf-chip__detail">{fix.detail}</small> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function PreflightPanel(p: PreflightPanelProps) {
   const view = preflightView(p.findings, p.acknowledged);
   const uid = useId();
-  if (view.list.length === 0) return null;
+  if (view.list.length === 0 && !p.lead) return null;
   const chips: PreflightChip[] = p.actionable === false ? [] : preflightChips(p.findings, { acknowledged: p.acknowledged, cancellable: Boolean(p.onCancel) }).filter((c) => (p.mode === "review" ? c.role === "fix" : true));
   const worst = view.gate.worst ?? "note";
   return (
     <section className={cx("pf", `pf--${p.mode}`)} data-worst={worst} aria-labelledby={`${uid}-h`}>
       <h3 id={`${uid}-h`} className={p.mode === "review" ? "rv-h" : "pf__h"}>
         {p.mode === "review" ? "Before you sign" : view.gate.blocked ? "Lyko stopped this one" : view.gate.needsAck.length > 0 ? "Lyko spotted something" : "Lyko checked"}
-        <span className="m-kick">{`${view.list.length} ${view.list.length === 1 ? "CHECK" : "CHECKS"}`}</span>
+        {view.list.length > 0 ? <span className="m-kick">{`${view.list.length} ${view.list.length === 1 ? "CHECK" : "CHECKS"}`}</span> : null}
       </h3>
       <ul className="pf__list">
+        {p.lead}
         {view.shown.map((f, i) => (
           <FindingCard key={f.id} f={f} index={i} />
         ))}
@@ -114,7 +154,7 @@ export function PreflightPanel(p: PreflightPanelProps) {
           ))}
         </div>
       ) : null}
-      {p.mode === "review" && !view.gate.blocked && view.list.some((f) => f.severity === "warn") ? (
+      {p.mode === "review" && p.tick !== false && !view.gate.blocked && view.list.some((f) => f.severity === "warn") ? (
         <label className="rv-confirm pf-tick">
           <input type="checkbox" checked={p.acknowledged} onChange={(e) => p.onAcknowledge?.(e.target.checked)} /> {"I read these warnings and want to sign it as it is."}
         </label>

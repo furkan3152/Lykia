@@ -30,6 +30,7 @@ export const MARK_ART = {
   bell: ["....k....", "..kkkkk..", ".kkkkkkk.", ".kkkkkkk.", ".kkkkkkk.", "kkkkkkkkk", "kkkkkkkkk", ".........", "...kkk..."],
   retry: ["..kkkkk..", ".k.....kk", "k......kk", "k....kkkk", "k........", "k.......k", ".k.....k.", "..kkkkk..", "........."],
   spark: ["....k....", "....k....", "...kkk...", "kkkk.kkkk", "...kkk...", "....k....", "....k....", ".........", "........."],
+  search: ["..kkkk...", ".k....k..", "k......k.", "k......k.", "k......k.", ".k....k..", "..kkkkk..", "......kk.", ".......kk"],
   arrow: [".........", ".....k...", "......k..", "kkkkkkkk.", "kkkkkkkkk", "kkkkkkkk.", "......k..", ".....k...", "........."],
 } as const;
 

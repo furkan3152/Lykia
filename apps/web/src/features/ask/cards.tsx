@@ -29,8 +29,9 @@ import { useEnvironment } from "../../lib/environment";
 import { STATE_COLOR, stateLabel } from "../fold/positionsModel";
 import { OrderReviewModal } from "../route/OrderReview";
 import { CreateCard } from "./createCards";
-import { PreflightPanel } from "../route/Preflight";
-import { preflightView, usePreflightAcks } from "../route/preflightModel";
+import { PreflightLine } from "../route/Preflight";
+import { preflightView } from "../route/preflightModel";
+import { planGist, plainStep } from "../route/plain";
 import { runFix } from "../route/preflightActions";
 import type { PositionState } from "@lykia/core";
 
@@ -404,8 +405,13 @@ function SettledSeal({ block }: { readonly block: Extract<AnswerBlock, { kind: "
 
 const STAGE_WORD: Readonly<Record<string, string>> = { done: "done", active: "sign now", settling: "settling", paused: "paused", next: "next", stopped: "stopped" };
 
-/** One plan's stages, live from its intent: the current one active, the rest dimmed until it settles. */
-function StagedPlan({ p, part, live }: { readonly p: AgentProposal; readonly part: string | null; readonly live: boolean }) {
+/**
+ * One plan, live from its intent: what happens (one plain line per step),
+ * what you get, what it costs, how long it takes, at most one warning with
+ * its fixes, and one primary button. While Lyko's question is open the
+ * plan only shows its steps: the question is the thing to do.
+ */
+function StagedPlan({ p, part, live, waiting }: { readonly p: AgentProposal; readonly part: string | null; readonly live: boolean; readonly waiting: boolean }) {
   const { openReview, openRoute, environment, stopPlan, watchPosition, ask } = useChatActions();
   // A finished plan (from the cache once read) needs no live stream.
   const cached = useQueryClient().getQueryData<CreateIntentResponse>(["intent", p.intentId]);
@@ -419,13 +425,14 @@ function StagedPlan({ p, part, live }: { readonly p: AgentProposal; readonly par
     ? plan.stages.map((st) => ({ key: st.stepIds.join(","), n: st.n, text: st.summary, state: st.state as string, note: st.state === "done" && st.received ? `Received ${st.received}` : st.state === "paused" ? st.reason : st.replanned }))
     : p.steps.map((text, i) => ({ key: `${i}`, n: i + 1, text, state: p.intentId ? (i === 0 ? "active" : "next") : "preview", note: null as string | null }));
   const total = rows.length;
-  // Preflight: a block hides Sign; a warning shows its fixes first and "Use all anyway" before Sign. Once signing started, it has had its say.
-  const acked = usePreflightAcks((st) => (p.intentId ? Boolean(st.acked[p.intentId]) : false));
-  const ack = usePreflightAcks((st) => st.ack);
   const started = Boolean(plan?.stages.some((st) => st.state === "done" || st.state === "settling" || st.state === "paused"));
-  const pf = preflightView(p.preflight, acked);
-  const holding = !started && pf.needsOwner;
+  // Preflight: a block hides Sign; a warning is one line here, and the review modal asks for the tick. Once signing started, it has had its say.
+  const pf = preflightView(p.preflight, false);
   const open = !plan?.done && !plan?.stopped;
+  const gist = graph && open && !started ? planGist(graph) : null;
+  const warning = !waiting && open && !started && pf.needsOwner;
+  const signable = Boolean(p.intentId && open && !pf.gate.blocked && !waiting);
+  const label = plan?.paused ? "Retry this step" : plan && plan.total > 1 && plan.current ? `Review and sign step ${plan.current.n}` : "Review and sign";
   return (
     <div className="m-stageplan">
       {part ? <span className="m-card2__kick">{part}</span> : null}
@@ -436,41 +443,42 @@ function StagedPlan({ p, part, live }: { readonly p: AgentProposal; readonly par
             <span className="m-waypoints__n" aria-hidden="true">{r.state === "done" ? <Mark name="check" size={10} /> : r.n}</span>
             <span>
               {total > 1 ? <span className="m-stages__of">{`Step ${r.n} of ${total}`} · {STAGE_WORD[r.state] ?? "preview"}</span> : null}
-              <RichLine text={r.text} environment={environment} />
+              <RichLine text={plainStep(r.text)} environment={environment} />
               {r.note ? <small className="m-stages__note" data-tone={r.state === "paused" ? "bad" : undefined}>{r.note}</small> : null}
             </span>
           </li>
         ))}
       </ol>
-      {pf.list.length > 0 && open && !started ? (
-        <PreflightPanel
-          findings={p.preflight}
-          mode="chat"
-          acknowledged={acked}
-          onAcknowledge={() => {
-            if (!p.intentId) return;
-            ack(p.intentId);
-            openReview?.(p);
-          }}
-          onFix={(fix) => void runFix(fix, ask ? { ask } : {})}
-          {...(p.intentId && stopPlan ? { onCancel: () => void stopPlan(p.intentId!) } : {})}
-        />
+      {gist && !waiting ? (
+        <dl className="m-gist">
+          {gist.get ? (
+            <div>
+              <dt>{"You get"}</dt>
+              <dd>{gist.get}</dd>
+            </div>
+          ) : null}
+          <div>
+            <dt>{"It costs"}</dt>
+            <dd>{gist.cost}</dd>
+          </div>
+          <div>
+            <dt>{"It takes"}</dt>
+            <dd>{gist.time}</dd>
+          </div>
+        </dl>
       ) : null}
-      <div className="m-card2__acts">
-        {openRoute ? (
-          <button type="button" className="m-mini" onClick={() => openRoute(p)}>
-            Open the route
-          </button>
-        ) : null}
-        {p.intentId && !plan?.done && !plan?.stopped && !holding ? (
+      {warning ? <PreflightLine findings={p.preflight} onFix={(fix) => void runFix(fix, ask ? { ask } : {})} /> : null}
+      {waiting ? <p className="m-stageplan__wait">{"Answer Lyko's question first; the plan follows your answer."}</p> : null}
+      <div className="m-card2__acts m-plan__acts">
+        {signable ? (
           openReview ? (
-            <button type="button" className="m-mini m-mini--solid" onClick={() => openReview(p)}>
-              {plan?.paused ? "Retry this step" : plan && plan.total > 1 && plan.current ? `Review and sign step ${plan.current.n}` : "Review and sign"}
+            <button type="button" className="m-btn m-plan__go" onClick={() => openReview(p)}>
+              {label}
             </button>
           ) : (
             // Outside Ask Lyko the old review route opens the modal over Ask Lyko.
-            <Link to={`/app/outrun/${encodeURIComponent(p.intentId)}`} className="m-mini">
-              Review and sign
+            <Link to={`/app/outrun/${encodeURIComponent(p.intentId!)}`} className="m-btn m-plan__go">
+              {label}
             </Link>
           )
         ) : null}
@@ -492,6 +500,11 @@ function StagedPlan({ p, part, live }: { readonly p: AgentProposal; readonly par
             {watching === "set" ? "Lyko on watch has it" : watching === "failed" ? "Could not set the watch" : "Watch this position"}
           </button>
         ) : null}
+        {openRoute ? (
+          <button type="button" className="m-linkbtn" onClick={() => openRoute(p)}>
+            {"Open the route"}
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -502,7 +515,7 @@ function StagedPlan({ p, part, live }: { readonly p: AgentProposal; readonly par
  * stage. The current stage is active, later ones wait dimmed as "next";
  * after a stage settles the next is rebuilt from what it delivered.
  */
-export function PlanCard({ proposals, compact = false, live = true }: { readonly proposals: readonly AgentProposal[]; readonly compact?: boolean; readonly live?: boolean }) {
+export function PlanCard({ proposals, compact = false, live = true, waiting = false }: { readonly proposals: readonly AgentProposal[]; readonly compact?: boolean; readonly live?: boolean; readonly waiting?: boolean }) {
   const first = proposals[0];
   if (!first) return null;
   const decision = proposals.some((p) => p.decision === "deny") ? "deny" : proposals.some((p) => p.decision === "confirm") ? "confirm" : "allow";
@@ -513,8 +526,10 @@ export function PlanCard({ proposals, compact = false, live = true }: { readonly
   const checks = proposals.flatMap((p) => p.preflight ?? []);
   const blocked = checks.some((f) => f.severity === "block");
   const warned = checks.some((f) => f.severity === "warn");
+  // At most one warning line: preflight's when it has one, else the plan's own first warning.
+  const warningLine = !compact && !waiting && !blocked && !warned ? (proposals.flatMap((p) => p.warnings)[0] ?? null) : null;
   return (
-    <CardShell kind="route" tone={decision === "deny" || blocked ? "terra" : decision === "confirm" || warned ? "ochre" : "sea"} kick={blocked && !first.intentId ? "PLAN · CAN'T SIGN YET" : first.intentId ? "PLAN · STEP BY STEP" : "PLAN · DRY RUN"} title={title}>
+    <CardShell kind="route" tone={decision === "deny" || blocked ? "terra" : decision === "confirm" || warned ? "ochre" : "sea"} kick={waiting ? "PLAN · WAITING FOR YOUR ANSWER" : blocked && !first.intentId ? "PLAN · CAN'T SIGN YET" : first.intentId ? "PLAN · STEP BY STEP" : "PLAN · DRY RUN"} title={title}>
       <div className="m-plan__seal">
         <Seal decision={decision} />
       </div>
@@ -525,15 +540,8 @@ export function PlanCard({ proposals, compact = false, live = true }: { readonly
         </div>
       ) : null}
       {fromWatch?.rationale ? <p className="m-card2__note">{fromWatch.rationale}</p> : null}
-      {shown.map((p, i) => <StagedPlan key={`${p.intentId ?? p.title}${i}`} p={p} part={shown.length > 1 ? `Plan ${i + 1} of ${shown.length} · ${planTitle(p.title)}` : null} live={live} />)}
-      {first.warnings.length > 0 && !compact ? (
-        <ul className="m-plan__warn">
-          {[...new Set(proposals.flatMap((p) => p.warnings))].slice(0, 3).map((w) => (
-            <li key={w}>{w}</li>
-          ))}
-        </ul>
-      ) : null}
-      {first.attribution.length > 0 ? <p className="m-card2__note">By {[...new Set(proposals.flatMap((p) => p.attribution.map((a) => a.agent)))].join(", ")}</p> : null}
+      {shown.map((p, i) => <StagedPlan key={`${p.intentId ?? p.title}${i}`} p={p} part={shown.length > 1 ? `Plan ${i + 1} of ${shown.length} · ${planTitle(p.title)}` : null} live={live} waiting={waiting} />)}
+      {warningLine ? <p className="m-plan__warn">{warningLine}</p> : null}
     </CardShell>
   );
 }

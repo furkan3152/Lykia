@@ -1,0 +1,876 @@
+{
+ "/v1/arc/pulse?environment=mainnet": {
+  "environment": "mainnet",
+  "block": 30709418,
+  "blockTimeMs": 508,
+  "gasPriceGwei": "20",
+  "tps": 6.5,
+  "transferCostUsd": "0.0013",
+  "finality": "deterministic",
+  "at": "2026-11-11T15:17:26.191Z"
+ },
+ "/v1/arc/pulse?environment=testnet": {
+  "environment": "testnet",
+  "block": 71897418,
+  "blockTimeMs": 545,
+  "gasPriceGwei": "20",
+  "tps": 12.8,
+  "transferCostUsd": "0.0013",
+  "finality": "deterministic",
+  "at": "2026-11-11T15:18:56.113Z"
+ },
+ "/v1/fees": {
+  "bps": 100,
+  "percent": "1%",
+  "recipient": "0x8c5281055b197443ff01dbbdfbf29fd63946ca1e",
+  "maxBps": 300,
+  "schedule": {
+   "transfer": 100,
+   "swap": 100,
+   "fx": 100,
+   "deposit": 100,
+   "supply": 100,
+   "borrow": 100,
+   "bridge": 100,
+   "gateway-deposit": 100
+  },
+  "scheduled": false,
+  "policy": "Lykia takes a protocol fee on every value-moving step (send, swap, FX, deposit, supply, borrow, bridge, Gateway deposit), paid on chain in the same transaction. Repay, withdrawals home, approvals, revokes and Tag steps are free.",
+  "exempt": [
+   "repay",
+   "withdraw",
+   "approve",
+   "revoke",
+   "register-agent",
+   "attest"
+  ],
+  "beta": {
+   "perStepUsd": "1000",
+   "perDayUsd": "5000",
+   "environment": "mainnet",
+   "note": "A hard cap above every Fence while Lykia's contracts are unaudited. Moves that bring value home are never capped."
+  }
+ },
+ "/v1/stats?environment=mainnet": {
+  "environment": "mainnet",
+  "onchain": {
+   "contracts": [],
+   "accountsCreated": null,
+   "memoSteps": 0,
+   "verdictsIndexed": 0
+  },
+  "routed": {
+   "intents": 0,
+   "steps": 0,
+   "usd": "0.00",
+   "window": "Intents kept by the API (30 days)"
+  },
+  "platform": {
+   "developerKeys": 0,
+   "integrators": 0,
+   "agents": 0,
+   "capped": false
+  },
+  "ecosystem": {
+   "protocols": 95,
+   "verified": 50,
+   "routable": 14,
+   "routableVia": 5,
+   "readOnly": 31,
+   "mapped": 45
+  },
+  "circle": {
+   "integrated": [
+    "USDC and EURC",
+    "CCTP V2",
+    "CCTP Forwarding Service",
+    "Gateway (unified balance)",
+    "Agent Marketplace discovery",
+    "USYC",
+    "x402 Facilitator"
+   ],
+   "basis": "Circle products with a live or configured code path on this deployment (GET /v1/circle/status); not a usage count"
+  },
+  "sources": {
+   "contracts": "Deployments recorded by the owner console, each verified with eth_getCode",
+   "accountsCreated": "LykiaAccountFactory nonce on Arc minus one (one CREATE2 per account)",
+   "memoSteps": "Settled value-moving steps; each carries an Arc Memo with its verdict digest",
+   "routed": "Settled, priced steps of intents kept by the API",
+   "platform": "Store counts, no personal data",
+   "ecosystem": "Lykia's protocol registry"
+  },
+  "at": "2026-11-11T15:15:46.350Z"
+ },
+ "/v1/league": {
+  "cities": []
+ },
+ "/v1/ecosystem?environment=mainnet": {
+  "environment": "mainnet",
+  "positioning": "Built on Arc Network and Circle's products: the protocols on Arc mapped, the ones with an executable adapter routable on Lykia, and every agent inside its Fence.",
+  "directory": {
+   "url": "https://www.arc.io/ecosystem",
+   "note": "The official Arc ecosystem directory. This hub maps those protocols, marks each one routable, read-only or mapped on Lykia, and links each to its official entry."
+  },
+  "protocols": [
+   {
+    "id": "morpho-blue",
+    "name": "Morpho Blue",
+    "category": "lending",
+    "summary": "Isolated lending markets. Lykia borrows USDC (or EURC) against cirBTC on the 86% LLTV markets and keeps the health factor above the Fence floor.",
+    "website": "https://morpho.org",
+    "status": "verified",
+    "evidence": "morpho-org/sdks addresses.ts (ArcMainnet); markets from api.morpho.org (cirBTC/USDC 0xc2db…815d); supplyCollateral + borrow simulated with eth_call 2026-11-01",
+    "lykia": "routes",
+    "coverage": "routable",
+    "verbs": [
+     "supply",
+     "borrow",
+     "repay",
+     "withdraw",
+     "approve"
+    ],
+    "tvlUsd": 282820572,
+    "routed": {
+     "steps": 0,
+     "usd": "0.00"
+    },
+    "arcEcosystem": "https://www.arc.io/ecosystem/morpho"
+   },
+   {
+    "id": "aave-v4",
+    "name": "Aave V4",
+    "category": "lending",
+    "summary": "Hub and Spoke lending. Main Spoke lends USDC, EURC, cirBTC and WETH; Forex Spoke pairs USDC and EURC. Lykia supplies, borrows and repays through the Spokes and reads the health factor on chain.",
+    "website": "https://aave.com",
+    "status": "verified",
+    "evidence": "bgd-labs/aave-address-book AaveV4Arc.ts; Spoke implementation 0xf76b…ba79 ABI verified on Etherscan (chain 5042); supply/withdraw/borrow simulated via Multicall3From eth_call 2026-11-01; rates from api.aave.com",
+    "lykia": "routes",
+    "coverage": "routable",
+    "verbs": [
+     "supply",
+     "deposit",
+     "withdraw",
+     "borrow",
+     "repay",
+     "approve"
+    ],
+    "tvlUsd": 170758502,
+    "routed": {
+     "steps": 0,
+     "usd": "0.00"
+    },
+    "arcEcosystem": "https://www.arc.io/ecosystem/aave"
+   },
+   {
+    "id": "galaxy-curation",
+    "name": "Galaxy Curation",
+    "category": "vault",
+    "summary": "Morpho Vault V2 curator on Arc. Lykia deposits into and withdraws from Galaxy Curation's vaults (2) through the Morpho vault adapter and ranks them by live net APY.",
+    "website": "https://www.galaxy.com/",
+    "status": "verified",
+    "evidence": "api.morpho.org vaultV2s(chainId 5042) lists the vaults under Galaxy Curation; on-chain curator() = 0xec1a7a08b538C685f5D188D81e3545D69f1B4178, one of Galaxy Curation's addresses in the Morpho API; asset() is USDC or EURC; Galaxy USDC $79.99M, Galaxy EURC €503k (totalAssets at block 30,132,289); the vault-deposit then vault-withdraw (redeem) adapter batch, approve + Memo(deposit 100 USDC or EURC) + Memo(redeem the previewDeposit shares) through Multicall3From from a state-override-funded account, eth_call on rpc.mainnet.arc.io at block 30,133,957 (2026-11-08): passed for every vault, previewRedeem of the minted shares 99.999999 to 100.000000",
+    "lykia": "routes",
+    "coverage": "routable",
+    "verbs": [
+     "deposit",
+     "withdraw",
+     "approve"
+    ],
+    "tvlUsd": 80602950,
+    "routed": {
+     "steps": 0,
+     "usd": "0.00"
+    },
+    "arcEcosystem": null
+   },
+   {
+    "id": "keyrock",
+    "name": "Keyrock",
+    "category": "vault",
+    "summary": "Morpho Vault V2 curator on Arc. Lykia deposits into and withdraws from Keyrock's vaults (1) through the Morpho vault adapter and ranks them by live net APY.",
+    "website": "https://keyrock.com/",
+    "status": "verified",
+    "evidence": "api.morpho.org vaultV2s(chainId 5042) lists the vaults under Keyrock; on-chain curator() = 0x26a17b96e9CA28D84C4E78f22B83a1ccEa28Ad21, one of Keyrock's addresses in the Morpho API; asset() is USDC or EURC; Keyrock Prime USDC $75.20M (totalAssets at block 30,132,289); the vault-deposit then vault-withdraw (redeem) adapter batch, approve + Memo(deposit 100 USDC or EURC) + Memo(redeem the previewDeposit shares) through Multicall3From from a state-override-funded account, eth_call on rpc.mainnet.arc.io at block 30,133,957 (2026-11-08): passed for every vault, previewRedeem of the minted shares 99.999999 to 100.000000",
+    "lykia": "routes",
+    "coverage": "routable",
+    "verbs": [
+     "deposit",
+     "withdraw",
+     "approve"
+    ],
+    "tvlUsd": 75210713,
+    "routed": {
+     "steps": 0,
+     "usd": "0.00"
+    },
+    "arcEcosystem": null
+   },
+   {
+    "id": "uniswap-v3",
+    "name": "Uniswap v3",
+    "category": "dex",
+    "summary": "Concentrated-liquidity AMM. Lykia quotes every fee tier and two-hop paths with QuoterV2 and swaps through SwapRouter02.",
+    "website": "https://uniswap.org",
+    "status": "verified",
+    "evidence": "Uniswap/sdks sdk-core addresses.ts (ChainId.ARC=5042); pools from Factory.getPool; eth_getCode non-empty on rpc.mainnet.arc.io 2026-11-01",
+    "lykia": "routes",
+    "coverage": "routable",
+    "verbs": [
+     "swap",
+     "fx",
+     "approve"
+    ],
+    "tvlUsd": 20786723,
+    "routed": {
+     "steps": 0,
+     "usd": "0.00"
+    },
+    "arcEcosystem": "https://www.arc.io/ecosystem/uniswap"
+   },
+   {
+    "id": "gateway",
+    "name": "Circle Gateway",
+    "category": "circle",
+    "summary": "One unified USDC balance across Gateway chains; deposit on Arc, spend anywhere in under a second.",
+    "website": null,
+    "status": "verified",
+    "evidence": "eth_getCode non-empty on Arc public RPC, 2026-11-01; docs.arc.io contract-addresses",
+    "lykia": "routes",
+    "coverage": "routable",
+    "verbs": [
+     "gateway-deposit",
+     "approve"
+    ],
+    "tvlUsd": 10576942,
+    "routed": {
+     "steps": 0,
+     "usd": "0.00"
+    },
+    "arcEcosystem": null
+   },
+   {
+    "id": "steakhouse-financial",
+    "name": "Steakhouse Financial",
+    "category": "vault",
+    "summary": "Morpho Vault V2 curator on Arc. Lykia deposits into and withdraws from Steakhouse Financial's vaults (3) through the Morpho vault adapter and ranks them by live net APY.",
+    "website": "https://www.steakhouse.financial/",
+    "status": "verified",
+    "evidence": "api.morpho.org vaultV2s(chainId 5042) lists the vaults under Steakhouse Financial; on-chain curator() = 0x827e86072B06674a077f592A531dcE4590aDeCdB, one of Steakhouse Financial's addresses in the Morpho API; asset() is USDC or EURC; Steakhouse Prime USDC $5.29M; High Yield USDC $54.2k; Prime EURC €8.9k (below the $50k floor: listed, never picked automatically); the vault-deposit then vault-withdraw (redeem) adapter batch, approve + Memo(deposit 100 USDC or EURC) + Memo(redeem the previewDeposit shares) through Multicall3From from a state-override-funded account, eth_call on rpc.mainnet.arc.io at block 30,133,957 (2026-11-08): passed for every vault, previewRedeem of the minted shares 99.999999 to 100.000000",
+    "lykia": "routes",
+    "coverage": "routable",
+    "verbs": [
+     "deposit",
+     "withdraw",
+     "approve"
+    ],
+    "tvlUsd": 5294742,
+    "routed": {
+     "steps": 0,
+     "usd": "0.00"
+    },
+    "arcEcosystem": null
+   },
+   {
+    "id": "uniswap-v4",
+    "name": "Uniswap v4",
+    "category": "dex",
+    "summary": "Singleton pool manager with hooks. Lykia quotes with V4Quoter and swaps through UniversalRouter (Permit2), e.g. the USDC/EURC 0.05% pool.",
+    "website": "https://uniswap.org",
+    "status": "verified",
+    "evidence": "Uniswap/sdks addresses.ts and universal-router-sdk constants ([5042]); pools found with StateView.getLiquidity; UniversalRouter V4_SWAP simulated via Multicall3From eth_call 2026-11-01",
+    "lykia": "routes",
+    "coverage": "routable",
+    "verbs": [
+     "swap",
+     "fx",
+     "approve"
+    ],
+    "tvlUsd": 3465227,
+    "routed": {
+     "steps": 0,
+     "usd": "0.00"
+    },
+    "arcEcosystem": "https://www.arc.io/ecosystem/uniswap"
+   }
+  ],
+  "totals": {
+   "protocols": 95,
+   "verified": 50,
+   "routable": 14,
+   "routableVia": 5,
+   "readOnly": 31,
+   "mapped": 45,
+   "summary": "14 protocols Lykia can route through today, plus 5 curators' vaults via Morpho · 95 protocols mapped on Arc",
+   "tvlUsd": 757544335,
+   "routed": {
+    "intents": 0,
+    "steps": 0,
+    "usd": "0.00",
+    "window": "Intents kept by the API (30 days)"
+   }
+  },
+  "circle": [
+   {
+    "id": "usdc-eurc",
+    "name": "USDC and EURC",
+    "state": "live",
+    "lykia": "Every plan settles in them; native (18) and ERC-20 (6) USDC handled as one balance.",
+    "docs": "https://developers.circle.com/stablecoins/usdc-contract-addresses"
+   },
+   {
+    "id": "cctp",
+    "name": "CCTP V2",
+    "state": "live",
+    "lykia": "Intent bridges burn with Circle's Forwarding Service hook, so Circle mints on the destination; live fees per route (GET /v1/circle/cctp/fees) and transfer status (GET /v1/circle/cctp/status).",
+    "docs": "https://developers.circle.com/cctp/concepts/supported-chains-and-domains"
+   },
+   {
+    "id": "cctp-forwarding",
+    "name": "CCTP Forwarding Service",
+    "state": "live",
+    "lykia": "The intent engine's bridge step and POST /v1/circle/cctp/forward build depositForBurnWithHook with the forwarding hook; the step settles when Iris reports forwardState COMPLETE.",
+    "docs": "https://developers.circle.com/cctp/concepts/forwarding-service"
+   },
+   {
+    "id": "gateway",
+    "name": "Gateway (unified balance)",
+    "state": "live",
+    "lykia": "Balance in the Flock, deposits in plans, and transfers out of Arc: maxFee from Gateway's /v1/estimate, burn intent to sign, then an unsigned gatewayMint, or forward: true for Circle's Forwarding Service to mint (GET /v1/circle/gateway/transfers/:id).",
+    "docs": "https://developers.circle.com/gateway"
+   },
+   {
+    "id": "nanopayments",
+    "name": "Gateway Nanopayments (x402)",
+    "state": "live",
+    "lykia": "Discovery shows which services take Gateway; vanilla x402 on Arc is paid through /v1/circle/x402 (owner or agent signs).",
+    "docs": "https://developers.circle.com/agent-stack/agent-nanopayments"
+   },
+   {
+    "id": "agent-marketplace",
+    "name": "Agent Marketplace discovery",
+    "state": "live",
+    "lykia": "GET /v1/circle/services lists services an agent can pay for on Arc; Lyko can propose purchases inside the Fence.",
+    "docs": "https://developers.circle.com/agent-stack/agent-marketplace/discovery-api"
+   },
+   {
+    "id": "dev-wallets",
+    "name": "Developer-controlled wallets",
+    "state": "needs-key",
+    "lykia": "Opt-in for the operator: POST /v1/circle/wallets/agent provisions an SCA wallet bound to the signed-in address that created it; payouts can execute from it only for that address, after the Fence and the beta cap. The operator's entity secret signs, so this is a server-side signer, off unless LYKIA_CIRCLE_SERVER_WALLETS=true.",
+    "docs": "https://developers.circle.com/wallets/dev-controlled"
+   },
+   {
+    "id": "agent-wallets",
+    "name": "Agent Wallets (Agent Stack)",
+    "state": "console-only",
+    "lykia": "The default agent path: POST /v1/circle/policies/compile turns a Fence into the wallet's Circle spending policy (caps, allow and block lists) and the exact Circle CLI commands, and reports which rules Lykia's preflight enforces on top. Lykia cannot apply it: Circle requires the owner's OTP.",
+    "docs": "https://developers.circle.com/agent-stack/agent-wallets"
+   },
+   {
+    "id": "gas-station",
+    "name": "Gas Station",
+    "state": "needs-key",
+    "lykia": "Agent wallets are created as SCA so a Gas Station policy can sponsor them; the profile's gas preference records the choice.",
+    "docs": "https://developers.circle.com/wallets/gas-station"
+   },
+   {
+    "id": "paymaster",
+    "name": "Circle Paymaster",
+    "state": "unavailable-on-arc",
+    "lykia": "Not needed on Arc: gas already is USDC. Circle Paymaster is not deployed on Arc (its v0.8 addresses have no code there, checked 2026-11-04); smart accounts on Arc fund their EntryPoint deposit in native USDC or use Gas Station.",
+    "docs": "https://developers.circle.com/paymaster"
+   },
+   {
+    "id": "compliance",
+    "name": "Compliance Engine screening",
+    "state": "needs-key",
+    "lykia": "External recipients are screened before planning; a DENIED address is added to the Fence's deny list, and an unscreened one is reported as such. Asks for ARC first and, if Circle refuses the chain, screens the same EVM address as ETH.",
+    "docs": "https://developers.circle.com/wallets/compliance-engine/tx-screening"
+   },
+   {
+    "id": "stablefx",
+    "name": "StableFX",
+    "state": "needs-key",
+    "lykia": "Quote → taker signs the Permit2 typed data → trade → status (/v1/circle/stablefx/*). Without access, USDC↔EURC routes through Uniswap.",
+    "docs": "https://developers.circle.com/stablefx"
+   },
+   {
+    "id": "usyc",
+    "name": "USYC",
+    "state": "live",
+    "lykia": "GET /v1/circle/usyc/eligibility reads the Entitlements contract; POST /v1/circle/usyc/prepare builds approve + deposit or redeem only for entitled wallets, with the Teller's preview and a Fence verdict (USYC must be an allowed token).",
+    "docs": "https://developers.circle.com/tokenized/usyc/overview"
+   },
+   {
+    "id": "app-kit",
+    "name": "Arc App Kit",
+    "state": "live",
+    "lykia": "Client-side kits for your front end. Lykia sits beside them: check a plan with the Fence first, then call kit.send / swap / bridge; Circle-native server paths (CCTP, Gateway, StableFX) are Lykia execution providers.",
+    "docs": "https://docs.arc.io/app-kit"
+   }
+  ],
+  "pulse": {
+   "block": 30709418,
+   "blockTimeMs": 508,
+   "tps": 6.5,
+   "transferCostUsd": "0.0013",
+   "finality": "deterministic"
+  },
+  "builders": {
+   "freeTier": {
+    "perMinute": 120,
+    "perDay": 20000
+   },
+   "x402": {
+    "mode": "settled",
+    "note": "Circle's facilitator settles payments; this server has no Circle API key, so settlement is refused and the route keeps answering 402."
+   },
+   "guide": "/forge/reference#integrate"
+  },
+  "sources": {
+   "tvl": "DefiLlama (chainTvls.Arc)",
+   "tvlAt": "2026-11-11T15:15:46.421Z",
+   "routedAt": "2026-11-11T15:15:46.351Z"
+  },
+  "at": "2026-11-11T15:18:56.123Z"
+ },
+ "/v1/rates?environment=mainnet": {
+  "environment": "mainnet",
+  "vaults": [
+   {
+    "address": "0x0083A444C5FBbb9eF9173Ead8F8AE62367cBD2B1",
+    "name": "Test",
+    "asset": "USDC",
+    "apy": "0",
+    "tvlUsd": "1.153573601651568",
+    "curators": []
+   },
+   {
+    "address": "0x048F2b75d6C6c759F9695518C165C9E242D7e62b",
+    "name": "Test 3",
+    "asset": "USDC",
+    "apy": "0",
+    "tvlUsd": "1.15283377250262",
+    "curators": []
+   },
+   {
+    "address": "0x05863F54B05e96092069eF30c9Ca6060336e50B9",
+    "name": "Gauntlet EURC Prime",
+    "asset": "EURC",
+    "apy": "0.02002118461398915",
+    "tvlUsd": "9869.36391551261",
+    "curators": [
+     "Gauntlet"
+    ]
+   },
+   {
+    "address": "0x10AF7238C6355Aa8dDB5eD60E2e9b55a72827B51",
+    "name": "Gauntlet USDC Balanced",
+    "asset": "USDC",
+    "apy": "0.08460237327387243",
+    "tvlUsd": "192240.4573218249",
+    "curators": [
+     "Gauntlet"
+    ]
+   }
+  ],
+  "markets": [
+   {
+    "marketId": "0xefccbba5cae67e7550c03a872967998faab0b3d013a095876be2e693c63be272",
+    "loan": "EURC",
+    "collateral": "USDC",
+    "borrowApy": "0.00025003122118847645",
+    "supplyApy": "0",
+    "utilization": "0",
+    "supplyUsd": "1.108889271"
+   },
+   {
+    "marketId": "0xef19aae6cf0f872475a38d533d725d1400c3cb7c63d0f0d2207c5147d355dcaf",
+    "loan": "wARS",
+    "collateral": "cirBTC",
+    "borrowApy": "0.269414142412357",
+    "supplyApy": "0.269414142412357",
+    "utilization": "1",
+    "supplyUsd": "6.08115416791786e-19"
+   },
+   {
+    "marketId": "0xda3af290c5c600edf299d6c83c8e056255c80ed773c0369ab4f9d2f0ca29606f",
+    "loan": "EURC",
+    "collateral": "USDC",
+    "borrowApy": "0.01017393462759238",
+    "supplyApy": "0.007258997846461886",
+    "utilization": "0.7145228701446263",
+    "supplyUsd": "0.776847903248844"
+   },
+   {
+    "marketId": "0xd1c277b24f103a508543b06f87acc76d1350b83dfd43d35f6d65098c178705f1",
+    "loan": "EURC",
+    "collateral": "WETH",
+    "borrowApy": "0.010274939287875732",
+    "supplyApy": "0.008937705831557351",
+    "utilization": "0.870432033365286",
+    "supplyUsd": "1.1868818889865138"
+   }
+  ],
+  "reserves": [
+   {
+    "spoke": "0x18Dde098d25722C14e09842a6Fa7db6aAFC395a2",
+    "spokeName": "Maple SyrupUSDC",
+    "reserveId": 1,
+    "symbol": "USDC",
+    "supplyApy": "0.029019695026088206",
+    "borrowApy": "0.03693033896849247",
+    "canSupply": false,
+    "canBorrow": true
+   },
+   {
+    "spoke": "0x4164EBCAF74670aa74C8D4F59de6157c0780F1bB",
+    "spokeName": "Forex",
+    "reserveId": 0,
+    "symbol": "USDC",
+    "supplyApy": "0.029019695026088206",
+    "borrowApy": "0.03693033896849247",
+    "canSupply": true,
+    "canBorrow": true
+   },
+   {
+    "spoke": "0xB843bdC3a87A05E77E07Df9FE48928b3A34b134d",
+    "spokeName": "Main",
+    "reserveId": 0,
+    "symbol": "USDC",
+    "supplyApy": "0.029019695026088206",
+    "borrowApy": "0.03693033896849247",
+    "canSupply": true,
+    "canBorrow": true
+   },
+   {
+    "spoke": "0x4164EBCAF74670aa74C8D4F59de6157c0780F1bB",
+    "spokeName": "Forex",
+    "reserveId": 1,
+    "symbol": "EURC",
+    "supplyApy": "0.006207039487934732",
+    "borrowApy": "0.020709079252830834",
+    "canSupply": true,
+    "canBorrow": true
+   }
+  ],
+  "sources": {
+   "morpho": "live",
+   "aave": "live"
+  },
+  "at": "2026-11-11T15:15:47.278Z"
+ },
+ "/v1/leashes/templates": {
+  "templates": [
+   {
+    "key": "pay-invoices",
+    "title": "Pay invoices",
+    "summary": "Transfers only, to payees you name. No swaps, no lending, no bridges.",
+    "kinds": [
+     "transfer"
+    ],
+    "tokens": [
+     "USDC",
+     "EURC"
+    ],
+    "venues": [
+     "arc-transfer"
+    ],
+    "recipients": "allowlist",
+    "maxSlippageBps": 0,
+    "suggested": {
+     "perStepUsd": "20",
+     "perDayUsd": "20",
+     "totalUsd": "140"
+    }
+   },
+   {
+    "key": "trade-small",
+    "title": "Trade small",
+    "summary": "USDC and EURC swaps on DEXs whose output the account can pin to itself, with a slippage cap.",
+    "kinds": [
+     "swap",
+     "fx"
+    ],
+    "tokens": [
+     "USDC",
+     "EURC"
+    ],
+    "venues": [
+     "uniswap-v3",
+     "archery",
+     "unitflow-finance-v3"
+    ],
+    "recipients": "own",
+    "maxSlippageBps": 50,
+    "suggested": {
+     "perStepUsd": "25",
+     "perDayUsd": "50",
+     "totalUsd": "350"
+    }
+   },
+   {
+    "key": "earn",
+    "title": "Earn",
+    "summary": "Deposit into and withdraw from Morpho vaults and Aave V4. Everything stays in the account.",
+    "kinds": [
+     "deposit",
+     "withdraw",
+     "supply"
+    ],
+    "tokens": [
+     "USDC",
+     "EURC"
+    ],
+    "venues": [
+     "morpho-vaults",
+     "aave-v4"
+    ],
+    "recipients": "own",
+    "maxSlippageBps": 10,
+    "suggested": {
+     "perStepUsd": "250",
+     "perDayUsd": "500",
+     "totalUsd": "2000"
+    }
+   },
+   {
+    "key": "custom",
+    "title": "Custom",
+    "summary": "Your own Fence, narrowed to the leash's budget and expiry. It must sit inside the parent's Fence.",
+    "kinds": [],
+    "tokens": [
+     "USDC",
+     "EURC"
+    ],
+    "venues": null,
+    "recipients": "own",
+    "maxSlippageBps": 50,
+    "suggested": {
+     "perStepUsd": "25",
+     "perDayUsd": "50",
+     "totalUsd": "350"
+    }
+   }
+  ],
+  "enforcement": [
+   {
+    "limit": "Expiry",
+    "enforcedBy": "both",
+    "how": "LykiaAccount refuses every call after validUntil; the API stops the key at expiresAt."
+   },
+   {
+    "limit": "Per-step cap",
+    "enforcedBy": "both",
+    "how": "On chain: perCall in token units per token (USDC 1:1, EURC at the reference rate when the leash was made). At the API: USD per step (caps.perStepUsd)."
+   },
+   {
+    "limit": "Daily cap",
+    "enforcedBy": "both",
+    "how": "On chain: daily in token units over a rolling 24 h window. At the API: USD per day (caps.dailyUsd)."
+   },
+   {
+    "limit": "Total budget",
+    "enforcedBy": "both",
+    "how": "On chain: budget in token units over the session's life, charged up the whole session chain. At the API: USD over the leash's life."
+   },
+   {
+    "limit": "Payees",
+    "enforcedBy": "both",
+    "how": "On chain: agentTransfer only to the session's recipient list or the owner. At the API: the Fence's recipient allowlist."
+   },
+   {
+    "limit": "Contracts and functions",
+    "enforcedBy": "chain",
+    "how": "agentExecute only on (target, selector) call rules, each pinning its output argument to the account; approve, transfer and permit selectors can never be allowlisted."
+   },
+   {
+    "limit": "Number of calls",
+    "enforcedBy": "chain",
+    "how": "maxCalls on the session, counted on every node of the chain."
+   },
+   {
+    "limit": "Revocation",
+    "enforcedBy": "both",
+    "how": "The API disables the key the moment you revoke; revokeSession on the account ends the session (and every sub-session) once signed."
+   },
+   {
+    "limit": "USD valuation",
+    "enforcedBy": "api",
+    "how": "The chain counts token units. Dollar amounts, prices and the beta cap are checked by the Fence at the API."
+   },
+   {
+    "limit": "Venues",
+    "enforcedBy": "api",
+    "how": "The Fence's venue list and the router's choice. On chain only the call rules exist, which are derived from these venues."
+   },
+   {
+    "limit": "Slippage",
+    "enforcedBy": "api",
+    "how": "limits.maxSlippageBps sets the minimum output in the calldata. The chain does not compare prices."
+   },
+   {
+    "limit": "Scent, schedule, step count",
+    "enforcedBy": "api",
+    "how": "Fence rules evaluated on every plan."
+   }
+  ],
+  "limits": {
+   "nameLength": 48,
+   "missionLength": 400,
+   "recipients": 25,
+   "minHours": 1,
+   "maxDays": 90,
+   "perOwner": 25,
+   "defaultMaxCalls": 200,
+   "maxCalls": 10000,
+   "maxSlippageBps": 300
+  },
+  "gateway": {
+   "available": {
+    "testnet": false,
+    "mainnet": false
+   },
+   "reasons": {
+    "testnet": "Spending from a Gateway balance is not switched on for Arc testnet yet.",
+    "mainnet": "Spending from a Gateway balance is not switched on for Arc mainnet yet."
+   },
+   "reference": {},
+   "template": "pay-invoices",
+   "destinations": [
+    {
+     "key": "arc",
+     "name": "Arc",
+     "domain": 26
+    },
+    {
+     "key": "ethereum",
+     "name": "Ethereum",
+     "domain": 0
+    },
+    {
+     "key": "avalanche",
+     "name": "Avalanche",
+     "domain": 1
+    },
+    {
+     "key": "optimism",
+     "name": "OP Mainnet",
+     "domain": 2
+    },
+    {
+     "key": "arbitrum",
+     "name": "Arbitrum",
+     "domain": 3
+    },
+    {
+     "key": "base",
+     "name": "Base",
+     "domain": 6
+    },
+    {
+     "key": "polygon",
+     "name": "Polygon PoS",
+     "domain": 7
+    },
+    {
+     "key": "unichain",
+     "name": "Unichain",
+     "domain": 10
+    },
+    {
+     "key": "sonic",
+     "name": "Sonic",
+     "domain": 13
+    },
+    {
+     "key": "worldchain",
+     "name": "World Chain",
+     "domain": 14
+    },
+    {
+     "key": "sei",
+     "name": "Sei",
+     "domain": 16
+    },
+    {
+     "key": "hyperevm",
+     "name": "HyperEVM",
+     "domain": 19
+    }
+   ],
+   "ceilings": {
+    "perStepUsd": "100",
+    "perDayUsd": "300"
+   },
+   "feeBps": 100,
+   "maxGatewayFeeUsd": {
+    "default": "0.10",
+    "max": "5"
+   },
+   "source": "The part of the owner's Gateway balance deposited on Arc.",
+   "enforcement": [
+    {
+     "limit": "Expiry",
+     "enforcedBy": "both",
+     "how": "LykiaStile refuses reservations after validUntil and stops validating its digests; the API stops the key at expiresAt."
+    },
+    {
+     "limit": "Per-transfer cap",
+     "enforcedBy": "both",
+     "how": "On chain: perTransfer in USDC units, payment plus Lykia fee, never above the Stile's immutable ceiling ($100 while unaudited). At the API: USD per step."
+    },
+    {
+     "limit": "Daily cap",
+     "enforcedBy": "both",
+     "how": "On chain: daily over a rolling 24 h window, never above the Stile's ceiling ($300 while unaudited). At the API: USD per day."
+    },
+    {
+     "limit": "Total budget",
+     "enforcedBy": "both",
+     "how": "On chain: lifetime on the session. At the API: USD over the leash's life."
+    },
+    {
+     "limit": "Payees",
+     "enforcedBy": "both",
+     "how": "On chain: the session's recipient list (32-byte addresses). At the API: the Fence's recipient allowlist."
+    },
+    {
+     "limit": "Destination chains",
+     "enforcedBy": "both",
+     "how": "On chain: the session's allowed Gateway domains. At the API: the leash's destination list."
+    },
+    {
+     "limit": "Source of funds",
+     "enforcedBy": "chain",
+     "how": "Every reserved intent must debit the owner's deposit on Arc through Gateway Wallet, signed by the Stile, with empty hook data."
+    },
+    {
+     "limit": "Lykia fee",
+     "enforcedBy": "chain",
+     "how": "With a fee, a reservation is a burn intent set [payment, fee]: Gateway attests and mints both together or neither."
+    },
+    {
+     "limit": "Gateway fee",
+     "enforcedBy": "chain",
+     "how": "maxFee of each intent is at most the session's maxGatewayFee; Circle charges at most that."
+    },
+    {
+     "limit": "Revocation",
+     "enforcedBy": "both",
+     "how": "The API disables the key at once; revokeSession on the Stile stops new reservations and validation. Gateway may validate against a block up to about 5 minutes old."
+    },
+    {
+     "limit": "Signature check",
+     "enforcedBy": "chain",
+     "how": "Gateway calls isValidSignature (read-only, in its validation enclave, with an RPC quorum); it answers only for reserved, unexpired, uncancelled digests of a live session while the Stile is not paused."
+    },
+    {
+     "limit": "USD valuation, Scent, schedule",
+     "enforcedBy": "api",
+     "how": "The Fence evaluates every transfer before the reservation is prepared."
+    }
+   ]
+  }
+ }
+}

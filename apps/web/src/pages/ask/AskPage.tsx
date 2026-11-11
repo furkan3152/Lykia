@@ -27,13 +27,12 @@ import { apiGet, apiPost, describeError } from "../../lib/api";
 import { useEnvironment } from "../../lib/environment";
 import { useLykiaStore } from "../../lib/lykiaStore";
 import { useLamp } from "../../lib/pulseStore";
-import { Button, LykoFace, MosaicCanvas, Tag, cx, toast } from "../../mosaic";
+import { Button, LykoFace, MosaicCanvas, cx, toast } from "../../mosaic";
 import { strip, STRIP_H, STRIP_W } from "../../mosaic/scenes";
 import { handleLine } from "../../shell/palette";
 import { useSession } from "../../lib/session";
 import type { ThreadSummaryView } from "@lykia/core/api/fold";
 import { mergeThreads } from "../../features/fold/model";
-import { HowItWorks } from "../../features/help/Help";
 import { NextStepBar, StarterChips, StarterGrid } from "../../features/ask/Starters";
 import { ASK_STARTERS, DO_STARTERS, followUps, nextStep, type Starter } from "../../features/ask/starters";
 
@@ -120,16 +119,8 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
   };
   const proposal = picked ?? latestProposal(convo);
   const artifactKey = proposal ? `${proposal.intentId ?? proposal.title}` : null;
-  // Where the route would cover the conversation (narrow screens), it opens only when asked ("Open the route").
-  const [phone, setPhone] = useState(() => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(max-width: 1100px)").matches);
-  useEffect(() => {
-    if (typeof window.matchMedia !== "function") return undefined;
-    const mq = window.matchMedia("(max-width: 1100px)");
-    const on = () => setPhone(mq.matches);
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, []);
-  const showArtifact = Boolean(proposal && artifactKey !== artifactClosed && (!phone || picked));
+  // The route panel opens only when asked ("Open the route"): the plan card is enough to act on.
+  const showArtifact = Boolean(picked && proposal && artifactKey !== artifactClosed);
   const setMode = useUiStore((st) => st.setMode);
   const choose = (option: string) => {
     const action = clarifyAction(option);
@@ -185,9 +176,11 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
   const empty = shown.length === 0 && !serverThread.data;
   // A starter either asks at once or fills the composer with its blanks selected.
   const pick = (st: Starter) => (st.kind === "ask" ? ask(st.text) : setPrefill(st.text));
-  // History phrases ("again", "same as last week") only mean something once there is a history.
-  const hasHistory = threads.length > 0 || convo.messages.length > 0;
   const lastAnswer = [...convo.messages].reverse().find((m) => m.role === "assistant") ?? null;
+  // History phrases ("again", "same as last week") only mean something inside a thread with a history, and only
+  // while the box is empty; never beside an open question, which is the one thing to answer.
+  const asking = Boolean(lastAnswer && status !== "streaming" && nextStep(lastAnswer).kind === "choose");
+  const hasHistory = convo.messages.length > 0 && !asking;
   // One short line, sentence case: long notes in pixel caps wrap into two lines on a phone.
   const walletLine = address ? "Lyko only proposes · your wallet signs" : "Sample mode · connect to plan yours";
   const walletBadge = address ? "YOU SIGN" : "SAMPLE MODE";
@@ -222,11 +215,10 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
             </button>
           ))}
         </div>
-        <div style={{ padding: 14, borderTop: "2px dashed var(--grout)", display: "grid", gap: 6 }}>
-          <span className="m-kick">{"FENCE"} · {fence.label?.toUpperCase() ?? "CUSTOM"} · {(fence.mode ?? "live").toUpperCase()}</span>
-          <span className="m-kick">{environment === "mainnet" ? "ARC MAINNET 5042" : "ARC TESTNET 5042002"}</span>
-          {convo.mode ? <Tag tone={convo.mode === "llm" ? "ok" : "ghost"}>{convo.mode === "llm" ? "LYKO · AI ON" : "READER MODE · SIMPLE SENTENCES"}</Tag> : null}
-        </div>
+        {/* One small line: which rules and which network Lyko plans under. */}
+        <p className="m-rail__foot" title={convo.mode === "reader" ? "Reader mode: Lyko answers in simple sentences without the AI model." : undefined}>
+          {`Fence: ${fence.label ?? "custom"}${fence.mode && fence.mode !== "live" ? ` (${fence.mode === "dry-run" ? "practice" : fence.mode})` : ""} · Arc ${environment}`}
+        </p>
       </aside>
 
       <section className="m-convo">
@@ -260,7 +252,6 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
                     {composer}
                     <StarterGrid onPick={pick} />
                     <p className="m-asknote m-ask-hero__foot">{walletLine}</p>
-                    <HowItWorks area="ask" inAsk />
                   </>
                 )}
               </div>

@@ -89,6 +89,10 @@ export interface RoleTemplate {
 }
 
 const base = (label: string, extra: Omit<Fence, "schema" | "label">): Fence => Object.freeze({ schema: FENCE_SCHEMA, label, ...extra });
+const withoutSchedule = (fence: Fence): Fence => {
+  const { schedule: _hours, ...rest } = fence;
+  return Object.freeze(rest);
+};
 
 /** Role templates, derived from the core Fence templates and tightened for the job. */
 export const ROLE_TEMPLATES: Readonly<Record<Exclude<PackRole, "custom">, RoleTemplate>> = Object.freeze({
@@ -102,9 +106,11 @@ export const ROLE_TEMPLATES: Readonly<Record<Exclude<PackRole, "custom">, RoleTe
   treasurer: {
     role: "treasurer",
     title: { en: "Treasurer" },
-    summary: "Keeps the stablecoin treasury: payees, FX, vaults and bridges inside office hours.",
+    summary: "Keeps the stablecoin treasury: payees, FX, vaults and bridges.",
     capabilities: ["read", "propose", "spawn"],
-    fence: FENCE_TEMPLATES.treasury,
+    // No office hours: the role answers its owner's requests whenever they come, in any time zone. An owner who
+    // wants hours adds them to the agent's own Fence.
+    fence: withoutSchedule(FENCE_TEMPLATES.treasury),
   },
   payroll: {
     role: "payroll",
@@ -121,7 +127,6 @@ export const ROLE_TEMPLATES: Readonly<Record<Exclude<PackRole, "custom">, RoleTe
       fx: { maxDeviationBps: 25 },
       scent: { require: "verified" },
       confirm: { aboveUsd: "5000", when: ["external-recipient", "agent-proposal"] },
-      schedule: { timezone: "Europe/Istanbul", windows: [{ days: ["mon", "tue", "wed", "thu", "fri"], from: "09:00", to: "18:00" }] },
       signers: ["wallet", "agent"],
     }),
   },

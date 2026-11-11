@@ -30,6 +30,8 @@ import { STAGE_START, stageHeadline, stageReduce, type StageState } from "./stag
 import { PreflightPanel } from "./Preflight";
 import { usePreflightAcks } from "./preflightModel";
 import { runFix } from "./preflightActions";
+import { leadSentence, plainReason, plainRouteWhy, plainStep } from "./plain";
+import { planTitle } from "../ask/cardModel";
 
 const TILE_COLS = 12;
 const TILE_ROWS = 8;
@@ -67,6 +69,8 @@ export interface ReviewDialogProps {
   readonly preflightAcked?: boolean;
   readonly onPreflightAck?: (value: boolean) => void;
   readonly onFix?: (fix: FindingFix) => void;
+  /** The one sentence the modal opens with: what you send, what you get, when, and the fee. */
+  readonly lead?: string | null;
 }
 
 /** Focus stays inside the dialog; Escape closes; focus returns where it came from. */
@@ -137,7 +141,8 @@ function phaseBanner(p: ReviewDialogProps): { tone: "sea" | "ochre" | "ok" | "ba
     case "failed":
       return null;
     default:
-      return v.stage === "settled" ? null : v.decision === "confirm" && !p.confirmed ? { tone: "ochre", text: "Your Fence asks you to confirm this plan before the quote is built." } : null;
+      // Waiting for the tick: the box and the button already say so.
+      return null;
   }
 }
 
@@ -147,7 +152,7 @@ function primaryOf(p: ReviewDialogProps): { label: string; disabled: boolean; ac
   const gate = preflightGate(p.preflight, p.preflightAcked === true);
   const open = v.stage !== "settled" && v.stage !== "denied" && v.stage !== "dry-run" && v.settledCount === 0;
   if (open && gate.blocked) return { label: "Fix it first", disabled: true, action: p.onSign };
-  if (open && gate.needsAck.length > 0 && p.phase !== "failed") return { label: "Tick the warnings first", disabled: true, action: p.onSign };
+  if (open && gate.needsAck.length > 0 && p.phase !== "failed") return { label: "Tick the box first", disabled: true, action: p.onSign };
   if (v.stage === "denied") return { label: "Refused by your Fence", disabled: true, action: p.onSign };
   if (v.stage === "dry-run") return { label: "Dry run · nothing to sign", disabled: true, action: p.onSign };
   if (v.stage === "settled" && p.phase !== "failed") return { label: "Done", disabled: false, action: p.onClose };
@@ -240,6 +245,12 @@ export function ReviewDialog(p: ReviewDialogProps) {
   const network = v ? (v.environment === "mainnet" ? "ARC MAINNET" : "ARC TESTNET") : "ARC";
   const activeStep = v?.nextStepId ?? null;
   const settledAll = v?.stage === "settled" && p.phase !== "failed";
+  // "Before you sign": the Fence's confirmation and preflight's warnings share one tick.
+  const confirmNeeded = Boolean(v && v.decision === "confirm" && v.stage !== "settled");
+  const pfGate = preflightGate(p.preflight, p.preflightAcked === true);
+  const warned = Boolean(v && v.settledCount === 0 && (p.preflight ?? []).some((f) => f.severity === "warn"));
+  const tickable = (confirmNeeded || warned) && !pfGate.blocked;
+  const ticked = (!confirmNeeded || p.confirmed) && (!warned || p.preflightAcked === true);
   const gas = p.transferCostUsd ? `from $${Number(p.transferCostUsd).toFixed(4)} per transaction at today's gas price` : "a few cents at most on Arc";
   return (
     <div className="rv-scrim" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && p.onClose()}>
@@ -251,126 +262,166 @@ export function ReviewDialog(p: ReviewDialogProps) {
         </div>
         <button type="button" className="rv-grab" aria-label="Close the review" onClick={p.onClose} />
         <header className="rv-head rv-lay" style={{ "--k": 0 } as React.CSSProperties}>
-          <span className="m-kick">{`REVIEW · ${network}${v ? ` · ${v.id}` : ""}`}</span>
+          <span className="m-kick">{`REVIEW · ${network}`}</span>
           <h2 id={`${uid}-t`} ref={titleRef} tabIndex={-1}>
-            {p.stage && p.stage.total > 1 && v?.staged.current ? stageHeadline(p.stage, v.staged.current.summary) : p.title}
+            {p.stage && p.stage.total > 1 && v?.staged.current ? stageHeadline(p.stage, plainStep(v.staged.current.summary)) : p.title}
           </h2>
-          <p id={`${uid}-d`} className="m-small m-muted">
-            {"Check what leaves your wallet and what you get. Nothing moves until you confirm in your wallet."}
+          <p id={`${uid}-d`} className="rv-lead">
+            {p.lead ?? "Check what leaves your wallet and what you get. Nothing moves until you confirm in your wallet."}
           </p>
-          <HowItWorks area="review" className="rv-how" />
           <button type="button" className="rv-x" aria-label="Close the review" onClick={p.onClose}>
             <Mark name="cross" size={12} />
           </button>
         </header>
 
         <div className="rv-body">
-          {v ? (
-            <section key={`stage-${p.stage?.stage ?? 0}`} className={cx("rv-swap rv-lay", p.stage && p.stage.total > 1 && p.stage.stage > 1 && "rv-stagein")} style={{ "--k": 1 } as React.CSSProperties} aria-label={p.stage && p.stage.total > 1 ? `What step ${p.stage.stage} sends and gets` : "What you send and what you get"}>
-              <Figures title="YOU SEND" list={v.send} tone="send" />
-              <span className="rv-arrow" aria-hidden="true">
-                <Mark name="arrow" size={18} />
-              </span>
-              <Figures title="YOU GET" list={v.get} tone="get" />
-            </section>
-          ) : (
-            <section className="rv-swap" aria-label="Loading">
-              <Skeleton h={72} />
-              <span />
-              <Skeleton h={72} />
-            </section>
-          )}
-
-          {v && (p.preflight?.length ?? 0) > 0 && v.stage !== "settled" ? (
+          {v && v.stage !== "settled" && (confirmNeeded || (p.preflight?.length ?? 0) > 0) ? (
             <div className="rv-card rv-pf rv-lay" style={{ "--k": 1 } as React.CSSProperties}>
-              <PreflightPanel findings={p.preflight} mode="review" acknowledged={p.preflightAcked === true} {...(p.onPreflightAck ? { onAcknowledge: p.onPreflightAck } : {})} {...(p.onFix ? { onFix: p.onFix } : {})} actionable={v.settledCount === 0} />
+              <PreflightPanel
+                findings={p.preflight}
+                mode="review"
+                tick={false}
+                acknowledged={p.preflightAcked === true}
+                {...(p.onPreflightAck ? { onAcknowledge: p.onPreflightAck } : {})}
+                {...(p.onFix ? { onFix: p.onFix } : {})}
+                actionable={v.settledCount === 0}
+                lead={
+                  confirmNeeded ? (
+                    <li className="pf-card rv-rules" data-severity="warn">
+                      <div className="pf-card__body">
+                        <span className="pf-card__kick">{"YOUR RULES ASK YOU TO CONFIRM"}</span>
+                        <ul className="rv-rules__list">
+                          {(v.reasons.length > 0 ? v.reasons : ["A rule in your Fence asks you first."]).slice(0, 4).map((r) => (
+                            <li key={r}>{plainReason(r)}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </li>
+                  ) : null
+                }
+              />
+              {tickable ? (
+                <label className="rv-confirm pf-tick">
+                  <input
+                    type="checkbox"
+                    checked={ticked}
+                    onChange={(e) => {
+                      if (confirmNeeded) p.onConfirm(e.target.checked);
+                      if (warned) p.onPreflightAck?.(e.target.checked);
+                    }}
+                  />{" "}
+                  {warned ? "I read this and want to sign it as it is." : "I read this and confirm the plan."}
+                </label>
+              ) : null}
             </div>
           ) : null}
 
-          <div className="rv-cols">
-            <section className="rv-card rv-lay" style={{ "--k": 2 } as React.CSSProperties} aria-labelledby={`${uid}-steps`}>
-              <h3 id={`${uid}-steps`} className="rv-h">
-                {"Steps"}
-                {v ? <span className="m-kick">{`${v.settledCount} OF ${v.steps.length} SETTLED`}</span> : null}
-              </h3>
-              {v ? (
-                <ol className="rv-steps">
-                  {v.steps.map((s) => (
-                    <li key={s.id} className="rv-step" data-status={s.status} data-active={s.id === activeStep || undefined}>
-                      <span className="rv-step__n" aria-hidden="true">
-                        {s.status === "settled" ? <Mark name="check" size={11} /> : s.n}
-                      </span>
-                      <div className="rv-step__body">
-                        <b>{s.summary}</b>
-                        <div className="rv-step__meta">
-                          <Tag tone="sea">{s.venue}</Tag>
-                          <Tag tone={s.status === "settled" ? "ok" : s.status === "failed" ? "bad" : "ghost"}>{s.status === "awaiting-signature" ? "ready to sign" : s.status === "blocked" ? "next" : s.failure ? "paused" : s.status}</Tag>
+          {p.security && p.security.decision !== "pass" && visibleFindings(p.security.findings).length > 0 ? (
+            <p className="rv-secline rv-lay" style={{ "--k": 1 } as React.CSSProperties}>
+              <Tag tone={decisionTone(p.security.decision)}>{decisionLabel(p.security.decision)}</Tag> <span>{visibleFindings(p.security.findings)[0]!.message}</span>
+            </p>
+          ) : null}
+
+          <details className="rv-details rv-lay" style={{ "--k": 2 } as React.CSSProperties}>
+            <summary>{"Details"}<span className="m-small">{"amounts, steps, fees, your rules and the safety check"}</span></summary>
+            {v ? (
+              <section key={`stage-${p.stage?.stage ?? 0}`} className={cx("rv-swap rv-lay", p.stage && p.stage.total > 1 && p.stage.stage > 1 && "rv-stagein")} style={{ "--k": 1 } as React.CSSProperties} aria-label={p.stage && p.stage.total > 1 ? `What step ${p.stage.stage} sends and gets` : "What you send and what you get"}>
+                <Figures title="YOU SEND" list={v.send} tone="send" />
+                <span className="rv-arrow" aria-hidden="true">
+                  <Mark name="arrow" size={18} />
+                </span>
+                <Figures title="YOU GET" list={v.get} tone="get" />
+              </section>
+            ) : (
+              <section className="rv-swap" aria-label="Loading">
+                <Skeleton h={72} />
+                <span />
+                <Skeleton h={72} />
+              </section>
+            )}
+
+            <div className="rv-cols">
+              <section className="rv-card rv-lay" style={{ "--k": 2 } as React.CSSProperties} aria-labelledby={`${uid}-steps`}>
+                <h3 id={`${uid}-steps`} className="rv-h">
+                  {"Steps"}
+                  {v ? <span className="m-kick">{`${v.settledCount} OF ${v.steps.length} SETTLED`}</span> : null}
+                </h3>
+                {v ? (
+                  <ol className="rv-steps">
+                    {v.steps.map((s) => (
+                      <li key={s.id} className="rv-step" data-status={s.status} data-active={s.id === activeStep || undefined}>
+                        <span className="rv-step__n" aria-hidden="true">
+                          {s.status === "settled" ? <Mark name="check" size={11} /> : s.n}
+                        </span>
+                        <div className="rv-step__body">
+                          <b>{plainStep(s.summary)}</b>
+                          <div className="rv-step__meta">
+                            <Tag tone="sea">{s.venue}</Tag>
+                            <Tag tone={s.status === "settled" ? "ok" : s.status === "failed" ? "bad" : "ghost"}>{s.status === "awaiting-signature" ? "ready to sign" : s.status === "blocked" ? "next" : s.failure ? "paused" : s.status}</Tag>
+                          </div>
+                          <code className="rv-memo" title={MEANINGS.arcMemo}>
+                            <span className="m-kick">{"REFERENCE"}</span> {s.memo}
+                          </code>
+                          {s.why ? (
+                            <details className="rv-why">
+                              <summary className="m-small">{`Why ${s.venue}?`}</summary>
+                              <p className="m-small m-muted">{plainRouteWhy(s.why, s.venue)}</p>
+                            </details>
+                          ) : null}
                         </div>
-                        <code className="rv-memo" title={MEANINGS.arcMemo}>
-                          <span className="m-kick">{"REFERENCE"}</span> {s.memo}
-                        </code>
-                        {s.why ? (
-                          <details className="rv-why">
-                            <summary className="m-small">{`Why ${s.venue}?`}</summary>
-                            <p className="m-small m-muted">{s.why}</p>
-                          </details>
-                        ) : null}
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <Skeleton h={90} />
-              )}
-            </section>
-
-            <div className="rv-side">
-              <section className="rv-card rv-lay" style={{ "--k": 3 } as React.CSSProperties} aria-labelledby={`${uid}-fees`}>
-                <h3 id={`${uid}-fees`} className="rv-h">{"Fees"}</h3>
-                <dl className="rv-fees">
-                  <div>
-                    <dt>{`Lykia fee${v?.feeBps !== null && v?.feeBps !== undefined ? ` · ${bpsLabel(v.feeBps)}` : ""}`}<Hint text={MEANINGS.lykiaFee} /></dt>
-                    <dd className="num">{v ? (v.fees.length > 0 ? v.fees.join(" + ") : "none on this plan") : "…"}</dd>
-                  </div>
-                  <div>
-                    <dt>{"Network fee · in USDC"}<Hint text={MEANINGS.gas} /></dt>
-                    <dd>{`${gas}${p.txCount ? ` · ${p.txCount} transaction${p.txCount === 1 ? "" : "s"}` : ""}; your wallet shows the exact figure`}</dd>
-                  </div>
-                </dl>
-                <p className="m-small m-muted">{"The Lykia fee is paid in the same transaction as the step. Repaying and withdrawing home are free. The network fee goes to Arc, not to Lykia."}</p>
-              </section>
-
-              <section className="rv-card rv-fence rv-lay" style={{ "--k": 4 } as React.CSSProperties} aria-labelledby={`${uid}-fence`}>
-                <h3 id={`${uid}-fence`} className="rv-h">{"Your rules say"}<Hint text={MEANINGS.verdict} /></h3>
-                <div className="rv-fence__row">
-                  {v ? <Seal decision={v.decision} /> : <Skeleton h={28} w={110} />}
-                  <span className="m-small">{v ? (v.decision === "allow" ? "Allowed: every step is inside your Fence (your spending rules)." : v.decision === "confirm" ? "Allowed once you confirm below: a rule asks you first." : "Refused: a rule in your Fence says no, so nothing can be signed.") : ""}</span>
-                </div>
-                {v && v.reasons.length > 0 ? (
-                  <ul className="rv-reasons m-small">
-                    {v.reasons.slice(0, 4).map((r) => (
-                      <li key={r}>{r}</li>
+                      </li>
                     ))}
-                  </ul>
-                ) : null}
-                {v?.decision === "confirm" && v.stage !== "settled" ? (
-                  <label className="rv-confirm">
-                    <input type="checkbox" checked={p.confirmed} onChange={(e) => p.onConfirm(e.target.checked)} /> {"I read the Fence's lines and confirm this plan."}
-                  </label>
-                ) : null}
+                  </ol>
+                ) : (
+                  <Skeleton h={90} />
+                )}
               </section>
 
-              <section className="rv-card rv-lay" style={{ "--k": 5 } as React.CSSProperties} aria-labelledby={`${uid}-sec`}>
-                <h3 id={`${uid}-sec`} className="rv-h">{"Safety check"}<Hint text={MEANINGS.security} /></h3>
-                <SecurityPanel report={p.security} phase={p.phase} />
-              </section>
+              <div className="rv-side">
+                <section className="rv-card rv-lay" style={{ "--k": 3 } as React.CSSProperties} aria-labelledby={`${uid}-fees`}>
+                  <h3 id={`${uid}-fees`} className="rv-h">{"Fees"}</h3>
+                  <dl className="rv-fees">
+                    <div>
+                      <dt>{`Lykia fee${v?.feeBps !== null && v?.feeBps !== undefined ? ` · ${bpsLabel(v.feeBps)}` : ""}`}<Hint text={MEANINGS.lykiaFee} /></dt>
+                      <dd className="num">{v ? (v.fees.length > 0 ? v.fees.join(" + ") : "none on this plan") : "…"}</dd>
+                    </div>
+                    <div>
+                      <dt>{"Network fee · in USDC"}<Hint text={MEANINGS.gas} /></dt>
+                      <dd>{`${gas}${p.txCount ? ` · ${p.txCount} transaction${p.txCount === 1 ? "" : "s"}` : ""}; your wallet shows the exact figure`}</dd>
+                    </div>
+                  </dl>
+                  <p className="m-small m-muted">{"The Lykia fee is paid in the same transaction as the step. Repaying and withdrawing home are free. The network fee goes to Arc, not to Lykia."}</p>
+                </section>
+
+                <section className="rv-card rv-fence rv-lay" style={{ "--k": 4 } as React.CSSProperties} aria-labelledby={`${uid}-fence`}>
+                  <h3 id={`${uid}-fence`} className="rv-h">{"Your rules say"}<Hint text={MEANINGS.verdict} /></h3>
+                  <div className="rv-fence__row">
+                    {v ? <Seal decision={v.decision} /> : <Skeleton h={28} w={110} />}
+                    <span className="m-small">{v ? (v.decision === "allow" ? "Allowed: every step is inside your Fence (your spending rules)." : v.decision === "confirm" ? "Allowed once you confirm below: a rule asks you first." : "Refused: a rule in your Fence says no, so nothing can be signed.") : ""}</span>
+                  </div>
+                  {v && v.reasons.length > 0 ? (
+                    <ul className="rv-reasons m-small">
+                      {v.reasons.slice(0, 4).map((r) => (
+                        <li key={r}>{plainReason(r)}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </section>
+
+                <section className="rv-card rv-lay" style={{ "--k": 5 } as React.CSSProperties} aria-labelledby={`${uid}-sec`}>
+                  <h3 id={`${uid}-sec`} className="rv-h">{"Safety check"}<Hint text={MEANINGS.security} /></h3>
+                  <SecurityPanel report={p.security} phase={p.phase} />
+                </section>
+              </div>
             </div>
-          </div>
 
-          <div className="rv-lay" style={{ "--k": 6 } as React.CSSProperties}>
-            <BetaRibbon inline />
-          </div>
+            <div className="rv-lay" style={{ "--k": 6 } as React.CSSProperties}>
+              <BetaRibbon inline />
+            </div>
 
+            {v ? <p className="rv-ref m-small">{`Plan ${v.id}`}</p> : null}
+            <HowItWorks area="review" className="rv-how" />
+          </details>
         </div>
 
         <div className="rv-status" role="status" aria-live="polite">
@@ -469,7 +520,9 @@ export function ReviewModal({ intentId, proposal, open, onClose, onReplan, askFi
     if (flow.phase === "failed" && flow.failure) dispatch({ type: "failed", reason: `${flow.failure.title}. ${flow.failure.detail}`, retryable: flow.failure.retry !== "none" });
   }, [flow.phase, flow.failure]);
   const serverPaused = Boolean(view?.staged.paused);
-  const title = proposal?.title ?? (view && view.steps.length === 1 ? view.steps[0]!.summary : "Review and sign");
+  // The title says what happens; the proposal's own title is often one verb ("bridge").
+  const title = view && view.steps.length === 1 ? plainStep(view.steps[0]!.summary) : proposal?.title ? planTitle(proposal.title) : "Review and sign";
+  const lead = query.data ? leadSentence(query.data.intent) : null;
   return (
     <ReviewDialog
       open={open}
@@ -512,6 +565,7 @@ export function ReviewModal({ intentId, proposal, open, onClose, onReplan, askFi
       onConnect={flow.connect}
       txCount={flow.prepared?.response.transactions.length ?? null}
       transferCostUsd={transferCostUsd}
+      lead={lead}
     />
   );
 }

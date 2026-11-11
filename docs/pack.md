@@ -30,7 +30,7 @@ Revoking an agent revokes its whole subtree and frees its allocation at once.
 | Role | What it does | Capabilities |
 |---|---|---|
 | orchestrator (Lyko) | Splits a goal into tasks, hands them to specialists and merges their proposals. | read, propose, spawn |
-| treasurer | Runs the stablecoin treasury: payees, FX, vaults and bridges, during office hours. | read, propose, spawn |
+| treasurer | Runs the stablecoin treasury: payees, FX, vaults and bridges. No hours by default; add them to the agent's Fence if you want them. | read, propose, spawn |
 | payroll | Pays named people in USDC or EURC with an invoice memo. | read, propose |
 | fx-hedger | Keeps the USDC/EURC mix inside a tight band around the Chainlink reference rate. | read, propose |
 | yield-keeper | Moves idle stablecoins into vaults and back out. | read, propose |

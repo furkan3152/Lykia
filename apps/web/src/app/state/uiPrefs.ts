@@ -19,7 +19,7 @@ export const THEME_COLORS: Readonly<Record<ResolvedTheme, string>> = Object.free
 /** The sheet names painted on <html data-theme>: DAY (paper map) and NIGHT (headlamp). */
 export const THEME_SHEET: Readonly<Record<ResolvedTheme, "day" | "night">> = Object.freeze({ dark: "night", light: "day" });
 
-/** Where the visitor is: the site defaults to DAY; the deck (/app, /tg) follows the system. */
+/** Where the visitor is: the site and the deck (/app) both open in DAY. */
 export type ThemeSurface = "site" | "app";
 
 /** localStorage key mirroring an explicit choice ("day" | "night"), read by index.html before paint. */
@@ -34,13 +34,12 @@ function isMotionSetting(value: unknown): value is MotionSetting {
 }
 
 /**
- * The theme to paint: an explicit choice wins. Otherwise the site is the DAY
- * sheet, and the deck follows the system (NIGHT on dark systems, DAY when unknown).
+ * The theme to paint: an explicit choice wins. Otherwise every surface is the
+ * DAY sheet: a dark system setting alone never turns Lykia dark.
  */
-export function resolveTheme(preference: ThemePreference, systemPrefersLight: boolean | null, surface: ThemeSurface = "app"): ResolvedTheme {
+export function resolveTheme(preference: ThemePreference, _systemPrefersLight: boolean | null, _surface: ThemeSurface = "app"): ResolvedTheme {
   if (preference !== "system") return preference;
-  if (surface === "site") return "light";
-  return systemPrefersLight === false ? "dark" : "light";
+  return "light";
 }
 
 /** The next explicit theme when the toggle is pressed (system resolves first). */

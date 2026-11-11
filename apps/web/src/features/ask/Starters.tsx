@@ -8,7 +8,6 @@ import { Link } from "../../app/routes/Link";
 import { cx } from "../../mosaic/cx";
 import { PixelArt } from "../../mosaic/PixelArt";
 import { INTENT_ART, INTENT_PAL } from "../../mosaic/pixelArtData";
-import { useChatActions } from "./actions";
 import type { ChatMessage } from "./model";
 import { ASK_STARTERS, DO_STARTERS, followUps, nextStep, type Starter } from "./starters";
 
@@ -80,24 +79,18 @@ export function StarterChips({ items, onPick }: { readonly items: readonly Start
 }
 
 /**
- * After Lyko answers: the one next step as a single button (review and sign,
- * or the Fold where the result now lives), then two or three follow-ups.
- * A clarify question already shows its own chips, so it adds no button.
+ * After Lyko answers: the one next step (the Fold where the result now
+ * lives), then two or three follow-ups. A plan carries its own "Review and
+ * sign" and a question its own options, so neither gets anything here:
+ * one thing to do at a time.
  */
 export function NextStepBar({ m, onPick, chips = true }: { readonly m: ChatMessage; readonly onPick: (s: Starter) => void; readonly chips?: boolean }) {
-  const { openReview } = useChatActions();
   const step = nextStep(m);
-  const more = step.kind === "choose" || !chips ? [] : followUps(m);
-  const proposal = step.kind === "review" ? m.proposals[step.index] : undefined;
-  const go = Boolean(proposal && openReview) || step.kind === "fold";
-  if (!go && more.length === 0) return null;
+  if (step.kind === "choose" || step.kind === "review" || m.proposals.length > 0 || m.program) return null;
+  const more = !chips ? [] : followUps(m);
+  if (step.kind !== "fold" && more.length === 0) return null;
   return (
     <div className="m-nextbar" role="group" aria-label="What next">
-      {proposal && openReview ? (
-        <button type="button" className="m-btn m-btn--lg m-nextbar__go" onClick={() => openReview(proposal)}>
-          {"REVIEW AND SIGN"}
-        </button>
-      ) : null}
       {step.kind === "fold" ? (
         <Link to={step.href} className="m-btn m-btn--navy m-nextbar__go">
           {step.label.toUpperCase()}

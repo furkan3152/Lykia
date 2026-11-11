@@ -132,7 +132,7 @@
 .p-stress__nums div { padding: 8px 10px; background: #fffdf7; box-shadow: inset 0 0 0 1px var(--grout); }
 .p-stress__nums dt { font-size: 12px; color: var(--ink-2); }
 .p-stress__nums dd { margin: 2px 0 0; font-weight: 650; font-size: 14px; }
-.p-stress__nums dd[data-tone="bad"] { color: #c0392b; }
+.p-stress__nums dd[data-tone="bad"] { color: var(--terra-ink); }
 .p-stress__nums dd[data-tone="ok"] { color: var(--ok); }
 .p-finetune { margin-top: 10px; }
 .p-finetune summary { cursor: pointer; color: var(--ink-2); }
@@ -163,7 +163,7 @@
 .m-stress div { padding: 6px 8px; background: #fffdf7; box-shadow: inset 0 0 0 1px var(--grout); }
 .m-stress dt { font-size: 11.5px; color: var(--ink-2); }
 .m-stress dd { margin: 2px 0 0; font-weight: 650; font-size: 13.5px; }
-.m-stress dd[data-tone="bad"] { color: #c0392b; }
+.m-stress dd[data-tone="bad"] { color: var(--terra-ink); }
 @media (max-width: 640px) { .m-stress { grid-template-columns: 1fr; } }
 
 /* ------------------------------------------------------------- ask: examples */

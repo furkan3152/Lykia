@@ -31,15 +31,15 @@ describe("motion preference", () => {
 });
 
 describe("ui preferences", () => {
-  it("resolves the theme: explicit wins, system follows the device, dark when unknown", () => {
+  it("resolves the theme: explicit wins, otherwise DAY everywhere", () => {
     assert.equal(resolveTheme("light", false), "light");
     assert.equal(resolveTheme("dark", true), "dark");
     assert.equal(resolveTheme("system", true), "light");
-    assert.equal(resolveTheme("system", false), "dark");
+    assert.equal(resolveTheme("system", false), "light", "a dark system setting alone keeps DAY");
     assert.equal(resolveTheme("system", null), "light", "unknown system: the DAY sheet");
     assert.equal(resolveTheme("system", false, "site"), "light", "the site is DAY unless chosen");
     assert.equal(resolveTheme("dark", true, "site"), "dark", "an explicit NIGHT wins on the site");
-    assert.equal(resolveTheme("system", false, "app"), "dark", "the deck follows a dark system");
+    assert.equal(resolveTheme("system", false, "app"), "light", "the deck stays DAY on a dark system until night is chosen");
     assert.equal(nextTheme("system", true), "dark");
     assert.equal(nextTheme("dark", null), "light");
   });
