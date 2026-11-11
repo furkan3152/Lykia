@@ -6,6 +6,7 @@ import { useState } from "react";
 import { apiFetch, apiGet, apiPost, describeError } from "../../lib/api";
 import { Button, Card, EmptyState, Field, Input, Select, Skeleton, Tag, toast } from "../../mosaic";
 import { ScrollTable } from "./portalShared";
+import { t } from "../../i18n";
 
 const fail = (e: unknown) => toast.error(describeError(e), { from: "LYKO" });
 const DEFAULT_SCOPES: FineApiKeyScope[] = ["read", "quote", "build", "execute", "agents", "automation"];
@@ -45,25 +46,25 @@ export function Keys({ enabled }: { readonly enabled: boolean }) {
   const revoke = useMutation({ mutationFn: (id: string) => apiPost<ApiKeyView>(`/v1/developers/keys/${id}/revoke`, {}), onSuccess: refresh, onError: fail });
   const saveIps = useMutation({
     mutationFn: (id: string) => apiFetch<ApiKeyView>(`/v1/developers/keys/${id}`, { method: "PATCH", body: { allowedIps: ipList(editIps) } }),
-    onSuccess: () => { setEditing(null); refresh(); toast.success("IP allowlist saved", { from: "LYKO" }); },
+    onSuccess: () => { setEditing(null); refresh(); toast.success(t("forge.keys.ipAllowlistSaved"), { from: "LYKO" }); },
     onError: fail,
   });
 
-  if (!enabled) return <EmptyState title="Sign in first">Keys belong to your developer wallet.</EmptyState>;
+  if (!enabled) return <EmptyState title={t("forge.keys.signInFirst")}>{t("forge.keys.keysBelongToYourDeveloperWallet")}</EmptyState>;
   const list = keys.data?.keys ?? [];
   return (
     <div style={{ display: "grid", gap: 16, gridTemplateColumns: "minmax(0, 1fr)" }}>
       {shown ? (
         <div className="m-note" role="status" style={{ overflowWrap: "anywhere" }}>
-          <b>Shown once:</b> <code className="num">{shown.secret}</code>
-          {shown.previousSecretExpiresAt ? <span className="m-small"> The old secret keeps working until {shown.previousSecretExpiresAt}.</span> : null}
-          <div style={{ marginTop: 6 }}><Button size="sm" tone="ghost" onClick={() => void navigator.clipboard?.writeText(shown.secret)}>COPY</Button> <Button size="sm" tone="ghost" onClick={() => setShown(null)}>HIDE</Button></div>
+          <b>{t("forge.keys.shownOnce")}</b> <code className="num">{shown.secret}</code>
+          {shown.previousSecretExpiresAt ? <span className="m-small"> {t("forge.keys.theOldSecretKeepsWorkingUntil")} {shown.previousSecretExpiresAt}.</span> : null}
+          <div style={{ marginTop: 6 }}><Button size="sm" tone="ghost" onClick={() => void navigator.clipboard?.writeText(shown.secret)}>{t("forge.keys.copy")}</Button> <Button size="sm" tone="ghost" onClick={() => setShown(null)}>{t("forge.keys.hide")}</Button></div>
         </div>
       ) : null}
-      <Card title="API keys" kicker="TEST · LIVE · ONLY AN HMAC IS STORED">
-        {keys.isLoading ? <Skeleton h={120} /> : list.length === 0 ? <p className="m-small m-muted">No keys yet. Start with a test key: it only reaches Arc testnet.</p> : (
-          <ScrollTable label="API keys">
-            <thead><tr><th>Label</th><th>Mode</th><th>Prefix</th><th>Scopes</th><th>IPs</th><th>Last used</th><th /></tr></thead>
+      <Card title={t("forge.keys.apiKeys")} kicker={t("forge.keys.testLiveOnlyAnHmacIs")}>
+        {keys.isLoading ? <Skeleton h={120} /> : list.length === 0 ? <p className="m-small m-muted">{t("forge.keys.noKeysYetStartWithA")}</p> : (
+          <ScrollTable label={t("forge.keys.apiKeys")}>
+            <thead><tr><th>{t("forge.keys.label")}</th><th>{t("forge.keys.mode")}</th><th>{t("forge.keys.prefix")}</th><th>{t("forge.keys.scopes")}</th><th>{t("forge.keys.ips")}</th><th>{t("forge.keys.lastUsed")}</th><th /></tr></thead>
             <tbody>
               {list.map((k) => (
                 <tr key={k.id} style={k.revokedAt ? { opacity: 0.55 } : undefined}>
@@ -74,18 +75,18 @@ export function Keys({ enabled }: { readonly enabled: boolean }) {
                   <td className="m-small">
                     {editing === k.id ? (
                       <div style={{ display: "grid", gap: 4, minWidth: 160 }}>
-                        <Input aria-label="Allowed IPs" value={editIps} onChange={(e) => setEditIps(e.target.value)} placeholder="203.0.113.0/24, 2001:db8::1" />
-                        <div className="flex gap-2"><Button size="sm" onClick={() => saveIps.mutate(k.id)}>SAVE</Button><Button size="sm" tone="ghost" onClick={() => setEditing(null)}>CANCEL</Button></div>
+                        <Input aria-label={t("forge.keys.allowedIps")} value={editIps} onChange={(e) => setEditIps(e.target.value)} placeholder="203.0.113.0/24, 2001:db8::1" />
+                        <div className="flex gap-2"><Button size="sm" onClick={() => saveIps.mutate(k.id)}>{t("forge.keys.save")}</Button><Button size="sm" tone="ghost" onClick={() => setEditing(null)}>{t("forge.keys.cancel")}</Button></div>
                       </div>
                     ) : (k.allowedIps ?? []).length > 0 ? (k.allowedIps ?? []).join(", ") : "any"}
                   </td>
                   <td className="m-small">{k.lastUsedAt ? k.lastUsedAt.slice(0, 10) : "never"}</td>
                   <td>
-                    {k.revokedAt ? <Tag tone="ghost">revoked</Tag> : (
+                    {k.revokedAt ? <Tag tone="ghost">{t("forge.keys.revoked")}</Tag> : (
                       <div className="flex flex-wrap gap-2">
-                        <Button size="sm" tone="sea" onClick={() => rotate.mutate(k.id)} disabled={rotate.isPending}>ROTATE</Button>
-                        <Button size="sm" tone="ghost" onClick={() => { setEditing(k.id); setEditIps((k.allowedIps ?? []).join(", ")); }}>IPS</Button>
-                        <Button size="sm" tone="ghost" onClick={() => { if (window.confirm(`Revoke ${k.prefix}? Requests with it fail at once.`)) revoke.mutate(k.id); }}>REVOKE</Button>
+                        <Button size="sm" tone="sea" onClick={() => rotate.mutate(k.id)} disabled={rotate.isPending}>{t("forge.keys.rotate")}</Button>
+                        <Button size="sm" tone="ghost" onClick={() => { setEditing(k.id); setEditIps((k.allowedIps ?? []).join(", ")); }}>{t("forge.keys.ips2")}</Button>
+                        <Button size="sm" tone="ghost" onClick={() => { if (window.confirm(t("forge.keys.revokeRequestsWithItFailAt", { prefix: k.prefix }))) revoke.mutate(k.id); }}>{t("forge.keys.revoke")}</Button>
                       </div>
                     )}
                   </td>
@@ -95,29 +96,29 @@ export function Keys({ enabled }: { readonly enabled: boolean }) {
           </ScrollTable>
         )}
         <div style={{ marginTop: 10, maxWidth: 320 }}>
-          <Field label="Rotation overlap" hint="How long the old secret keeps working after a rotation.">
+          <Field label={t("forge.keys.rotationOverlap")} hint={t("forge.keys.howLongTheOldSecretKeeps")}>
             <Select value={overlap} onChange={(e) => setOverlap(e.target.value)}>
-              <option value="0">none (immediate)</option>
-              <option value="3600">1 hour</option>
-              <option value="86400">24 hours</option>
-              <option value="604800">7 days</option>
+              <option value="0">{t("forge.keys.noneImmediate")}</option>
+              <option value="3600">{t("forge.keys.n1Hour")}</option>
+              <option value="86400">{t("forge.keys.n24Hours")}</option>
+              <option value="604800">{t("forge.keys.n7Days")}</option>
             </Select>
           </Field>
         </div>
       </Card>
-      <Card title="New key" kicker="SCOPES · IP ALLOWLIST" footer={<Button disabled={create.isPending || !label} onClick={() => create.mutate()}>CREATE KEY</Button>}>
+      <Card title={t("forge.keys.newKey")} kicker={t("forge.keys.scopesIpAllowlist")} footer={<Button disabled={create.isPending || !label} onClick={() => create.mutate()}>CREATE KEY</Button>}>
         <div className="m-grid-2" style={{ gap: 12 }}>
-          <Field label="Label"><Input value={label} maxLength={48} onChange={(e) => setLabel(e.target.value)} /></Field>
-          <Field label="Mode" hint={mode === "test" ? "lk_test_…: Arc testnet only, never billed." : "lk_live_…: mainnet and testnet."}>
-            <Select value={mode} onChange={(e) => setMode(e.target.value as "test" | "live")}><option value="test">test (sandbox)</option><option value="live">live</option></Select>
+          <Field label={t("forge.keys.label")}><Input value={label} maxLength={48} onChange={(e) => setLabel(e.target.value)} /></Field>
+          <Field label={t("forge.keys.mode")} hint={mode === "test" ? t("forge.keys.lkTestArcTestnetOnlyNever") : t("forge.keys.lkLiveMainnetAndTestnet")}>
+            <Select value={mode} onChange={(e) => setMode(e.target.value as "test" | "live")}><option value="test">{t("forge.keys.testSandbox")}</option><option value="live">{t("forge.keys.live")}</option></Select>
           </Field>
-          <Field label="Kind" hint={kind === "publishable" ? "Bound to this origin; read, quote and build only." : "Server-side only."}>
-            <Select value={kind} onChange={(e) => setKind(e.target.value as "secret" | "publishable")}><option value="secret">secret</option><option value="publishable">publishable</option></Select>
+          <Field label={t("forge.keys.kind")} hint={kind === "publishable" ? t("forge.keys.boundToThisOriginReadQuote") : t("forge.keys.serverSideOnly")}>
+            <Select value={kind} onChange={(e) => setKind(e.target.value as "secret" | "publishable")}><option value="secret">{t("forge.keys.secret")}</option><option value="publishable">{t("forge.keys.publishable")}</option></Select>
           </Field>
-          <Field label="Allowed IPs" hint="Optional. Addresses or CIDR ranges, comma separated."><Input value={ips} onChange={(e) => setIps(e.target.value)} placeholder="203.0.113.0/24" /></Field>
+          <Field label={t("forge.keys.allowedIps")} hint={t("forge.keys.optionalAddressesOrCidrRangesComma")}><Input value={ips} onChange={(e) => setIps(e.target.value)} placeholder="203.0.113.0/24" /></Field>
         </div>
         <fieldset style={{ border: 0, padding: 0, margin: "12px 0 0" }}>
-          <legend className="m-kick">Scopes</legend>
+          <legend className="m-kick">{t("forge.keys.scopes")}</legend>
           <div className="m-grid-2" style={{ gap: 6, marginTop: 6 }}>
             {FINE_API_KEY_SCOPES.map((s) => (
               <label key={s} className="m-small" style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>

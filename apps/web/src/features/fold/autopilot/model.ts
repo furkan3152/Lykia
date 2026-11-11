@@ -3,8 +3,9 @@
  * turn-on sheet. The form and its checks, the request it sends, the plain
  * lines for status, tasks and runs, and the sample the sample flock shows.
  */
-import { AUTOPILOT_ACK_LINES, AUTOPILOT_BETA, AUTOPILOT_LABEL, AUTOPILOT_TRUST, autopilotAckDigest, autopilotLimitIssues, isAddress, type Address, type AutopilotEvery, type AutopilotTaskInput, type AutopilotTaskKind } from "@lykia/core";
+import { AUTOPILOT_ACK_LINES, AUTOPILOT_BETA, AUTOPILOT_LABEL, AUTOPILOT_TRUST, autopilotAckDigest, autopilotLimitIssues, isAddress, tx, type Address, type AutopilotEvery, type AutopilotTaskInput, type AutopilotTaskKind } from "@lykia/core";
 import type { Autopilot, AutopilotRun, AutopilotView, EnableAutopilotRequest } from "@lykia/core/api/autopilot";
+import { formatUsd, t } from "../../../i18n";
 
 export interface AutopilotForm {
   readonly perStepUsd: string;
@@ -16,9 +17,9 @@ export interface AutopilotForm {
 }
 
 export const AUTOPILOT_PRESETS: readonly { readonly id: string; readonly label: string; readonly line: string; readonly form: Pick<AutopilotForm, "perStepUsd" | "perDayUsd" | "days"> }[] = [
-  { id: "small", label: "Small", line: "$20 a step, $50 a day, 7 days", form: { perStepUsd: "20", perDayUsd: "50", days: "7" } },
-  { id: "medium", label: "Medium", line: "$50 a step, $150 a day, 14 days", form: { perStepUsd: "50", perDayUsd: "150", days: "14" } },
-  { id: "beta-max", label: "Beta most", line: `$${AUTOPILOT_BETA.perStepUsd} a step, $${AUTOPILOT_BETA.perDayUsd} a day, 30 days`, form: { perStepUsd: AUTOPILOT_BETA.perStepUsd, perDayUsd: AUTOPILOT_BETA.perDayUsd, days: "30" } },
+  { id: "small", label: t("fold.autopilot.model.small"), line: t("fold.autopilot.model.n20AStep50ADay"), form: { perStepUsd: "20", perDayUsd: "50", days: "7" } },
+  { id: "medium", label: t("fold.autopilot.model.medium"), line: t("fold.autopilot.model.n50AStep150ADay"), form: { perStepUsd: "50", perDayUsd: "150", days: "14" } },
+  { id: "beta-max", label: t("fold.autopilot.model.betaMost"), line: t("fold.autopilot.model.aStepADay30Days", { perStepUsd: AUTOPILOT_BETA.perStepUsd, perDayUsd: AUTOPILOT_BETA.perDayUsd }), form: { perStepUsd: AUTOPILOT_BETA.perStepUsd, perDayUsd: AUTOPILOT_BETA.perDayUsd, days: "30" } },
 ];
 
 export function emptyAutopilotForm(): AutopilotForm {
@@ -43,10 +44,10 @@ export function autopilotFormIssues(form: AutopilotForm, step: "limits" | "accep
     if (!out.some((o) => o.field === field)) out.push({ field, message: i.message });
   }
   const payees = payeesOf(form);
-  if (payees.length > 10) out.push({ field: "payees", message: "At most 10 payees." });
-  else if (!payees.every((p) => isAddress(p))) out.push({ field: "payees", message: "Addresses, 0x followed by 40 hex characters." });
-  else if (owner && payees.some((p) => p === owner.toLowerCase())) out.push({ field: "payees", message: "Money to you is always allowed; leave your own address out." });
-  if (step === "accept" && !form.accepted) out.push({ field: "accepted", message: "Tick the box once you have read what Autopilot can do." });
+  if (payees.length > 10) out.push({ field: "payees", message: t("fold.autopilot.model.atMost10Payees") });
+  else if (!payees.every((p) => isAddress(p))) out.push({ field: "payees", message: t("fold.autopilot.model.addresses0xFollowedBy40Hex") });
+  else if (owner && payees.some((p) => p === owner.toLowerCase())) out.push({ field: "payees", message: t("fold.autopilot.model.moneyToYouIsAlwaysAllowed") });
+  if (step === "accept" && !form.accepted) out.push({ field: "accepted", message: t("fold.autopilot.model.tickTheBoxOnceYouHave") });
   return out;
 }
 
@@ -59,7 +60,7 @@ export function enableRequestOf(form: AutopilotForm, environment: "mainnet" | "t
 export function money(v: string | number): string {
   const n = Number(v);
   if (!Number.isFinite(n)) return "$?";
-  return `$${n.toLocaleString("en-US", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
+  return formatUsd(n, { min: Number.isInteger(n) ? 0 : 2 });
 }
 
 export function shortAddress(a: string): string {
@@ -69,29 +70,29 @@ export function shortAddress(a: string): string {
 /** One plain sentence for where Autopilot stands. */
 export function statusLine(ap: Autopilot | null, offerReason: string | null): { readonly tag: string; readonly tone: "ok" | "ochre" | "bad" | "ghost"; readonly line: string } {
   if (!ap || ap.status === "stopped") {
-    if (offerReason) return { tag: "NOT ON THIS SERVER", tone: "ghost", line: offerReason };
-    return { tag: "OFF", tone: "ghost", line: ap?.stopped ? `Stopped ${ap.stopped.by === "whistle" ? "by the Whistle" : ap.stopped.by === "leash" ? "because its leash ended" : "by you"}. Lyko signs nothing for you.` : "Off. Lyko signs nothing for you until you turn it on." };
+    if (offerReason) return { tag: t("fold.autopilot.model.notOnThisServer"), tone: "ghost", line: offerReason };
+    return { tag: "OFF", tone: "ghost", line: ap?.stopped ? t("fold.autopilot.model.stoppedLykoSignsNothingForYou", { value: ap.stopped.by === "whistle" ? t("fold.autopilot.model.byTheWhistle") : ap.stopped.by === "leash" ? t("fold.autopilot.model.becauseItsLeashEnded") : t("fold.autopilot.model.byYou") }) : t("fold.autopilot.model.offLykoSignsNothingForYou") };
   }
-  if (ap.status === "pending") return { tag: "WAITING FOR YOU", tone: "ochre", line: "Sign the session once from your wallet. Until it lands, Lyko signs nothing." };
-  if (ap.status === "paused") return { tag: "PAUSED", tone: "bad", line: ap.paused?.code === "owner" ? "Paused by you. Nothing is signed until you resume it." : `Paused itself: ${ap.paused?.reason ?? "something looked off."} Nothing is signed until you resume it.` };
-  return { tag: "ON", tone: "ok", line: `Lyko signs your tasks below for you, at most ${money(ap.limits.perStepUsd)} a step and ${money(ap.limits.perDayUsd)} a day.` };
+  if (ap.status === "pending") return { tag: t("fold.autopilot.model.waitingForYou"), tone: "ochre", line: t("fold.autopilot.model.signTheSessionOnceFromYour") };
+  if (ap.status === "paused") return { tag: "PAUSED", tone: "bad", line: ap.paused?.code === "owner" ? t("fold.autopilot.model.pausedByYouNothingIsSigned") : t("fold.autopilot.model.pausedItselfNothingIsSignedUntil", { value: ap.paused?.reason ?? t("fold.autopilot.model.somethingLookedOff") }) };
+  return { tag: "ON", tone: "ok", line: t("fold.autopilot.model.lykoSignsYourTasksBelowFor", { money: money(ap.limits.perStepUsd), money2: money(ap.limits.perDayUsd) }) };
 }
 
 /** "Signed by Lyko under your Autopilot leash · $20.20 · on chain". */
 export function runLine(r: AutopilotRun): string {
-  if (r.status === "refused") return `Refused: ${r.reasons?.[0]?.message ?? r.summary}`;
+  if (r.status === "refused") return t("fold.autopilot.model.refused", { reason: r.reasons?.[0]?.message ?? r.summary });
   const what = r.summary.charAt(0).toUpperCase() + r.summary.slice(1);
   const usd = r.usd ? ` · ${money(r.usd)}` : "";
-  const state = r.status === "signing" ? " · waiting for Circle" : r.status === "sent" ? " · sent, settling" : r.status === "failed" ? " · failed on chain" : "";
+  const state = r.status === "signing" ? t("fold.autopilot.model.waitingForCircle") : r.status === "sent" ? t("fold.autopilot.model.sentSettling") : r.status === "failed" ? t("fold.autopilot.model.failedOnChain") : "";
   return `${what}${usd}${state}`;
 }
 
 export const TASK_KINDS: readonly { readonly kind: AutopilotTaskKind; readonly label: string; readonly line: string }[] = [
-  { kind: "repay", label: "Auto-repay", line: "Repay part of your Aave loan when its health drops below a floor." },
-  { kind: "dca", label: "Buy on a schedule", line: "Convert a fixed amount between USDC and EURC every day, week or month." },
-  { kind: "sweep", label: "Sweep idle USDC", line: "Move USDC above what you keep into a vault." },
-  { kind: "pay", label: "Pay an invoice", line: "Pay a payee you named, on a schedule." },
-  { kind: "watch", label: "After a watch", line: "When one of your watches is met, Lyko does what you say." },
+  { kind: "repay", label: "Auto-repay", line: t("fold.autopilot.model.repayPartOfYourAaveLoan") },
+  { kind: "dca", label: t("fold.autopilot.model.buyOnASchedule"), line: t("fold.autopilot.model.convertAFixedAmountBetweenUsdc") },
+  { kind: "sweep", label: t("fold.autopilot.model.sweepIdleUsdc"), line: t("fold.autopilot.model.moveUsdcAboveWhatYouKeep") },
+  { kind: "pay", label: t("fold.autopilot.model.payAnInvoice"), line: t("fold.autopilot.model.payAPayeeYouNamedOn") },
+  { kind: "watch", label: t("fold.autopilot.model.afterAWatch"), line: t("fold.autopilot.model.whenOneOfYourWatchesIs") },
 ];
 
 export interface TaskForm {
@@ -114,20 +115,20 @@ export function emptyTaskForm(kind: AutopilotTaskKind = "repay"): TaskForm {
 /** The task request, or why it cannot be sent yet. */
 export function taskInputOf(f: TaskForm, watches: readonly { readonly id: string }[]): { readonly input: AutopilotTaskInput | null; readonly issue: string | null } {
   const amount = f.amountUsd.trim();
-  if (!/^\d{1,12}(?:\.\d{1,2})?$/u.test(amount) || Number(amount) <= 0) return { input: null, issue: "Give the most it moves each time, in dollars." };
+  if (!/^\d{1,12}(?:\.\d{1,2})?$/u.test(amount) || Number(amount) <= 0) return { input: null, issue: t("fold.autopilot.model.giveTheMostItMovesEach") };
   switch (f.kind) {
     case "repay":
-      return Number(f.floor) > 1 ? { input: { kind: "repay", amountUsd: amount, floor: f.floor.trim() }, issue: null } : { input: null, issue: "A health floor above 1, e.g. 1.5." };
+      return Number(f.floor) > 1 ? { input: { kind: "repay", amountUsd: amount, floor: f.floor.trim() }, issue: null } : { input: null, issue: t("fold.autopilot.model.aHealthFloorAbove1E") };
     case "dca":
       return { input: { kind: "dca", amountUsd: amount, every: f.every, to: f.to }, issue: null };
     case "sweep":
-      return /^\d{1,12}(?:\.\d{1,2})?$/u.test(f.keepUsd.trim()) && f.vault.trim().length >= 2 ? { input: { kind: "sweep", amountUsd: amount, keepUsd: f.keepUsd.trim(), vault: f.vault.trim() }, issue: null } : { input: null, issue: "Say what stays in the account and which vault." };
+      return /^\d{1,12}(?:\.\d{1,2})?$/u.test(f.keepUsd.trim()) && f.vault.trim().length >= 2 ? { input: { kind: "sweep", amountUsd: amount, keepUsd: f.keepUsd.trim(), vault: f.vault.trim() }, issue: null } : { input: null, issue: t("fold.autopilot.model.sayWhatStaysInTheAccount") };
     case "pay":
-      return isAddress(f.payee.trim()) ? { input: { kind: "pay", amountUsd: amount, every: f.every, payee: f.payee.trim().toLowerCase() as Address }, issue: null } : { input: null, issue: "Pick a payee you named when you turned Autopilot on." };
+      return isAddress(f.payee.trim()) ? { input: { kind: "pay", amountUsd: amount, every: f.every, payee: f.payee.trim().toLowerCase() as Address }, issue: null } : { input: null, issue: t("fold.autopilot.model.pickAPayeeYouNamedWhen") };
     case "watch": {
       const w = watches.find((x) => x.id === f.watchId);
-      if (!w) return { input: null, issue: "Pick one of your watches." };
-      if (f.sentence.trim().length < 4) return { input: null, issue: 'Say what Lyko should do, e.g. "repay 30 USDC on Aave".' };
+      if (!w) return { input: null, issue: t("fold.autopilot.model.pickOneOfYourWatches") };
+      if (f.sentence.trim().length < 4) return { input: null, issue: t("fold.autopilot.model.sayWhatLykoShouldDoE") };
       return { input: { kind: "watch", watchId: w.id, sentence: f.sentence.trim(), amountUsd: amount }, issue: null };
     }
   }
@@ -153,9 +154,9 @@ export function sampleAutopilot(now: number): AutopilotView {
       limits: { perStepUsd: "50", perDayUsd: "150", days: 14 },
       payees: ["0x2222222222222222222222222222222222222222" as Address],
       tasks: [
-        { id: "apt_00000001", kind: "repay", label: "Repay 50 USDC on Aave when health drops below 1.5", when: { kind: "condition", condition: { kind: "health-below", threshold: "1.5", venue: "aave-v4" } }, sentence: "repay 50 USDC on Aave", amountUsd: "50", enabled: true, createdAt: at(4000), lastRunAt: null, lastResult: null, met: false, runs: 0 },
-        { id: "apt_00000002", kind: "dca", label: "Buy 25 USDC worth of EURC every week", when: { kind: "schedule", every: "week" }, sentence: "convert 25 USDC to EURC", amountUsd: "25", enabled: true, createdAt: at(4000), lastRunAt: at(1440), lastResult: "Convert 25 USDC to EURC", runs: 3 },
-        { id: "apt_00000003", kind: "pay", label: "Pay 40 USDC to 0x2222…2222 every month", when: { kind: "schedule", every: "month" }, sentence: "send 40 USDC to 0x2222222222222222222222222222222222222222", amountUsd: "40", enabled: true, createdAt: at(4000), lastRunAt: at(2880), lastResult: "Send 40 USDC to 0x2222…2222", runs: 1 },
+        { id: "apt_00000001", kind: "repay", label: t("fold.autopilot.model.repay50UsdcOnAaveWhen"), when: { kind: "condition", condition: { kind: "health-below", threshold: "1.5", venue: "aave-v4" } }, sentence: t("fold.autopilot.model.repay50UsdcOnAave"), amountUsd: "50", enabled: true, createdAt: at(4000), lastRunAt: null, lastResult: null, met: false, runs: 0 },
+        { id: "apt_00000002", kind: "dca", label: t("fold.autopilot.model.buy25UsdcWorthOfEurc"), when: { kind: "schedule", every: "week" }, sentence: t("fold.autopilot.model.convert25UsdcToEurc"), amountUsd: "25", enabled: true, createdAt: at(4000), lastRunAt: at(1440), lastResult: t("fold.autopilot.model.convert25UsdcToEurc2"), runs: 3 },
+        { id: "apt_00000003", kind: "pay", label: t("fold.autopilot.model.pay40UsdcTo0x22222222"), when: { kind: "schedule", every: "month" }, sentence: t("fold.autopilot.model.send40UsdcTo0x22222222222222222222222222"), amountUsd: "40", enabled: true, createdAt: at(4000), lastRunAt: at(2880), lastResult: t("fold.autopilot.model.send40UsdcTo0x22222222"), runs: 1 },
       ],
       ack: { digest: autopilotAckDigest(), at: at(4000) },
       createdAt: at(4000),
@@ -164,9 +165,9 @@ export function sampleAutopilot(now: number): AutopilotView {
     leash: null,
     today: { spentUsd: "25.25", leftUsd: "124.75" },
     runs: [
-      { id: "apr_000000000001", at: at(1440), taskId: "apt_00000002", origin: "task", summary: "convert 25 USDC to EURC on Uniswap v3", status: "settled", usd: "25.25", txHash: `0x${"ab".repeat(32)}`, chainProven: true, verdictDigest: `sha256:${"7".repeat(64)}`, label: AUTOPILOT_LABEL },
-      { id: "apr_000000000002", at: at(2000), taskId: null, origin: "owner", summary: "send 30 USDC to 0x3333…3333", status: "refused", reasons: [{ code: "fence.recipients", message: "0x3333…3333 is not on the allowlist." }] },
-      { id: "apr_000000000003", at: at(2880), taskId: "apt_00000003", origin: "task", summary: "send 40 USDC to 0x2222…2222", status: "settled", usd: "40.40", txHash: `0x${"cd".repeat(32)}`, chainProven: true, verdictDigest: `sha256:${"9".repeat(64)}`, label: AUTOPILOT_LABEL },
+      { id: "apr_000000000001", at: at(1440), taskId: "apt_00000002", origin: "task", summary: t("fold.autopilot.model.convert25UsdcToEurcOn"), status: "settled", usd: "25.25", txHash: `0x${"ab".repeat(32)}`, chainProven: true, verdictDigest: `sha256:${"7".repeat(64)}`, label: AUTOPILOT_LABEL },
+      { id: "apr_000000000002", at: at(2000), taskId: null, origin: "owner", summary: t("fold.autopilot.model.send30UsdcTo0x33333333"), status: "refused", reasons: [{ code: "fence.recipients", message: tx("{recipient} is not the owner{value}.", { recipient: "0x3333…3333", value: tx(" and not on the allowlist") }) }] },
+      { id: "apr_000000000003", at: at(2880), taskId: "apt_00000003", origin: "task", summary: t("fold.autopilot.model.send40UsdcTo0x222222222"), status: "settled", usd: "40.40", txHash: `0x${"cd".repeat(32)}`, chainProven: true, verdictDigest: `sha256:${"9".repeat(64)}`, label: AUTOPILOT_LABEL },
     ],
   };
 }

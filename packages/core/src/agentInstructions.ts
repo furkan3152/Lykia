@@ -18,6 +18,7 @@ import type { ArcEnvironment } from "./networks.js";
 import type { Address } from "./contracts.js";
 import type { IntentGraph } from "./intent.js";
 
+import { tx } from "./i18n/index.js";
 export type AgentRole = "watch" | "ask";
 export const AGENT_NAMES: Readonly<Record<AgentRole, string>> = { watch: "Lyko on watch", ask: "Ask Lyko" };
 
@@ -137,13 +138,13 @@ function venueName(id: string | undefined): string | null {
 export function watchLabel(c: WatchCondition): string {
   switch (c.kind) {
     case "health-below":
-      return `Health factor below ${c.threshold}${venueName(c.venue) ? ` on ${venueName(c.venue)}` : ""}`;
+      return tx("Health factor below {threshold}{value}", { threshold: c.threshold, value: venueName(c.venue) ? tx(" on {venue}", { venue: venueName(c.venue) }) : "" });
     case "lp-out-of-range":
-      return `Liquidity out of range${venueName(c.venue) ? ` on ${venueName(c.venue)}` : ""}`;
+      return tx("Liquidity out of range{value}", { value: venueName(c.venue) ? tx(" on {venue}", { venue: venueName(c.venue) }) : "" });
     case "idle-above":
-      return `Idle ${c.token} above ${c.amount}`;
+      return tx("Idle {token} above {amount}", { token: c.token, amount: c.amount });
     case "apy-below":
-      return `Rate below ${c.percent}%${venueName(c.venue) ? ` on ${venueName(c.venue)}` : ""}`;
+      return tx("Rate below {percent}%{value}", { percent: c.percent, value: venueName(c.venue) ? tx(" on {venue}", { venue: venueName(c.venue) }) : "" });
   }
 }
 
@@ -154,12 +155,12 @@ export function watchIssue(c: WatchCondition): string | null {
   switch (c.kind) {
     case "health-below": {
       const v = Number(c.threshold);
-      return DECIMAL.test(c.threshold) && v > 1 && v <= 10 ? null : "A health threshold is a number above 1 and at most 10.";
+      return DECIMAL.test(c.threshold) && v > 1 && v <= 10 ? null : tx("A health threshold is a number above 1 and at most 10.");
     }
     case "idle-above":
-      return /^(USDC|EURC)$/u.test(c.token) && DECIMAL.test(c.amount) && Number(c.amount) > 0 ? null : "Idle watches take USDC or EURC and an amount above 0.";
+      return /^(USDC|EURC)$/u.test(c.token) && DECIMAL.test(c.amount) && Number(c.amount) > 0 ? null : tx("Idle watches take USDC or EURC and an amount above 0.");
     case "apy-below":
-      return DECIMAL.test(c.percent) && Number(c.percent) > 0 && Number(c.percent) < 100 ? null : "A rate threshold is a percent between 0 and 100.";
+      return DECIMAL.test(c.percent) && Number(c.percent) > 0 && Number(c.percent) < 100 ? null : tx("A rate threshold is a percent between 0 and 100.");
     case "lp-out-of-range":
       return null;
   }
@@ -227,26 +228,26 @@ export function checkWatch(c: WatchCondition, facts: WatchFacts): WatchCheck {
   switch (c.kind) {
     case "health-below": {
       const rows = facts.health.filter((h) => sameVenue(c.venue, h.venue) && h.factor !== null);
-      if (rows.length === 0) return { met: false, observation: "No lending position to watch yet." };
+      if (rows.length === 0) return { met: false, observation: tx("No lending position to watch yet.") };
       const low = rows.reduce((a, b) => (Number(b.factor) < Number(a.factor) ? b : a));
       const v = Number(low.factor);
-      return { met: v < Number(c.threshold), observation: `Health factor ${v.toFixed(2)} on ${low.label}, ${v < Number(c.threshold) ? "below" : "above"} ${c.threshold}` };
+      return { met: v < Number(c.threshold), observation: tx("Health factor {value} on {label}, {value2} {threshold}", { value: v.toFixed(2), label: low.label, value2: v < Number(c.threshold) ? tx("below") : tx("above"), threshold: c.threshold }) };
     }
     case "lp-out-of-range": {
       const rows = facts.ranges.filter((r) => sameVenue(c.venue, r.venue));
-      if (rows.length === 0) return { met: false, observation: "No liquidity position to watch yet." };
+      if (rows.length === 0) return { met: false, observation: tx("No liquidity position to watch yet.") };
       const out = rows.filter((r) => !r.inRange);
-      return { met: out.length > 0, observation: out.length > 0 ? `${out[0]!.label} is out of range` : `${rows.length} liquidity position${rows.length === 1 ? " is" : "s are"} in range` };
+      return { met: out.length > 0, observation: out.length > 0 ? tx("{label} is out of range", { label: out[0]!.label }) : tx("{length, plural, one {# liquidity position} other {# liquidity positions}} in range", { length: rows.length }) };
     }
     case "idle-above": {
       const have = facts.wallet[c.token] ?? 0;
-      return { met: have > Number(c.amount), observation: `${have.toFixed(2)} ${c.token} in the wallet, ${have > Number(c.amount) ? "above" : "under"} ${c.amount}` };
+      return { met: have > Number(c.amount), observation: tx("{value} {token} in the wallet, {value2} {amount}", { value: have.toFixed(2), token: c.token, value2: have > Number(c.amount) ? tx("above") : tx("below"), amount: c.amount }) };
     }
     case "apy-below": {
       const rows = facts.rates.filter((r) => sameVenue(c.venue, r.venue));
-      if (rows.length === 0) return { met: false, observation: "No earning position to watch yet." };
+      if (rows.length === 0) return { met: false, observation: tx("No earning position to watch yet.") };
       const low = rows.reduce((a, b) => (b.percent < a.percent ? b : a));
-      return { met: low.percent < Number(c.percent), observation: `${low.label} earns ${low.percent.toFixed(2)}%, ${low.percent < Number(c.percent) ? "below" : "above"} ${c.percent}%` };
+      return { met: low.percent < Number(c.percent), observation: tx("{label} earns {value}%, {value2} {percent}%", { label: low.label, value: low.percent.toFixed(2), value2: low.percent < Number(c.percent) ? tx("below") : tx("above"), percent: c.percent }) };
     }
   }
 }
@@ -269,5 +270,5 @@ export function watchForPlan(graph: Pick<IntentGraph, "steps">, floor = "1.5"): 
 /** "Lyko on watch → Ask Lyko · planned", for the thread and the cards. */
 export function instructionChip(i: Pick<AgentInstruction, "from" | "to" | "kind" | "status">): string {
   const status = i.status === "done" || i.status === "signed" ? "signed" : i.status;
-  return i.kind === "plan" ? `Sent to ${AGENT_NAMES[i.to]} · ${status}` : `From ${AGENT_NAMES[i.from]} · ${status}`;
+  return i.kind === "plan" ? tx("Sent to {value} · {status}", { value: AGENT_NAMES[i.to], status }) : tx("From {value} · {status}", { value: AGENT_NAMES[i.from], status });
 }

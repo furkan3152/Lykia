@@ -4,6 +4,7 @@
  * reader path), signed in as the owner or with no wallet at all, and is
  * scored by the same checks the live runner uses (conversations.ts).
  */
+import type { Locale } from "@lykia/core";
 import { DEFAULT_FENCE, findToken, LEASH_SCHEMA, tokenAddress, type Address, type Leash } from "@lykia/core";
 import type { PulseFeed } from "../arc/pulse.js";
 import { createApp } from "../app.js";
@@ -78,18 +79,18 @@ async function prepare(ctx: AppContext, arc: FakeArc, c: ConversationCase): Prom
   }
 }
 
-async function ask(served: Served, token: string | null, c: ConversationCase, say: string, threadId: string | undefined): Promise<ChatAnswer> {
+async function ask(served: Served, token: string | null, c: ConversationCase, say: string, threadId: string | undefined, locale: Locale): Promise<ChatAnswer> {
   const response = await fetch(`${served.url}/v1/agent/chat`, {
     method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json", ...(token ? { "lykia-session": token } : {}) },
-    body: JSON.stringify({ message: say, environment: "mainnet", ...(c.who === "owner" ? { owner: OWNER } : {}), ...(threadId ? { threadId } : {}), ...(c.origin ? { origin: c.origin } : {}) }),
+    headers: { "content-type": "application/json", accept: "application/json", "accept-language": locale, ...(token ? { "lykia-session": token } : {}) },
+    body: JSON.stringify({ message: say, environment: "mainnet", locale, ...(c.who === "owner" ? { owner: OWNER } : {}), ...(threadId ? { threadId } : {}), ...(c.origin ? { origin: c.origin } : {}) }),
   });
   const body = (await response.json().catch(() => null)) as (ChatAnswer & { error?: { message?: string } }) | null;
   if (!response.ok || !body) throw new Error(`HTTP ${response.status}${body?.error?.message ? `: ${body.error.message}` : ""}`);
   return body;
 }
 
-export async function runConversation(c: ConversationCase, print = false): Promise<CaseScore> {
+export async function runConversation(c: ConversationCase, print = false, locale: Locale = "en"): Promise<CaseScore> {
   const arc = new TalkArc();
   arc.setBalance(USDC, OWNER, 900_000_000n);
   const eurc = findToken("mainnet", "EURC");
@@ -105,22 +106,25 @@ export async function runConversation(c: ConversationCase, print = false): Promi
     const answers: ChatAnswer[] = [];
     let threadId: string | undefined;
     for (const turn of c.turns) {
-      const a = await ask(served, token, c, turn.say, threadId);
+      const a = await ask(served, token, c, turn.say, threadId, locale);
       threadId = a.threadId ?? threadId;
       answers.push(a);
       if (print) console.log(`\n> ${turn.say}\n${a.reply}\n  [${a.stopReason}] cards: ${a.events.filter((e) => e.event === "block").map((e) => (e.data as { kind: string }).kind).join(", ") || "none"} · plans: ${JSON.stringify(a.proposals.map((p) => p.steps))} · options: ${JSON.stringify((a.events.filter((e) => e.event === "clarify").pop()?.data as { options?: string[] } | undefined)?.options ?? [])}`);
     }
-    return scoreConversation(c, answers, c.who === "guest");
+    return scoreConversation(c, answers, c.who === "guest", locale);
   } catch (error) {
-    return { id: c.id, category: `talk:${c.category}`, passed: false, checks: [], score: 0, error: error instanceof Error ? error.message : String(error) };
+    return { id: locale === "en" ? c.id : `${c.id}@${locale}`, category: `talk:${c.category}`, passed: false, checks: [], score: 0, error: error instanceof Error ? error.message : String(error) };
   } finally {
     await served.close();
     await closeContext(ctx);
   }
 }
 
-export async function runConversationCases(only: ReadonlySet<string> | null, category: string | null, print = false): Promise<CaseScore[]> {
+/** Every case in the given interface languages (English by default): answers must come back whole in that language. */
+export async function runConversationCases(only: ReadonlySet<string> | null, category: string | null, print = false, locales: readonly Locale[] = ["en"]): Promise<CaseScore[]> {
   const out: CaseScore[] = [];
-  for (const c of CONVERSATIONS.filter((x) => (!only || only.has(x.id)) && (!category || `talk:${x.category}` === category || category === "talk"))) out.push(await runConversation(c, print));
+  for (const locale of locales) {
+    for (const c of CONVERSATIONS.filter((x) => (!only || only.has(x.id)) && (!category || `talk:${x.category}` === category || category === "talk"))) out.push(await runConversation(c, print, locale));
+  }
   return out;
 }

@@ -13,6 +13,7 @@ import { market, MARKET_H, MARKET_W } from "../../mosaic/scenes";
 import { SceneFrame } from "../scenes/SceneFrame";
 import { normalizeCircle, STATUS_LABEL } from "./model";
 import { useCircleStatus } from "./useCircleStatus";
+import { t as msg } from "../../i18n";
 
 export function CircleMarket({ compact = false }: { compact?: boolean }) {
   const lit = useLamp();
@@ -21,7 +22,7 @@ export function CircleMarket({ compact = false }: { compact?: boolean }) {
   const soon = status.isError && availabilityOf(status.error) === "soon";
   return (
     <div style={{ display: "grid", gap: 20 }}>
-      <SceneFrame build={(t) => market({ stalls: products.map((p) => ({ status: p.status })), lit }, t)} width={MARKET_W} height={MARKET_H} tile={compact ? 4 : 6} dataKey={`${products.map((p) => p.status).join()}-${lit}`} assembleKey="market" label="The harbor market: one stall per Circle product, awning colour is its status" labels={[{ x: 50, y: 6, text: soon ? ("STATUS COMING SOON") : "CIRCLE MARKET · ON ARC", tone: soon ? "ghost" : undefined }]} />
+      <SceneFrame build={(t) => market({ stalls: products.map((p) => ({ status: p.status })), lit }, t)} width={MARKET_W} height={MARKET_H} tile={compact ? 4 : 6} dataKey={`${products.map((p) => p.status).join()}-${lit}`} assembleKey="market" label={msg("circle.theHarborMarketOneStallPer")} labels={[{ x: 50, y: 6, text: soon ? (msg("circle.statusComingSoon")) : msg("circle.circleMarketOnArc"), tone: soon ? "ghost" : undefined }]} />
       <div className="m-grid-3">
         {products.map((p) => (
           <div key={p.id} className="m-frame m-card" style={{ display: "grid", gap: 8, alignContent: "start" }}>
@@ -30,7 +31,7 @@ export function CircleMarket({ compact = false }: { compact?: boolean }) {
               <Tag tone={STATUS_LABEL[p.status].tone}>{STATUS_LABEL[p.status].en}</Tag>
             </div>
             {p.note ? <p className="m-small m-muted">{p.note}</p> : null}
-            {p.docs ? <a className="m-small" href={p.docs} target="_blank" rel="noreferrer">docs ↗</a> : null}
+            {p.docs ? <a className="m-small" href={p.docs} target="_blank" rel="noreferrer">{msg("circle.docs")}</a> : null}
           </div>
         ))}
       </div>
@@ -59,25 +60,25 @@ export function GatewayCard() {
       const mint = await apiPost<MintTx>("/v1/circle/gateway/transfer/attest", { owner: address, environment, signature, ...(intent.transferId ? { transferId: intent.transferId } : {}) });
       if (mint.transaction) {
         const [hash] = await wallet.send([mint.transaction]);
-        toast.success("Gateway transfer sent", { description: hash, from: "LYKO" });
+        toast.success(msg("circle.gatewayTransferSent"), { description: hash, from: "LYKO" });
       } else toast.info(mint.note ?? "Attested.", { from: "LYKO" });
     } catch (e) {
-      toast.error(availabilityOf(e) === "soon" ? ("Gateway transfers are coming soon") : describeError(e), { from: "LYKO" });
+      toast.error(availabilityOf(e) === "soon" ? (msg("circle.gatewayTransfersAreComingSoon")) : describeError(e), { from: "LYKO" });
     } finally {
       setBusy(false);
     }
   };
   return (
-    <Card title="Gateway" kicker={"ONE USDC BALANCE · EVERY CHAIN"} tone="sea" footer={<Button tone="sea" onClick={() => void transfer()} disabled={!address || busy}>{busy ? "…" : "SIGN & SEND"}</Button>}>
+    <Card title="Gateway" kicker={msg("circle.oneUsdcBalanceEveryChain")} tone="sea" footer={<Button tone="sea" onClick={() => void transfer()} disabled={!address || busy}>{busy ? "…" : msg("circle.signSend")}</Button>}>
       <div style={{ display: "grid", gap: 10 }}>
-        {!address ? <p className="m-small m-muted m-center">{"Connect a wallet to read the balance."}</p> : balance.isLoading ? <Skeleton h={40} /> : balance.isError ? <Tag tone="ghost">{availabilityOf(balance.error) === "soon" ? ("BALANCE COMING SOON") : describeError(balance.error)}</Tag> : (
+        {!address ? <p className="m-small m-muted m-center">{msg("circle.connectAWalletToReadThe")}</p> : balance.isLoading ? <Skeleton h={40} /> : balance.isError ? <Tag tone="ghost">{availabilityOf(balance.error) === "soon" ? (msg("circle.balanceComingSoon")) : describeError(balance.error)}</Tag> : (
           <div className="m-center"><div className="m-stat__v num">{balance.data?.total ?? "n/a"} USDC</div>{balance.data?.perChain?.map((c) => <span key={c.chain} className="m-small m-muted">{c.chain}: {c.balance} · </span>)}</div>
         )}
         <div className="m-grid-2" style={{ gap: 10 }}>
-          <Field label={"Amount (USDC)"}><Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
-          <Field label={"Destination"}><Select value={dest} onChange={(e) => setDest(e.target.value)}>{CCTP_DESTINATIONS.filter((d) => d.vm === "evm").map((d) => <option key={d.key} value={d.key}>{d.name}</option>)}</Select></Field>
+          <Field label={msg("circle.amountUsdc")}><Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
+          <Field label={msg("circle.destination")}><Select value={dest} onChange={(e) => setDest(e.target.value)}>{CCTP_DESTINATIONS.filter((d) => d.vm === "evm").map((d) => <option key={d.key} value={d.key}>{d.name}</option>)}</Select></Field>
         </div>
-        <p className="m-note m-small">{"You sign an EIP-712 burn intent, then send the mint on the destination. The server never signs."}</p>
+        <p className="m-note m-small">{msg("circle.youSignAnEip712Burn")}</p>
       </div>
     </Card>
   );

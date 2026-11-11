@@ -83,7 +83,7 @@ describe("web-facing routes", () => {
     const r = await fetch(`${served.url}/v1/agent/chat`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify({ message: "send 5 USDC to 0x1111111111111111111111111111111111111111", environment: "mainnet" }) });
     const body = (await r.json()) as { reply: string; events: { event: string; data: { kind?: string; text?: string } }[] };
     assert.ok(body.events.some((e) => e.event === "notice" && e.data.kind === "sample" && (e.data.text ?? "").includes(SAMPLE_OWNER)));
-    assert.match(body.reply, /^\*\*Sample address, not your wallet\.\*\*/u);
+    assert.doesNotMatch(body.reply, /^\*\*Sample address/u, "the app shows the one sample notice");
     assert.ok(body.events.some((e) => e.event === "block" && e.data.kind === "sample"), "a sample card with the Connect action");
   });
 });

@@ -7,17 +7,19 @@ import type { ChatEvent, ChatRequest } from "@lykia/core/api/agents";
 import { apiUrl } from "../../lib/api";
 import { sessionToken } from "../../lib/session";
 import { parseSse, payload } from "./sse";
+import { currentLocale, t } from "../../i18n";
 
 export async function streamChat(request: ChatRequest, onEvent: (event: ChatEvent) => void, signal?: AbortSignal): Promise<void> {
   const token = sessionToken();
   const response = await fetch(apiUrl("/v1/agent/chat"), {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...(token ? { "Lykia-Session": token } : {}) },
-    body: JSON.stringify(request),
+    headers: { "Content-Type": "application/json", Accept: "text/event-stream", "Accept-Language": currentLocale(), ...(token ? { "Lykia-Session": token } : {}) },
+    // Lyko answers in the interface language, whatever language the message is in.
+    body: JSON.stringify({ ...request, locale: currentLocale() }),
     signal,
   });
   if (!response.ok || !response.body) {
-    let message = `Lyko could not answer (HTTP ${response.status}).`;
+    let message = t("ask.client.lykoCouldNotAnswerHttp", { status: response.status });
     try {
       const body = (await response.json()) as { error?: { message?: string } };
       if (body.error?.message) message = body.error.message;

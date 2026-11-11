@@ -11,6 +11,7 @@ import { useState } from "react";
 import { Button, LykoFace, cx } from "../../mosaic";
 import { Hint, Meaning } from "../help/Help";
 import { allocationStones, BUCKET_COLOR, countsLine, roomLine, usd, type FoldCounts, type Headroom, rollingChars } from "./model";
+import { t } from "../../i18n";
 
 function RollingNumber({ value, label }: { readonly value: string; readonly label: string }) {
   // The value before this one, kept in state (React's "previous props" pattern), so only changed digits roll.
@@ -30,7 +31,7 @@ function RollingNumber({ value, label }: { readonly value: string; readonly labe
 
 function AllocationStrip({ holdings, of = 40 }: { readonly holdings: readonly FlockHolding[]; readonly of?: number }) {
   const slices = allocationStones(holdings, of);
-  if (slices.length === 0) return <div className="fd-alloc fd-alloc--empty" aria-label="Nothing to allocate yet" />;
+  if (slices.length === 0) return <div className="fd-alloc fd-alloc--empty" aria-label={t("fold.foldBar.nothingToAllocateYet")} />;
   return (
     <div className="fd-allocwrap">
       <div className="fd-alloc" role="img" aria-label={slices.map((s) => `${s.label} ${Math.round(s.share * 100)}%`).join(", ")}>
@@ -53,24 +54,24 @@ export function HeadroomGauge({ h, large = false }: { readonly h: Headroom; read
   const filled = Math.round(h.share * stones);
   return (
     <div className={cx("fd-gauge", large && "fd-gauge--lg")} data-tone={h.tone}>
-      <div className="fd-gauge__row" role="meter" aria-valuemin={0} aria-valuemax={h.cap ?? 0} aria-valuenow={h.spent} aria-label={`Room left today: ${usd(h.spent, 0)} used of ${h.cap === null ? "no limit" : usd(h.cap, 0)}`}>
+      <div className="fd-gauge__row" role="meter" aria-valuemin={0} aria-valuemax={h.cap ?? 0} aria-valuenow={h.spent} aria-label={t("fold.foldBar.roomLeftTodayUsedOf", { usd: usd(h.spent, 0), value: h.cap === null ? t("fold.foldBar.noLimit") : usd(h.cap, 0) })}>
         {Array.from({ length: stones }, (_, i) => (
           <i key={i} data-f={i < filled} />
         ))}
       </div>
       <div className="fd-gauge__legend">
-        <span className="num">{`${usd(h.spent, 0)} used`}</span>
-        <span className="num">{h.left === null ? "no daily limit" : `${usd(h.left, 0)} left`}</span>
+        <span className="num">{t("fold.foldBar.used", { amount: usd(h.spent, 0) })}</span>
+        <span className="num">{h.left === null ? t("fold.foldBar.noDailyLimit") : t("fold.foldBar.left", { amount: usd(h.left, 0) })}</span>
       </div>
       {large ? (
         <dl className="fd-gauge__caps">
           <div>
-            <dt>{"Your daily limit"}<Hint text="The most your own rules let leave in one day. You can change it." /></dt>
+            <dt>{t("fold.foldBar.yourDailyLimit")}<Hint text={t("fold.foldBar.theMostYourOwnRulesLet")} /></dt>
             <dd className="num">{h.fenceCap === null ? "none" : usd(h.fenceCap, 0)}</dd>
           </div>
           <div>
-            <dt>{"Lykia's beta limit"}<Hint text={`${betaCapExplain().why} ${betaCapExplain().scope} ${betaCapExplain().home}`} /></dt>
-            <dd className="num">{h.betaCap === null ? "off on this network" : usd(h.betaCap, 0)}</dd>
+            <dt>{t("fold.foldBar.lykiaSBetaLimit")}<Hint text={`${betaCapExplain().why} ${betaCapExplain().scope} ${betaCapExplain().home}`} /></dt>
+            <dd className="num">{h.betaCap === null ? t("fold.foldBar.offOnThisNetwork") : usd(h.betaCap, 0)}</dd>
           </div>
         </dl>
       ) : null}
@@ -96,37 +97,35 @@ export function FoldBar(p: FoldBarProps) {
   const show = (c: FoldCard) => p.cards.includes(c);
   const worth = p.total === null ? "—" : usd(p.total);
   return (
-    <section className="fd-bar m-frame" data-whistle={p.whistle || undefined} aria-label="The Fold at a glance">
+    <section className="fd-bar m-frame" data-whistle={p.whistle || undefined} aria-label={t("fold.foldBar.theFoldAtAGlance")}>
       {show("networth") || show("allocation") ? (
         <div className="fd-bar__worth">
           {show("networth") ? (
             <>
-              <span className="m-kick">{p.sample ? "NET WORTH · SAMPLE FLOCK" : "NET WORTH"}<Hint text={MEANINGS.netWorth} /></span>
-              <div className="fd-bar__big">{p.loading ? <span className="m-skel" style={{ display: "inline-block", width: 220, height: 40 }} /> : <RollingNumber value={worth} label={`Net worth ${worth}`} />}</div>
-              <Meaning>{p.unpriced ? `${MEANINGS.netWorth} Something has no price yet: it is left out, never counted as zero.` : MEANINGS.netWorth}</Meaning>
+              <span className="m-kick">{t("fold.foldBar.netWorth2")}<Hint text={`${MEANINGS.netWorth} ${MEANINGS.allocation} ${MEANINGS.roomToday}`} /></span>
+              <div className="fd-bar__big">{p.loading ? <span className="m-skel" style={{ display: "inline-block", width: 220, height: 40 }} /> : <RollingNumber value={worth} label={t("fold.foldBar.netWorth", { worth })} />}</div>
+              {p.unpriced ? <Meaning>{t("fold.foldBar.somethingHasNoPriceYetIt")}</Meaning> : null}
             </>
           ) : null}
           {show("allocation") ? <AllocationStrip holdings={p.holdings} /> : null}
-          {show("allocation") && p.holdings.length > 0 ? <Meaning className="fd-bar__mean">{MEANINGS.allocation}</Meaning> : null}
         </div>
       ) : null}
       {show("headroom") ? (
         <div className="fd-bar__room">
-          <span className="m-kick">{"ROOM LEFT TODAY"}<Hint text={MEANINGS.roomToday} /></span>
+          <span className="m-kick">{t("fold.foldBar.roomLeftToday")}</span>
           <b className="fd-bar__roomline">{roomLine(p.headroom).replace(/^Room left today: /u, "")}</b>
           <HeadroomGauge h={p.headroom} />
-          {p.headroom.capLabel === "Beta daily cap" ? <Meaning>{`${betaCapExplain().why} Money coming home is never capped.`}</Meaning> : <Meaning>{"Set by your Fence (your spending rules). Resets at midnight UTC."}</Meaning>}
         </div>
       ) : null}
       <div className="fd-bar__act">
-        {show("counts") ? <p className="fd-bar__counts">{countsLine(p.counts)}<Hint text={MEANINGS.counts} /></p> : null}
+        {show("counts") ? <p className="fd-bar__counts">{countsLine(p.counts)}</p> : null}
         <div className="fd-bar__btns">
           <Button onClick={p.onAsk} aria-keyshortcuts="/">
             <LykoFace mood="happy" scale={1} label="" />
-            {"ASK LYKO"} <kbd className="fd-kbd">/</kbd>
+            {t("fold.foldBar.askLyko")} <kbd className="fd-kbd">/</kbd>
           </Button>
           <Button tone={p.whistle ? "ochre" : "navy"} onClick={p.onWhistle} aria-pressed={p.whistle} title={LYKIA_TERMS.whistle.line}>
-            {p.whistle ? "RELEASE · LET THINGS RUN" : "WHISTLE · STOP ALL"}
+            {p.whistle ? t("fold.foldBar.releaseLetThingsRun") : t("fold.foldBar.whistleStopAll")}
           </Button>
         </div>
       </div>

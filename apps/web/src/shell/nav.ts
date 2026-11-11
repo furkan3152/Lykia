@@ -27,6 +27,7 @@
  * Pure data: node tests import this file directly.
  */
 import type { RouteId } from "../app/routes/routeTable";
+import { t } from "../i18n";
 
 export type AreaId = "ask" | "fold" | "forge";
 
@@ -67,38 +68,38 @@ export interface NavLink {
 export const AREAS: readonly NavArea[] = [
   {
     id: "ask",
-    label: "Ask Lyko",
-    sub: "your agent",
-    short: "your agent",
-    tab: "Ask",
+    label: t("shell.nav.askLyko"),
+    sub: t("shell.nav.yourAgent"),
+    short: t("shell.nav.yourAgent"),
+    tab: t("shell.nav.ask"),
     href: "/app",
-    blurb: "Say the outcome; Lyko plans it, your Fence checks it, you sign once.",
-    sections: [{ id: "ask", href: "/app", label: "Ask Lyko", sub: "your agent", also: ["outrun"] }],
+    blurb: t("shell.nav.sayTheOutcomeLykoPlansIt"),
+    sections: [{ id: "ask", href: "/app", label: t("shell.nav.askLyko"), sub: t("shell.nav.yourAgent"), also: ["outrun"] }],
   },
   {
     id: "fold",
-    label: "The Fold",
-    sub: "everything you own and everything in motion",
-    short: "all you own",
+    label: t("shell.nav.theFold"),
+    sub: t("shell.nav.everythingYouOwnAndEverythingIn"),
+    short: t("shell.nav.allYouOwn"),
     tab: "Fold",
     href: "/app/fold",
-    blurb: "Holdings, activity, instructions, agents and rules, with Lyko on watch.",
-    sections: [{ id: "fold", href: "/app/fold", label: "The Fold", sub: "everything you own and everything in motion", also: ["tag", "scent"] }],
+    blurb: t("shell.nav.holdingsActivityInstructionsAgentsAndRul"),
+    sections: [{ id: "fold", href: "/app/fold", label: t("shell.nav.theFold"), sub: t("shell.nav.everythingYouOwnAndEverythingIn"), also: ["tag", "scent"] }],
   },
   {
     id: "forge",
-    label: "The Forge",
+    label: t("shell.nav.theForge"),
     sub: "build",
     short: "build",
     tab: "Forge",
     href: "/forge",
-    blurb: "Build on the same engine, and the League of cities built with it.",
+    blurb: t("shell.nav.buildOnTheSameEngineAnd"),
     sections: [
-      { id: "forge", href: "/forge", label: "The Forge", sub: "developer portal", also: ["build", "developers", "mint"] },
-      { id: "league", href: "/league", label: "The League", sub: "Lykia's cities", also: ["city"] },
-      { id: "ecosystem", href: "/ecosystem", label: "Harbour", sub: "ecosystem" },
+      { id: "forge", href: "/forge", label: t("shell.nav.theForge"), sub: t("shell.nav.developerPortal"), also: ["build", "developers", "mint"] },
+      { id: "league", href: "/league", label: t("shell.nav.theLeague"), sub: t("shell.nav.lykiaSCities"), also: ["city"] },
+      { id: "ecosystem", href: "/ecosystem", label: t("shell.nav.harbour"), sub: "ecosystem" },
       { id: "circle", href: "/app/circle", label: "Circle", sub: "rails" },
-      { id: "stats", href: "/stats", label: "Ledger", sub: "stats" },
+      { id: "stats", href: "/stats", label: t("shell.nav.ledger"), sub: "stats" },
     ],
   },
 ];
@@ -109,15 +110,15 @@ export function titleOf(item: { readonly label: string; readonly sub: string }):
 }
 
 /** The account page: Your Lyko (preferences, voice and look, memory), in the avatar menu. */
-export const ACCOUNT: readonly NavSection[] = [{ id: "you", href: "/app/you", label: "Your Lyko", sub: "preferences and memory" }];
+export const ACCOUNT: readonly NavSection[] = [{ id: "you", href: "/app/you", label: t("shell.nav.yourLyko"), sub: t("shell.nav.preferencesAndMemory") }];
 
 /** Secondary pages: real and working, but not part of the core story. */
 export const MORE: readonly NavLink[] = [
-  { id: "legal", href: "/legal/notice", label: "Notice and risks", blurb: "Software notice, risk disclosure and privacy." },
+  { id: "legal", href: "/legal/notice", label: t("shell.nav.noticeAndRisks"), blurb: t("shell.nav.softwareNoticeRiskDisclosureAndPrivacy") },
 ];
 
 /** The team console: in the avatar menu for admins only (the API checks the role on every call). */
-export const ADMIN: readonly NavLink[] = [{ id: "letoon", href: "/letoon", label: "Letoon", blurb: "The team console: League council, contracts, flags and the Whistle, Circle, audit, usage." }];
+export const ADMIN: readonly NavLink[] = [{ id: "letoon", href: "/letoon", label: "Letoon", blurb: t("shell.nav.theTeamConsoleLeagueCouncilContracts") }];
 
 /**
  * Old addresses of pages whose work the agent or the Fold now does. They
@@ -146,6 +147,6 @@ export function sectionIsCurrent(section: NavSection, routeId: RouteId): boolean
 
 /** What the tile says out loud and on hover; the visible text is the label alone. */
 export function navTileText(area: Pick<NavArea, "label" | "sub" | "tab">, badge = 0): { readonly visible: string; readonly visibleShort: string; readonly ariaLabel: string; readonly title: string } {
-  const news = badge > 0 ? `, ${badge} new from Lyko` : "";
+  const news = badge > 0 ? t("shell.nav.newFromLyko", { badge }) : "";
   return { visible: area.label, visibleShort: area.tab, ariaLabel: `${area.label}, ${area.sub}${news}`, title: `${area.label} · ${area.sub}` };
 }

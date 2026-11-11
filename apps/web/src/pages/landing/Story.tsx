@@ -1,18 +1,19 @@
 /**
  * The landing's story, told in tesserae instead of text boxes.
  *
- * - The problem, at night: three wolves at the edge of the fold, one per
- *   danger of handing an agent money with no rules.
+ * - What the Fence keeps out, at night: three wolves at the edge of the
+ *   fold, one per danger of handing an agent money with no rules.
  * - How it works, by day: Lyko trots a USDC coin through three gates (say it,
  *   Lykia compiles, the Fence and your signature). Under reduced motion he
  *   waits at the last gate.
  *
- * The words are the landing's own (PROBLEM and STEPS); this only lays them out.
+ * The words are the landing's own (WOLVES and STEPS); this only lays them out.
  */
 import { Sprite } from "../../mosaic";
 import { PixelArt } from "../../mosaic/PixelArt";
 import { LYKO_TROT, LYKO_TROT2, PAL, WOLF } from "../../mosaic/sprites";
 import { UsdcCoin } from "../../features/circle/UsdcPath";
+import { t } from "../../i18n";
 
 /** A gate in the fence line: two pillars and a lintel, in its own tone. */
 const GATE = [
@@ -38,8 +39,6 @@ const GATE_TONES = [
 /** Moonlit wolves: lighter greys so they read on the night stone, amber eyes. */
 const MOONLIT = { ...PAL, x: "#9AA6B8", X: "#C9D1DC", z: "#F2B33D" };
 
-const GATE_WORDS = ["SAY IT", "LYKIA COMPILES", "FENCE AND SIGN"] as const;
-
 export function ProblemNight({ items }: { readonly items: readonly (readonly [string, string])[] }) {
   return (
     <div className="lp-night">
@@ -51,7 +50,7 @@ export function ProblemNight({ items }: { readonly items: readonly (readonly [st
               <Sprite rows={WOLF} palette={MOONLIT} scale={3} flip={i % 2 === 1} />
             </span>
             <b>{title}</b>
-            <p>{line}</p>
+            {line ? <p>{line}</p> : null}
           </li>
         ))}
       </ul>
@@ -78,10 +77,10 @@ export function GateWalk({ steps }: { readonly steps: readonly (readonly [string
         </span>
         <span className="lp-walk__ground" />
       </div>
-      <ol className="lp-walk__steps" aria-label="How Lykia works">
+      <ol className="lp-walk__steps" aria-label={t("landing.story.howLykiaWorks")}>
         {steps.map(([n, title, line], i) => (
           <li key={n} className="lp-walk__step" style={{ ["--tone" as string]: GATE_TONES[i % GATE_TONES.length]!.a }}>
-            <span className="m-kick">{`GATE ${n} · ${GATE_WORDS[i] ?? ""}`}</span>
+            <span className="m-kick">{`GATE ${n}`}</span>
             <b>{title}</b>
             <p className="m-small m-muted">{line}</p>
           </li>

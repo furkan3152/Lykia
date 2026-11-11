@@ -10,6 +10,8 @@
  * Steps (`step` events) mark real work as it starts and ends, with the
  * measured time, so the chat can lay one tessera per step.
  */
+import { intlTag } from "../i18n/format.js";
+import { count } from "../i18n/count.js";
 import { fromBaseUnits, type Address, type ArcEnvironment, type Fence, type IntentGraph } from "@lykia/core";
 import { parseAnswerBlock, parseChatStep, type AnswerBlock, type ChatStep, type ChatStepKind } from "@lykia/core/api/answer";
 import type { FlockSnapshot } from "@lykia/core/api/flock";
@@ -20,6 +22,7 @@ import { services } from "../services.js";
 import { FEEDS } from "../arc/prices.js";
 import type { Emit } from "./orchestrator.js";
 
+import { tx } from "@lykia/core";
 /* ------------------------------------------------------------------ steps */
 
 export interface StepHandle {
@@ -141,7 +144,7 @@ export function materialPositions(res: PositionsResponse): { readonly shown: Pos
 
 /** "55 small or unpriced lines hidden", or null when nothing is folded away. */
 export function hiddenLine(hidden: number): string | null {
-  return hidden > 0 ? `${hidden} small or unpriced line${hidden === 1 ? "" : "s"} hidden` : null;
+  return hidden > 0 ? tx("{hidden, plural, one {# small or unpriced line hidden} other {# small or unpriced lines hidden}}", { hidden }) : null;
 }
 
 /** Where the money is: the largest positions by value with their state and one line each, and the venues that could not be read. */
@@ -187,7 +190,7 @@ export function staleFeed(quote: { readonly symbol: string; readonly source: str
   if (!quote || !/\(stale\)/u.test(quote.source)) return null;
   const feed = FEEDS[quote.symbol];
   const age = quote.updatedAt ? Math.round((Date.now() - Date.parse(quote.updatedAt)) / 3_600_000) : null;
-  return `${feed?.pair ?? quote.symbol} price ${age !== null ? `is ${age} h old, ` : ""}past its ${feed ? Math.round(feed.maxAgeSeconds / 3600) : "?"} h heartbeat`;
+  return age !== null ? tx("{pair} price is {age} h old, past its {heartbeat} h heartbeat", { pair: feed?.pair ?? quote.symbol, age, heartbeat: feed ? Math.round(feed.maxAgeSeconds / 3600) : "?" }) : tx("{pair} price is past its {heartbeat} h heartbeat", { pair: feed?.pair ?? quote.symbol, heartbeat: feed ? Math.round(feed.maxAgeSeconds / 3600) : "?" });
 }
 
 /** The rate a planned conversion gets: output per input of its first conversion step. */
@@ -211,10 +214,10 @@ export function quotedRate(intent: Pick<IntentGraph, "steps">): { base: string; 
 export function compactUsd(v: string | number): string {
   const n = Number(v);
   if (!Number.isFinite(n)) return "unknown";
-  if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}bn`;
+  if (n >= 1e9) return tx("${value}bn", { value: (n / 1e9).toFixed(1) });
   if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
   if (n >= 1e4) return `$${(n / 1e3).toFixed(1)}k`;
-  return `$${Math.round(n).toLocaleString("en-US")}`;
+  return `$${Math.round(n).toLocaleString(intlTag())}`;
 }
 
 const percentOf = (fraction: string | null | undefined): string | null => (fraction === null || fraction === undefined || !Number.isFinite(Number(fraction)) ? null : `${(Number(fraction) * 100).toFixed(2)}%`);
@@ -237,9 +240,9 @@ export function planFactsCard(intent: Pick<IntentGraph, "steps" | "createdAt">):
   const short = (summary: string) => summary.replace(/\s*\(.*$/u, "").slice(0, 60);
   for (const st of intent.steps) {
     if (st.kind === "approve") continue;
-    if (st.fee) rows.push({ label: `Lykia fee · ${short(st.summary)}`.slice(0, 80), value: `${units(st.fee.amount, st.fee.decimals)} ${st.fee.symbol}`, note: `${Number((st.fee.bps / 100).toFixed(2))}% ${st.fee.basis === "on-top" ? "paid on top of the amount" : st.fee.basis === "output" ? "taken from the borrowed amount" : "taken from the amount"}`, from });
+    if (st.fee) rows.push({ label: tx("Lykia fee · {address}", { address: short(st.summary) }).slice(0, 80), value: `${units(st.fee.amount, st.fee.decimals)} ${st.fee.symbol}`, note: `${Number((st.fee.bps / 100).toFixed(2))}% ${st.fee.basis === "on-top" ? tx("paid on top of the amount") : st.fee.basis === "output" ? tx("taken from the borrowed amount") : tx("taken from the amount")}`, from });
     const out = st.outputs.find((o) => o.minimum && !o.symbol.includes("@"));
-    if (out?.minimum) rows.push({ label: `At least · ${short(st.summary)}`.slice(0, 80), value: `${units(out.minimum, out.decimals)} ${out.symbol}`.slice(0, 60), note: `expected ${units(out.amount, out.decimals)} ${out.symbol}; less and the step fails, nothing moves`.slice(0, 200), from });
+    if (out?.minimum) rows.push({ label: tx("At least · {address}", { address: short(st.summary) }).slice(0, 80), value: `${units(out.minimum, out.decimals)} ${out.symbol}`.slice(0, 60), note: tx("expected {value} {symbol}; less and the step fails, nothing moves", { value: units(out.amount, out.decimals), symbol: out.symbol }).slice(0, 200), from });
     const route = st.route;
     if (route) {
       const decimals = st.outputs[0]?.decimals ?? 6;
@@ -247,33 +250,33 @@ export function planFactsCard(intent: Pick<IntentGraph, "steps" | "createdAt">):
       // The headline figure goes in the value (what it delivers, its rate, or the health after); the rest in the note.
       const describe = (o: (typeof route)["chosen"]) => {
         const apy = percentOf(o.apy);
-        const head = o.amountOut ? `${units(o.amountOut, decimals)} ${symbol}` : apy ? `${apy} APY` : o.healthFactor ? `health after ${Number(o.healthFactor).toFixed(2)}` : `${o.risk} risk`;
-        const rest = [o.amountOut && apy ? `${apy} APY` : null, o.tvlUsd ? `${compactUsd(o.tvlUsd)} TVL` : null, o.amountOut || apy || o.healthFactor ? `${o.risk} risk` : null, o.amountOut && o.healthFactor ? `health after ${Number(o.healthFactor).toFixed(2)}` : null, !o.amountOut && apy && o.healthFactor ? `health after ${Number(o.healthFactor).toFixed(2)}` : null];
+        const head = o.amountOut ? `${units(o.amountOut, decimals)} ${symbol}` : apy ? `${apy} APY` : o.healthFactor ? tx("health after {value}", { value: Number(o.healthFactor).toFixed(2) }) : `${o.risk} risk`;
+        const rest = [o.amountOut && apy ? `${apy} APY` : null, o.tvlUsd ? `${compactUsd(o.tvlUsd)} TVL` : null, o.amountOut || apy || o.healthFactor ? `${o.risk} risk` : null, o.amountOut && o.healthFactor ? tx("health after {value}", { value: Number(o.healthFactor).toFixed(2) }) : null, !o.amountOut && apy && o.healthFactor ? tx("health after {value}", { value: Number(o.healthFactor).toFixed(2) }) : null];
         return { value: head.slice(0, 60), note: rest.filter(Boolean).join(" · ").slice(0, 200) || null };
       };
-      rows.push({ label: `Chosen · ${route.chosen.label}`.slice(0, 80), ...describe(route.chosen), from });
-      for (const alt of route.alternatives.filter((a) => a.executable).slice(0, 2)) rows.push({ label: `Also compared · ${alt.label}`.slice(0, 80), ...describe(alt), from });
+      rows.push({ label: tx("Chosen · {label}", { label: route.chosen.label }).slice(0, 80), ...describe(route.chosen), from });
+      for (const alt of route.alternatives.filter((a) => a.executable).slice(0, 2)) rows.push({ label: tx("Also compared · {label}", { label: alt.label }).slice(0, 80), ...describe(alt), from });
     }
   }
   if (rows.length === 0) return null;
-  return { kind: "facts", title: "What this plan costs, and why this route", rows: rows.slice(0, 8), note: "Figures from the plan itself; the route is rebuilt and checked again before you sign." };
+  return { kind: "facts", title: tx("What this plan costs, and why this route"), rows: rows.slice(0, 8), note: tx("Figures from the plan itself; the route is rebuilt and checked again before you sign.") };
 }
 
 /** The Fence as numbers: caps, when Lyko asks, slippage and the loan floor. Shown when a turn reads the rules. */
 export function fenceFactsCard(fence: Fence, beta: { readonly perStepUsd: string; readonly perDayUsd: string } | null, readAt: string): AnswerBlock | null {
   const from = { source: "Your Fence", readAt: isoOf(readAt), block: null };
-  const money = (v: string) => `$${Number(v).toLocaleString("en-US")}`;
+  const money = (v: string) => `$${Number(v).toLocaleString(intlTag())}`;
   const caps = fence.caps ?? {};
   const rows = [
-    caps.perStepUsd ? { label: "Most in one step", value: money(caps.perStepUsd), note: null, from } : null,
-    caps.perIntentUsd ? { label: "Most in one plan", value: money(caps.perIntentUsd), note: null, from } : null,
-    caps.dailyUsd ? { label: "Most in one day", value: money(caps.dailyUsd), note: null, from } : null,
-    fence.confirm?.aboveUsd ? { label: "Lyko asks you above", value: money(fence.confirm.aboveUsd), note: null, from } : null,
-    fence.limits?.maxSlippageBps !== undefined ? { label: "Slippage at most", value: `${(fence.limits.maxSlippageBps / 100).toFixed(2)}%`, note: null, from } : null,
-    fence.lending?.minHealthFactor ? { label: "Loans never under health", value: fence.lending.minHealthFactor, note: null, from } : null,
-    beta ? { label: "Lykia's beta limit, above every Fence", value: `${money(beta.perStepUsd)} a step · ${money(beta.perDayUsd)} a day`, note: null, from: { ...from, source: "Lykia's beta limit" } } : null,
+    caps.perStepUsd ? { label: tx("Most in one step"), value: money(caps.perStepUsd), note: null, from } : null,
+    caps.perIntentUsd ? { label: tx("Most in one plan"), value: money(caps.perIntentUsd), note: null, from } : null,
+    caps.dailyUsd ? { label: tx("Most in one day"), value: money(caps.dailyUsd), note: null, from } : null,
+    fence.confirm?.aboveUsd ? { label: tx("Lyko asks you above"), value: money(fence.confirm.aboveUsd), note: null, from } : null,
+    fence.limits?.maxSlippageBps !== undefined ? { label: tx("Slippage at most"), value: `${(fence.limits.maxSlippageBps / 100).toFixed(2)}%`, note: null, from } : null,
+    fence.lending?.minHealthFactor ? { label: tx("Loans never under health"), value: fence.lending.minHealthFactor, note: null, from } : null,
+    beta ? { label: tx("Lykia's beta limit, above every Fence"), value: tx("{amount} a step · {amount2} a day", { amount: money(beta.perStepUsd), amount2: money(beta.perDayUsd) }), note: null, from: { ...from, source: "Lykia's beta limit" } } : null,
   ].filter((r): r is NonNullable<typeof r> => r !== null);
-  return rows.length > 0 ? { kind: "facts", title: `${fence.label ?? "Your"} Fence, in numbers`.slice(0, 120), rows: rows.slice(0, 8), note: null } : null;
+  return rows.length > 0 ? { kind: "facts", title: tx("{value} Fence, in numbers", { value: fence.label ?? tx("Your") }).slice(0, 120), rows: rows.slice(0, 8), note: null } : null;
 }
 
 /** The Fence gate: the rules that refused or want a confirmation, and the room left under the caps. */
@@ -287,10 +290,10 @@ export function fenceCard(intent: Pick<IntentGraph, "verdict">, fence: Fence): A
   if (rules.length === 0) return null;
   const caps = fence.caps ?? {};
   const headroom = [
-    caps.perStepUsd ? { label: "Per step", value: `$${caps.perStepUsd}` } : null,
-    caps.perIntentUsd ? { label: "Per plan", value: `$${caps.perIntentUsd}` } : null,
-    caps.dailyUsd ? { label: "Per day", value: `$${caps.dailyUsd}` } : null,
-    fence.limits?.maxSlippageBps !== undefined ? { label: "Max slippage", value: `${(fence.limits.maxSlippageBps / 100).toFixed(2)}%` } : null,
+    caps.perStepUsd ? { label: tx("Per step"), value: `$${caps.perStepUsd}` } : null,
+    caps.perIntentUsd ? { label: tx("Per plan"), value: `$${caps.perIntentUsd}` } : null,
+    caps.dailyUsd ? { label: tx("Per day"), value: `$${caps.dailyUsd}` } : null,
+    fence.limits?.maxSlippageBps !== undefined ? { label: tx("Max slippage"), value: `${(fence.limits.maxSlippageBps / 100).toFixed(2)}%` } : null,
   ].filter((h): h is { label: string; value: string } => h !== null);
   return { kind: "fence", decision, rules, headroom };
 }
@@ -318,28 +321,28 @@ export function infoQuestion(text: string): InfoQuestion | null {
 
 /* ------------------------------------------------------------------ facts */
 
-const dollars = (v: string | number) => `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const dollars = (v: string | number) => `$${Number(v).toLocaleString(intlTag(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /**
  * Lyko on watch's sourced answer from the position map: net worth, what earns and at what blended rate, the yearly
  * estimate and the lowest health factor, each computed by core (summarizePositions) and stamped with where and when
  * it was read. A figure that cannot be computed says "unavailable", never an estimate.
  */
-export function positionsFacts(res: PositionsResponse, title = "Your Fold, read now", options: { readonly sample?: boolean } = {}): AnswerBlock {
+export function positionsFacts(res: PositionsResponse, title = tx("Your Fold, read now"), options: { readonly sample?: boolean } = {}): AnswerBlock {
   const at = { source: options.sample ? "sample" : "Arc chain and venue APIs", readAt: isoOf(res.at), block: blockOf(res.block) };
   const s = res.summary;
-  const unpricedNote = s.unpriced > 0 ? "lines without a price are left out, never counted as zero" : null;
+  const unpricedNote = s.unpriced > 0 ? tx("lines without a price are left out, never counted as zero") : null;
   const earning = res.venues.filter((v) => v.positions.some((p) => p.apy && (p.state === "earning" || p.state === "at-risk")));
   const first = earning[0];
   const rateFrom = options.sample ? at : first ? { source: first.source === "api" ? `${first.venueName} rate API`.slice(0, 80) : `${first.venueName} on Arc`.slice(0, 80), readAt: isoOf(first.readAt), block: blockOf(first.block), venue: earning.length === 1 ? first.venueName.slice(0, 60) : `${earning.length} venues` } : at;
   const lowest = s.lowestHealth;
   const lowestRead = lowest ? res.venues.find((v) => v.venue === lowest.venue) : undefined;
   const rows = [
-    { label: "Net worth", value: s.netUsd === null ? (Number(s.pricedNetUsd) !== 0 ? `${dollars(s.pricedNetUsd)} priced` : "unavailable") : dollars(s.netUsd), note: unpricedNote, from: at },
-    { label: "Blended APY on what earns", value: s.weightedApyPercent === null ? "unavailable" : `${s.weightedApyPercent}%`, note: s.weightedApyPercent === null ? "no earning position with a readable rate" : null, from: rateFrom },
-    { label: "Yearly estimate, net of borrowing", value: s.yearlyYieldUsd === null ? "unavailable" : dollars(s.yearlyYieldUsd), note: s.yearlyYieldUsd === null ? null : "at today's rates", from: rateFrom },
-    ...(lowest ? [{ label: "Lowest health factor", value: Number(lowest.factor).toFixed(2), note: `${lowest.label}; your floor is ${res.healthFloor}`.slice(0, 200), from: lowestRead && !options.sample ? { source: `${lowestRead.venueName} on Arc`.slice(0, 80), readAt: isoOf(lowestRead.readAt), block: blockOf(lowestRead.block), venue: lowestRead.venueName.slice(0, 60) } : at }] : []),
-    ...(s.unavailable.length > 0 ? [{ label: "Not read", value: `${s.unavailable.length} venue${s.unavailable.length === 1 ? "" : "s"}`, note: s.unavailable.slice(0, 4).join(", ").slice(0, 200), from: at }] : []),
+    { label: tx("Net worth"), value: s.netUsd === null ? (Number(s.pricedNetUsd) !== 0 ? `${dollars(s.pricedNetUsd)} priced` : "unavailable") : dollars(s.netUsd), note: unpricedNote, from: at },
+    { label: tx("Blended APY on what earns"), value: s.weightedApyPercent === null ? "unavailable" : `${s.weightedApyPercent}%`, note: s.weightedApyPercent === null ? tx("no earning position with a readable rate") : null, from: rateFrom },
+    { label: tx("Yearly estimate, net of borrowing"), value: s.yearlyYieldUsd === null ? "unavailable" : dollars(s.yearlyYieldUsd), note: s.yearlyYieldUsd === null ? null : tx("at today's rates"), from: rateFrom },
+    ...(lowest ? [{ label: tx("Lowest health factor"), value: Number(lowest.factor).toFixed(2), note: tx("{label}; your floor is {healthFloor}", { label: lowest.label, healthFloor: res.healthFloor }).slice(0, 200), from: lowestRead && !options.sample ? { source: `${lowestRead.venueName} on Arc`.slice(0, 80), readAt: isoOf(lowestRead.readAt), block: blockOf(lowestRead.block), venue: lowestRead.venueName.slice(0, 60) } : at }] : []),
+    ...(s.unavailable.length > 0 ? [{ label: tx("Not read"), value: count(s.unavailable.length, "venue"), note: s.unavailable.slice(0, 4).join(", ").slice(0, 200), from: at }] : []),
   ];
-  return { kind: "facts", title, rows, note: s.unavailable.length > 0 ? "Venues that could not be read are named, never counted as zero." : null };
+  return { kind: "facts", title, rows, note: s.unavailable.length > 0 ? tx("Venues that could not be read are named, never counted as zero.") : null };
 }

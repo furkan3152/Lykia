@@ -1,3 +1,4 @@
+// i18n-ignore-file: design kit for reviewing states during development; its fixtures stand in for API answers.
 /**
  * Sample data for the kits (development only): a staged plan in each of its
  * states, a bridge that Across won, and the Fold's side of the hand-offs

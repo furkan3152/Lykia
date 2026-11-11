@@ -2,6 +2,7 @@
  * Sending a step's calls from a browser wallet (pure, effects injected).
  */
 import type { WalletTx } from "./useLykiaWallet";
+import { t } from "../../i18n";
 
 /**
  * Sends calls one after another, waiting for each receipt before the next:
@@ -33,7 +34,7 @@ export async function sendSequentially(
     hashes.push(hash);
     const receipt = await effects.waitFor(hash, tx.chainId);
     // The last call reverting is the step failing: submit records it. An earlier one stops the rest.
-    if (receipt.status !== "success" && hashes.length < txs.length) throw Object.assign(new Error(`execution reverted: ${tx.label ?? "a call"} reverted on Arc`), { hashes, onChain: true });
+    if (receipt.status !== "success" && hashes.length < txs.length) throw Object.assign(new Error(t("wallet.sequence.executionRevertedRevertedOnArc", { value: tx.label ?? t("wallet.sequence.aCall") })), { hashes, onChain: true });
   }
   return hashes;
 }

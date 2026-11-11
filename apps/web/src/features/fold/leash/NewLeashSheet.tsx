@@ -30,6 +30,7 @@ import type { FoldOwner } from "../data";
 import { useGatewayBalance, useGatewayOffer } from "./data";
 import { budgetOf, chainName, SAMPLE_GATEWAY_BALANCE, emptyForm, formFromDraft, formIssues, GATEWAY_CEILINGS, gatewayOptionOf, LEASH_STEPS, leashSentence, LIMIT_PRESETS, recipientsOf, requestOf, SHEET_TEMPLATES, toggleDestination, usdText, withSpendFrom, withTemplate, type LeashForm, type LeashStep } from "./model";
 import { LYKIA_TERMS } from "@lykia/core";
+import { intlLocale, t as msg } from "../../../i18n";
 
 type Phase = LeashStep | "keys";
 
@@ -45,7 +46,7 @@ function Copy({ value, label }: { readonly value: string; readonly label: string
             setDone(true);
             toast.success(`${label} copied`, { from: "LYKO" });
           },
-          () => toast.error("Copy did not work; select the text instead.", { from: "LYKO" }),
+          () => toast.error(msg("fold.leash.newLeashSheet.copyDidNotWorkSelectThe"), { from: "LYKO" }),
         )
       }
     >
@@ -108,13 +109,13 @@ export function NewLeashSheet({ open, owner, draft, spendFrom, onClose, onCreate
     setTouched(true);
     if (formIssues(form, "review", owner.address).length > 0) return;
     if (owner.sample || !owner.address || !owner.signedIn) {
-      toast.info(owner.sample ? "Connect a wallet to make a real leash" : "Sign in as the owner first", { from: "LYKO" });
+      toast.info(owner.sample ? msg("fold.leash.newLeashSheet.connectAWalletToMakeA") : msg("fold.leash.newLeashSheet.signInAsTheOwnerFirst"), { from: "LYKO" });
       return;
     }
     setBusy(true);
     try {
       if (onGateway && !gateway.available) {
-        toast.info("Spending from a Gateway balance is coming soon", { description: "Pick Arc wallet for now.", from: "LYKO" });
+        toast.info(msg("fold.leash.newLeashSheet.spendingFromAGatewayBalanceIs"), { description: msg("fold.leash.newLeashSheet.pickArcWalletForNow"), from: "LYKO" });
         return;
       }
       // The session key is made here and never leaves this browser; only its address goes to Lykia.
@@ -125,7 +126,7 @@ export function NewLeashSheet({ open, owner, draft, spendFrom, onClose, onCreate
       setPhase("keys");
       onCreated(r.leash);
     } catch (e) {
-      toast.error("The leash was not made", { description: describeError(e), from: "LYKO" });
+      toast.error(msg("fold.leash.newLeashSheet.theLeashWasNotMade"), { description: describeError(e), from: "LYKO" });
     } finally {
       setBusy(false);
     }
@@ -143,16 +144,16 @@ export function NewLeashSheet({ open, owner, draft, spendFrom, onClose, onCreate
       setSigned(last ?? null);
       if (last) await apiPost(`/v1/leashes/${encodeURIComponent(created.leash.id)}/session`, { txHash: last }).catch(() => undefined);
       onCreated(created.leash);
-      toast.success(`${created.leash.agentName} is on its leash`, { description: last, from: "LYKO" });
+      toast.success(msg("fold.leash.newLeashSheet.isOnItsLeash", { agentName: created.leash.agentName }), { description: last, from: "LYKO" });
     } catch (e) {
-      toast.error("Not signed", { description: `${describeError(e)} The leash waits for this signature; its key works once the session lands.`, from: "LYKO" });
+      toast.error(msg("fold.leash.newLeashSheet.notSigned"), { description: msg("fold.leash.newLeashSheet.theLeashWaitsForThisSignature", { describeError: describeError(e) }), from: "LYKO" });
     } finally {
       setBusy(false);
     }
   };
 
   const close = () => {
-    if (created && phase === "keys" && !window.confirm("The leash key and the session key are not shown again. Did you store them?")) return;
+    if (created && phase === "keys" && !window.confirm(msg("fold.leash.newLeashSheet.theLeashKeyAndTheSession"))) return;
     onClose();
   };
 
@@ -163,12 +164,12 @@ export function NewLeashSheet({ open, owner, draft, spendFrom, onClose, onCreate
 
   // Portalled to the body: the Fold's panels form their own stacking context, and the sheet must sit above the phone dock.
   return createPortal(
-    <Sheet open={open} onClose={close} title={phase === "keys" ? "Store these now" : "New leash"}>
+    <Sheet open={open} onClose={close} title={phase === "keys" ? msg("fold.leash.newLeashSheet.storeTheseNow") : msg("fold.leash.newLeashSheet.newLeash")}>
       <div className="fd-newleash">
         <div className="fd-newleash__top">
           <LeashMark scale={2} />
-          <ol className="fd-stepper" aria-label={`Step ${phase === "keys" ? 5 : at + 1} of 5`}>
-            {[...LEASH_STEPS, { id: "keys" as const, label: "Keys" }].map((s, i) => (
+          <ol className="fd-stepper" aria-label={msg("fold.leash.newLeashSheet.stepOf5", { value: phase === "keys" ? 5 : at + 1 })}>
+            {[...LEASH_STEPS, { id: "keys" as const, label: msg("fold.leash.newLeashSheet.keys") }].map((s, i) => (
               <li key={s.id} data-on={phase === "keys" ? true : i <= at} aria-current={(phase === "keys" ? "keys" : step) === s.id ? "step" : undefined}>
                 <i />
                 {s.label}
@@ -179,11 +180,11 @@ export function NewLeashSheet({ open, owner, draft, spendFrom, onClose, onCreate
 
         {phase === "who" ? (
           <div className="fd-newleash__body">
-            <Field label="The agent's name" error={err("name")}>
-              <Input value={form.name} maxLength={48} placeholder="Invoice bot" onChange={(e) => set({ name: e.target.value })} />
+            <Field label={msg("fold.leash.newLeashSheet.theAgentSName")} error={err("name")}>
+              <Input value={form.name} maxLength={48} placeholder={msg("fold.leash.newLeashSheet.invoiceBot")} onChange={(e) => set({ name: e.target.value })} />
             </Field>
             <fieldset className="fd-newleash__templates">
-              <legend className="m-kick">{"What it may do"}</legend>
+              <legend className="m-kick">{msg("fold.leash.newLeashSheet.whatItMayDo")}</legend>
               <p className="m-small m-muted p-leash-what">{`${LYKIA_TERMS.leash.word} · ${LYKIA_TERMS.leash.plain}. ${LYKIA_TERMS.leash.line}`}</p>
               {SHEET_TEMPLATES.map((k) => (
                 <label key={k} className={cx("fd-tpl m-frame m-frame--thin", form.template === k && "is-on")}>
@@ -194,17 +195,17 @@ export function NewLeashSheet({ open, owner, draft, spendFrom, onClose, onCreate
               ))}
             </fieldset>
             <fieldset className="fd-newleash__key">
-              <legend className="m-kick">{"Its own key"}</legend>
-              <label className="fd-radio"><input type="radio" name="leash-key" checked={form.keyMode === "generate"} onChange={() => set({ keyMode: "generate" })} /> {"Make one in this browser (shown once, never sent to Lykia)"}</label>
-              <label className="fd-radio"><input type="radio" name="leash-key" checked={form.keyMode === "own"} onChange={() => set({ keyMode: "own" })} /> {"The agent already has one: use its address"}</label>
+              <legend className="m-kick">{msg("fold.leash.newLeashSheet.itsOwnKey")}</legend>
+              <label className="fd-radio"><input type="radio" name="leash-key" checked={form.keyMode === "generate"} onChange={() => set({ keyMode: "generate" })} /> {msg("fold.leash.newLeashSheet.makeOneInThisBrowserShown")}</label>
+              <label className="fd-radio"><input type="radio" name="leash-key" checked={form.keyMode === "own"} onChange={() => set({ keyMode: "own" })} /> {msg("fold.leash.newLeashSheet.theAgentAlreadyHasOneUse")}</label>
               {form.keyMode === "own" ? (
-                <Field label="Agent address" error={err("signer")}>
+                <Field label={msg("fold.leash.newLeashSheet.agentAddress")} error={err("signer")}>
                   <Input value={form.signer} placeholder="0x…" spellCheck={false} onChange={(e) => set({ signer: e.target.value })} />
                 </Field>
               ) : null}
             </fieldset>
-            <Field label="Mission (optional)">
-              <textarea className="m-textarea" maxLength={400} value={form.mission} placeholder="Pay the hosting and data invoices as they come in." onChange={(e) => set({ mission: e.target.value })} />
+            <Field label={msg("fold.leash.newLeashSheet.missionOptional")}>
+              <textarea className="m-textarea" maxLength={400} value={form.mission} placeholder={msg("fold.leash.newLeashSheet.payTheHostingAndDataInvoices")} onChange={(e) => set({ mission: e.target.value })} />
             </Field>
           </div>
         ) : null}
@@ -212,22 +213,22 @@ export function NewLeashSheet({ open, owner, draft, spendFrom, onClose, onCreate
         {phase === "from" ? (
           <div className="fd-newleash__body">
             <fieldset className="fd-newleash__templates">
-              <legend className="m-kick">{"Spend from"}</legend>
+              <legend className="m-kick">{msg("fold.leash.newLeashSheet.spendFrom")}</legend>
               <label className={cx("fd-tpl m-frame m-frame--thin", !onGateway && "is-on")}>
                 <input type="radio" name="leash-from" value="arc" checked={!onGateway} onChange={() => setForm((f) => withSpendFrom(f, "arc"))} />
-                <b>{"Arc wallet"}</b>
-                <span className="m-small">{"Your LykiaAccount on Arc holds the caps. Every template."}</span>
+                <b>{msg("fold.leash.newLeashSheet.arcWallet")}</b>
+                <span className="m-small">{msg("fold.leash.newLeashSheet.yourLykiaaccountOnArcHoldsThe")}</span>
               </label>
               <label className={cx("fd-tpl m-frame m-frame--thin", onGateway && "is-on", !gateway.available && "is-off")} aria-disabled={!gateway.available}>
                 <input type="radio" name="leash-from" value="gateway" checked={onGateway} disabled={!gateway.available} onChange={() => setForm((f) => withSpendFrom(f, "gateway"))} />
-                <b>{"Gateway balance"} {gateway.available ? null : <Tag tone="ghost">{"COMING SOON"}</Tag>}</b>
-                <span className="m-small">{`Your Circle Gateway USDC, through your own LykiaStile contract. Pays named payees on the chains you pick, at most ${usdText(GATEWAY_CEILINGS.perStepUsd)} a transfer and ${usdText(GATEWAY_CEILINGS.perDayUsd)} a day while it is unaudited.`}</span>
+                <b>{msg("fold.leash.newLeashSheet.gatewayBalance")} {gateway.available ? null : <Tag tone="ghost">{msg("fold.leash.newLeashSheet.comingSoon")}</Tag>}</b>
+                <span className="m-small">{msg("fold.leash.newLeashSheet.yourCircleGatewayUsdcThroughYour", { usdText: usdText(GATEWAY_CEILINGS.perStepUsd), usdText2: usdText(GATEWAY_CEILINGS.perDayUsd) })}</span>
               </label>
             </fieldset>
             {onGateway ? (
               <>
                 <div className="fd-gwbal m-frame m-frame--thin" aria-live="polite">
-                  <span className="m-kick">{owner.sample ? "SAMPLE GATEWAY BALANCE" : "YOUR GATEWAY BALANCE"}</span>
+                  <span className="m-kick">{owner.sample ? msg("fold.leash.newLeashSheet.sampleGatewayBalance") : msg("fold.leash.newLeashSheet.yourGatewayBalance")}</span>
                   {balance.isLoading && !owner.sample ? (
                     <div className="m-skel" style={{ height: 44 }} />
                   ) : shownBalance ? (
@@ -235,18 +236,18 @@ export function NewLeashSheet({ open, owner, draft, spendFrom, onClose, onCreate
                       {(shownBalance.perChain ?? []).filter((r) => Number(r.balance) > 0 || r.chain === "Arc").map((r) => (
                         <li key={r.chain} data-arc={r.chain === "Arc"}>
                           <span>{r.chain}</span>
-                          <b className="num">{`${Number(r.balance).toLocaleString("en-US", { maximumFractionDigits: 2 })} USDC`}</b>
+                          <b className="num">{`${Number(r.balance).toLocaleString(intlLocale(), { maximumFractionDigits: 2 })} USDC`}</b>
                         </li>
                       ))}
-                      <li className="fd-gwbal__total"><span>{"Total"}</span><b className="num">{`${Number(shownBalance.total ?? 0).toLocaleString("en-US", { maximumFractionDigits: 2 })} USDC`}</b></li>
+                      <li className="fd-gwbal__total"><span>{msg("fold.leash.newLeashSheet.total")}</span><b className="num">{`${Number(shownBalance.total ?? 0).toLocaleString(intlLocale(), { maximumFractionDigits: 2 })} USDC`}</b></li>
                     </ul>
                   ) : (
-                    <p className="m-small m-muted">{"Circle's Gateway API did not answer; the balance is checked again before each transfer."}</p>
+                    <p className="m-small m-muted">{msg("fold.leash.newLeashSheet.circleSGatewayApiDidNot")}</p>
                   )}
-                  <p className="m-small m-muted">{"The agent spends the part deposited on Arc. Deposits on other chains stay out of its reach."}</p>
+                  <p className="m-small m-muted">{msg("fold.leash.newLeashSheet.theAgentSpendsThePartDeposited")}</p>
                 </div>
                 <fieldset className="fd-newleash__venues">
-                  <legend className="m-kick">{"It may pay on"}</legend>
+                  <legend className="m-kick">{msg("fold.leash.newLeashSheet.itMayPayOn")}</legend>
                   <div className="fd-suggest">
                     {gateway.destinations.map((d) => {
                       const on = form.destinations.includes(d.key);
@@ -258,7 +259,7 @@ export function NewLeashSheet({ open, owner, draft, spendFrom, onClose, onCreate
                     })}
                   </div>
                   {err("destinations") ? <p className="m-note m-note--bad">{err("destinations")}</p> : null}
-                  <p className="m-small m-muted">{"Lykia's 1% fee is a second transfer in the same Gateway attestation; Circle's own fee comes on top."}</p>
+                  <p className="m-small m-muted">{msg("fold.leash.newLeashSheet.lykiaS1FeeIsA")}</p>
                 </fieldset>
               </>
             ) : null}
@@ -267,8 +268,8 @@ export function NewLeashSheet({ open, owner, draft, spendFrom, onClose, onCreate
 
         {phase === "limits" ? (
           <div className="fd-newleash__body">
-            <div className="p-leash-presets" role="group" aria-label="Quick limits">
-              <span className="m-kick">{"PICK A SIZE · OR TYPE YOUR OWN BELOW"}</span>
+            <div className="p-leash-presets" role="group" aria-label={msg("fold.leash.newLeashSheet.quickLimits")}>
+              <span className="m-kick">{msg("fold.leash.newLeashSheet.pickASizeOrTypeYour")}</span>
               <div>
                 {LIMIT_PRESETS.filter((x) => !onGateway || Number(x.perDayUsd) <= Number(GATEWAY_CEILINGS.perDayUsd)).map((x) => {
                   const on = form.perDayUsd === x.perDayUsd && form.perStepUsd === x.perStepUsd && form.days === x.days;
@@ -282,26 +283,26 @@ export function NewLeashSheet({ open, owner, draft, spendFrom, onClose, onCreate
               </div>
             </div>
             <div className="fd-newleash__money">
-              <Field label="Per day $" error={err("perDayUsd")} hint={onGateway ? `The most it can spend in one day (at most ${usdText(GATEWAY_CEILINGS.perDayUsd)} while unaudited).` : "The most it can spend in one day. Resets at midnight UTC."}>
+              <Field label={msg("fold.leash.newLeashSheet.perDay")} error={err("perDayUsd")} hint={onGateway ? msg("fold.leash.newLeashSheet.theMostItCanSpendIn", { usdText: usdText(GATEWAY_CEILINGS.perDayUsd) }) : msg("fold.leash.newLeashSheet.theMostItCanSpendIn2")}>
                 <Input inputMode="decimal" value={form.perDayUsd} onChange={(e) => set({ perDayUsd: e.target.value })} />
               </Field>
-              <Field label="Per step $" error={err("perStepUsd")} hint="The most it can move in one go. No more than the daily amount.">
+              <Field label={msg("fold.leash.newLeashSheet.perStep")} error={err("perStepUsd")} hint={msg("fold.leash.newLeashSheet.theMostItCanMoveIn")}>
                 <Input inputMode="decimal" value={form.perStepUsd} onChange={(e) => set({ perStepUsd: e.target.value })} />
               </Field>
-              <Field label="Days" error={err("days")} hint="After this many days its key stops working on its own.">
+              <Field label={msg("fold.leash.newLeashSheet.days")} error={err("days")} hint={msg("fold.leash.newLeashSheet.afterThisManyDaysItsKey")}>
                 <Input inputMode="numeric" value={form.days} onChange={(e) => set({ days: e.target.value })} />
               </Field>
             </div>
             <p className="fd-newleash__total">
-              {budget.totalUsd ? <>{"In total at most "}<b className="num">{usdText(budget.totalUsd)}</b>{` over ${form.days} day${form.days === "1" ? "" : "s"}. Lykia's 1% fee counts toward the caps.`}</> : "Fill in the daily cap and the days."}
+              {budget.totalUsd ? <>{msg("fold.leash.newLeashSheet.inTotalAtMost")}<b className="num">{usdText(budget.totalUsd)}</b>{msg("fold.leash.newLeashSheet.overDays", { n: Number(form.days) })}</> : msg("fold.leash.newLeashSheet.fillInTheDailyCapAnd")}
             </p>
             {t.recipients === "allowlist" ? (
-              <Field label="Who it may pay" error={err("recipients")} hint="One address per line. It can pay these and you, nobody else.">
+              <Field label={msg("fold.leash.newLeashSheet.whoItMayPay")} error={err("recipients")} hint={msg("fold.leash.newLeashSheet.oneAddressPerLineItCan")}>
                 <textarea className="m-textarea" spellCheck={false} value={form.recipients} placeholder={"0x…\n0x…"} onChange={(e) => set({ recipients: e.target.value })} />
               </Field>
             ) : (
               <fieldset className="fd-newleash__venues">
-                <legend className="m-kick">{"Venues"}</legend>
+                <legend className="m-kick">{msg("fold.leash.newLeashSheet.venues")}</legend>
                 <div className="fd-suggest">
                   {(t.venues ?? []).map((v) => {
                     const on = form.venues.includes(v);
@@ -313,7 +314,7 @@ export function NewLeashSheet({ open, owner, draft, spendFrom, onClose, onCreate
                   })}
                 </div>
                 {err("venues") ? <p className="m-note m-note--bad">{err("venues")}</p> : null}
-                <p className="m-small m-muted">{form.template === "trade-small" ? `Only DEXs whose output your account can pin to itself. Slippage at most ${t.maxSlippageBps / 100}%.` : "Deposits and withdrawals stay in your account."}</p>
+                <p className="m-small m-muted">{form.template === "trade-small" ? msg("fold.leash.newLeashSheet.onlyDexsWhoseOutputYourAccount", { value: t.maxSlippageBps / 100 }) : msg("fold.leash.newLeashSheet.depositsAndWithdrawalsStayInYour")}</p>
               </fieldset>
             )}
           </div>
@@ -323,32 +324,32 @@ export function NewLeashSheet({ open, owner, draft, spendFrom, onClose, onCreate
           <div className="fd-newleash__body">
             <p className="p-leash-sentence" data-testid="leash-sentence">{leashSentence(form, recipientsOf(form).length)}</p>
             <dl className="fd-newleash__summary">
-              <div><dt>{"Agent"}</dt><dd>{form.name}</dd></div>
-              <div><dt>{"May"}</dt><dd>{t.title}</dd></div>
-              <div><dt>{"Spends from"}</dt><dd>{onGateway ? "Gateway balance (Arc deposit)" : "Arc wallet"}</dd></div>
-              {onGateway ? <div><dt>{"Pays on"}</dt><dd>{form.destinations.map((d) => chainName(d, offer.data)).join(", ")}</dd></div> : null}
-              <div><dt>{"Budget"}</dt><dd className="num">{`${usdText(budget.perStepUsd)} a step · ${usdText(budget.perDayUsd)} a day · ${budget.totalUsd ? usdText(budget.totalUsd) : "?"} in total`}</dd></div>
-              <div><dt>{"Until"}</dt><dd className="num">{new Date(openedAt + Number(form.days) * 86_400_000).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</dd></div>
-              <div><dt>{t.recipients === "allowlist" ? "Payees" : "Venues"}</dt><dd>{t.recipients === "allowlist" ? recipientsOf(form).map((r) => `${r.slice(0, 6)}…${r.slice(-4)}`).join(", ") : form.venues.join(", ")}</dd></div>
-              <div><dt>{"Key"}</dt><dd>{form.keyMode === "generate" ? "made in this browser" : `${form.signer.slice(0, 8)}…`}</dd></div>
+              <div><dt>{msg("fold.leash.newLeashSheet.agent")}</dt><dd>{form.name}</dd></div>
+              <div><dt>{msg("fold.leash.newLeashSheet.may")}</dt><dd>{t.title}</dd></div>
+              <div><dt>{msg("fold.leash.newLeashSheet.spendsFrom")}</dt><dd>{onGateway ? msg("fold.leash.newLeashSheet.gatewayBalanceArcDeposit") : msg("fold.leash.newLeashSheet.arcWallet")}</dd></div>
+              {onGateway ? <div><dt>{msg("fold.leash.newLeashSheet.paysOn")}</dt><dd>{form.destinations.map((d) => chainName(d, offer.data)).join(", ")}</dd></div> : null}
+              <div><dt>{msg("fold.leash.newLeashSheet.budget")}</dt><dd className="num">{msg("fold.leash.newLeashSheet.budgetLine", { step: usdText(budget.perStepUsd), day: usdText(budget.perDayUsd), total: budget.totalUsd ? usdText(budget.totalUsd) : "?" })}</dd></div>
+              <div><dt>{msg("fold.leash.newLeashSheet.until")}</dt><dd className="num">{new Date(openedAt + Number(form.days) * 86_400_000).toLocaleDateString(intlLocale(), { day: "numeric", month: "short", year: "numeric" })}</dd></div>
+              <div><dt>{t.recipients === "allowlist" ? msg("fold.leash.newLeashSheet.payees") : msg("fold.leash.newLeashSheet.venues")}</dt><dd>{t.recipients === "allowlist" ? recipientsOf(form).map((r) => `${r.slice(0, 6)}…${r.slice(-4)}`).join(", ") : form.venues.join(", ")}</dd></div>
+              <div><dt>{msg("fold.leash.newLeashSheet.key")}</dt><dd>{form.keyMode === "generate" ? msg("fold.leash.newLeashSheet.madeInThisBrowser") : `${form.signer.slice(0, 8)}…`}</dd></div>
             </dl>
             <details className="p-tech">
-            <summary className="m-small">{"Who enforces each limit"}</summary>
+            <summary className="m-small">{msg("fold.leash.newLeashSheet.whoEnforcesEachLimit")}</summary>
             <div className="fd-newleash__split">
               <div>
-                <span className="m-kick">{onGateway ? "YOUR LYKIASTILE HOLDS" : "YOUR LYKIAACCOUNT HOLDS"}</span>
-                <ul>{chain.map((e) => <li key={e.limit}><b>{e.limit}</b> {e.enforcedBy === "both" ? <Tag tone="sea">CHAIN + API</Tag> : <Tag tone="ok">CHAIN</Tag>}</li>)}</ul>
+                <span className="m-kick">{onGateway ? msg("fold.leash.newLeashSheet.yourLykiastileHolds") : msg("fold.leash.newLeashSheet.yourLykiaaccountHolds")}</span>
+                <ul>{chain.map((e) => <li key={e.limit}><b>{e.limit}</b> {e.enforcedBy === "both" ? <Tag tone="sea">{msg("fold.leash.newLeashSheet.chainApi")}</Tag> : <Tag tone="ok">{msg("fold.leash.newLeashSheet.chain")}</Tag>}</li>)}</ul>
               </div>
               <div>
-                <span className="m-kick">{"LYKIA'S API HOLDS"}</span>
+                <span className="m-kick">{msg("fold.leash.newLeashSheet.lykiaSApiHolds")}</span>
                 <ul>{api.map((e) => <li key={e.limit}><b>{e.limit}</b> <Tag tone="ochre">API</Tag></li>)}</ul>
               </div>
             </div>
             </details>
             <p className="m-small m-muted">
               {onGateway
-                ? "Gateway checks every transfer by asking your LykiaStile, which answers only for transfers this leash reserved inside its caps. You sign up to three transactions once: create your LykiaStile (first time only), let it sign for your Gateway deposit (addDelegate), and the leash's session. Revoking reaches Gateway within about 5 minutes."
-                : "On chain the caps are token units (USDC 1:1, EURC at today's reference rate); dollar caps, venues and slippage are checked by Lykia before anything is prepared. You sign one transaction on your LykiaAccount (two if the account does not exist yet)."}
+                ? msg("fold.leash.newLeashSheet.gatewayChecksEveryTransferByAsking")
+                : msg("fold.leash.newLeashSheet.onChainTheCapsAreToken")}
             </p>
           </div>
         ) : null}
@@ -356,19 +357,19 @@ export function NewLeashSheet({ open, owner, draft, spendFrom, onClose, onCreate
         {phase === "keys" && created ? (
           <div className="fd-newleash__body">
             <div className="m-note fd-newleash__store">
-              <b>{"Store these now. They are not shown again."}</b>
-              <span className="m-small">{`The leash key works for ${created.leash.agentName}'s leash only and stops the moment you revoke it.`}</span>
+              <b>{msg("fold.leash.newLeashSheet.storeTheseNowTheyAreNot")}</b>
+              <span className="m-small">{msg("fold.leash.newLeashSheet.theLeashKeyWorksForS", { agentName: created.leash.agentName })}</span>
             </div>
-            <Secret title="LEASH KEY" value={created.apiKey.secret} hint="Give it to the agent as Lykia-Key. It can plan and submit inside this leash, nothing else." />
-            {created.sessionKey ? <Secret title="SESSION KEY (PRIVATE)" value={created.sessionKey} hint={`The agent signs with it. Its address, ${privateKeyToAccount(created.sessionKey as `0x${string}`).address}, is the only part Lykia knows.`} /> : null}
-            <Secret title="MCP CONFIG" value={JSON.stringify(created.mcp, null, 2)} hint="Paste into any MCP client: it sees only this leash's tools." />
+            <Secret title={msg("fold.leash.newLeashSheet.leashKey")} value={created.apiKey.secret} hint={msg("fold.leash.newLeashSheet.giveItToTheAgentAs")} />
+            {created.sessionKey ? <Secret title={msg("fold.leash.newLeashSheet.sessionKeyPrivate")} value={created.sessionKey} hint={msg("fold.leash.newLeashSheet.theAgentSignsWithItIts", { address: privateKeyToAccount(created.sessionKey as `0x${string}`).address })} /> : null}
+            <Secret title={msg("fold.leash.newLeashSheet.mcpConfig")} value={JSON.stringify(created.mcp, null, 2)} hint={msg("fold.leash.newLeashSheet.pasteIntoAnyMcpClientIt")} />
             <div className="fd-newleash__sign">
               {signed ? (
-                <p className="m-note"><b>{"Signed."}</b>{` The session goes live as soon as Arc includes ${signed.slice(0, 10)}…`}</p>
+                <p className="m-note"><b>{msg("fold.leash.newLeashSheet.signed")}</b>{msg("fold.leash.newLeashSheet.theSessionGoesLiveAsSoon", { signed: signed.slice(0, 10) })}</p>
               ) : (
                 <>
-                  <p className="m-small">{`${signCount} transaction${signCount === 1 ? "" : "s"} to sign in your wallet, in this order: ${[...(created.stile?.deployment ? [created.stile.deployment.label] : []), ...created.transactions.map((x) => x.label)].join("; ")}.`}</p>
-                  <Button onClick={() => void sign()} disabled={busy}>{busy ? "WAITING FOR YOUR WALLET…" : wallet.connected ? "SIGN ONCE" : "CONNECT TO SIGN"}</Button>
+                  <p className="m-small">{msg("fold.leash.newLeashSheet.transactionsInOrder", { n: signCount, list: [...(created.stile?.deployment ? [created.stile.deployment.label] : []), ...created.transactions.map((x) => x.label)].join("; ") })}</p>
+                  <Button onClick={() => void sign()} disabled={busy}>{busy ? msg("fold.leash.newLeashSheet.waitingForYourWallet") : wallet.connected ? msg("fold.leash.newLeashSheet.signOnce") : msg("fold.leash.newLeashSheet.connectToSign")}</Button>
                 </>
               )}
             </div>
@@ -376,15 +377,15 @@ export function NewLeashSheet({ open, owner, draft, spendFrom, onClose, onCreate
         ) : null}
 
         <div className="fd-newleash__foot">
-          {phase === "who" ? <Button tone="ghost" onClick={close}>{"CANCEL"}</Button> : null}
-          {phase === "from" ? <Button tone="ghost" onClick={() => setPhase("who")}>{"BACK"}</Button> : null}
-          {phase === "limits" ? <Button tone="ghost" onClick={() => setPhase("from")}>{"BACK"}</Button> : null}
-          {phase === "review" ? <Button tone="ghost" onClick={() => setPhase("limits")}>{"BACK"}</Button> : null}
-          {phase === "who" || phase === "from" || phase === "limits" ? <Button tone="sea" onClick={next}>{"NEXT"}</Button> : null}
+          {phase === "who" ? <Button tone="ghost" onClick={close}>{msg("fold.leash.newLeashSheet.cancel")}</Button> : null}
+          {phase === "from" ? <Button tone="ghost" onClick={() => setPhase("who")}>{msg("fold.leash.newLeashSheet.back")}</Button> : null}
+          {phase === "limits" ? <Button tone="ghost" onClick={() => setPhase("from")}>{msg("fold.leash.newLeashSheet.back")}</Button> : null}
+          {phase === "review" ? <Button tone="ghost" onClick={() => setPhase("limits")}>{msg("fold.leash.newLeashSheet.back")}</Button> : null}
+          {phase === "who" || phase === "from" || phase === "limits" ? <Button tone="sea" onClick={next}>{msg("fold.leash.newLeashSheet.next")}</Button> : null}
           {phase === "review" ? (
-            <Button tone="sea" onClick={() => void create()} disabled={busy}>{busy ? "MAKING IT…" : owner.sample ? "CONNECT TO CREATE" : "CREATE THE LEASH"}</Button>
+            <Button tone="sea" onClick={() => void create()} disabled={busy}>{busy ? msg("fold.leash.newLeashSheet.makingIt") : owner.sample ? msg("fold.leash.newLeashSheet.connectToCreate") : "CREATE THE LEASH"}</Button>
           ) : null}
-          {phase === "keys" ? <Button tone="ghost" onClick={close}>{"I STORED THEM"}</Button> : null}
+          {phase === "keys" ? <Button tone="ghost" onClick={close}>{msg("fold.leash.newLeashSheet.iStoredThem")}</Button> : null}
         </div>
       </div>
     </Sheet>,

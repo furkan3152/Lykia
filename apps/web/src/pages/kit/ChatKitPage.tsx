@@ -1,3 +1,4 @@
+// i18n-ignore-file: design kit for reviewing states during development; its fixtures stand in for API answers.
 /**
  * The chat kit (development only, /app/kit/chat): every Ask Lyko card and
  * every state of "Lyko at work" with sample data, so each can be checked

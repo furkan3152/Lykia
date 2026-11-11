@@ -8,6 +8,8 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 import type { Clock } from "../clock.js";
 import type { Logger } from "../log.js";
 import { describeUpstream, mapError, type LykiaHttpError } from "./errors.js";
+import type { ErrorEnvelope } from "./errors.js";
+import { CATALOGUES, currentLocale, requestLocale, t, type MessageKey } from "../i18n/index.js";
 
 const REQUEST_ID_HEADER = "x-request-id";
 /** Incoming ids are echoed only when they look like ids (no spaces or control characters: they reach the logs). */
@@ -105,7 +107,20 @@ export function sendError(req: Request, res: Response, error: unknown, log?: Log
   if (failure.status === 401 && !res.getHeader("WWW-Authenticate")) {
     res.setHeader("WWW-Authenticate", 'Bearer realm="lykia"');
   }
-  res.status(failure.status).json(failure.envelope(requestId));
+  res.status(failure.status).json(localizedEnvelope(failure.envelope(requestId), failure.status, req));
+}
+
+/**
+ * The envelope in the request's language: the code stays an English constant;
+ * the message is the code's message in that language (English keeps the
+ * specific message the route wrote).
+ */
+function localizedEnvelope(envelope: ErrorEnvelope, status: number, req: Request): ErrorEnvelope {
+  const locale = currentLocale() !== "en" ? currentLocale() : requestLocale({ header: req.get("accept-language"), query: req.query });
+  if (locale === "en") return envelope;
+  const byCode = `error.code.${envelope.error.code}`;
+  const key = (byCode in CATALOGUES.en ? byCode : status >= 500 ? "error.generic.5xx" : `error.generic.${status}` in CATALOGUES.en ? `error.generic.${status}` : "error.generic.400") as MessageKey;
+  return { error: { ...envelope.error, message: t(key, undefined, locale) } };
 }
 
 /** Express error middleware built on `sendError`. */

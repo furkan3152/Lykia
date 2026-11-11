@@ -118,7 +118,7 @@ describe("Lyko at work", () => {
       { id: "c", kind: "route", label: "x", state: "ok" },
       { id: "d", kind: "fence", label: "x", state: "ok" },
     ];
-    assert.equal(trailSummary(steps, 1800), "Checked 4 things · 1 flag · 1.8s");
+    assert.equal(trailSummary(steps), "Checked 4 things · 1 flag");
     assert.equal(trailSummary(steps.slice(0, 1)), "Checked 1 thing");
     assert.equal(formatMs(640), "640ms");
     assert.equal(formatMs(12_400), "12s");

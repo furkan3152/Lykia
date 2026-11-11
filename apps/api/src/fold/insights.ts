@@ -6,6 +6,7 @@
  * when there is a sensible move, a one-tap draft that goes through the
  * proposal system. Unpriced holdings are flagged, never counted as zero.
  */
+import { intlTag } from "../i18n/format.js";
 import { ownerFence } from "../personal/fence.js";
 import { assessToken, currentMix, genericPositionInsights, fenceForProfile, fromBaseUnits, riskTierOf, type Address, type ArcEnvironment, type FoldInsightKind, type FoldPreferences, type IntentGraph, type Position, type PositionsResponse } from "@lykia/core";
 import type { PackAgentView } from "@lykia/core/api/agents";
@@ -31,7 +32,8 @@ import type { BlockSource } from "@lykia/core/api/answer";
 import type { Finding } from "@lykia/core";
 import { watchPreflight } from "../preflight/service.js";
 
-const usd = (n: number) => `$${n.toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: n > 0 && n < 1 ? 2 : 0 })}`;
+import { tx } from "@lykia/core";
+const usd = (n: number) => `$${n.toLocaleString(intlTag(), { maximumFractionDigits: 2, minimumFractionDigits: n > 0 && n < 1 ? 2 : 0 })}`;
 const amount = (n: number) => (n >= 100 ? String(Math.floor(n)) : n.toFixed(2).replace(/\.?0+$/u, ""));
 const num = (v: string | null | undefined) => (v === null || v === undefined ? null : Number(v));
 const RISK_WORD = { careful: "low", balanced: "medium", bold: "high" } as const;
@@ -118,10 +120,10 @@ export function computeInsights(input: InsightInputs): Omit<FoldInsight, "handle
       id: "idle-usdc",
       kind: "idle-usdc",
       severity: idle >= 1000 ? "act" : "watch",
-      title: `${usd(idle)} of USDC is resting above your floor`,
-      explain: `Your wallet keeps ${usd(floor)} liquid for gas and payments. The rest earns nothing while it sits; a ${risk}-risk lending market or vault on Arc can hold it and you can withdraw any time.`,
-      figures: figures(["USDC in your wallet", usd(usdc)], ["Your liquidity floor", usd(floor)], ["Idle above the floor", usd(idle)], ["Risk profile", prefs.risk]),
-      draft: { label: "Put it to work", sentence: `Put ${amount(idle)} USDC to work at ${risk} risk` },
+      title: tx("{amount} of USDC is resting above your floor", { amount: usd(idle) }),
+      explain: tx("Your wallet keeps {amount} liquid for gas and payments. The rest earns nothing while it sits; a {risk}-risk lending market or vault on Arc can hold it and you can withdraw any time.", { amount: usd(floor), risk }),
+      figures: figures([tx("USDC in your wallet"), usd(usdc)], [tx("Your liquidity floor"), usd(floor)], [tx("Idle above the floor"), usd(idle)], [tx("Risk profile"), prefs.risk]),
+      draft: { label: tx("Put it to work"), sentence: tx("Put {idle} USDC to work at {risk} risk", { idle: amount(idle), risk }) },
     });
   }
 
@@ -133,7 +135,7 @@ export function computeInsights(input: InsightInputs): Omit<FoldInsight, "handle
     const hf = num(h.healthFactor);
     const id = fromMap ? `health-${h.account.replace(/[^a-z0-9-]+/giu, "-").slice(0, 60)}` : `health-${h.venue}`;
     if (hf === null) {
-      out.push({ id, kind: "health-factor", severity: "watch", title: `The health factor on ${h.label} could not be read`, explain: "Without it nobody can judge how close the position is to liquidation, so the Fence refuses new borrowing there until it reads again.", figures: figures(["Venue", h.label], ["Health factor", "unknown"]), draft: null });
+      out.push({ id, kind: "health-factor", severity: "watch", title: tx("The health factor on {label} could not be read", { label: h.label }), explain: tx("Without it nobody can judge how close the position is to liquidation, so the Fence refuses new borrowing there until it reads again."), figures: figures([tx("Venue"), h.label], [tx("Health factor"), "unknown"]), draft: null });
       continue;
     }
     if (hf >= input.minHealthFactor * 1.25) continue;
@@ -144,10 +146,10 @@ export function computeInsights(input: InsightInputs): Omit<FoldInsight, "handle
       id,
       kind: "health-factor",
       severity: hf < input.minHealthFactor + 0.1 ? "act" : "watch",
-      title: `Health factor ${hf.toFixed(2)} on ${h.label}`,
-      explain: `Your Fence floor is ${input.minHealthFactor}. A price move could push the position under it and toward liquidation. Repaying part of the debt, or adding collateral, raises it.`,
-      figures: figures(["Health factor now", hf.toFixed(2)], ["Your Fence floor", String(input.minHealthFactor)], ["Debt on this venue", debtUsd > 0 ? usd(debtUsd) : "unknown"], ...(repay > 0 ? ([["Repaying a quarter", usd(repay)]] as [string, string][]) : [])),
-      draft: repay >= 1 ? { label: "Repay a quarter", sentence: `Repay ${amount(repay)} ${debt?.symbol ?? "USDC"} on ${h.venue}` } : null,
+      title: tx("Health factor {value} on {label}", { value: hf.toFixed(2), label: h.label }),
+      explain: tx("Your Fence floor is {minHealthFactor}. A price move could push the position under it and toward liquidation. Repaying part of the debt, or adding collateral, raises it.", { minHealthFactor: input.minHealthFactor }),
+      figures: figures([tx("Health factor now"), hf.toFixed(2)], [tx("Your Fence floor"), String(input.minHealthFactor)], [tx("Debt on this venue"), debtUsd > 0 ? usd(debtUsd) : "unknown"], ...(repay > 0 ? ([[tx("Repaying a quarter"), usd(repay)]] as [string, string][]) : [])),
+      draft: repay >= 1 ? { label: tx("Repay a quarter"), sentence: tx("Repay {repay} {value} on {venue}", { repay: amount(repay), value: debt?.symbol ?? "USDC", venue: h.venue }) } : null,
     });
   }
 
@@ -162,10 +164,10 @@ export function computeInsights(input: InsightInputs): Omit<FoldInsight, "handle
         id: "fx-drift",
         kind: "fx-drift",
         severity: Math.abs(drift) > prefs.targetMix.bandPct * 2 ? "act" : "watch",
-        title: `EURC is ${Math.round(mix.eurcPct)}% of the Flock; your target is ${prefs.targetMix.eurcPct}%`,
-        explain: `You asked Lyko to keep EURC within ${prefs.targetMix.bandPct} points of ${prefs.targetMix.eurcPct}%. ${over ? "Converting part of the EURC to USDC" : "Converting some USDC to EURC"} brings it back, inside your Fence's FX band.`,
-        figures: figures(["EURC share now", `${mix.eurcPct}%`], ["Your target", `${prefs.targetMix.eurcPct}% ± ${prefs.targetMix.bandPct}`], ["To convert", usd(moveUsd)]),
-        draft: { label: over ? "Convert to USDC" : "Convert to EURC", sentence: over ? `Convert ${amount(moveUsd / Math.max(0.5, Number(snap.prices.EURC?.usd ?? "1.1")))} EURC to USDC` : `Convert ${amount(moveUsd)} USDC to EURC` },
+        title: tx("EURC is {eurcPct}% of the Flock; your target is {eurcPct2}%", { eurcPct: Math.round(mix.eurcPct), eurcPct2: prefs.targetMix.eurcPct }),
+        explain: tx("You asked Lyko to keep EURC within {bandPct} points of {eurcPct}%. {value} brings it back, inside your Fence's FX band.", { bandPct: prefs.targetMix.bandPct, eurcPct: prefs.targetMix.eurcPct, value: over ? tx("Converting part of the EURC to USDC") : tx("Converting some USDC to EURC") }),
+        figures: figures([tx("EURC share now"), `${mix.eurcPct}%`], [tx("Your target"), `${prefs.targetMix.eurcPct}% ± ${prefs.targetMix.bandPct}`], [tx("To convert"), usd(moveUsd)]),
+        draft: { label: over ? tx("Convert to USDC") : tx("Convert to EURC"), sentence: over ? tx("Convert {value} EURC to USDC", { value: amount(moveUsd / Math.max(0.5, Number(snap.prices.EURC?.usd ?? "1.1"))) }) : tx("Convert {moveUsd} USDC to EURC", { moveUsd: amount(moveUsd) }) },
       });
     }
   }
@@ -182,10 +184,10 @@ export function computeInsights(input: InsightInputs): Omit<FoldInsight, "handle
         id: "runway",
         kind: "runway",
         severity: due > liquid ? "act" : "watch",
-        title: due > liquid ? `Scheduled payments need ${usd(short)} more than you hold liquid` : "Scheduled payments will use most of your liquid balance",
-        explain: `In the next 30 days your recurring instructions send about ${usd(due)}. ${earning ? "Withdrawing from an earning position" : "Topping up the wallet"} keeps them from failing, or you can pause one in Herding.`,
-        figures: figures(["Due in 30 days", usd(due)], ["Liquid USDC and EURC", usd(liquid)], ["Instructions", String(input.standing.filter((s) => s.active).length)]),
-        draft: earning && short > 0 ? { label: "Withdraw the gap", sentence: `Withdraw ${amount(short)} USDC from my vault` } : null,
+        title: due > liquid ? tx("Scheduled payments need {amount} more than you hold liquid", { amount: usd(short) }) : tx("Scheduled payments will use most of your liquid balance"),
+        explain: tx("In the next 30 days your recurring instructions send about {amount}. {value} keeps them from failing, or you can pause one in Herding.", { amount: usd(due), value: earning ? tx("Withdrawing from an earning position") : tx("Topping up the wallet") }),
+        figures: figures([tx("Due in 30 days"), usd(due)], [tx("Liquid USDC and EURC"), usd(liquid)], [tx("Instructions"), String(input.standing.filter((s) => s.active).length)]),
+        draft: earning && short > 0 ? { label: tx("Withdraw the gap"), sentence: tx("Withdraw {short} USDC from my vault", { short: amount(short) }) } : null,
       });
     }
   }
@@ -197,10 +199,10 @@ export function computeInsights(input: InsightInputs): Omit<FoldInsight, "handle
       id: "approval-hygiene",
       kind: "approval-hygiene",
       severity: unlimited > 0 ? "act" : "watch",
-      title: `${input.approvals.length} token approval${input.approvals.length === 1 ? "" : "s"} left open`,
-      explain: "Lykia's own steps approve exact amounts that the same transaction spends, so these are left from elsewhere. Each is a standing door an exploit at that venue could walk through. Revoking closes it.",
+      title: tx("{length, plural, one {# token approval} other {# token approvals}} left open", { length: input.approvals.length }),
+      explain: tx("Lykia's own steps approve exact amounts that the same transaction spends, so these are left from elsewhere. Each is a standing door an exploit at that venue could walk through. Revoking closes it."),
       figures: input.approvals.slice(0, 6).map((a) => ({ label: a.title, value: a.severity === "act" ? "unlimited" : "limited" })),
-      draft: { label: `Revoke ${input.approvals.length === 1 ? "it" : "all"}`, sentence: null, transactions: input.approvals.flatMap((a) => a.transactions ?? []) },
+      draft: { label: input.approvals.length === 1 ? tx("Revoke it") : tx("Revoke all"), sentence: null, transactions: input.approvals.flatMap((a) => a.transactions ?? []) },
     });
   }
 
@@ -209,7 +211,7 @@ export function computeInsights(input: InsightInputs): Omit<FoldInsight, "handle
     if (h.kind !== "token") continue;
     const trust = assessToken({ environment: snap.environment, address: h.token, symbol: h.symbol });
     if (trust.status === "verified") continue;
-    out.push({ id: `scent-${h.token.toLowerCase()}`, kind: "scent-warning", severity: trust.status === "lookalike" ? "act" : "watch", title: `${h.symbol} has red flags`, explain: `${trust.warning} Lyko keeps it out of every plan unless your Fence allows unlisted tokens.`, figures: figures(["Token", h.symbol], ["Address", `${h.token.slice(0, 8)}…${h.token.slice(-4)}`], ["Check", trust.status]), draft: null });
+    out.push({ id: `scent-${h.token.toLowerCase()}`, kind: "scent-warning", severity: trust.status === "lookalike" ? "act" : "watch", title: tx("{symbol} has red flags", { symbol: h.symbol }), explain: tx("{warning} Lyko keeps it out of every plan unless your Fence allows unlisted tokens.", { warning: trust.warning }), figures: figures([tx("Token"), h.symbol], [tx("Address"), `${h.token.slice(0, 8)}…${h.token.slice(-4)}`], [tx("Check"), trust.status]), draft: null });
   }
 
   // Preflight's watch side: gas nearly empty, stranded tokens, dust, what is due this week, a stuck bridge.
@@ -218,7 +220,7 @@ export function computeInsights(input: InsightInputs): Omit<FoldInsight, "handle
   if (!input.watch) try {
     const gas = Number(fromBaseUnits(BigInt(snap.native.usdc18), 18));
     const gasFloor = Number(prefs.gasFloorUsdc);
-    if (gas < gasFloor && (total ?? 0) > 0) out.push({ id: "gas-floor", kind: "gas-floor", severity: gas < gasFloor / 4 ? "act" : "watch", title: `Gas is down to ${gas.toFixed(3)} USDC`, explain: `Arc pays gas in USDC. Below your floor of ${gasFloor} USDC a plan may stop halfway. Keep a little USDC in the wallet itself.`, figures: figures(["Gas balance", `${gas.toFixed(4)} USDC`], ["Your gas floor", `${gasFloor} USDC`]), draft: null });
+    if (gas < gasFloor && (total ?? 0) > 0) out.push({ id: "gas-floor", kind: "gas-floor", severity: gas < gasFloor / 4 ? "act" : "watch", title: tx("Gas is down to {value} USDC", { value: gas.toFixed(3) }), explain: tx("Arc pays gas in USDC. Below your floor of {gasFloor} USDC a plan may stop halfway. Keep a little USDC in the wallet itself.", { gasFloor }), figures: figures([tx("Gas balance"), `${gas.toFixed(4)} USDC`], [tx("Your gas floor"), `${gasFloor} USDC`]), draft: null });
   } catch {
     /* malformed native balance: skip */
   }
@@ -228,7 +230,7 @@ export function computeInsights(input: InsightInputs): Omit<FoldInsight, "handle
   if (input.spentDayUsd !== null && caps.length > 0) {
     const cap = Math.min(...caps);
     const used = input.spentDayUsd / cap;
-    if (used >= 0.8) out.push({ id: "beta-headroom", kind: "beta-headroom", severity: used >= 0.95 ? "act" : "watch", title: `${Math.round(used * 100)}% of today's cap is used`, explain: `Plans above the ${usd(Math.max(0, cap - input.spentDayUsd))} that is left today are refused until the day resets (UTC). ${cap === input.betaDayUsd ? "This is the beta cap that sits above every Fence while the contracts are unaudited." : "This is your Fence's daily cap."}`, figures: figures(["Spent today", usd(input.spentDayUsd)], ["Daily cap", usd(cap)], ["Left today", usd(Math.max(0, cap - input.spentDayUsd))]), draft: null });
+    if (used >= 0.8) out.push({ id: "beta-headroom", kind: "beta-headroom", severity: used >= 0.95 ? "act" : "watch", title: tx("{value}% of today's cap is used", { value: Math.round(used * 100) }), explain: tx("Plans above the {amount} that is left today are refused until the day resets (UTC). {value}", { amount: usd(Math.max(0, cap - input.spentDayUsd)), value: cap === input.betaDayUsd ? tx("This is the beta cap that sits above every Fence while the contracts are unaudited.") : tx("This is your Fence's daily cap.") }), figures: figures([tx("Spent today"), usd(input.spentDayUsd)], [tx("Daily cap"), usd(cap)], [tx("Left today"), usd(Math.max(0, cap - input.spentDayUsd))]), draft: null });
   }
 
   // order-near-trigger: an order within 2% of its trigger price.
@@ -237,7 +239,7 @@ export function computeInsights(input: InsightInputs): Omit<FoldInsight, "handle
     const price = num(snap.prices[o.symbol]?.usd);
     if (price === null || price <= 0) continue;
     const gap = Math.abs(price - o.trigger) / o.trigger;
-    if (gap <= 0.02) out.push({ id: `order-${o.hash.slice(0, 18)}`, kind: "order-near-trigger", severity: "info", title: `${o.summary}: ${(gap * 100).toFixed(1)}% from its trigger`, explain: "A keeper fills it on the next pass once the price crosses, within the limits you signed.", figures: figures(["Price now", `$${price.toFixed(4)}`], ["Trigger", `$${o.trigger.toFixed(4)} (${o.above ? "above" : "below"})`]), draft: null });
+    if (gap <= 0.02) out.push({ id: `order-${o.hash.slice(0, 18)}`, kind: "order-near-trigger", severity: "info", title: tx("{summary}: {value}% from its trigger", { summary: o.summary, value: (gap * 100).toFixed(1) }), explain: tx("A keeper fills it on the next pass once the price crosses, within the limits you signed."), figures: figures([tx("Price now"), `$${price.toFixed(4)}`], [tx("Trigger"), `$${o.trigger.toFixed(4)} (${o.above ? "above" : "below"})`]), draft: null });
   }
 
   // agent-budget: an agent near its daily budget.
@@ -246,20 +248,20 @@ export function computeInsights(input: InsightInputs): Omit<FoldInsight, "handle
     const cap = num(a.budget.caps.dailyUsd);
     const spent = num(a.budget.spent.dayUsd) ?? 0;
     if (!cap || cap <= 0 || spent / cap < 0.8) continue;
-    out.push({ id: `agent-${a.id}`, kind: "agent-budget", severity: spent >= cap ? "act" : "watch", title: `${a.name} has used ${Math.round((spent / cap) * 100)}% of today's budget`, explain: "Its next moves are refused once the budget is spent. Raise it by asking Lyko (your wallet signs a looser Fence), or let it rest until tomorrow.", figures: figures(["Spent today", usd(spent)], ["Daily budget", usd(cap)], ["Role", a.role]), draft: null });
+    out.push({ id: `agent-${a.id}`, kind: "agent-budget", severity: spent >= cap ? "act" : "watch", title: tx("{name} has used {value}% of today's budget", { name: a.name, value: Math.round((spent / cap) * 100) }), explain: tx("Its next moves are refused once the budget is spent. Raise it by asking Lyko (your wallet signs a looser Fence), or let it rest until tomorrow."), figures: figures([tx("Spent today"), usd(spent)], [tx("Daily budget"), usd(cap)], [tx("Role"), a.role]), draft: null });
   }
 
   // unsettled: steps still in flight.
   const inFlight = input.intents.flatMap((g) => g.steps.filter((s) => s.status === "submitted" || s.status === "settling").map((s) => ({ g, s })));
   if (inFlight.length > 0) {
     const cross = inFlight.filter(({ s }) => s.settlement.kind !== "receipt").length;
-    out.push({ id: "unsettled", kind: "unsettled", severity: "info", title: `${inFlight.length} step${inFlight.length === 1 ? " is" : "s are"} still settling`, explain: cross > 0 ? "A cross-chain mint (CCTP or Gateway) takes a few minutes to land. Lyko tracks it and marks it done in Trails." : "Arc usually settles in under a second; Lyko checks the receipt and marks it done in Trails.", figures: inFlight.slice(0, 4).map(({ s }) => ({ label: s.summary, value: s.status })), draft: null });
+    out.push({ id: "unsettled", kind: "unsettled", severity: "info", title: tx("{length, plural, one {# step is} other {# steps are}} still settling", { length: inFlight.length }), explain: cross > 0 ? tx("A cross-chain mint (CCTP or Gateway) takes a few minutes to land. Lyko tracks it and marks it done in Trails.") : tx("Arc usually settles in under a second; Lyko checks the receipt and marks it done in Trails."), figures: inFlight.slice(0, 4).map(({ s }) => ({ label: s.summary, value: s.status })), draft: null });
   }
 
   // yield-change: a better low-risk rate, after fees, than where the money earns now.
   if (input.bestLowRiskApy && input.heldApy && input.bestLowRiskApy.apy - input.heldApy.apy >= 0.75 && input.heldApy.usd >= 100) {
     const gain = (input.heldApy.usd * (input.bestLowRiskApy.apy - input.heldApy.apy)) / 100 - input.heldApy.usd * 0.01 * 2;
-    if (gain > 0) out.push({ id: "yield-change", kind: "yield-change", severity: "info", title: `${input.bestLowRiskApy.name} pays ${input.bestLowRiskApy.apy.toFixed(2)}%`, explain: `Your ${input.heldApy.name} position earns ${input.heldApy.apy.toFixed(2)}%. Moving it gains about ${usd(gain)} a year after Lykia's fee on both legs.`, figures: figures(["Earning now", `${input.heldApy.apy.toFixed(2)}%`], ["Best low-risk", `${input.bestLowRiskApy.apy.toFixed(2)}%`], ["Position", usd(input.heldApy.usd)], ["Yearly gain after fees", usd(gain)]), draft: { label: "Move it", sentence: `Withdraw ${amount(input.heldApy.usd)} USDC from ${/Aave/u.test(input.heldApy.name) ? (input.heldApy.name.split(" · ")[0] ?? "Aave V4") : "my vault"} and put it to work at low risk` } });
+    if (gain > 0) out.push({ id: "yield-change", kind: "yield-change", severity: "info", title: tx("{name} pays {value}%", { name: input.bestLowRiskApy.name, value: input.bestLowRiskApy.apy.toFixed(2) }), explain: tx("Your {name} position earns {value}%. Moving it gains about {amount} a year after Lykia's fee on both legs.", { name: input.heldApy.name, value: input.heldApy.apy.toFixed(2), amount: usd(gain) }), figures: figures([tx("Earning now"), `${input.heldApy.apy.toFixed(2)}%`], [tx("Best low-risk"), `${input.bestLowRiskApy.apy.toFixed(2)}%`], [tx("Position"), usd(input.heldApy.usd)], [tx("Yearly gain after fees"), usd(gain)]), draft: { label: tx("Move it"), sentence: tx("Withdraw {usd} USDC from {value} and put it to work at low risk", { usd: amount(input.heldApy.usd), value: /Aave/u.test(input.heldApy.name) ? (input.heldApy.name.split(" · ")[0] ?? "Aave V4") : tx("my vault") }) } });
   }
 
   // lp-out-of-range: liquidity that earns no fees until the price comes back into its band.
@@ -271,9 +273,9 @@ export function computeInsights(input: InsightInputs): Omit<FoldInsight, "handle
       id: `lp-${p.id.split(":").slice(-1)[0]}-${p.venue}`.slice(0, 80),
       kind: "lp-out-of-range",
       severity: value >= 500 ? "watch" : "info",
-      title: `${p.label} is out of range`,
-      explain: `The price is ${p.range.price} ${p.range.quote}, outside your ${p.range.lower}–${p.range.upper} band, so this liquidity earns no fees and sits in one token. Moving the range or removing the liquidity puts it back to work; Lykia cannot do that in one step yet, so Lyko can walk you through it.`,
-      figures: figures(["Price now", `${p.range.price} ${p.range.quote}`], ["Your band", `${p.range.lower}–${p.range.upper}`], ["Value", usd(value)]),
+      title: tx("{label} is out of range", { label: p.label }),
+      explain: tx("The price is {price} {quote}, outside your {lower}–{upper} band, so this liquidity earns no fees and sits in one token. Moving the range or removing the liquidity puts it back to work; Lykia cannot do that in one step yet, so Lyko can walk you through it.", { price: p.range.price, quote: p.range.quote, lower: p.range.lower, upper: p.range.upper }),
+      figures: figures([tx("Price now"), `${p.range.price} ${p.range.quote}`], [tx("Your band"), `${p.range.lower}–${p.range.upper}`], [tx("Value"), usd(value)]),
       draft: null,
     });
   }
@@ -282,7 +284,7 @@ export function computeInsights(input: InsightInputs): Omit<FoldInsight, "handle
   for (const p of (input.positions?.venues ?? []).flatMap((v) => v.positions)) {
     if (p.state !== "escrowed" || !p.facts?.some((f) => f.label === "Expiring")) continue;
     const expires = p.facts.find((f) => f.label === "Expires")?.value ?? null;
-    out.push({ id: `order-expiring-${p.id.slice(-12)}`, kind: "order-expiring", severity: "watch", title: `${p.label} expires within a day`, explain: "If it does not fill before its deadline, nothing happens and the reserved amount stays in your wallet. Sign a new order to keep it running.", figures: figures(["Reserved", `${p.amount} ${p.symbol}`], ...(expires ? ([["Expires", expires]] as [string, string][]) : [])), draft: null });
+    out.push({ id: `order-expiring-${p.id.slice(-12)}`, kind: "order-expiring", severity: "watch", title: tx("{label} expires within a day", { label: p.label }), explain: tx("If it does not fill before its deadline, nothing happens and the reserved amount stays in your wallet. Sign a new order to keep it running."), figures: figures([tx("Reserved"), `${p.amount} ${p.symbol}`], ...(expires ? ([[tx("Expires"), expires]] as [string, string][]) : [])), draft: null });
   }
 
   // Every other kind, generically from its detail blocks: near a threshold, something to claim, about to end, sitting idle.
@@ -350,7 +352,7 @@ async function gatherInputs(ctx: AppContext, environment: ArcEnvironment, owner:
         const trigger = Number(o.order.triggerPrice) / 1e8;
         return { hash: o.hash, summary: o.summary, symbol, trigger: Number.isFinite(trigger) && trigger > 0 ? trigger : null, above: o.order.triggerAbove };
       }),
-    bestLowRiskApy: lowRisk ? { name: lowRisk.name || "A Morpho vault", apy: Number(lowRisk.apy) * 100 } : null,
+    bestLowRiskApy: lowRisk ? { name: lowRisk.name || tx("A Morpho vault"), apy: Number(lowRisk.apy) * 100 } : null,
     heldApy,
     positions,
     watch: await settle(watchPreflight(ctx, environment, owner, snap, intents.filter((g) => g.environment === environment), personal), null),
@@ -378,7 +380,7 @@ export async function foldInsights(ctx: AppContext, environment: ArcEnvironment,
     const last = (await seen(ctx).get(owner.toLowerCase()).catch(() => null))?.value ?? null;
     if (last) {
       const fresh = insights.filter((i) => !i.handled && last.titles[i.id] !== i.title).map((i) => i.title);
-      const finished = (await listProposals(ctx, owner, { reconcile: false }).catch(() => [])).filter((p) => (p.status === "done" || p.status === "stopped") && p.updatedAt > last.at).map((p) => `${p.status === "done" ? "Done" : "Stopped"}: ${p.title}`);
+      const finished = (await listProposals(ctx, owner, { reconcile: false }).catch(() => [])).filter((p) => (p.status === "done" || p.status === "stopped") && p.updatedAt > last.at).map((p) => `${p.status === "done" ? tx("Done") : tx("Stopped")}: ${p.title}`);
       brief = { since: last.at, lines: [...fresh, ...finished].slice(0, 5) };
     }
   }

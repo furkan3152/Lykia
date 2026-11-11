@@ -8,6 +8,7 @@ import { fmtUsd, untilText, type PositionBlock } from "@lykia/core";
 
 import { cx } from "../../../mosaic";
 import { Hint } from "../../help/Help";
+import { intlLocale, t } from "../../../i18n";
 
 function Gauge({ b }: { readonly b: Extract<PositionBlock, { type: "gauge" }> }) {
   const n = 20;
@@ -26,7 +27,7 @@ function Gauge({ b }: { readonly b: Extract<PositionBlock, { type: "gauge" }> })
         {Array.from({ length: n }, (_, i) => <i key={i} data-f={i < Math.round(fill * n)} />)}
         {at !== null ? <span className="pb-gauge__mark" aria-hidden="true" /> : null}
       </div>
-      {b.threshold ? <span className="pb-legend">{`The mark is ${b.threshold.label}.`}</span> : null}
+      {b.threshold ? <span className="pb-legend">{t("fold.positions.blocks.theMarkIs", { label: b.threshold.label })}</span> : null}
       {b.meaning ? <p className="pb-mean">{b.meaning}</p> : null}
     </div>
   );
@@ -65,7 +66,7 @@ function Timeline({ b, now }: { readonly b: Extract<PositionBlock, { type: "time
           <li key={s.label} data-done={s.done}>
             <i aria-hidden="true" />
             <span>{s.label}</span>
-            {s.at ? <small className="num">{s.done ? new Date(s.at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : untilText(s.at, now)}</small> : null}
+            {s.at ? <small className="num">{s.done ? new Date(s.at).toLocaleDateString(intlLocale(), { day: "numeric", month: "short" }) : untilText(s.at, now)}</small> : null}
           </li>
         ))}
       </ol>
@@ -95,7 +96,7 @@ function Countdown({ b, now }: { readonly b: Extract<PositionBlock, { type: "cou
     <div className="pb-countdown" data-soon={Date.parse(b.until) - now < 72 * 3_600_000 || undefined}>
       <span className="m-kick">{b.label.toUpperCase()}</span>
       <b className="num">{untilText(b.until, now)}</b>
-      <small className="num">{new Date(b.until).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</small>
+      <small className="num">{new Date(b.until).toLocaleString(intlLocale(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</small>
       {b.meaning ? <p className="pb-mean">{b.meaning}</p> : null}
     </div>
   );

@@ -8,6 +8,7 @@
  * the router ranks with; the risk class is Lykia's (riskFromTvl, the floor
  * the router applies). When the API does not answer, the APY is left out.
  */
+import { intlTag } from "../i18n/format.js";
 import { classifyPosition, riskFromTvl, TOKENS, tokenAddress, type Position } from "@lykia/core";
 import { PRACTICE_LENDING_ABI } from "../engine/abis.js";
 import { practiceVenues } from "../engine/venues/practice.js";
@@ -15,7 +16,8 @@ import { wadToRatio } from "../engine/venues/aave.js";
 import { ERC4626_ABI, morphoVaults, vaultVenue } from "../flock/flock.js";
 import { action, addressLink, asset, finish, fractionToPercent, sentenceAmount, valued, VenueUnavailable, type Reader } from "./context.js";
 
-const RISK_WORD = { low: "Low", medium: "Medium", high: "High" } as const;
+import { tx, phrase } from "@lykia/core";
+const RISK_WORD = { low: phrase("Low"), medium: phrase("Medium"), high: phrase("High") } as const;
 
 /**
  * One reader for Morpho Vault V2 shares, run per venue: a curator's venue
@@ -34,8 +36,8 @@ export const readMorphoVaults: Reader = async (r, venue) => {
   if (failed === vaults.length) throw new VenueUnavailable("The Morpho vaults did not answer.");
   const held = vaults.map((v, i) => ({ vault: v, shares: shares[i]?.status === "success" ? (shares[i]!.result as bigint) : 0n })).filter((h) => h.shares > 0n);
   const block = (await client.getBlockNumber()).toString();
-  const method = `balanceOf on the ${vaults.length} registry vaults, then convertToAssets (ERC-4626); name, curator and APY from the Morpho API.`;
-  if (held.length === 0) return { positions: [], block, method, source: "chain", ...(failed > 0 ? { coverage: `${failed} vault(s) did not answer this time.` } : {}) };
+  const method = tx("balanceOf on the {length} registry vaults, then convertToAssets (ERC-4626); name, curator and APY from the Morpho API.", { length: vaults.length });
+  if (held.length === 0) return { positions: [], block, method, source: "chain", ...(failed > 0 ? { coverage: tx("{failed} vault(s) did not answer this time.", { failed }) } : {}) };
   const [assets, rates] = await Promise.all([client.multicall({ contracts: held.map((h) => ({ address: h.vault.address, abi: ERC4626_ABI, functionName: "convertToAssets", args: [h.shares] }) as const), allowFailure: true }), r.rates()]);
   const prices = await r.prices(held.map((h) => h.vault.asset));
   const positions: Position[] = [];
@@ -65,13 +67,13 @@ export const readMorphoVaults: Reader = async (r, venue) => {
         state: classifyPosition({ kind: "vault", apyPercent: apy === null ? null : Number(apy) }),
         ...(apy !== null ? { apy: { percent: apy, kind: "vault" as const, source: "Morpho API (net of fees)" } } : {}),
         facts: [
-          { label: "Curator", value: rate?.curators && rate.curators.length > 0 ? rate.curators.join(", ") : (h.vault.curator?.name ?? "not listed") },
-          { label: "Vault", value: "Morpho Vault V2 (ERC-4626)" },
-          { label: "Lykia risk class", value: `${RISK_WORD[risk]} (by vault size)` },
-          { label: "Vault size", value: tvl === null ? "unknown" : `$${Math.round(tvl).toLocaleString("en-US")}` },
-          { label: "Shares", value: h.shares.toString() },
+          { label: tx("Curator"), value: rate?.curators && rate.curators.length > 0 ? rate.curators.join(", ") : (h.vault.curator?.name ?? tx("not listed")) },
+          { label: tx("Vault"), value: tx("Morpho Vault V2 (ERC-4626)") },
+          { label: tx("Lykia risk class"), value: tx("{value} (by vault size)", { value: RISK_WORD[risk] }) },
+          { label: tx("Vault size"), value: tvl === null ? "unknown" : `$${Math.round(tvl).toLocaleString(intlTag())}` },
+          { label: tx("Shares"), value: h.shares.toString() },
         ],
-        actions: [action("withdraw", "Withdraw half", `Withdraw ${sentenceAmount(amount / 2)} ${token.symbol} from Morpho ${h.vault.id}`), ...(token.symbol === "USDC" ? [action("move-rate", "Move to a better rate", `Withdraw ${sentenceAmount(amount)} USDC from my vault and put it to work at low risk`)] : [])],
+        actions: [action("withdraw", tx("Withdraw half"), tx("Withdraw {value} {symbol} from Morpho {id}", { value: sentenceAmount(amount / 2), symbol: token.symbol, id: h.vault.id })), ...(token.symbol === "USDC" ? [action("move-rate", tx("Move to a better rate"), tx("Withdraw {amount} USDC from my vault and put it to work at low risk", { amount: sentenceAmount(amount) }))] : [])],
         source: "chain",
         readAt: r.readAt,
         block,
@@ -79,7 +81,7 @@ export const readMorphoVaults: Reader = async (r, venue) => {
       }),
     );
   });
-  return { positions, block, method, source: "chain", ...(failed > 0 ? { coverage: `${failed} vault(s) did not answer this time.` } : {}) };
+  return { positions, block, method, source: "chain", ...(failed > 0 ? { coverage: tx("{failed} vault(s) did not answer this time.", { failed }) } : {}) };
 };
 
 /** Lykia practice venues on testnet: the practice vaults and practice lending. */
@@ -98,7 +100,7 @@ export const readPractice: Reader = async (r, venue) => {
     const assets = await client.readContract({ address: vault, abi: ERC4626_ABI, functionName: "convertToAssets", args: [sh] });
     const t = TOKENS.find((x) => x.symbol === symbol)!;
     const v = valued(assets, t.decimals, prices[symbol]?.usd ?? null);
-    positions.push(finish({ ...base, id: `lykia-practice:${vault.toLowerCase()}`, venueKind: "vault", label: `Practice vault ${symbol}`, assets: [asset(symbol, vault, v.amount, v.valueUsd, "supplied")], amount: v.amount, symbol, valueUsd: v.valueUsd, counts: "net", state: classifyPosition({ kind: "vault", apyPercent: null }), facts: [{ label: "Note", value: "Testnet practice vault; yield is dripped by its owner." }], actions: [action("withdraw", "Withdraw", `Withdraw ${sentenceAmount(Number(v.amount))} ${symbol} from my practice vault`)], explorer: addressLink(r.environment, vault) }));
+    positions.push(finish({ ...base, id: `lykia-practice:${vault.toLowerCase()}`, venueKind: "vault", label: tx("Practice vault {symbol}", { symbol }), assets: [asset(symbol, vault, v.amount, v.valueUsd, "supplied")], amount: v.amount, symbol, valueUsd: v.valueUsd, counts: "net", state: classifyPosition({ kind: "vault", apyPercent: null }), facts: [{ label: tx("Note"), value: tx("Testnet practice vault; yield is dripped by its owner.") }], actions: [action("withdraw", tx("Withdraw"), tx("Withdraw {amount} {symbol} from my practice vault", { amount: sentenceAmount(Number(v.amount)), symbol }))], explorer: addressLink(r.environment, vault) }));
   }
   if (practice.lending) {
     const [collateral, debt, hf] = await Promise.all([
@@ -112,11 +114,11 @@ export const readPractice: Reader = async (r, venue) => {
     const usdc = TOKENS.find((x) => x.symbol === "USDC")!;
     if (collateral > 0n) {
       const v = valued(collateral, btc.decimals, prices.cirBTC?.usd ?? null);
-      positions.push(finish({ ...base, id: `lykia-practice:lending:collateral`, venueKind: "market", label: "Practice lending · cirBTC collateral", assets: [asset("cirBTC", tokenAddress(btc, r.environment), v.amount, v.valueUsd, "collateral")], amount: v.amount, symbol: "cirBTC", valueUsd: v.valueUsd, counts: "net", state: classifyPosition({ kind: "collateral", healthFactor: factor === null ? null : Number(factor), healthFloor: r.healthFloor }), ...(debt > 0n ? { health } : {}), collateral: true, actions: [], explorer: addressLink(r.environment, practice.lending) }));
+      positions.push(finish({ ...base, id: `lykia-practice:lending:collateral`, venueKind: "market", label: tx("Practice lending · cirBTC collateral"), assets: [asset("cirBTC", tokenAddress(btc, r.environment), v.amount, v.valueUsd, "collateral")], amount: v.amount, symbol: "cirBTC", valueUsd: v.valueUsd, counts: "net", state: classifyPosition({ kind: "collateral", healthFactor: factor === null ? null : Number(factor), healthFloor: r.healthFloor }), ...(debt > 0n ? { health } : {}), collateral: true, actions: [], explorer: addressLink(r.environment, practice.lending) }));
     }
     if (debt > 0n) {
       const v = valued(-debt, usdc.decimals, "1");
-      positions.push(finish({ ...base, id: `lykia-practice:lending:debt`, venueKind: "market", label: "Practice lending · USDC borrowed", assets: [asset("USDC", tokenAddress(usdc, r.environment), v.amount, v.valueUsd, "borrowed")], amount: v.amount.replace(/^-/u, ""), symbol: "USDC", valueUsd: v.valueUsd, counts: "net", state: classifyPosition({ kind: "debt", healthFactor: factor === null ? null : Number(factor), healthFloor: r.healthFloor }), health, actions: [action("repay", "Repay a quarter", `Repay ${sentenceAmount(Number(v.amount.replace(/^-/u, "")) / 4)} USDC on lykia-practice`)], explorer: addressLink(r.environment, practice.lending) }));
+      positions.push(finish({ ...base, id: `lykia-practice:lending:debt`, venueKind: "market", label: tx("Practice lending · USDC borrowed"), assets: [asset("USDC", tokenAddress(usdc, r.environment), v.amount, v.valueUsd, "borrowed")], amount: v.amount.replace(/^-/u, ""), symbol: "USDC", valueUsd: v.valueUsd, counts: "net", state: classifyPosition({ kind: "debt", healthFactor: factor === null ? null : Number(factor), healthFloor: r.healthFloor }), health, actions: [action("repay", tx("Repay a quarter"), tx("Repay {value} USDC on lykia-practice", { value: sentenceAmount(Number(v.amount.replace(/^-/u, "")) / 4) }))], explorer: addressLink(r.environment, practice.lending) }));
     }
   }
   return { positions, block, method: "Practice vault shares (convertToAssets) and practice lending collateral, debt and health factor.", source: "chain" };

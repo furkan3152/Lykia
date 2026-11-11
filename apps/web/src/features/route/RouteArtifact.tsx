@@ -17,6 +17,7 @@ import { useIntent } from "./useIntent";
 import { plainReason, plainRationale, plainRouteWhy, plainStep } from "./plain";
 import { planTitle } from "../ask/cardModel";
 import { ReviewModal } from "./ReviewModal";
+import { t as msg } from "../../i18n";
 
 export function RouteArtifact({ proposal, intentId, onClose, onReview }: { proposal?: AgentProposal | null; intentId: string | null; onClose?: () => void; onReview?: () => void }) {
   const query = useIntent(intentId);
@@ -35,9 +36,9 @@ export function RouteArtifact({ proposal, intentId, onClose, onReview }: { propo
   return (
     <div style={{ padding: 16 }}>
       <div className="flex items-center justify-between gap-2" style={{ marginBottom: 12 }}>
-        <span className="m-kick">{intentId ? "THE ROUTE" : "THE ROUTE · DRY RUN"}</span>
+        <span className="m-kick">{intentId ? msg("route.routeArtifact.theRoute2") : msg("route.routeArtifact.theRouteDryRun")}</span>
         {onClose ? (
-          <button type="button" className="m-btn m-btn--ghost m-btn--sm" onClick={onClose} aria-label="Close the route panel">
+          <button type="button" className="m-btn m-btn--ghost m-btn--sm" onClick={onClose} aria-label={msg("route.routeArtifact.closeTheRoutePanel")}>
             ✕
           </button>
         ) : null}
@@ -49,10 +50,10 @@ export function RouteArtifact({ proposal, intentId, onClose, onReview }: { propo
         tile={4}
         fps={8}
         dataKey={`${view?.settled}-${lit}`}
-        label="The outrun: the path from the start to the Fold"
+        label={msg("route.routeArtifact.theOutrunThePathFromThe")}
       />
       <div style={{ textAlign: "center", margin: "16px 0 8px" }}>
-        <h3 style={{ fontSize: 22 }}>{view && view.stops.length === 1 ? plainStep(view.stops[0]!.summary) : proposal?.title ? planTitle(proposal.title) : "The route"}</h3>
+        <h3 style={{ fontSize: 22 }}>{view && view.stops.length === 1 ? plainStep(view.stops[0]!.summary) : proposal?.title ? planTitle(proposal.title) : msg("route.routeArtifact.theRoute")}</h3>
         <div style={{ marginTop: 10 }}>
           <Seal decision={decision} />
         </div>
@@ -69,7 +70,7 @@ export function RouteArtifact({ proposal, intentId, onClose, onReview }: { propo
               ))}
               {view.waived.map((r, i) => (
                 <li key={`w${i}`} className="m-note">
-                  <Tag tone="ghost">WAIVED · HOMEWARD</Tag> {r.message}
+                  <Tag tone="ghost">{msg("route.routeArtifact.waivedHomeward")}</Tag> {r.message}
                 </li>
               ))}
             </ul>
@@ -86,19 +87,19 @@ export function RouteArtifact({ proposal, intentId, onClose, onReview }: { propo
                   </div>
                   <Tag tone={s.status === "settled" ? "ok" : s.status === "failed" ? "bad" : "ghost"}>{s.status}</Tag>
                 </div>
-                {s.fee ? <div style={{ marginTop: 6 }}><Tag tone="ghost">{s.fee.toUpperCase()} · PAID IN THIS TRANSACTION</Tag></div> : null}
-                {s.memory.length > 0 ? <div className="flex gap-1 flex-wrap" style={{ marginTop: 6 }}>{s.memory.map((m) => <Tag key={m} tone="sea">FROM MEMORY · {m}</Tag>)}</div> : null}
+                {s.fee ? <div style={{ marginTop: 6 }}><Tag tone="ghost">{s.fee.toUpperCase()} {msg("route.routeArtifact.paidInThisTransaction")}</Tag></div> : null}
+                {s.memory.length > 0 ? <div className="flex gap-1 flex-wrap" style={{ marginTop: 6 }}>{s.memory.map((m) => <Tag key={m} tone="sea">{msg("route.routeArtifact.fromMemory")} {m}</Tag>)}</div> : null}
                 {s.route ? (
                   <details style={{ marginTop: 8 }}>
                     <summary className="m-small" style={{ cursor: "pointer" }}>
-                      Why {s.route.chosen.label}? {plainRouteWhy(s.route.reason, s.route.chosen.label)}
+                      {msg("route.routeArtifact.why")} {s.route.chosen.label}? {plainRouteWhy(s.route.reason, s.route.chosen.label)}
                     </summary>
                     <table className="m-table" style={{ marginTop: 6 }}>
                       <thead>
                         <tr>
-                          <th>Venue</th>
-                          <th className="r">APY / out</th>
-                          <th>Risk</th>
+                          <th>{msg("route.routeArtifact.venue")}</th>
+                          <th className="r">{msg("route.routeArtifact.apyOut")}</th>
+                          <th>{msg("route.routeArtifact.risk")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -115,14 +116,14 @@ export function RouteArtifact({ proposal, intentId, onClose, onReview }: { propo
                 ) : null}
                 {s.explorer.map((href) => (
                   <a key={href} className="m-small" href={href} target="_blank" rel="noreferrer">
-                    explorer ↗
+                    {msg("route.routeArtifact.explorer")}
                   </a>
                 ))}
-                {s.turn === "signer" && view.signable ? <Tag tone="sea">{"NEXT TO SIGN"}</Tag> : null}
+                {s.turn === "signer" && view.signable ? <Tag tone="sea">{msg("route.routeArtifact.nextToSign")}</Tag> : null}
               </div>
             ))}
           </div>
-          {view.fees.length > 0 ? <p className="m-small m-muted" style={{ marginTop: 10, textAlign: "center" }}>{`Lykia fee for this plan: ${view.fees.join(" + ")}. Repaying and withdrawing home are free.`}</p> : null}
+          {view.fees.length > 0 ? <p className="m-small m-muted" style={{ marginTop: 10, textAlign: "center" }}>{msg("route.routeArtifact.lykiaFeeForThisPlanRepaying", { value: view.fees.join(" + ") })}</p> : null}
           {view.warnings.map((w) => (
             <p key={w} className="m-note" style={{ marginTop: 8 }}>
               {w}
@@ -131,7 +132,7 @@ export function RouteArtifact({ proposal, intentId, onClose, onReview }: { propo
           {view.signable && view.next ? (
             <div className="flex justify-center" style={{ marginTop: 14 }}>
               <Button size="lg" onClick={review}>
-                {view.settled > 0 ? "Review and sign the next step" : "Review and sign"}
+                {view.settled > 0 ? msg("route.routeArtifact.reviewAndSignTheNextStep") : msg("route.routeArtifact.reviewAndSign")}
               </Button>
             </div>
           ) : null}

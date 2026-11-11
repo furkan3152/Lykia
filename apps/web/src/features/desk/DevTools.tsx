@@ -2,12 +2,13 @@
 import { DEV_TOOLS } from "@lykia/core";
 
 import { Card, Tag } from "../../mosaic";
+import { t as msg } from "../../i18n";
 
 const KIND_TONE = { sdk: "sea", skill: "ochre", mcp: "ok", docs: "ghost", tooling: "ghost" } as const;
 
 export function DevToolsCard() {
   return (
-    <Card title={"Circle & Arc tools"} kicker={"BUILD NEXT TO LYKIA"} tone="sea">
+    <Card title={msg("desk.devTools.circleArcTools")} kicker={msg("desk.devTools.buildNextToLykia")} tone="sea">
       <div className="m-grid-2" style={{ gap: 12 }}>
         {DEV_TOOLS.map((t) => (
           <div key={t.id} className="m-row">

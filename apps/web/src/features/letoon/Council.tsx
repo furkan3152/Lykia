@@ -9,6 +9,7 @@ import { Button, Card, EmptyState, Input, Tag, toast } from "../../mosaic";
 import { Coin } from "../league/Coin";
 import { STATE_LABEL, STATE_TONE } from "../league/model";
 import { actionsFor } from "./model";
+import { t } from "../../i18n";
 
 export interface CouncilCity {
   readonly id: string;
@@ -39,7 +40,7 @@ export function Council({ data, compact = false }: { readonly data: CouncilData 
   const act = useMutation({
     mutationFn: ({ id, action }: { id: string; action: LeagueAction }) => apiPut(`/v1/league/${id}`, { action, ...(note.trim() ? { note: note.trim() } : {}) }),
     onSuccess: (_d, v) => {
-      toast.success(`${ACTION_LABEL[v.action]} recorded`, { description: "Written to the platform audit chain.", from: "LYKO" });
+      toast.success(`${ACTION_LABEL[v.action]} recorded`, { description: t("letoon.council.writtenToThePlatformAuditChain"), from: "LYKO" });
       setNote("");
       void qc.invalidateQueries({ queryKey: ["council"] });
       void qc.invalidateQueries({ queryKey: ["league"] });
@@ -50,35 +51,35 @@ export function Council({ data, compact = false }: { readonly data: CouncilData 
     mutationFn: () => apiPost<SeedReport>("/v1/admin/league/seed", {}),
     onSuccess: (r) => {
       const made = r.cities.filter((c) => c.outcome === "created").length;
-      toast.success(made ? `${made} official cities struck` : "Every official city already stands", { from: "LYKO" });
+      toast.success(made ? t("letoon.council.officialCitiesStruck", { made }) : t("letoon.council.everyOfficialCityAlreadyStands"), { from: "LYKO" });
       void qc.invalidateQueries({ queryKey: ["council"] });
       void qc.invalidateQueries({ queryKey: ["league"] });
     },
     onError: (e) => toast.error(describeError(e), { from: "LYKO" }),
   });
-  if (!data) return <Card title="League council"><p className="m-small m-muted m-center">…</p></Card>;
+  if (!data) return <Card title={t("letoon.council.leagueCouncil")}><p className="m-small m-muted m-center">…</p></Card>;
   const requests = data.cities.filter((c) => c.league.review === "requested").length;
   const missing = data.seed.cities.filter((c) => c.outcome === "missing").length;
   return (
     <div style={{ display: "grid", gap: 20, gridTemplateColumns: "minmax(0, 1fr)" }}>
       {compact ? null : (
         <div className="m-grid-2">
-          <Card title="Official cities" kicker={missing ? `${missing} NOT STRUCK YET` : "ALL STANDING"} footer={<Button disabled={seed.isPending || missing === 0} onClick={() => seed.mutate()}>{seed.isPending ? "STRIKING…" : missing ? "SEED OFFICIAL CITIES" : "NOTHING TO SEED"}</Button>}>
+          <Card title={t("letoon.council.officialCities")} kicker={missing ? t("letoon.council.notStruckYet", { missing }) : t("letoon.council.allStanding")} footer={<Button disabled={seed.isPending || missing === 0} onClick={() => seed.mutate()}>{seed.isPending ? "STRIKING…" : missing ? t("letoon.council.seedOfficialCities") : t("letoon.council.nothingToSeed")}</Button>}>
             <ul className="lt-seed">
               {data.seed.cities.map((c) => (
                 <li key={c.key}><b>{c.name}</b><span className="num m-small">{c.projectId}</span><Tag tone={c.outcome === "missing" ? "ochre" : "ok"}>{c.outcome === "missing" ? "MISSING" : "PRESENT"}</Tag></li>
               ))}
             </ul>
-            <p className="m-small m-muted" style={{ marginTop: 8 }}>{`Idempotent: fixed project ids, owned by ${data.seed.owner ? `${data.seed.owner.slice(0, 8)}…` : "the first admin address"}. Cities that exist are never overwritten.`}</p>
+            <p className="m-small m-muted" style={{ marginTop: 8 }}>{t("letoon.council.idempotent", { owner: data.seed.owner ? `${data.seed.owner.slice(0, 8)}…` : t("letoon.council.theFirstAdminAddress") })}</p>
           </Card>
-          <Card title="Note for the record" kicker="OPTIONAL · SAVED WITH THE NEXT DECISION">
-            <Input value={note} maxLength={200} placeholder="Why, in a line" onChange={(e) => setNote(e.target.value)} />
-            <p className="m-small m-muted" style={{ marginTop: 8 }}>{`${requests} listing request${requests === 1 ? "" : "s"} waiting. Every decision is checked on the server and appended to the platform audit chain.`}</p>
+          <Card title={t("letoon.council.noteForTheRecord")} kicker={t("letoon.council.optionalSavedWithTheNextDecision")}>
+            <Input value={note} maxLength={200} placeholder={t("letoon.council.whyInALine")} onChange={(e) => setNote(e.target.value)} />
+            <p className="m-small m-muted" style={{ marginTop: 8 }}>{t("letoon.council.listingRequestsWaiting", { n: requests })}</p>
           </Card>
         </div>
       )}
       {data.cities.length === 0 ? (
-        <EmptyState mood="watching" title="No city yet">{"Seed the official cities, or wait for a developer's listing request."}</EmptyState>
+        <EmptyState mood="watching" title={t("letoon.council.noCityYet")}>{t("letoon.council.seedTheOfficialCitiesOrWait")}</EmptyState>
       ) : (
         <ul className="lt-cities">
           {data.cities.map((c) => (
@@ -91,15 +92,15 @@ export function Council({ data, compact = false }: { readonly data: CouncilData 
                   <Tag tone={STATE_TONE[c.league.state]}>{STATE_LABEL[c.league.state]}</Tag>
                   <Tag tone="ghost">{c.league.status.toUpperCase()}</Tag>
                   <Tag tone={c.league.review === "requested" ? "ochre" : c.league.listed ? "sea" : "ghost"}>{c.league.review === "requested" ? "REQUESTED" : c.league.listed ? "LISTED" : c.league.review.toUpperCase()}</Tag>
-                  {c.league.featured ? <Tag tone="ok">FEATURED</Tag> : null}
+                  {c.league.featured ? <Tag tone="ok">{t("letoon.council.featured")}</Tag> : null}
                 </div>
-                <p className="m-small num" style={{ overflowWrap: "anywhere" }}>{`${c.id} · ${c.owner.slice(0, 8)}… · ${c.usage.last7Days.requests} req / 7d`}</p>
+                <p className="m-small num" style={{ overflowWrap: "anywhere" }}>{t("letoon.council.req7d", { id: c.id, value: c.owner.slice(0, 8), requests: c.usage.last7Days.requests })}</p>
               </div>
               <div className="lt-city__acts">
                 {actionsFor(c.league).filter((a) => !compact || a === "pause" || a === "resume").map((a) => (
                   <Button key={a} size="sm" tone={DANGER.has(a) ? "ghost" : a === "approve" || a === "launch" || a === "resume" ? "sea" : "navy"} disabled={act.isPending} onClick={() => act.mutate({ id: c.id, action: a })}>{ACTION_LABEL[a]}</Button>
                 ))}
-                {c.league.listed ? <Link to={`/league/${c.league.slug}`} className="m-btn m-btn--sm m-btn--ghost">{"VIEW"}</Link> : null}
+                {c.league.listed ? <Link to={`/league/${c.league.slug}`} className="m-btn m-btn--sm m-btn--ghost">{t("letoon.council.view")}</Link> : null}
               </div>
             </li>
           ))}

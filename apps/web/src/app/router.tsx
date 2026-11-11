@@ -16,6 +16,7 @@ import { getLocation, installHistoryListener, subscribeLocation, type RouteLocat
 import { documentTitle, matchRoute, robotsFor, type RouteId } from "./routes/routeTable";
 import { RouterContext, type RouterState } from "./routes/routerContext";
 import { loadProviders, loadRoute, resolved, warmRoute } from "./routes/loader";
+import { t as msg } from "../i18n";
 
 installHistoryListener();
 
@@ -150,10 +151,10 @@ export function AppRouter() {
 function RouteFailed({ onReload }: { readonly onReload: () => void }) {
   return (
     <div className="m-wrap m-center" style={{ padding: "64px 0" }}>
-      <h2 className="m-h2">This page did not load.</h2>
-      <p className="m-sub">The connection dropped while fetching it.</p>
+      <h2 className="m-h2">{msg("app.router.thisPageDidNotLoad")}</h2>
+      <p className="m-sub">{msg("app.router.theConnectionDroppedWhileFetchingIt")}</p>
       <button type="button" className="m-btn mt-4" onClick={onReload}>
-        Reload
+        {msg("app.router.reload")}
       </button>
     </div>
   );

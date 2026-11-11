@@ -12,6 +12,7 @@ import { Frame, LykoFace, toast } from "../mosaic";
 import { navigate } from "../app/routes/history";
 import { AREAS } from "./nav";
 import { handleLine, usePalette } from "./palette";
+import { t } from "../i18n";
 
 export function CommandPalette() {
   const isOpen = usePalette((s) => s.isOpen);
@@ -41,7 +42,7 @@ export function CommandPalette() {
         konami = step.progress;
         if (step.done) {
           wagTail();
-          toast.success("Lyko wags his tail", { from: "LYKO" });
+          toast.success(t("shell.commandPalette.lykoWagsHisTail"), { from: "LYKO" });
         }
       }
     };
@@ -64,16 +65,16 @@ export function CommandPalette() {
   const r = resolveInput(text);
   return (
     <div className="m-scrim" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()} style={{ placeItems: "start center", paddingTop: "14vh" }}>
-      <Frame className="m-modal vt-composer" role="dialog" aria-modal="true" aria-label="Search or ask">
+      <Frame className="m-modal vt-composer" role="dialog" aria-modal="true" aria-label={t("shell.commandPalette.searchOrAsk")}>
         <div className="m-composer">
           <LykoFace mood={r.kind === "command" ? "alert" : "watching"} scale={1.6} />
           <div style={{ flex: 1 }}>
-            <span className="m-composer__meta">{"ASK, PASTE A TOKEN ADDRESS OR TYPE A PAGE"}</span>
+            <span className="m-composer__meta">{t("shell.commandPalette.askPasteATokenAddressOr")}</span>
             <textarea
               ref={ref}
               rows={1}
               value={text}
-              placeholder={"Put 100 USDC in the best vault…"}
+              placeholder={t("shell.commandPalette.put100UsdcInTheBest")}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Escape") close();
@@ -89,7 +90,7 @@ export function CommandPalette() {
           </button>
         </div>
         <div style={{ padding: "8px 14px 14px", borderTop: "2px dashed var(--grout)" }}>
-          <p className="m-kick" style={{ marginBottom: 6 }}>{r.kind === "command" ? r.meaning : "JUMP TO"}</p>
+          <p className="m-kick" style={{ marginBottom: 6 }}>{r.kind === "command" ? r.meaning : t("shell.commandPalette.jumpTo")}</p>
           <div className="m-chips" style={{ justifyContent: "flex-start", marginTop: 0 }}>
             {AREAS.flatMap((a) => a.sections).map((sec) => (
               <button
@@ -106,7 +107,7 @@ export function CommandPalette() {
             ))}
           </div>
           <details className="mt-2">
-            <summary className="m-small m-muted" style={{ cursor: "pointer" }}>{"Sheepdog commands"}</summary>
+            <summary className="m-small m-muted" style={{ cursor: "pointer" }}>{t("shell.commandPalette.sheepdogCommands")}</summary>
             <div className="m-chips" style={{ justifyContent: "flex-start", marginTop: 6 }}>
               {(Object.keys(COMMANDS) as CommandWord[]).map((w) => (
                 <button key={w} type="button" className="m-chip" title={COMMANDS[w].meaning} onClick={() => setText(w)}>

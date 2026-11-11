@@ -13,6 +13,7 @@
  */
 import type { Position, PositionsResponse } from "@lykia/core";
 
+import { tx } from "@lykia/core";
 /** How far above the floor a fix aims, so the next small price move does not undo it. */
 export const HEALTH_BUFFER = 0.05;
 
@@ -118,8 +119,8 @@ export function healthReport(res: PositionsResponse, floorOverride?: string): He
         const capped = held < need;
         const amount = capped ? down(fits, places) : up(need, places);
         const left = debtAmount - Number(amount);
-        repay = { symbol: debt.symbol, amount: trim(amount), usd: ((Number(amount) / debtAmount) * debtUsd).toFixed(2), reaches: left > 0 ? down((a.health * debtAmount) / left, 2) : "no debt left", capped };
-      } else notes.push(`No ${debt.symbol} in the wallet to repay with.`);
+        repay = { symbol: debt.symbol, amount: trim(amount), usd: ((Number(amount) / debtAmount) * debtUsd).toFixed(2), reaches: left > 0 ? down((a.health * debtAmount) / left, 2) : tx("no debt left"), capped };
+      } else notes.push(tx("No {symbol} in the wallet to repay with.", { symbol: debt.symbol }));
     }
     let collateral: HealthMove | null = null;
     const coll = a.collateral.slice().sort((x, y) => Math.abs(num(y.valueUsd) ?? 0) - Math.abs(num(x.valueUsd) ?? 0))[0];
@@ -136,7 +137,7 @@ export function healthReport(res: PositionsResponse, floorOverride?: string): He
           const capped = held < needTokens;
           const amount = capped ? down(fits, places) : up(needTokens, places);
           collateral = { symbol: coll.symbol, amount: trim(amount), usd: (Number(amount) * price).toFixed(2), reaches: down((a.health * (collUsdTotal + Number(amount) * price)) / collUsdTotal, 2), capped };
-        } else notes.push(`No ${coll.symbol} in the wallet to add as collateral.`);
+        } else notes.push(tx("No {symbol} in the wallet to add as collateral.", { symbol: coll.symbol }));
       }
     }
     atRisk.push({ venue: a.venue, account: a.account, health: a.health.toFixed(2), floor: trim(floor.toFixed(2)), target: target.toFixed(2), debt: { symbol: debt.symbol, amount: trim(down(debtAmount, placesFor(debt.symbol))), usd: debtUsd.toFixed(2) }, repay, collateral, notes, readAt: a.readAt, block: a.block });

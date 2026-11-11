@@ -1,6 +1,7 @@
 /**
- * The interface and the whole repository are English only. Every tracked
- * text file is checked for Turkish-specific letters and a few transliterated
+ * The repository is English only, apart from the translation catalogues
+ * (and the glossaries their translators follow). Every other tracked text
+ * file is checked for Turkish-specific letters and a few transliterated
  * Turkish words, and so is the shared lore the app renders. The letters and
  * words are written as Unicode escapes on purpose.
  */
@@ -78,10 +79,13 @@ function exempt(file: string, line: string): boolean {
   return false;
 }
 
+/** Translation catalogues and glossaries: the only files allowed to hold another language. */
+const CATALOGUE = /(?:^|\/)(?:apps\/(?:web|api)\/src\/i18n\/(?:messages|glossary)\/|packages\/core\/src\/i18n\/)[^/]+$/u;
+
 function offenders(): string[] {
   const found: string[] = [];
   for (const file of trackedFiles()) {
-    if (LOCKFILE.test(file) || BINARY.test(file) || file.split("/").some((part) => part === "node_modules")) continue;
+    if (CATALOGUE.test(file) || LOCKFILE.test(file) || BINARY.test(file) || file.split("/").some((part) => part === "node_modules")) continue;
     let text: string;
     try {
       text = readFileSync(join(ROOT, file), "utf8");

@@ -6,6 +6,7 @@ import { Card, LeashMark, Tabs } from "../../mosaic";
 
 const LEASH_DOCS = "https://github.com/furkan3152/Lykia/blob/main/docs/leash.md";
 import { DEFAULT_STUDIO, agentSnippet, embedSnippet, hooksSnippet, leashCurlSnippet, leashPythonSnippet, leashTsSnippet, mcpSnippet, sdkSnippet, widgetSnippet } from "./snippets";
+import { t } from "../../i18n";
 
 type PathId = "widget" | "embed" | "hooks" | "agents" | "mcp" | "sdk";
 
@@ -16,29 +17,29 @@ interface Step {
 }
 
 function steps(path: PathId): readonly Step[] {
-  const project: Step = { title: "Create a project", body: "Sign in on Arc, open Projects, add your site's origin and prove it with a DNS TXT record or a /.well-known file. Then issue a browser key. Your brand, modules, Fence caps and app fee live in the project." };
+  const project: Step = { title: t("forge.quickstarts.createAProject"), body: t("forge.quickstarts.signInOnArcOpenProjects") };
   const apiOrigin = new URL(API_BASE).origin;
   switch (path) {
     case "widget":
-      return [project, { title: "Install the widget", body: "React 18 or newer. No other dependency.", code: "npm install @lykia/widget" }, { title: "Drop it in", body: "Components follow your brand and modules. Pass your wallet (viem WalletClient, EIP-1193 provider or wagmi config) or let it find an injected one.", code: widgetSnippet(DEFAULT_STUDIO) }];
+      return [project, { title: t("forge.quickstarts.installTheWidget"), body: t("forge.quickstarts.react18OrNewerNoOther"), code: "npm install @lykia/widget" }, { title: t("forge.quickstarts.dropItIn"), body: t("forge.quickstarts.componentsFollowYourBrandAndModules"), code: widgetSnippet(DEFAULT_STUDIO) }];
     case "embed":
-      return [project, { title: "Add one script tag", body: "Works with any stack: plain HTML, Vue, Svelte, WordPress.", code: '<script type="module" src="https://unpkg.com/@lykia/embed"></script>' }, { title: "Place the elements", body: "Each element is a sandboxed frame that resizes to its content and fires lykia:* DOM events.", code: embedSnippet(DEFAULT_STUDIO) }];
+      return [project, { title: t("forge.quickstarts.addOneScriptTag"), body: t("forge.quickstarts.worksWithAnyStackPlainHtml"), code: '<script type="module" src="https://unpkg.com/@lykia/embed"></script>' }, { title: t("forge.quickstarts.placeTheElements"), body: t("forge.quickstarts.eachElementIsASandboxedFrame"), code: embedSnippet(DEFAULT_STUDIO) }];
     case "hooks":
-      return [project, { title: "Install the widget", body: "Use the hooks and bring your own markup.", code: "npm install @lykia/widget" }, { title: "Build your own UI", body: "useLykiaPlan, useLykiaChat, useFence, useScent, useFlock, usePack and useOutrun.", code: hooksSnippet(DEFAULT_STUDIO) }];
+      return [project, { title: t("forge.quickstarts.installTheWidget"), body: t("forge.quickstarts.useTheHooksAndBringYour"), code: "npm install @lykia/widget" }, { title: t("forge.quickstarts.buildYourOwnUi"), body: t("forge.quickstarts.uselykiaplanUselykiachatUsefenceUsescent"), code: hooksSnippet(DEFAULT_STUDIO) }];
     case "agents":
-      return [{ title: "Get a secret key", body: "Agents run on your server: create a secret key in Keys. Never ship it to a browser." }, { title: "Install the tools", body: "JSON Schema tools with adapters for the Vercel AI SDK, LangChainJS, OpenAI and Anthropic. No dependencies.", code: "npm install @lykia/agent-tools" }, { title: "Give them to your model", body: "Every plan comes back with its Fence verdict. The user's wallet signs.", code: agentSnippet() }];
+      return [{ title: t("forge.quickstarts.getASecretKey"), body: t("forge.quickstarts.agentsRunOnYourServerCreate") }, { title: t("forge.quickstarts.installTheTools"), body: t("forge.quickstarts.jsonSchemaToolsWithAdaptersFor"), code: "npm install @lykia/agent-tools" }, { title: t("forge.quickstarts.giveThemToYourModel"), body: t("forge.quickstarts.everyPlanComesBackWithIts"), code: agentSnippet() }];
     case "mcp":
-      return [{ title: "Get a secret key", body: "Create a secret key in Keys." }, { title: "Add the server", body: "Any MCP client: IDE assistants, desktop chat apps and agent SDKs. No code.", code: mcpSnippet(apiOrigin) }, { title: "Ask", body: "\"Check this token, then plan a 100 USDC swap if it is clean.\" The tools read and propose; nothing signs on the server." }];
+      return [{ title: t("forge.quickstarts.getASecretKey"), body: t("forge.quickstarts.createASecretKeyInKeys") }, { title: t("forge.quickstarts.addTheServer"), body: t("forge.quickstarts.anyMcpClientIdeAssistantsDesktop"), code: mcpSnippet(apiOrigin) }, { title: t("forge.quickstarts.ask"), body: t("forge.quickstarts.checkThisTokenThenPlanA") }];
     case "sdk":
-      return [{ title: "Get a key", body: "A secret key on a server, a browser key in a page." }, { title: "Install the SDK", body: "Import the whole client or only the parts you use.", code: "npm install @lykia/sdk" }, { title: "Plan and follow", body: "Typed events: plan-created, step-signed, settled.", code: sdkSnippet(DEFAULT_STUDIO) }];
+      return [{ title: t("forge.quickstarts.getAKey"), body: t("forge.quickstarts.aSecretKeyOnAServer") }, { title: t("forge.quickstarts.installTheSdk"), body: t("forge.quickstarts.importTheWholeClientOrOnly"), code: "npm install @lykia/sdk" }, { title: t("forge.quickstarts.planAndFollow"), body: t("forge.quickstarts.typedEventsPlanCreatedStepSigned"), code: sdkSnippet(DEFAULT_STUDIO) }];
   }
 }
 
 export function Quickstarts() {
   const [path, setPath] = useState<PathId>("widget");
   return (
-    <Card title="Add an assistant to your Arc app in 3 steps" kicker="PICK A PATH">
-      <Tabs label="Integration path" value={path} onChange={setPath} tabs={[{ id: "widget", label: "REACT WIDGET" }, { id: "embed", label: "HTML EMBED" }, { id: "hooks", label: "HEADLESS HOOKS" }, { id: "agents", label: "AGENT TOOLS" }, { id: "mcp", label: "MCP" }, { id: "sdk", label: "SDK" }]} />
+    <Card title={t("forge.quickstarts.addAnAssistantToYourArc")} kicker={t("forge.quickstarts.pickAPath")}>
+      <Tabs label={t("forge.quickstarts.integrationPath")} value={path} onChange={setPath} tabs={[{ id: "widget", label: t("forge.quickstarts.reactWidget") }, { id: "embed", label: t("forge.quickstarts.htmlEmbed") }, { id: "hooks", label: t("forge.quickstarts.headlessHooks") }, { id: "agents", label: t("forge.quickstarts.agentTools") }, { id: "mcp", label: "MCP" }, { id: "sdk", label: "SDK" }]} />
       <ol style={{ listStyle: "none", padding: 0, margin: "14px 0 0", display: "grid", gap: 14 }}>
         {steps(path).map((s, i) => (
           <li key={s.title} style={{ minWidth: 0 }}>
@@ -60,21 +61,21 @@ export function LeashQuickstart() {
   const apiOrigin = new URL(API_BASE).origin;
   const code = lang === "curl" ? leashCurlSnippet(apiOrigin) : lang === "ts" ? leashTsSnippet() : leashPythonSnippet();
   return (
-    <Card title="Leash an agent" kicker="A BUDGET IT CANNOT EXCEED">
+    <Card title={t("forge.quickstarts.leashAnAgent")} kicker={t("forge.quickstarts.aBudgetItCannotExceed")}>
       <div className="forge-leash">
         <span className="forge-leash__mark" aria-hidden="true"><LeashMark scale={3} /></span>
         <ol className="forge-leash__steps">
-          <li><b>{"1. The owner makes a leash."}</b>{" Per step, per day and total in USD, an expiry, payees or venues. One call returns the session transaction to sign once, a key for this leash only (shown once) and an MCP config."}</li>
-          <li><b>{"2. The agent plans with its leash key."}</b>{" Inside: one transaction for its own session key. Outside: 422 LEASH_DENIED with reason codes and what is left."}</li>
-          <li><b>{"3. Revoke at any time."}</b>{" The key stops at the API at once; revokeSession ends it on chain."}</li>
+          <li><b>{t("forge.quickstarts.n1TheOwnerMakesALeash")}</b>{t("forge.quickstarts.perStepPerDayAndTotal")}</li>
+          <li><b>{t("forge.quickstarts.n2TheAgentPlansWithIts")}</b>{t("forge.quickstarts.insideOneTransactionForItsOwn")}</li>
+          <li><b>{t("forge.quickstarts.n3RevokeAtAnyTime")}</b>{t("forge.quickstarts.theKeyStopsAtTheApi")}</li>
         </ol>
       </div>
-      <Tabs label="Language" value={lang} onChange={setLang} tabs={[{ id: "curl", label: "CURL" }, { id: "ts", label: "TYPESCRIPT" }, { id: "python", label: "PYTHON" }]} />
+      <Tabs label={t("forge.quickstarts.language")} value={lang} onChange={setLang} tabs={[{ id: "curl", label: "CURL" }, { id: "ts", label: "TYPESCRIPT" }, { id: "python", label: "PYTHON" }]} />
       <pre className="m-code" style={{ marginTop: 10, fontSize: 12, overflowX: "auto" }}>{code}</pre>
       <p className="m-small" style={{ marginTop: 10 }}>
-        {"The chain holds the token caps, payees, call rules, expiry and call count; the API holds dollar caps, venues and slippage. "}
-        <a href={LEASH_DOCS} target="_blank" rel="noreferrer">{"Read what each side enforces"}</a>
-        {". CLI: "}<code>{"lykia leash create --template trade-small --per-day 50 --days 7"}</code>
+        {t("forge.quickstarts.theChainHoldsTheTokenCaps")}
+        <a href={LEASH_DOCS} target="_blank" rel="noreferrer">{t("forge.quickstarts.readWhatEachSideEnforces")}</a>
+        {". CLI: "}<code>{t("forge.quickstarts.lykiaLeashCreateTemplateTradeSmall")}</code>
       </p>
     </Card>
   );

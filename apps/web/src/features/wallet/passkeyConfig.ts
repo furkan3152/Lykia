@@ -4,6 +4,7 @@
  * Circle's modular endpoint. Without both, the passkey option is hidden.
  */
 import type { ArcEnvironment } from "@lykia/core";
+import { t as msg } from "../../i18n";
 
 export interface PasskeyConfig {
   readonly clientKey: string;
@@ -31,8 +32,8 @@ export function modularPath(environment: ArcEnvironment): "arc" | "arcTestnet" {
 /** A passkey username: what the device shows in its passkey list. */
 export function usernameProblem(name: string): string | null {
   const t = name.trim();
-  if (t.length < 3) return "At least 3 characters.";
-  if (t.length > 40) return "At most 40 characters.";
-  if (!/^[\p{L}\p{N} ._@-]+$/u.test(t)) return "Letters, digits, spaces and . _ @ - only.";
+  if (t.length < 3) return msg("wallet.passkeyConfig.atLeast3Characters");
+  if (t.length > 40) return msg("wallet.passkeyConfig.atMost40Characters");
+  if (!/^[\p{L}\p{N} ._@-]+$/u.test(t)) return msg("wallet.passkeyConfig.lettersDigitsSpacesAndOnly");
   return null;
 }

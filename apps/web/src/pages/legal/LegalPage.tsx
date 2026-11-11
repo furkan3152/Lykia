@@ -9,10 +9,11 @@ import { Markdown } from "../../features/legal/Markdown";
 import { Card } from "../../mosaic";
 import notice from "../../../../../docs/legal/software-notice.md?raw";
 import privacy from "../../../../../docs/legal/privacy-note.md?raw";
+import { currentLocale, t } from "../../i18n";
 
 const DOCS = {
-  notice: { title: "Software notice and risk disclosure", source: notice },
-  privacy: { title: "Privacy note", source: privacy },
+  notice: { title: t("legal.softwareNoticeAndRiskDisclosure"), source: notice },
+  privacy: { title: t("legal.privacyNote"), source: privacy },
 } as const;
 
 export default function LegalPage() {
@@ -22,16 +23,19 @@ export default function LegalPage() {
   return (
     <div>
       <header className="m-head m-wrap">
-        <span className="m-kick">{"DRAFT · NOT REVIEWED BY A LAWYER"}</span>
+        <span className="m-kick">{t("legal.draftNotReviewedByALawyer")}</span>
         <h1 className="m-title">{doc.title}</h1>
         <div className="flex justify-center gap-2 flex-wrap" style={{ marginTop: 12 }}>
-          <Link to="/legal/notice" className={key === "notice" ? "m-btn m-btn--sea" : "m-btn m-btn--ghost"}>{"NOTICE AND RISKS"}</Link>
-          <Link to="/legal/privacy" className={key === "privacy" ? "m-btn m-btn--sea" : "m-btn m-btn--ghost"}>{"PRIVACY"}</Link>
+          <Link to="/legal/notice" className={key === "notice" ? "m-btn m-btn--sea" : "m-btn m-btn--ghost"}>{t("legal.noticeAndRisks")}</Link>
+          <Link to="/legal/privacy" className={key === "privacy" ? "m-btn m-btn--sea" : "m-btn m-btn--ghost"}>{t("legal.privacy")}</Link>
         </div>
       </header>
       <section className="m-wrap" style={{ marginTop: 24, maxWidth: 860 }}>
-        <Card title={doc.title} kicker={"DRAFT"}>
-          <Markdown source={doc.source} />
+        <Card title={doc.title} kicker={t("legal.draft")}>
+          {currentLocale() === "en" ? null : <p className="m-note" lang={currentLocale()}>{t("legal.englishPrevails")}</p>}
+          <div lang="en">
+            <Markdown source={doc.source} />
+          </div>
         </Card>
       </section>
     </div>

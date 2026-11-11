@@ -5,6 +5,7 @@
  * Arc, so it carries no block number; every surface labels it "sample".
  * The Flock snapshot is derived from the position map, so totals agree.
  */
+import { knownTree } from "./i18n/index.js";
 import type { FlockHolding, FlockSnapshot } from "./api/flock.js";
 import type { Address } from "./contracts.js";
 import type { ArcEnvironment } from "./networks.js";
@@ -27,7 +28,8 @@ export function samplePositions(now: number, environment: ArcEnvironment = "main
   // A sample has no block: nothing here was read from Arc, so no block number is shown.
   const block = null;
   const p = (x: Omit<Position, "doing" | "readAt" | "block" | "source" | "explorer"> & { source?: Position["source"] }): Position => {
-    const full = { ...x, source: x.source ?? ("chain" as const), readAt: at, block, explorer: null };
+    // The sample's words are shown in the interface language before its line is composed from them.
+    const full = knownTree({ ...x, source: x.source ?? ("chain" as const), readAt: at, block, explorer: null });
     return { ...full, doing: positionDoing(full) };
   };
   const health = { factor: "1.38", liquidationAtPercent: "78.00", ltvPercent: "56.52", floor: "1.5" };
@@ -63,7 +65,8 @@ export function samplePositions(now: number, environment: ArcEnvironment = "main
   venues.push(read("watches", [p({ id: "s-watch", venue: "watches", venueName: "Watches", venueKind: "watch", label: "Health factor below 1.5 on Aave V4", assets: [], amount: "0", symbol: "", valueUsd: "0", counts: "overlay", state: "watching", source: "history", blocks: [{ type: "facts", items: [{ label: "Watching for", value: "loan health under 1.5", meaning: "When this happens, Lyko on watch tells you in the Fold, with a move ready if there is one." }, { label: "Last check", value: "1.38: under it, flagged" }, { label: "Status", value: "on" }] }], actions: [{ kind: "cancel", label: "Remove the watch", sentence: "Stop watching: Health factor below 1.5 on Aave V4", mode: "ask" }] })]));
   // Every venue answers in the sample: the ones without a position are empty, never left "reading".
   for (const info of POSITION_VENUES[environment]) if (!venues.some((v) => v.venue === info.id)) venues.push({ venue: info.id, venueName: info.name, venueKind: info.kind, status: "ok", positions: [], source: "chain", method: "Sample", readAt: at, block, ms: 0 });
-  return { address: SAMPLE_OWNER, environment, at, block, venues, summary: summarizePositions(venues), personal: true, healthFloor: "1.5" };
+  // Built in English; shown in the interface language like the API's own answers.
+  return knownTree({ address: SAMPLE_OWNER, environment, at, block, venues, summary: summarizePositions(venues), personal: true, healthFloor: "1.5" });
 }
 
 const KIND_OF: Readonly<Record<string, FlockHolding["kind"]>> = { lending: "supply", vault: "vault", market: "supply" };
@@ -87,7 +90,7 @@ export function sampleSnapshot(now: number, environment: ArcEnvironment = "mainn
   const net = map.summary.netUsd ?? map.summary.pricedNetUsd;
   const health = map.summary.lowestHealth ? [{ venue: map.summary.lowestHealth.venue, healthFactor: map.summary.lowestHealth.factor }] : [];
   const usdc = holdings.find((h) => h.where === "wallet" && h.symbol === "USDC")?.amount ?? "0";
-  return {
+  return knownTree({
     address: SAMPLE_OWNER,
     environment,
     at: map.at,
@@ -99,5 +102,5 @@ export function sampleSnapshot(now: number, environment: ArcEnvironment = "mainn
     native: { usdc18: `${usdc.replace(".", "").replace(/^0+(?=\d)/u, "")}${"0".repeat(18 - (usdc.split(".")[1]?.length ?? 0))}` },
     prices: { EURC: { usd: "1.1154", source: "sample" } },
     notes: ["A sample flock: nothing here was read from Arc."],
-  };
+  });
 }

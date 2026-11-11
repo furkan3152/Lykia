@@ -1,4 +1,5 @@
 /** Display rates from /v1/oracles (pure parsing): USD per unit, with where each came from. */
+import { t } from "../i18n";
 export interface DisplayRate {
   readonly usd: number;
   readonly source: string | null;
@@ -15,8 +16,8 @@ export function displayRate(raw: unknown, currency: "EUR" | "TRY"): DisplayRate 
 
 /** How a rate is labelled: an ECB figure is a reference rate, never a tradable price. */
 export function rateLabel(rate: DisplayRate): string {
-  if (rate.source === "ecb-reference") return "reference rate (ECB, display only)";
-  if (rate.source === "pyth") return "Pyth on Arc";
-  if (rate.source === "chainlink") return "Chainlink on Arc";
-  return "rate source unknown";
+  if (rate.source === "ecb-reference") return t("lib.rates.referenceRateEcbDisplayOnly");
+  if (rate.source === "pyth") return t("lib.rates.pythOnArc");
+  if (rate.source === "chainlink") return t("lib.rates.chainlinkOnArc");
+  return t("lib.rates.rateSourceUnknown");
 }

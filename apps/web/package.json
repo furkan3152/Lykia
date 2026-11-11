@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "preview": "vite preview",
     "test": "node --import tsx --test \"src/**/__tests__/*.test.ts\"",
-    "contrast": "node --import tsx scripts/contrast/run.ts"
+    "contrast": "node --import tsx scripts/contrast/run.ts",
+    "languages": "node --import tsx scripts/pages/language.ts"
   },
   "dependencies": {
     "@circle-fin/modular-wallets-core": "1.0.16",

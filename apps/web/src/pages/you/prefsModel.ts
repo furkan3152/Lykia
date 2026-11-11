@@ -3,6 +3,7 @@
  * and the insight kinds grouped into a few themes with one switch each.
  */
 import { FOLD_INSIGHT_KINDS, type FoldInsightKind, type FoldPreferences } from "@lykia/core";
+import { t } from "../../i18n";
 
 type Mix = FoldPreferences["targetMix"];
 
@@ -14,9 +15,9 @@ export interface MixPreset {
 }
 
 export const MIX_PRESETS: readonly MixPreset[] = [
-  { id: "dollars", title: "Mostly dollars", line: "Most of it ready to spend in USDC.", mix: { usdcPct: 70, eurcPct: 10, earningPct: 20 } },
-  { id: "balanced", title: "Balanced", line: "Half ready to spend, a share earning.", mix: { usdcPct: 50, eurcPct: 10, earningPct: 40 } },
-  { id: "earn", title: "Earn more", line: "Most of it earning; enough kept to spend.", mix: { usdcPct: 25, eurcPct: 5, earningPct: 70 } },
+  { id: "dollars", title: t("you.prefsModel.mostlyDollars"), line: t("you.prefsModel.mostOfItReadyToSpend"), mix: { usdcPct: 70, eurcPct: 10, earningPct: 20 } },
+  { id: "balanced", title: t("you.prefsModel.balanced"), line: t("you.prefsModel.halfReadyToSpendAShare"), mix: { usdcPct: 50, eurcPct: 10, earningPct: 40 } },
+  { id: "earn", title: t("you.prefsModel.earnMore"), line: t("you.prefsModel.mostOfItEarningEnoughKept"), mix: { usdcPct: 25, eurcPct: 5, earningPct: 70 } },
 ];
 
 /** The preset a mix matches, or null when it was fine-tuned. */
@@ -52,10 +53,10 @@ export interface WatchGroup {
 
 /** Every insight kind sits in exactly one group (tested). */
 export const WATCH_GROUPS: readonly WatchGroup[] = [
-  { id: "risk", title: "Money at risk", line: "Loans near liquidation, ranges that stopped earning, a mix that drifted.", kinds: ["health-factor", "lp-out-of-range", "fx-drift", "scent-warning", "near-threshold"] },
-  { id: "idle", title: "Money sitting idle", line: "Cash above your floor, a better low-risk rate, something to claim.", kinds: ["idle-usdc", "idle-position", "yield-change", "unclaimed"] },
-  { id: "running", title: "Things running", line: "Orders near their price, agents near their budget, payments coming up.", kinds: ["order-near-trigger", "order-expiring", "agent-budget", "watch-task", "runway", "obligations", "unsettled", "bridge-stuck", "expiring"] },
-  { id: "safety", title: "Safety", line: "Old token approvals, gas running low, tokens stuck without gas, the daily cap close.", kinds: ["approval-hygiene", "gas-floor", "stranded", "dust", "beta-headroom"] },
+  { id: "risk", title: t("you.prefsModel.moneyAtRisk"), line: t("you.prefsModel.loansNearLiquidationRangesThatStopped"), kinds: ["health-factor", "lp-out-of-range", "fx-drift", "scent-warning", "near-threshold"] },
+  { id: "idle", title: t("you.prefsModel.moneySittingIdle"), line: t("you.prefsModel.cashAboveYourFloorABetter"), kinds: ["idle-usdc", "idle-position", "yield-change", "unclaimed"] },
+  { id: "running", title: t("you.prefsModel.thingsRunning"), line: t("you.prefsModel.ordersNearTheirPriceAgentsNear"), kinds: ["order-near-trigger", "order-expiring", "agent-budget", "watch-task", "runway", "obligations", "unsettled", "bridge-stuck", "expiring"] },
+  { id: "safety", title: t("you.prefsModel.safety"), line: t("you.prefsModel.oldTokenApprovalsGasRunningLow"), kinds: ["approval-hygiene", "gas-floor", "stranded", "dust", "beta-headroom"] },
 ];
 
 /** How many of a group's kinds are shown. */

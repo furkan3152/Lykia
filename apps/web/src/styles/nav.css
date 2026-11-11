@@ -73,7 +73,7 @@
   font-family: Silkscreen, monospace;
   font-size: 9px;
   letter-spacing: 0;
-  box-shadow: 0 0 0 2px var(--navy);
+  box-shadow: 0 0 0 2px var(--navy-line);
 }
 
 .m-navtile:hover { color: #fff; background-color: #1c3253; box-shadow: inset 0 0 0 2px #2f4a72, inset 0 -3px 0 #0b1626; }
@@ -84,13 +84,13 @@
 
 /* Active: the inlaid, lit plate. */
 .m-navtile[aria-current="page"] {
-  color: var(--navy);
-  background-color: #fbf5e6;
+  color: var(--navy-ink);
+  background-color: var(--ns-fbf5e6);
   background-image: var(--tess-plate, none);
   background-size: 32px 32px;
   box-shadow: inset 0 0 0 2px var(--ochre), inset 0 -4px 0 #c08f35, 0 0 0 2px #0b1626;
 }
-.m-navtile[aria-current="page"] .m-navtile__plate { background-color: #4fb0c2; box-shadow: inset 0 0 0 2px var(--navy); }
+.m-navtile[aria-current="page"] .m-navtile__plate { background-color: #4fb0c2; box-shadow: inset 0 0 0 2px var(--navy-line); }
 .m-navtile[aria-current="page"] .m-navtile__key { opacity: 1; animation: m-key-draw 640ms steps(8, end) 80ms both; }
 @keyframes m-key-draw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 

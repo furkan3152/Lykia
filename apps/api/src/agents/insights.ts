@@ -11,6 +11,7 @@ import type { FlockSnapshot } from "@lykia/core/api/flock";
 import type { AppContext } from "../context.js";
 import { services } from "../services.js";
 
+import { tx } from "@lykia/core";
 const IDLE_CASH_USD = 100;
 const HEALTH_WATCH = "1.5";
 const LOW_GAS_USDC = 0.05;
@@ -28,9 +29,9 @@ export function insightsFrom(snap: FlockSnapshot): Insight[] {
       id: "idle-usdc",
       kind: "idle-cash",
       severity: usdcUsd >= 1000 ? "act" : "watch",
-      title: `${usdc.amount} USDC is sitting idle`,
-      detail: "Stablecoins in the wallet earn nothing. A Morpho vault on Arc can hold part of it while the rest stays liquid for gas and payments.",
-      proposal: snap.environment === "mainnet" ? "put half my USDC to work" : null,
+      title: tx("{amount} USDC is sitting idle", { amount: usdc.amount }),
+      detail: tx("Stablecoins in the wallet earn nothing. A Morpho vault on Arc can hold part of it while the rest stays liquid for gas and payments."),
+      proposal: snap.environment === "mainnet" ? tx("put half my USDC to work") : null,
       role: "yield-keeper",
     });
   }
@@ -39,29 +40,29 @@ export function insightsFrom(snap: FlockSnapshot): Insight[] {
   if (eurc && eurcUsd !== null && total !== null && total > 0) {
     const share = eurcUsd / total;
     if (share >= 0.1) {
-      out.push({ id: "fx-eur", kind: "fx-exposure", severity: share >= 0.6 ? "watch" : "info", title: `${Math.round(share * 100)}% of the Flock is in EUR`, detail: `EURC worth $${eurc.usd} moves with EUR/USD. The FX hedger can keep a target mix inside the Fence's FX band.`, proposal: share >= 0.6 ? "convert 25% of my EURC to USDC" : null, role: "fx-hedger" });
+      out.push({ id: "fx-eur", kind: "fx-exposure", severity: share >= 0.6 ? "watch" : "info", title: tx("{value}% of the Flock is in EUR", { value: Math.round(share * 100) }), detail: tx("EURC worth ${usd} moves with EUR/USD. The FX hedger can keep a target mix inside the Fence's FX band.", { usd: eurc.usd }), proposal: share >= 0.6 ? tx("convert 25% of my EURC to USDC") : null, role: "fx-hedger" });
     }
   }
   if (total !== null && total > 0) {
     for (const h of snap.holdings) {
       const usd = num(h.usd);
       if (h.kind === "debt" || usd === null || h.symbol === "USDC" || h.symbol === "EURC") continue;
-      if (usd / total >= 0.5) out.push({ id: `concentration-${h.symbol}`, kind: "concentration", severity: "watch", title: `${Math.round((usd / total) * 100)}% of the Flock is ${h.symbol}`, detail: `One volatile asset carries most of the value ($${h.usd} of $${snap.totalUsd}).`, proposal: null, role: "treasurer" });
+      if (usd / total >= 0.5) out.push({ id: `concentration-${h.symbol}`, kind: "concentration", severity: "watch", title: tx("{value}% of the Flock is {symbol}", { value: Math.round((usd / total) * 100), symbol: h.symbol }), detail: tx("One volatile asset carries most of the value (${usd} of ${totalUsd}).", { usd: h.usd, totalUsd: snap.totalUsd }), proposal: null, role: "treasurer" });
     }
   }
   for (const h of snap.health) {
-    if (h.healthFactor === null) out.push({ id: `health-${h.venue}`, kind: "health-factor", severity: "watch", title: `Health factor on ${h.venue} could not be read`, detail: "The sentinel cannot judge liquidation risk without it.", proposal: null, role: "sentinel" });
-    else if (compareDecimal(h.healthFactor, HEALTH_WATCH) < 0) out.push({ id: `health-${h.venue}`, kind: "health-factor", severity: "act", title: `Health factor ${h.healthFactor} on ${h.venue}`, detail: `Below ${HEALTH_WATCH}: a price move could liquidate the position. Repaying part of the debt raises it.`, proposal: null, role: "sentinel" });
+    if (h.healthFactor === null) out.push({ id: `health-${h.venue}`, kind: "health-factor", severity: "watch", title: tx("Health factor on {venue} could not be read", { venue: h.venue }), detail: tx("The sentinel cannot judge liquidation risk without it."), proposal: null, role: "sentinel" });
+    else if (compareDecimal(h.healthFactor, HEALTH_WATCH) < 0) out.push({ id: `health-${h.venue}`, kind: "health-factor", severity: "act", title: tx("Health factor {healthFactor} on {venue}", { healthFactor: h.healthFactor, venue: h.venue }), detail: tx("Below {HEALTH_WATCH}: a price move could liquidate the position. Repaying part of the debt raises it.", { HEALTH_WATCH }), proposal: null, role: "sentinel" });
   }
   const unpriced = snap.holdings.filter((h) => h.usd === null && h.kind !== "debt");
-  if (unpriced.length > 0) out.push({ id: "unpriced", kind: "unpriced", severity: "info", title: `${unpriced.length} holding(s) without a price`, detail: `${unpriced.map((h) => `${h.amount} ${h.symbol}`).join(", ")}: Lykia shows them as unpriced, never as zero, and the Fence denies capped moves on them.`, proposal: null, role: "researcher" });
+  if (unpriced.length > 0) out.push({ id: "unpriced", kind: "unpriced", severity: "info", title: tx("{length} holding(s) without a price", { length: unpriced.length }), detail: tx("{value}: Lykia shows them as unpriced, never as zero, and the Fence denies capped moves on them.", { value: unpriced.map((h) => `${h.amount} ${h.symbol}`).join(", ") }), proposal: null, role: "researcher" });
   for (const h of snap.holdings) {
     const trust = assessToken({ environment: snap.environment, address: h.token, symbol: h.symbol });
-    if (trust.status !== "verified" && h.kind === "token") out.push({ id: `scent-${h.token}`, kind: "scent-warning", severity: trust.status === "lookalike" ? "act" : "watch", title: `${h.symbol} is not a registry token`, detail: trust.warning, proposal: null, role: "sentinel" });
+    if (trust.status !== "verified" && h.kind === "token") out.push({ id: `scent-${h.token}`, kind: "scent-warning", severity: trust.status === "lookalike" ? "act" : "watch", title: tx("{symbol} is not a registry token", { symbol: h.symbol }), detail: trust.warning, proposal: null, role: "sentinel" });
   }
   try {
     const gas = Number(fromBaseUnits(snap.native.usdc18, 18));
-    if (gas < LOW_GAS_USDC && (total ?? 0) > 0) out.push({ id: "low-gas", kind: "low-gas", severity: "watch", title: `Gas is low: ${gas.toFixed(4)} USDC`, detail: "Arc pays gas in USDC. Keep a little native USDC so plans can execute.", proposal: null, role: "treasurer" });
+    if (gas < LOW_GAS_USDC && (total ?? 0) > 0) out.push({ id: "low-gas", kind: "low-gas", severity: "watch", title: tx("Gas is low: {value} USDC", { value: gas.toFixed(4) }), detail: tx("Arc pays gas in USDC. Keep a little native USDC so plans can execute."), proposal: null, role: "treasurer" });
   } catch {
     /* malformed native balance: skip */
   }
@@ -110,11 +111,11 @@ export async function staleApprovals(ctx: AppContext, environment: ArcEnvironmen
       id: `stale-approval-${p.token.symbol}-${p.spender.toLowerCase()}`,
       kind: "stale-approval",
       severity: unlimited ? "act" : "watch",
-      title: `${p.token.symbol} still approved to ${p.venue}`,
-      detail: `${amount} can still be pulled by ${p.venue} (${p.name}, ${p.spender}). Lykia's own steps never leave allowances behind; revoking closes the door.`,
+      title: tx("{symbol} still approved to {venue}", { symbol: p.token.symbol, venue: p.venue }),
+      detail: tx("{amount} can still be pulled by {venue} ({name}, {spender}). Lykia's own steps never leave allowances behind; revoking closes the door.", { amount, venue: p.venue, name: p.name, spender: p.spender }),
       proposal: null,
       role: "sentinel",
-      transactions: [{ chainId, from: owner, to: p.address, data: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [p.spender, 0n] }), value: "0", label: `Revoke ${p.token.symbol} allowance from ${p.venue}` }],
+      transactions: [{ chainId, from: owner, to: p.address, data: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [p.spender, 0n] }), value: "0", label: tx("Revoke {symbol} allowance from {venue}", { symbol: p.token.symbol, venue: p.venue }) }],
     });
   });
   return out;

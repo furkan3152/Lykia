@@ -5,6 +5,7 @@
  * wins. Path parameters are derived from the path; request schemas are given
  * where they help integrators most.
  */
+import { LOCALES } from "@lykia/core";
 import { z } from "zod";
 import { createSchema, prepareSchema } from "../../modules/intents.js";
 import { factsSchema } from "../../modules/fence.js";
@@ -131,6 +132,7 @@ export const EXISTING_ROUTES: readonly DocumentedRoute[] = [
       fence: z.unknown().optional(),
       origin: z.enum(["ask", "fold"]).optional(),
       context: z.string().max(1_000).optional(),
+      locale: z.enum(LOCALES).optional().describe("The interface language Lyko answers in (overrides Accept-Language). Input may be in any language."),
     }),
     description:
       "Streams Server-Sent Events: thread, notice, reading, task, tool, step (one step of Lyko at work: sent with state running when it starts and again with the same id, ok, warn or fail, the result and the measured ms when it ends), block (a typed answer card built from server data: gas, fence, balance, rate, herded or settled; the text stays the fallback), thinking-summary, proposal, clarify, draft, program, text, error and done. Send Accept: application/json to get the same events collected in one JSON document.",

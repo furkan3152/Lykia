@@ -57,6 +57,7 @@ import { approveCall, feeCall, type RawCall } from "./calls.js";
 import { lykiaRouterAddress, routerRunCall, type RouterLeg } from "./lykiaRouter.js";
 import { encodeManifestStep } from "../integrations/runtime.js";
 
+import { tx } from "@lykia/core";
 export type AdapterId =
   | "transfer"
   | "bridge"
@@ -173,9 +174,9 @@ export async function buildCalls(plan: StepPlan, ctx: BuildContext): Promise<Bui
   const built = await buildVenueCalls(plan, ctx);
   const p = plan.params;
   const fees: RawCall[] = [];
-  if (p.feeAmount && BigInt(p.feeAmount) > 0n) fees.push(feeCall(p.feeToken as Address, p.feeRecipient as Address, BigInt(p.feeAmount), p.feeLabel ?? "Lykia fee"));
+  if (p.feeAmount && BigInt(p.feeAmount) > 0n) fees.push(feeCall(p.feeToken as Address, p.feeRecipient as Address, BigInt(p.feeAmount), p.feeLabel ?? tx("Lykia fee")));
   // The embedding app's fee: a second transfer in the same batch, to the project's address.
-  if (p.appFeeAmount && p.appFeeRecipient && BigInt(p.appFeeAmount) > 0n) fees.push(feeCall(p.feeToken as Address, p.appFeeRecipient as Address, BigInt(p.appFeeAmount), "App fee"));
+  if (p.appFeeAmount && p.appFeeRecipient && BigInt(p.appFeeAmount) > 0n) fees.push(feeCall(p.feeToken as Address, p.appFeeRecipient as Address, BigInt(p.appFeeAmount), tx("App fee")));
   if (fees.length === 0) return built;
   return p.feeAt === "after" ? { approvals: built.approvals, calls: [...built.calls, ...fees] } : { approvals: built.approvals, calls: [...fees, ...built.calls] };
 }
@@ -186,7 +187,7 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
   const big = (key: string) => BigInt(p[key] as string);
   const needApproval = async (token: Address, spender: Address, amount: bigint, symbol: string, venue: string, decimals = Number(p.decimals ?? 6)): Promise<RawCall[]> => {
     const allowance = await client.readContract({ address: token, abi: erc20Abi, functionName: "allowance", args: [ctx.account, spender] });
-    return allowance >= amount ? [] : [approveCall(token, spender, amount, `Approve ${fromBaseUnits(amount, decimals)} ${symbol} to ${venue}`)];
+    return allowance >= amount ? [] : [approveCall(token, spender, amount, tx("Approve {value} {symbol} to {venue}", { value: fromBaseUnits(amount, decimals), symbol, venue }))];
   };
   const freshMinimum = async (quote: () => Promise<bigint | null>) => {
     const fresh = await quote();
@@ -200,7 +201,7 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
       return { approvals, calls: [{ to: step.to, data: step.data, label: `${p.verb === "withdraw" ? "Withdraw" : p.verb === "swap" || p.verb === "fx" ? "Swap" : "Deposit"} ${p.display ?? ""} on ${p.label}`.replace(/\s+/gu, " ") }] };
     }
     case "transfer":
-      return { approvals: [], calls: [{ to: p.token as Address, data: encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [p.to as Address, big("amount")] }), label: `Send ${p.display} to ${p.to}` }] };
+      return { approvals: [], calls: [{ to: p.token as Address, data: encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [p.to as Address, big("amount")] }), label: tx("Send {display} to {to}", { display: p.display, to: p.to }) }] };
     case "bridge": {
       const messenger = contractAddress("tokenMessengerV2", ctx.environment) as Address;
       const amount = big("amount");
@@ -212,20 +213,20 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
           : encodeFunctionData({ abi: TOKEN_MESSENGER_V2_ABI, functionName: "depositForBurn", args });
       return {
         approvals: await needApproval(p.token as Address, messenger, amount, "USDC", "CCTP"),
-        calls: [{ to: messenger, data, label: `Bridge ${p.display} to ${p.destinationName} over CCTP${p.forward === "1" ? " (Circle forwards the mint)" : ""}` }],
+        calls: [{ to: messenger, data, label: tx("Bridge {display} to {destinationName} over CCTP{value}", { display: p.display, destinationName: p.destinationName, value: p.forward === "1" ? tx(" (Circle forwards the mint)") : "" }) }],
       };
     }
     case "gateway": {
       const wallet = contractAddress("gatewayWallet", ctx.environment) as Address;
       const amount = big("amount");
-      return { approvals: await needApproval(p.token as Address, wallet, amount, "USDC", "Gateway"), calls: [{ to: wallet, data: encodeFunctionData({ abi: GATEWAY_WALLET_ABI, functionName: "deposit", args: [p.token as Address, amount] }), label: `Deposit ${p.display} into Circle Gateway` }] };
+      return { approvals: await needApproval(p.token as Address, wallet, amount, "USDC", "Gateway"), calls: [{ to: wallet, data: encodeFunctionData({ abi: GATEWAY_WALLET_ABI, functionName: "deposit", args: [p.token as Address, amount] }), label: tx("Deposit {display} into Circle Gateway", { display: p.display }) }] };
     }
     case "vault-deposit":
     case "practice-vault-deposit": {
       const amount = big("amount");
       return {
         approvals: await needApproval(p.token as Address, p.vault as Address, amount, p.symbol as string, p.vaultName as string),
-        calls: [{ to: p.vault as Address, data: encodeFunctionData({ abi: ERC4626_ABI, functionName: "deposit", args: [amount, ctx.account] }), label: `Deposit ${p.display} into ${p.vaultName}` }],
+        calls: [{ to: p.vault as Address, data: encodeFunctionData({ abi: ERC4626_ABI, functionName: "deposit", args: [amount, ctx.account] }), label: tx("Deposit {display} into {vaultName}", { display: p.display, vaultName: p.vaultName }) }],
       };
     }
     case "vault-withdraw":
@@ -234,7 +235,7 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
         p.mode === "redeem"
           ? encodeFunctionData({ abi: ERC4626_ABI, functionName: "redeem", args: [big("shares"), ctx.account, ctx.account] })
           : encodeFunctionData({ abi: ERC4626_ABI, functionName: "withdraw", args: [big("amount"), ctx.account, ctx.account] });
-      return { approvals: [], calls: [{ to: p.vault as Address, data, label: `Withdraw ${p.display} from ${p.vaultName}` }] };
+      return { approvals: [], calls: [{ to: p.vault as Address, data, label: tx("Withdraw {display} from {vaultName}", { display: p.display, vaultName: p.vaultName }) }] };
     }
     case "swap": {
       const v3 = v3Contracts(ctx.environment);
@@ -243,7 +244,7 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
       await freshMinimum(async () => (await quoteV3Single(ctx.chains, ctx.environment, p.tokenIn as Address, p.tokenOut as Address, amountIn)).find((q) => q.fee === Number(p.fee))?.amountOut ?? null);
       return {
         approvals: await needApproval(p.tokenIn as Address, v3.router, amountIn, p.symbolIn as string, "Uniswap v3"),
-        calls: [uniswapCalls.v3Single(v3.router, p.tokenIn as Address, p.tokenOut as Address, Number(p.fee), ctx.account, amountIn, big("minOut"), `Swap ${p.display} on Uniswap v3`)],
+        calls: [uniswapCalls.v3Single(v3.router, p.tokenIn as Address, p.tokenOut as Address, Number(p.fee), ctx.account, amountIn, big("minOut"), tx("Swap {display} on Uniswap v3", { display: p.display }))],
       };
     }
     case "swap-path": {
@@ -260,7 +261,7 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
       });
       return {
         approvals: await needApproval(p.tokenIn as Address, v3.router, amountIn, p.symbolIn as string, "Uniswap v3"),
-        calls: [uniswapCalls.v3Path(v3.router, p.path as Hex, ctx.account, amountIn, big("minOut"), `Swap ${p.display} on Uniswap v3 (two hops)`)],
+        calls: [uniswapCalls.v3Path(v3.router, p.path as Hex, ctx.account, amountIn, big("minOut"), tx("Swap {display} on Uniswap v3 (two hops)", { display: p.display }))],
       };
     }
     case "swap-v4": {
@@ -278,8 +279,8 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
       } catch {
         permitted = false;
       }
-      if (!permitted) approvals.push(uniswapCalls.permit2Approve(v4.permit2, p.tokenIn as Address, v4.router, amountIn, now + PERMIT2_EXPIRY_SECONDS, `Permit2: let Uniswap's UniversalRouter pull ${p.symbolIn} for 30 minutes`));
-      return { approvals, calls: [uniswapCalls.v4Single(v4.router, key, p.zeroForOne === "true", amountIn, big("minOut"), BigInt(now + PERMIT2_EXPIRY_SECONDS), `Swap ${p.display} on Uniswap v4`)] };
+      if (!permitted) approvals.push(uniswapCalls.permit2Approve(v4.permit2, p.tokenIn as Address, v4.router, amountIn, now + PERMIT2_EXPIRY_SECONDS, tx("Permit2: let Uniswap's UniversalRouter pull {symbolIn} for 30 minutes", { symbolIn: p.symbolIn })));
+      return { approvals, calls: [uniswapCalls.v4Single(v4.router, key, p.zeroForOne === "true", amountIn, big("minOut"), BigInt(now + PERMIT2_EXPIRY_SECONDS), tx("Swap {display} on Uniswap v4", { display: p.display }))] };
     }
     case "swap-aerodrome": {
       const amountIn = big("amountIn");
@@ -287,7 +288,7 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
       const deadline = BigInt(Math.floor(Date.now() / 1000) + PERMIT2_EXPIRY_SECONDS);
       return {
         approvals: await needApproval(p.tokenIn as Address, p.router as Address, amountIn, p.symbolIn as string, "Aerodrome"),
-        calls: [aerodromeCalls.swapExactIn(p.router as Address, p.pool as Address, p.tokenIn as Address, amountIn, big("minOut"), ctx.account, deadline, `Swap ${p.display} on Aerodrome Slipstream`)],
+        calls: [aerodromeCalls.swapExactIn(p.router as Address, p.pool as Address, p.tokenIn as Address, amountIn, big("minOut"), ctx.account, deadline, tx("Swap {display} on Aerodrome Slipstream", { display: p.display }))],
       };
     }
     case "swap-archery":
@@ -300,32 +301,32 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
       const quote = archery ? quoteArchery : quoteUnitflow;
       await freshMinimum(async () => (await quote(ctx.chains, ctx.environment, p.tokenIn as Address, p.tokenOut as Address, amountIn)).find((q) => q.key === key)?.amountOut ?? null);
       const deadline = BigInt(Math.floor(Date.now() / 1000) + PERMIT2_EXPIRY_SECONDS);
-      const name = archery ? "Archery" : "Unitflow V3";
+      const name = archery ? tx("Archery") : tx("Unitflow V3");
       const call = archery
-        ? forkCalls.archerySingle(c.router, p.tokenIn as Address, p.tokenOut as Address, key, ctx.account, deadline, amountIn, big("minOut"), `Swap ${p.display} on Archery`)
-        : forkCalls.unitflowSingle(c.router, p.tokenIn as Address, p.tokenOut as Address, key, ctx.account, deadline, amountIn, big("minOut"), `Swap ${p.display} on Unitflow V3`);
+        ? forkCalls.archerySingle(c.router, p.tokenIn as Address, p.tokenOut as Address, key, ctx.account, deadline, amountIn, big("minOut"), tx("Swap {display} on Archery", { display: p.display }))
+        : forkCalls.unitflowSingle(c.router, p.tokenIn as Address, p.tokenOut as Address, key, ctx.account, deadline, amountIn, big("minOut"), tx("Swap {display} on Unitflow V3", { display: p.display }));
       return { approvals: await needApproval(p.tokenIn as Address, c.router, amountIn, p.symbolIn as string, name), calls: [call] };
     }
     case "swap-sushi": {
       const amountIn = big("amountIn");
-      const built = await sushiCall(ctx.fetch ?? fetch, ctx.environment, p.tokenIn as Address, p.tokenOut as Address, amountIn, ctx.account, big("minOut"), `Swap ${p.display} through Sushi (RedSnwapper)`);
+      const built = await sushiCall(ctx.fetch ?? fetch, ctx.environment, p.tokenIn as Address, p.tokenOut as Address, amountIn, ctx.account, big("minOut"), tx("Swap {display} through Sushi (RedSnwapper)", { display: p.display }));
       if (!built || built.quoted < big("minOut")) throw new LykiaHttpError("NO_ROUTE", 422, "Sushi's route moved past the planned minimum or did not answer; plan again.");
-      return { approvals: await needApproval(p.tokenIn as Address, built.call.to, amountIn, p.symbolIn as string, "Sushi RedSnwapper"), calls: [built.call] };
+      return { approvals: await needApproval(p.tokenIn as Address, built.call.to, amountIn, p.symbolIn as string, tx("Sushi RedSnwapper")), calls: [built.call] };
     }
     case "swap-zerox": {
       const amountIn = big("amountIn");
       const quote = await quoteZeroX(ctx.fetch ?? fetch, zeroXKey(), ctx.environment, p.tokenIn as Address, p.tokenOut as Address, amountIn, ctx.account, Number(p.slippageBps ?? 50));
       // 0x's settler data carries its own floor: refuse unless that floor is at least Lykia's.
       if (!quote || quote.minOut < big("minOut")) throw new LykiaHttpError("NO_ROUTE", 422, "0x's route moved past the planned minimum, did not answer, or no key is set; plan again.");
-      return { approvals: await needApproval(p.tokenIn as Address, quote.to, amountIn, p.symbolIn as string, "0x AllowanceHolder"), calls: [{ to: quote.to, data: quote.data, label: `Swap ${p.display} through 0x` }] };
+      return { approvals: await needApproval(p.tokenIn as Address, quote.to, amountIn, p.symbolIn as string, "0x AllowanceHolder"), calls: [{ to: quote.to, data: quote.data, label: tx("Swap {display} through 0x", { display: p.display }) }] };
     }
     case "bridge-relay": {
       const amount = big("amount");
       const quote = await quoteRelay(ctx.fetch ?? fetch, ctx.environment, { user: ctx.account, recipient: p.recipient as Address, usdc: p.token as Address, amount, destinationChainId: Number(p.chainId) });
       if (!quote || quote.amountOut < big("minOut")) throw new LykiaHttpError("NO_ROUTE", 422, "Relay's quote moved past the planned minimum or did not answer; plan again.");
       return {
-        approvals: await needApproval(p.token as Address, quote.depository, amount, "USDC", "Relay"),
-        calls: [relayCalls.deposit(quote.depository, ctx.account, p.token as Address, amount, quote.depositId, `Bridge ${p.display} to ${p.destinationName} over Relay (filled on ${p.destinationName})`)],
+        approvals: await needApproval(p.token as Address, quote.depository, amount, "USDC", tx("Relay")),
+        calls: [relayCalls.deposit(quote.depository, ctx.account, p.token as Address, amount, quote.depositId, tx("Bridge {display} to {destinationName} over Relay (filled on {destinationName})", { display: p.display, destinationName: p.destinationName }))],
       };
     }
     case "bridge-across": {
@@ -335,7 +336,7 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
       if (!quote || quote.amountOut < big("minOut")) throw new LykiaHttpError("NO_ROUTE", 422, "Across's quote moved past the planned minimum or did not answer; plan again.");
       return {
         approvals: await needApproval(p.token as Address, quote.spokePool, amount, "USDC", "Across"),
-        calls: [acrossCalls.deposit(quote, ctx.account, p.recipient as Address, p.token as Address, chainId, `Bridge ${p.display} to ${p.destinationName} over Across (filled on ${p.destinationName})`)],
+        calls: [acrossCalls.deposit(quote, ctx.account, p.recipient as Address, p.token as Address, chainId, tx("Bridge {display} to {destinationName} over Across (filled on {destinationName})", { display: p.display, destinationName: p.destinationName }))],
       };
     }
     case "router-split": {
@@ -354,7 +355,7 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
       const deadline = BigInt(Math.floor(Date.now() / 1000) + PERMIT2_EXPIRY_SECONDS);
       return {
         approvals: await needApproval(legs[0]!.tokenIn, router, total, p.symbolIn as string, "LykiaRouter"),
-        calls: [routerRunCall(ctx.environment, p.intentId as string, ctx.account, legs, deadline, `Swap ${p.display} through LykiaRouter (both legs or neither)`)],
+        calls: [routerRunCall(ctx.environment, p.intentId as string, ctx.account, legs, deadline, tx("Swap {display} through LykiaRouter (both legs or neither)", { display: p.display }))],
       };
     }
     case "practice-swap": {
@@ -367,29 +368,29 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
         }
       });
       return {
-        approvals: await needApproval(p.tokenIn as Address, p.pool as Address, amountIn, p.symbolIn as string, "Lykia Practice Swap"),
-        calls: [{ to: p.pool as Address, data: encodeFunctionData({ abi: PRACTICE_SWAP_ABI, functionName: "swap", args: [p.tokenIn as Address, amountIn, big("minOut"), ctx.account] }), label: `Swap ${p.display} on Lykia Practice Swap` }],
+        approvals: await needApproval(p.tokenIn as Address, p.pool as Address, amountIn, p.symbolIn as string, tx("Lykia Practice Swap")),
+        calls: [{ to: p.pool as Address, data: encodeFunctionData({ abi: PRACTICE_SWAP_ABI, functionName: "swap", args: [p.tokenIn as Address, amountIn, big("minOut"), ctx.account] }), label: tx("Swap {display} on Lykia Practice Swap", { display: p.display }) }],
       };
     }
     case "aave-supply": {
       const amount = big("amount");
       return {
         approvals: await needApproval(p.token as Address, p.spoke as Address, amount, p.symbol as string, p.spokeName as string),
-        calls: [aaveCalls.supply(p.spoke as Address, Number(p.reserveId), amount, ctx.account, `Supply ${p.display} to ${p.spokeName}`)],
+        calls: [aaveCalls.supply(p.spoke as Address, Number(p.reserveId), amount, ctx.account, tx("Supply {display} to {spokeName}", { display: p.display, spokeName: p.spokeName }))],
       };
     }
     case "aave-withdraw":
-      return { approvals: [], calls: [aaveCalls.withdraw(p.spoke as Address, Number(p.reserveId), p.mode === "all" ? null : big("amount"), ctx.account, `Withdraw ${p.display} from ${p.spokeName}`)] };
+      return { approvals: [], calls: [aaveCalls.withdraw(p.spoke as Address, Number(p.reserveId), p.mode === "all" ? null : big("amount"), ctx.account, tx("Withdraw {display} from {spokeName}", { display: p.display, spokeName: p.spokeName }))] };
     case "aave-borrow": {
       const collateral = big("collateral");
       const calls: RawCall[] = [];
       let approvals: RawCall[] = [];
       if (collateral > 0n) {
         approvals = await needApproval(p.collToken as Address, p.spoke as Address, collateral, p.collSymbol as string, p.spokeName as string, Number(p.decimals));
-        calls.push(aaveCalls.supply(p.spoke as Address, Number(p.collReserve), collateral, ctx.account, `Supply ${fromBaseUnits(collateral, Number(p.decimals))} ${p.collSymbol} as collateral`));
-        calls.push(aaveCalls.setCollateral(p.spoke as Address, Number(p.collReserve), ctx.account, `Use ${p.collSymbol} as collateral`));
+        calls.push(aaveCalls.supply(p.spoke as Address, Number(p.collReserve), collateral, ctx.account, tx("Supply {value} {collSymbol} as collateral", { value: fromBaseUnits(collateral, Number(p.decimals)), collSymbol: p.collSymbol })));
+        calls.push(aaveCalls.setCollateral(p.spoke as Address, Number(p.collReserve), ctx.account, tx("Use {collSymbol} as collateral", { collSymbol: p.collSymbol })));
       }
-      calls.push(aaveCalls.borrow(p.spoke as Address, Number(p.loanReserve), big("amount"), ctx.account, `Borrow ${p.display} from ${p.spokeName}`));
+      calls.push(aaveCalls.borrow(p.spoke as Address, Number(p.loanReserve), big("amount"), ctx.account, tx("Borrow {display} from {spokeName}", { display: p.display, spokeName: p.spokeName })));
       return { approvals, calls };
     }
     case "aave-repay": {
@@ -397,7 +398,7 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
       const approveAmount = p.mode === "all" ? amount + amount / 1000n + 1_000n : amount;
       return {
         approvals: await needApproval(p.token as Address, p.spoke as Address, approveAmount, p.symbol as string, p.spokeName as string),
-        calls: [aaveCalls.repay(p.spoke as Address, Number(p.reserveId), p.mode === "all" ? null : amount, ctx.account, `Repay ${p.display} on ${p.spokeName}`)],
+        calls: [aaveCalls.repay(p.spoke as Address, Number(p.reserveId), p.mode === "all" ? null : amount, ctx.account, tx("Repay {display} on {spokeName}", { display: p.display, spokeName: p.spokeName }))],
       };
     }
     case "morpho-borrow": {
@@ -407,10 +408,10 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
       const calls: RawCall[] = [];
       let approvals: RawCall[] = [];
       if (collateral > 0n) {
-        approvals = await needApproval(p.collToken as Address, MORPHO_BLUE[ctx.environment] as Address, collateral, p.collSymbol as string, "Morpho Blue", Number(p.decimals));
-        calls.push(morphoCalls.supplyCollateral(ctx.environment, market, collateral, ctx.account, `Post ${fromBaseUnits(collateral, Number(p.decimals))} ${p.collSymbol} on ${market.label}`));
+        approvals = await needApproval(p.collToken as Address, MORPHO_BLUE[ctx.environment] as Address, collateral, p.collSymbol as string, tx("Morpho Blue"), Number(p.decimals));
+        calls.push(morphoCalls.supplyCollateral(ctx.environment, market, collateral, ctx.account, tx("Post {value} {collSymbol} on {label}", { value: fromBaseUnits(collateral, Number(p.decimals)), collSymbol: p.collSymbol, label: market.label })));
       }
-      calls.push(morphoCalls.borrow(ctx.environment, market, big("amount"), ctx.account, `Borrow ${p.display} on ${market.label}`));
+      calls.push(morphoCalls.borrow(ctx.environment, market, big("amount"), ctx.account, tx("Borrow {display} on {label}", { display: p.display, label: market.label })));
       return { approvals, calls };
     }
     case "morpho-repay": {
@@ -422,8 +423,8 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
       const assets = all ? (position as { borrowAssets: bigint }).borrowAssets : big("amount");
       const approveAmount = all ? assets + assets / 1000n + 1_000n : assets;
       return {
-        approvals: await needApproval(p.token as Address, MORPHO_BLUE[ctx.environment] as Address, approveAmount, p.symbol as string, "Morpho Blue"),
-        calls: [morphoCalls.repay(ctx.environment, market, all ? 0n : assets, all ? (position as { borrowShares: bigint }).borrowShares : 0n, ctx.account, `Repay ${p.display} on ${market.label}`)],
+        approvals: await needApproval(p.token as Address, MORPHO_BLUE[ctx.environment] as Address, approveAmount, p.symbol as string, tx("Morpho Blue")),
+        calls: [morphoCalls.repay(ctx.environment, market, all ? 0n : assets, all ? (position as { borrowShares: bigint }).borrowShares : 0n, ctx.account, tx("Repay {display} on {label}", { display: p.display, label: market.label }))],
       };
     }
     case "practice-borrow": {
@@ -431,17 +432,17 @@ async function buildVenueCalls(plan: StepPlan, ctx: BuildContext): Promise<Built
       const calls: RawCall[] = [];
       let approvals: RawCall[] = [];
       if (collateral > 0n) {
-        approvals = await needApproval(p.collToken as Address, p.pool as Address, collateral, p.collSymbol as string, "Lykia Practice Lending", Number(p.decimals));
-        calls.push({ to: p.pool as Address, data: encodeFunctionData({ abi: PRACTICE_LENDING_ABI, functionName: "supplyCollateral", args: [collateral, ctx.account] }), label: `Post ${fromBaseUnits(collateral, Number(p.decimals))} ${p.collSymbol} on Lykia Practice Lending` });
+        approvals = await needApproval(p.collToken as Address, p.pool as Address, collateral, p.collSymbol as string, tx("Lykia Practice Lending"), Number(p.decimals));
+        calls.push({ to: p.pool as Address, data: encodeFunctionData({ abi: PRACTICE_LENDING_ABI, functionName: "supplyCollateral", args: [collateral, ctx.account] }), label: tx("Post {value} {collSymbol} on Lykia Practice Lending", { value: fromBaseUnits(collateral, Number(p.decimals)), collSymbol: p.collSymbol }) });
       }
-      calls.push({ to: p.pool as Address, data: encodeFunctionData({ abi: PRACTICE_LENDING_ABI, functionName: "borrow", args: [big("amount"), ctx.account] }), label: `Borrow ${p.display} on Lykia Practice Lending` });
+      calls.push({ to: p.pool as Address, data: encodeFunctionData({ abi: PRACTICE_LENDING_ABI, functionName: "borrow", args: [big("amount"), ctx.account] }), label: tx("Borrow {display} on Lykia Practice Lending", { display: p.display }) });
       return { approvals, calls };
     }
     case "practice-repay": {
       const amount = big("amount");
       return {
-        approvals: await needApproval(p.token as Address, p.pool as Address, amount, p.symbol as string, "Lykia Practice Lending"),
-        calls: [{ to: p.pool as Address, data: encodeFunctionData({ abi: PRACTICE_LENDING_ABI, functionName: "repay", args: [amount, ctx.account] }), label: `Repay ${p.display} on Lykia Practice Lending` }],
+        approvals: await needApproval(p.token as Address, p.pool as Address, amount, p.symbol as string, tx("Lykia Practice Lending")),
+        calls: [{ to: p.pool as Address, data: encodeFunctionData({ abi: PRACTICE_LENDING_ABI, functionName: "repay", args: [amount, ctx.account] }), label: tx("Repay {display} on Lykia Practice Lending", { display: p.display }) }],
       };
     }
   }

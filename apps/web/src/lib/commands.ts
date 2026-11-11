@@ -1,3 +1,4 @@
+// i18n-ignore-file: words typed into the command box are matched here, never shown.
 /**
  * The whistle box's brain (pure): what a line typed into ⌘K or the deck
  * means. Sheepdog commands and hidden words come from core lore; pages and

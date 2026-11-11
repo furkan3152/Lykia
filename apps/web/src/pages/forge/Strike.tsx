@@ -14,6 +14,7 @@ import { useSiwe } from "../../features/session/useSiwe";
 import { apiGet, apiPost, describeError } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { Button, Card, Field, Input, Tag, cx, toast } from "../../mosaic";
+import { t } from "../../i18n";
 
 type StepState = "done" | "now" | "later";
 
@@ -41,7 +42,7 @@ export function Strike({ onPreview }: { readonly onPreview: (p: Project) => void
   const register = useMutation({
     mutationFn: () => apiPost("/v1/developers/register", { name: "Lykia builder" }),
     onSuccess: async () => {
-      toast.success("Developer role added. Sign in once more to carry it.", { from: "LYKO" });
+      toast.success(t("forge.strike.developerRoleAddedSignInOnce"), { from: "LYKO" });
       setSession(null);
       await siwe.signIn();
     },
@@ -68,43 +69,43 @@ export function Strike({ onPreview }: { readonly onPreview: (p: Project) => void
   const s5: StepState = listed ? "done" : city ? "now" : "later";
   return (
     <div className="m-grid-2 m-grid-2--l" style={{ alignItems: "start" }}>
-      <Card title="Strike a city" kicker="FIVE STONES · ABOUT FIVE MINUTES">
+      <Card title={t("forge.strike.strikeACity")} kicker={t("forge.strike.fiveStonesAboutFiveMinutes")}>
         <ol className="forge-stones">
-          <Stone n={1} title="Connect and sign in on Arc" state={s1}>
-            <p className="m-small m-muted">{"One signed message (SIWE), no transaction. Your wallet owns your cities."}</p>
-            {s1 === "now" ? <Button size="sm" onClick={() => void siwe.signIn()} disabled={siwe.busy}>{siwe.address ? "SIGN IN" : "CONNECT A WALLET FIRST"}</Button> : <Tag tone="ok">{`SIGNED IN · ${siwe.session?.address.slice(0, 6)}…`}</Tag>}
+          <Stone n={1} title={t("forge.strike.connectAndSignInOnArc")} state={s1}>
+            <p className="m-small m-muted">{t("forge.strike.oneSignedMessageSiweNoTransaction")}</p>
+            {s1 === "now" ? <Button size="sm" onClick={() => void siwe.signIn()} disabled={siwe.busy}>{siwe.address ? t("forge.strike.signIn") : t("forge.strike.connectAWalletFirst")}</Button> : <Tag tone="ok">{t("forge.strike.signedIn", { value: siwe.session?.address.slice(0, 6) })}</Tag>}
           </Stone>
-          <Stone n={2} title="Take the developer role" state={s2}>
-            <p className="m-small m-muted">{"Free. Adds keys, projects, usage and webhooks to your address."}</p>
-            {s2 === "now" ? <Button size="sm" tone="sea" onClick={() => register.mutate()} disabled={register.isPending}>{"BECOME A DEVELOPER"}</Button> : null}
+          <Stone n={2} title={t("forge.strike.takeTheDeveloperRole")} state={s2}>
+            <p className="m-small m-muted">{t("forge.strike.freeAddsKeysProjectsUsageAnd")}</p>
+            {s2 === "now" ? <Button size="sm" tone="sea" onClick={() => register.mutate()} disabled={register.isPending}>{t("forge.strike.becomeADeveloper")}</Button> : null}
           </Stone>
-          <Stone n={3} title="Name your city" state={s3}>
-            <p className="m-small m-muted">{"A city is a project: your brand, your site's origin, the modules you turn on, Fence caps that only ever tighten a user's rules, and your app fee."}</p>
+          <Stone n={3} title={t("forge.strike.nameYourCity")} state={s3}>
+            <p className="m-small m-muted">{t("forge.strike.aCityIsAProjectYour")}</p>
             {developer ? (
               <div className="forge-form">
-                <Field label="Name"><Input value={name} maxLength={64} placeholder="Acme Pay" onChange={(e) => setName(e.target.value)} /></Field>
-                <Field label="Your site (optional)" hint="An exact origin. http://localhost needs no proof."><Input value={origin} placeholder="https://app.example.com" onChange={(e) => setOrigin(e.target.value.trim())} /></Field>
-                <Button onClick={() => create.mutate()} disabled={!name.trim() || create.isPending}>{create.isPending ? "STRIKING…" : "STRIKE THE COIN"}</Button>
+                <Field label={t("forge.strike.name")}><Input value={name} maxLength={64} placeholder={t("forge.strike.acmePay")} onChange={(e) => setName(e.target.value)} /></Field>
+                <Field label={t("forge.strike.yourSiteOptional")} hint={t("forge.strike.anExactOriginHttpLocalhostNeeds")}><Input value={origin} placeholder="https://app.example.com" onChange={(e) => setOrigin(e.target.value.trim())} /></Field>
+                <Button onClick={() => create.mutate()} disabled={!name.trim() || create.isPending}>{create.isPending ? "STRIKING…" : t("forge.strike.strikeTheCoin")}</Button>
               </div>
             ) : null}
           </Stone>
-          <Stone n={4} title="Shape it in the Workshop" state={s4}>
-            <p className="m-small m-muted">{"Colours, assistant name, modules and the live preview, with the code for React, HTML and hooks."}</p>
-            {city ? <Button size="sm" tone="sea" onClick={() => onPreview(city)}>{`OPEN ${city.name.toUpperCase().slice(0, 18)} IN THE WORKSHOP`}</Button> : null}
+          <Stone n={4} title={t("forge.strike.shapeItInTheWorkshop")} state={s4}>
+            <p className="m-small m-muted">{t("forge.strike.coloursAssistantNameModulesAndThe")}</p>
+            {city ? <Button size="sm" tone="sea" onClick={() => onPreview(city)}>{t("forge.strike.openInTheWorkshop", { value: city.name.toUpperCase().slice(0, 18) })}</Button> : null}
           </Stone>
-          <Stone n={5} title="Ask for a place in the League" state={s5}>
-            <p className="m-small m-muted">{"A one-line pitch, a category and an emblem. The Lykia team reviews every community city before it is listed."}</p>
-            {city ? <Button size="sm" tone="ghost" onClick={() => navigate("/forge/cities")}>{"REQUEST A LISTING"}</Button> : null}
+          <Stone n={5} title={t("forge.strike.askForAPlaceInThe")} state={s5}>
+            <p className="m-small m-muted">{t("forge.strike.aOneLinePitchACategory")}</p>
+            {city ? <Button size="sm" tone="ghost" onClick={() => navigate("/forge/cities")}>{t("forge.strike.requestAListing")}</Button> : null}
           </Stone>
         </ol>
       </Card>
       <div className="forge-anvilbox" style={{ minWidth: 0 }}>
         <div className="m-frame m-frame--night forge-anvil__frame">
-          <ForgeStrike strikeKey={struck?.id ?? "idle"} label={struck ? `The hammer struck ${struck.name}'s coin` : "The Forge's anvil, a hot blank waiting"} />
+          <ForgeStrike strikeKey={struck?.id ?? "idle"} label={struck ? t("forge.strike.theHammerStruckSCoin", { name: struck.name }) : t("forge.strike.theForgeSAnvilAHot")} />
         </div>
         <div className="forge-anvilbox__coin m-floor">
-          {struck ? <Coin key={struck.id} state="live" emblem="triskeles" codename={null} name={struck.name} size={112} delay={600} /> : <Coin state="coming" emblem="triskeles" codename={null} name="Your city" size={112} />}
-          {struck ? null : <p className="m-small m-muted m-center" style={{ maxWidth: 360 }}>{"A blank, waiting. Name a city and the hammer strikes it in gold: the League's shared face on one side, your emblem on the other."}</p>}
+          {struck ? <Coin key={struck.id} state="live" emblem="triskeles" codename={null} name={struck.name} size={112} delay={600} /> : <Coin state="coming" emblem="triskeles" codename={null} name={t("forge.strike.yourCity")} size={112} />}
+          {struck ? null : <p className="m-small m-muted m-center" style={{ maxWidth: 360 }}>{t("forge.strike.aBlankWaitingNameACity")}</p>}
           {struck ? <p className="m-small m-center"><b>{struck.name}</b>{" · "}<span className="num">{struck.id}</span></p> : null}
         </div>
       </div>

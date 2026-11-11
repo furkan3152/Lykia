@@ -7,6 +7,7 @@ import { PLAN_CHECKS, type CheckContext } from "./checks.js";
 import { walk } from "./ledger.js";
 import type { Finding, FindingFix, FindingSeverity, PreflightCheckInfo, PreflightPlan, PreflightState } from "./types.js";
 
+import { phrase, localized } from "../i18n/index.js";
 export * from "./types.js";
 export { bridgeRefusal, fingerprintOf, lookalike, quoteAgeFinding, unlimitedApprovalFindings, walletNetworkFinding } from "./checks.js";
 export { feePerGasWei, gasUsdcUnits, lowerSpend, sentenceFor, show as showUnits, walk } from "./ledger.js";
@@ -81,29 +82,29 @@ export function preflightLead(findings: readonly Finding[] | undefined): string 
 }
 
 /** What every check does, for the capability map ("Lyko knows it can warn about these"). */
-export const PREFLIGHT_CHECKS: readonly PreflightCheckInfo[] = [
-  { id: "gas-reserve", family: "gas", name: "Gas reserve on Arc", plain: "USDC left after every step, Lykia's fee and each step's network fee: warns under your network fee reserve, blocks when the plan cannot pay its own fee, and offers the amount that keeps the reserve.", runs: ["plan", "prepare", "watch"] },
-  { id: "cash-floor", family: "money", name: "Cash to keep at hand", plain: "Warns when a plan takes your USDC under the floor you keep at hand, with the amount that respects it.", runs: ["plan", "prepare"] },
-  { id: "obligations", family: "time", name: "What is due this week", plain: "Recurring payments and order slices due in the next 7 days that the balance left would not cover; offers a smaller amount or a pause in Herding.", runs: ["plan", "prepare", "watch"] },
-  { id: "dust", family: "money", name: "Dust", plain: "A remainder worth under $0.05 left behind; offers to use all of it.", runs: ["plan", "watch"] },
-  { id: "insufficient", family: "money", name: "Not enough balance", plain: "Names exactly what is missing (the amount, Lykia's fee, the network fee) and offers the most that fits, or funds already on their way.", runs: ["plan", "prepare"] },
-  { id: "cost-ratio", family: "cost", name: "Costs for the amount", plain: "Lykia's fee, the network fee and price impact together: a note above 2% of the amount, a warning above 5%.", runs: ["plan"] },
-  { id: "price-impact", family: "cost", name: "Price impact", plain: "A swap paying more than 1% (or your Fence's slippage) under the reference price; offers a smaller swap now.", runs: ["plan"] },
-  { id: "fx-band", family: "risk", name: "FX rate against the reference", plain: "A USDC/EURC rate off Chainlink's EURC/USD beyond your Fence's band, with both rates.", runs: ["plan", "prepare"] },
-  { id: "price-stale", family: "time", name: "Stale prices", plain: "A Chainlink round older than its heartbeat allows.", runs: ["plan"] },
-  { id: "quote-age", family: "time", name: "Quote age", plain: "A quote older than 30 seconds is rebuilt from Arc before the wallet opens.", runs: ["review"] },
-  { id: "round-trip", family: "cost", name: "Round trip", plain: "The same pair converted the other way in the last 24 hours, with the fees and spread both trades lose.", runs: ["plan"] },
-  { id: "loan-health", family: "risk", name: "Loan health", plain: "Health before and after a borrow, a collateral withdrawal or a partial repay: blocks under your Fence's floor, warns close to it.", runs: ["plan", "prepare"] },
-  { id: "vault-state", family: "risk", name: "Vault state", plain: "A deposit above the vault's remaining cap (maxDeposit), a rate down over 30% in a week, or a high risk rating.", runs: ["plan"] },
-  { id: "lp-range", family: "risk", name: "Liquidity range", plain: "Liquidity out of its price range earns nothing (Lyko on watch; Lykia does not open LP positions in plans).", runs: ["watch"] },
-  { id: "approvals", family: "approval", name: "Approvals", plain: "Blocks an unlimited approval in the calls; notes old unlimited approvals to a spender the plan touches.", runs: ["plan", "prepare", "watch"] },
-  { id: "recipient", family: "address", name: "Recipient checks", plain: "The zero address, a token or Lykia contract, a lookalike of an address you paid before (address poisoning, with \"Did you mean…\"), your own address, a contract, or a first-time payee.", runs: ["plan"] },
-  { id: "bridge-destination", family: "bridge", name: "Bridge destination", plain: "An unsupported chain (with the supported list), a recipient without native gas on the destination, the bridge time and fee, and a bridge stuck longer than expected.", runs: ["plan", "watch"] },
-  { id: "network", family: "network", name: "Network and wallet", plain: "The wallet on another chain (with a Switch network fix) and an Arc RPC whose latest block is old.", runs: ["plan", "review"] },
-  { id: "duplicate", family: "time", name: "Duplicate", plain: "The same steps, amounts and recipients planned or signed in the last 10 minutes.", runs: ["plan"] },
-  { id: "fence-room", family: "limits", name: "Fence room", plain: "A plan over today's Fence or beta room, with the amount that fits today.", runs: ["plan", "prepare"] },
-  { id: "budget", family: "limits", name: "Budget use", plain: "A plan that uses 80% or more of the day's budget (your Fence, a leash, an agent or Autopilot).", runs: ["plan"] },
-  { id: "conflict", family: "time", name: "Conflicts in Herding", plain: "An automation that moves the same token within 24 hours, named, with its Pause.", runs: ["plan"] },
-  { id: "unpriced", family: "cost", name: "Unpriced tokens", plain: "A step without a USD price, which caps count as unknown.", runs: ["plan"] },
-  { id: "plan-refused", family: "money", name: "Refused plans", plain: "When the planner cannot build a plan, the reason as a finding with what would fit.", runs: ["plan"] },
-];
+export const PREFLIGHT_CHECKS: readonly PreflightCheckInfo[] = localized([
+  { id: "gas-reserve", family: "gas", name: phrase("Gas reserve on Arc"), plain: phrase("USDC left after every step, Lykia's fee and each step's network fee: warns under your network fee reserve, blocks when the plan cannot pay its own fee, and offers the amount that keeps the reserve."), runs: ["plan", "prepare", "watch"] },
+  { id: "cash-floor", family: "money", name: phrase("Cash to keep at hand"), plain: phrase("Warns when a plan takes your USDC under the floor you keep at hand, with the amount that respects it."), runs: ["plan", "prepare"] },
+  { id: "obligations", family: "time", name: phrase("What is due this week"), plain: phrase("Recurring payments and order slices due in the next 7 days that the balance left would not cover; offers a smaller amount or a pause in Herding."), runs: ["plan", "prepare", "watch"] },
+  { id: "dust", family: "money", name: phrase("Dust"), plain: phrase("A remainder worth under $0.05 left behind; offers to use all of it."), runs: ["plan", "watch"] },
+  { id: "insufficient", family: "money", name: phrase("Not enough balance"), plain: phrase("Names exactly what is missing (the amount, Lykia's fee, the network fee) and offers the most that fits, or funds already on their way."), runs: ["plan", "prepare"] },
+  { id: "cost-ratio", family: "cost", name: phrase("Costs for the amount"), plain: phrase("Lykia's fee, the network fee and price impact together: a note above 2% of the amount, a warning above 5%."), runs: ["plan"] },
+  { id: "price-impact", family: "cost", name: phrase("Price impact"), plain: phrase("A swap paying more than 1% (or your Fence's slippage) under the reference price; offers a smaller swap now."), runs: ["plan"] },
+  { id: "fx-band", family: "risk", name: phrase("FX rate against the reference"), plain: phrase("A USDC/EURC rate off Chainlink's EURC/USD beyond your Fence's band, with both rates."), runs: ["plan", "prepare"] },
+  { id: "price-stale", family: "time", name: phrase("Stale prices"), plain: phrase("A Chainlink round older than its heartbeat allows."), runs: ["plan"] },
+  { id: "quote-age", family: "time", name: phrase("Quote age"), plain: phrase("A quote older than 30 seconds is rebuilt from Arc before the wallet opens."), runs: ["review"] },
+  { id: "round-trip", family: "cost", name: phrase("Round trip"), plain: phrase("The same pair converted the other way in the last 24 hours, with the fees and spread both trades lose."), runs: ["plan"] },
+  { id: "loan-health", family: "risk", name: phrase("Loan health"), plain: phrase("Health before and after a borrow, a collateral withdrawal or a partial repay: blocks under your Fence's floor, warns close to it."), runs: ["plan", "prepare"] },
+  { id: "vault-state", family: "risk", name: phrase("Vault state"), plain: phrase("A deposit above the vault's remaining cap (maxDeposit), a rate down over 30% in a week, or a high risk rating."), runs: ["plan"] },
+  { id: "lp-range", family: "risk", name: phrase("Liquidity range"), plain: phrase("Liquidity out of its price range earns nothing (Lyko on watch; Lykia does not open LP positions in plans)."), runs: ["watch"] },
+  { id: "approvals", family: "approval", name: phrase("Approvals"), plain: phrase("Blocks an unlimited approval in the calls; notes old unlimited approvals to a spender the plan touches."), runs: ["plan", "prepare", "watch"] },
+  { id: "recipient", family: "address", name: phrase("Recipient checks"), plain: phrase("The zero address, a token or Lykia contract, a lookalike of an address you paid before (address poisoning, with \"Did you mean…\"), your own address, a contract, or a first-time payee."), runs: ["plan"] },
+  { id: "bridge-destination", family: "bridge", name: phrase("Bridge destination"), plain: phrase("An unsupported chain (with the supported list), a recipient without native gas on the destination, the bridge time and fee, and a bridge stuck longer than expected."), runs: ["plan", "watch"] },
+  { id: "network", family: "network", name: phrase("Network and wallet"), plain: phrase("The wallet on another chain (with a Switch network fix) and an Arc RPC whose latest block is old."), runs: ["plan", "review"] },
+  { id: "duplicate", family: "time", name: phrase("Duplicate"), plain: phrase("The same steps, amounts and recipients planned or signed in the last 10 minutes."), runs: ["plan"] },
+  { id: "fence-room", family: "limits", name: phrase("Fence room"), plain: phrase("A plan over today's Fence or beta room, with the amount that fits today."), runs: ["plan", "prepare"] },
+  { id: "budget", family: "limits", name: phrase("Budget use"), plain: phrase("A plan that uses 80% or more of the day's budget (your Fence, a leash, an agent or Autopilot)."), runs: ["plan"] },
+  { id: "conflict", family: "time", name: phrase("Conflicts in Herding"), plain: phrase("An automation that moves the same token within 24 hours, named, with its Pause."), runs: ["plan"] },
+  { id: "unpriced", family: "cost", name: phrase("Unpriced tokens"), plain: phrase("A step without a USD price, which caps count as unknown."), runs: ["plan"] },
+  { id: "plan-refused", family: "money", name: phrase("Refused plans"), plain: phrase("When the planner cannot build a plan, the reason as a finding with what would fit."), runs: ["plan"] },
+]);

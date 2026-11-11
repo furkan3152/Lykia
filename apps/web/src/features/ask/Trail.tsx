@@ -12,8 +12,9 @@ import { LykoTile } from "../../mosaic";
 import { cx } from "../../mosaic/cx";
 import { Mark, StepIcon } from "../../mosaic/PixelArt";
 import { formatMs, trailSummary, type AvatarState } from "./workTrail";
+import { t } from "../../i18n";
 
-const STATE_WORD: Readonly<Record<ChatStep["state"], string>> = { running: "working", ok: "done", warn: "needs a look", fail: "did not pass" };
+const STATE_WORD: Readonly<Record<ChatStep["state"], string>> = { running: "working", ok: "done", warn: t("ask.trail.needsALook"), fail: t("ask.trail.didNotPass") };
 
 function Tessera({ step, index }: { readonly step: ChatStep; readonly index: number }) {
   const [open, setOpen] = useState(false);
@@ -53,11 +54,11 @@ function Tessera({ step, index }: { readonly step: ChatStep; readonly index: num
 }
 
 /** The strip while Lyko works, the one-line summary when he is done. */
-export function Trail({ steps, streaming, elapsedMs, notes = [], compact = false }: { readonly steps: readonly ChatStep[]; readonly streaming: boolean; readonly elapsedMs?: number; readonly notes?: readonly string[]; readonly compact?: boolean }) {
+export function Trail({ steps, streaming, notes = [], compact = false }: { readonly steps: readonly ChatStep[]; readonly streaming: boolean; readonly notes?: readonly string[]; readonly compact?: boolean }) {
   const [userOpen, setUserOpen] = useState<boolean | null>(null);
   if (steps.length === 0 && notes.length === 0) return null;
   const open = userOpen ?? streaming;
-  const summary = streaming ? `Lyko at work · ${steps.filter((s) => s.state !== "running").length} of ${steps.length}` : trailSummary(steps, elapsedMs);
+  const summary = streaming ? t("ask.trail.lykoAtWorkOf", { length: steps.filter((s) => s.state !== "running").length, length2: steps.length }) : trailSummary(steps);
   return (
     <div className={cx("m-work", compact && "m-work--compact")} data-open={open} data-live={streaming || undefined}>
       <button type="button" className="m-work__head" aria-expanded={open} onClick={() => setUserOpen(!open)}>
@@ -78,7 +79,7 @@ export function Trail({ steps, streaming, elapsedMs, notes = [], compact = false
           </ol>
           {notes.length > 0 ? (
             <div className="m-work__notes">
-              <span className="m-work__notes-k">Lyko's notes</span>
+              <span className="m-work__notes-k">{t("ask.trail.lykoSNotes")}</span>
               {notes.map((n, i) => (
                 <p key={i}>{n}</p>
               ))}
@@ -91,7 +92,7 @@ export function Trail({ steps, streaming, elapsedMs, notes = [], compact = false
 }
 
 const MOOD = { sniffing: "herding", found: "proud", warning: "alert", done: "happy" } as const;
-const STATE_LABEL: Readonly<Record<AvatarState, string>> = { sniffing: "Lyko is sniffing out the details", found: "Lyko found something", warning: "Lyko flags something for you", done: "Lyko is done" };
+const STATE_LABEL: Readonly<Record<AvatarState, string>> = { sniffing: t("ask.trail.lykoIsSniffingOutTheDetails"), found: t("ask.trail.lykoFoundSomething"), warning: t("ask.trail.lykoFlagsSomethingForYou"), done: t("ask.trail.lykoIsDone") };
 
 /** Lyko's face with a small state mark: scent dots while sniffing, a spark when found, a flag on warning, a check when done. */
 export function LykoAvatar({ state, size = 40 }: { readonly state: AvatarState; readonly size?: number }) {

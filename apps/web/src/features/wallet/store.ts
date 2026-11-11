@@ -7,6 +7,7 @@ import { create } from "zustand";
 
 import { forgetCredential, openPasskey, storedCredential, type PasskeySession } from "./passkey";
 import { passkeyConfig } from "./passkeyConfig";
+import { t } from "../../i18n";
 
 interface WalletState {
   readonly passkey: PasskeySession | null;
@@ -21,8 +22,8 @@ interface WalletState {
 
 function message(e: unknown): string {
   const text = e instanceof Error ? e.message : String(e);
-  if (/NotAllowedError|aborted|cancel/i.test(text)) return "The passkey prompt was dismissed.";
-  if (/not supported|PublicKeyCredential/i.test(text)) return "This browser cannot use passkeys here (it needs a secure https page and a passkey-capable device).";
+  if (/NotAllowedError|aborted|cancel/i.test(text)) return t("wallet.store.thePasskeyPromptWasDismissed");
+  if (/not supported|PublicKeyCredential/i.test(text)) return t("wallet.store.thisBrowserCannotUsePasskeysHere");
   return text.split("\n")[0]!.slice(0, 200);
 }
 

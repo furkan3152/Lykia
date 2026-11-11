@@ -6,6 +6,7 @@
 @import "./chat.css";
 @import "./review.css";
 @import "./plain.css";
+@import "./night.css";
 
 @tailwind base;
 @tailwind components;

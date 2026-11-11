@@ -10,6 +10,7 @@ import { ordersService } from "../orders/service.js";
 import { services } from "../services.js";
 import { action, asset, finish, valued, type Reader } from "./context.js";
 
+import { tx } from "@lykia/core";
 const DAY = 86_400_000;
 
 export const readOrders: Reader = async (r, venue) => {
@@ -40,16 +41,16 @@ export const readOrders: Reader = async (r, venue) => {
       state: classifyPosition({ kind: "escrow" }),
       since: o.createdAt,
       facts: [
-        { label: "Kind", value: o.kind },
-        { label: "Status", value: o.status },
-        ...(Number.isFinite(trigger) && trigger > 0 ? [{ label: "Trigger", value: `${o.order.triggerAbove ? "at or above" : "at or below"} ${trigger.toFixed(4)}` }] : []),
-        { label: "Executions left", value: `${remaining} of ${o.order.executions}` },
-        { label: "Receives", value: tout?.symbol ?? "token" },
-        { label: "Expires", value: new Date(deadline).toISOString() },
-        ...(o.waitingFor ? [{ label: "Waiting for", value: o.waitingFor }] : []),
-        ...(expiresSoon ? [{ label: "Expiring", value: "within a day" }] : []),
+        { label: tx("Kind"), value: o.kind },
+        { label: tx("Status"), value: o.status },
+        ...(Number.isFinite(trigger) && trigger > 0 ? [{ label: tx("Trigger"), value: `${o.order.triggerAbove ? tx("at or above") : tx("at or below")} ${trigger.toFixed(4)}` }] : []),
+        { label: tx("Executions left"), value: `${remaining} of ${o.order.executions}` },
+        { label: tx("Receives"), value: tout?.symbol ?? "token" },
+        { label: tx("Expires"), value: new Date(deadline).toISOString() },
+        ...(o.waitingFor ? [{ label: tx("Waiting for"), value: o.waitingFor }] : []),
+        ...(expiresSoon ? [{ label: tx("Expiring"), value: tx("within a day") }] : []),
       ],
-      actions: [action("cancel", "Cancel order", `Cancel my order: ${o.summary}`, "ask")],
+      actions: [action("cancel", tx("Cancel order"), tx("Cancel my order: {summary}", { summary: o.summary }), "ask")],
       source: "history",
       readAt: r.readAt,
       block: null,
@@ -86,8 +87,8 @@ export const readPayments: Reader = async (r, venue) => {
         counts: "overlay",
         state: classifyPosition({ kind: "commitment" }),
         since: o.createdAt,
-        facts: [{ label: "Every", value: every }, ...(o.nextRunAt ? [{ label: "Next run", value: new Date(o.nextRunAt).toISOString().slice(0, 16).replace("T", " ") + " UTC" }] : []), { label: "Sent so far", value: `${o.fired} time${o.fired === 1 ? "" : "s"}` }],
-        actions: [action("cancel", "Pause or change", `Change my scheduled payment: ${o.text}`, "ask")],
+        facts: [{ label: tx("Every"), value: every }, ...(o.nextRunAt ? [{ label: tx("Next run"), value: new Date(o.nextRunAt).toISOString().slice(0, 16).replace("T", " ") + " UTC" }] : []), { label: tx("Sent so far"), value: `${o.fired} time${o.fired === 1 ? "" : "s"}` }],
+        actions: [action("cancel", tx("Pause or change"), tx("Change my scheduled payment: {text}", { text: o.text }), "ask")],
         source: "history",
         readAt: r.readAt,
         block: null,

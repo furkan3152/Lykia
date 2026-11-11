@@ -8,6 +8,7 @@
 import type { ChatStep, ChatStepKind } from "@lykia/core/api/agents";
 
 import type { ChatMessage, TrailItem } from "./model";
+import { t } from "../../i18n";
 
 function guessKind(label: string): ChatStepKind {
   const l = label.toLowerCase();
@@ -39,13 +40,12 @@ export function formatMs(ms: number): string {
   return `${Math.round(ms / 1000)}s`;
 }
 
-/** The collapsed trail: "Checked 4 things · 1 flag · 1.8s". */
-export function trailSummary(steps: readonly ChatStep[], elapsedMs?: number): string {
+/** The collapsed trail: "Checked 4 things · 1 flag" (no timings: the steps say what was checked). */
+export function trailSummary(steps: readonly ChatStep[]): string {
   const n = steps.length;
   const flags = steps.filter((s) => s.state === "warn" || s.state === "fail").length;
-  const parts = [`Checked ${n} ${n === 1 ? "thing" : "things"}`];
-  if (flags > 0) parts.push(`${flags} ${flags === 1 ? "flag" : "flags"}`);
-  if (elapsedMs !== undefined && elapsedMs > 0) parts.push(formatMs(elapsedMs));
+  const parts = [t("ask.workTrail.checkedThings", { n })];
+  if (flags > 0) parts.push(t("ask.workTrail.flags", { n: flags }));
   return parts.join(" · ");
 }
 

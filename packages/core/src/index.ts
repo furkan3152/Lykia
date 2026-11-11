@@ -23,6 +23,8 @@ export * from "./allocation.js";
 export * from "./standing.js";
 export * as lykiaContracts from "./contracts/index.js";
 export * from "./profile.js";
+export * from "./locale.js";
+export * from "./i18n/index.js";
 export * from "./memory.js";
 export * from "./fee.js";
 export * from "./orders.js";

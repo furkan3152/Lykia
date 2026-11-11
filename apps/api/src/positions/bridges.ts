@@ -18,6 +18,7 @@ import { classifyPosition, fromBaseUnits, type Address, type Position } from "@l
 import { acrossStatus } from "../engine/venues/across.js";
 import { asset, finish, txLink, valued, type Reader, type ReadContext } from "./context.js";
 
+import { tx, phrase } from "@lykia/core";
 const RELAY_API = "https://api.relay.link";
 const WINDOW_MS = 24 * 60 * 60_000;
 
@@ -41,8 +42,8 @@ interface SolverBridge {
 
 const RELAY: SolverBridge = {
   venue: "relay",
-  name: "Relay",
-  filler: "Relay's solver",
+  name: phrase("Relay"),
+  filler: phrase("Relay's solver"),
   api: "api.relay.link",
   async status(r, hash) {
     // Relay retires the keyless /requests/v2 lookup on 2026-11-24; with RELAY_API_KEY set, /requests/v3 is used instead.
@@ -56,7 +57,7 @@ const RELAY: SolverBridge = {
 const ACROSS: SolverBridge = {
   venue: "across",
   name: "Across",
-  filler: "an Across relayer",
+  filler: phrase("an Across relayer"),
   api: "app.across.to/api/deposit/status",
   async status(r, hash) {
     return (await acrossStatus(r.ctx.fetch, hash))?.status;
@@ -88,23 +89,23 @@ const solverReader = (bridge: SolverBridge): Reader => async (r, venue) => {
       continue;
     }
     if (state === "refunded") continue;
-    const destination = s.outputs[0]?.symbol.split("@")[1] ?? "the destination";
+    const destination = s.outputs[0]?.symbol.split("@")[1] ?? tx("the destination");
     const v = valued(BigInt(input.amount), input.decimals, input.symbol === "USDC" ? "1" : null);
-    const stage = !hash ? "Not sent yet" : state === "pending" ? `Deposited on Arc; ${bridge.filler} is filling it on ${destination}` : `Deposited on Arc; ${bridge.name}'s status could not be read`;
+    const stage = !hash ? tx("Not sent yet") : state === "pending" ? tx("Deposited on Arc; {filler} is filling it on {destination}", { filler: bridge.filler, destination }) : tx("Deposited on Arc; {name}'s status could not be read", { name: bridge.name });
     positions.push(
       finish({
         id: `${bridge.venue}:${g.id}:${s.id}`,
         venue: venue.id,
         venueName: venue.name,
         venueKind: "bridge",
-        label: `${bridge.name} · ${fromBaseUnits(BigInt(input.amount), input.decimals)} ${input.symbol} to ${destination}`,
+        label: tx("{name} · {value} {symbol} to {destination}", { name: bridge.name, value: fromBaseUnits(BigInt(input.amount), input.decimals), symbol: input.symbol, destination }),
         assets: [asset(input.symbol, input.token as Address, v.amount, v.valueUsd, "in-flight")],
         amount: v.amount,
         symbol: input.symbol,
         valueUsd: v.valueUsd,
         counts: "net",
         state: classifyPosition({ kind: "in-flight" }),
-        facts: [{ label: "Stage", value: stage }, { label: "Destination", value: destination }, { label: "Started", value: g.createdAt }, { label: "Cross-chain", value: "Delivered on the destination chain, not on Arc" }, ...(hash ? [{ label: "Deposit transaction", value: `${hash.slice(0, 10)}…${hash.slice(-6)}` }] : [])],
+        facts: [{ label: tx("Stage"), value: stage }, { label: tx("Destination"), value: destination }, { label: tx("Started"), value: g.createdAt }, { label: "Cross-chain", value: tx("Delivered on the destination chain, not on Arc") }, ...(hash ? [{ label: tx("Deposit transaction"), value: `${hash.slice(0, 10)}…${hash.slice(-6)}` }] : [])],
         since: g.createdAt,
         actions: [],
         source: "history",
@@ -114,7 +115,7 @@ const solverReader = (bridge: SolverBridge): Reader => async (r, venue) => {
       }),
     );
   }
-  return { positions, block: null, method: `${bridge.name} steps in the owner's Lykia history (last 24 hours); fill status from ${bridge.api} by the deposit transaction.`, source: "history", ...(filled > 0 ? { coverage: `${filled} ${bridge.name} transfer(s) already delivered on the destination chain.` } : {}) };
+  return { positions, block: null, method: `${bridge.name} steps in the owner's Lykia history (last 24 hours); fill status from ${bridge.api} by the deposit transaction.`, source: "history", ...(filled > 0 ? { coverage: tx("{filled} {name} transfer(s) already delivered on the destination chain.", { filled, name: bridge.name }) } : {}) };
 };
 
 export const readRelay: Reader = solverReader(RELAY);

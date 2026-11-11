@@ -13,7 +13,7 @@ import { SESSION_ABI, sessionSpecOf } from "../onchain.js";
 import { runTurn, type Emit } from "../orchestrator.js";
 import { insightsFrom } from "../insights.js";
 import { wrapUntrusted } from "../tools.js";
-import { ENGLISH_REPLY_RULE } from "../../language/english.js";
+import { ENGLISH_REPLY_RULE } from "../../language/replyLanguage.js";
 import { parseAnswerBlock, parseChatStep } from "@lykia/core/api/answer";
 
 const OWNER = "0x82916bee18fcef517b26c72d7cb5f13694e1db41" as const;

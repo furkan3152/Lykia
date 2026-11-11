@@ -8,6 +8,7 @@
 import type { AnswerBlock } from "@lykia/core/api/answer";
 import type { ArcEnvironment } from "@lykia/core";
 import type { ReviewView } from "./reviewModel";
+import { t } from "../../i18n";
 
 /** What POST /v1/orders/draft answers (the subset the review needs). */
 export interface OrderDraft {
@@ -41,8 +42,8 @@ export function orderReviewView(block: Extract<AnswerBlock, { kind: "order" }>, 
   const reasons = draft?.verdict ? draft.verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message) : block.reasons;
   const needsApproval = draft ? draft.approval !== null : block.approval !== null;
   const steps: ReviewView["steps"][number][] = [
-    ...(needsApproval ? [{ id: "approve", n: 1, summary: draft?.approval?.label ?? block.approval ?? "Allow LykiaOrders to pull each execution", kind: "approve", venue: "LykiaOrders", status: states.approval === "settled" ? ("settled" as const) : ("awaiting-signature" as const), memo: "one exact allowance, revocable any time", fee: null, why: "LykiaOrders pulls each execution from your wallet when it runs; funds stay with you until then.", tx: null, failure: null }] : []),
-    { id: "sign", n: needsApproval ? 2 : 1, summary: `Sign the order once: ${draft?.summary ?? block.summary}`.slice(0, 200), kind: "order", venue: "LykiaOrders", status: states.sign === "settled" ? ("settled" as const) : needsApproval && states.approval !== "settled" ? ("blocked" as const) : ("awaiting-signature" as const), memo: draft ? `EIP-712 order ${draft.hash.slice(0, 10)}… · no gas` : "EIP-712 order · no gas", fee: `${pe.fee} ${pe.symbolIn} per execution`, why: "Keepers execute it when Chainlink says the condition holds; the contract checks the price, size and deadline you signed.", tx: null, failure: null },
+    ...(needsApproval ? [{ id: "approve", n: 1, summary: draft?.approval?.label ?? block.approval ?? t("route.orderReview.allowLykiaordersToPullEachExecution"), kind: "approve", venue: "LykiaOrders", status: states.approval === "settled" ? ("settled" as const) : ("awaiting-signature" as const), memo: t("route.orderReview.oneExactAllowanceRevocableAnyTime"), fee: null, why: t("route.orderReview.lykiaordersPullsEachExecutionFromYour"), tx: null, failure: null }] : []),
+    { id: "sign", n: needsApproval ? 2 : 1, summary: t("route.orderReview.signTheOrderOnce", { value: draft?.summary ?? block.summary }).slice(0, 200), kind: "order", venue: "LykiaOrders", status: states.sign === "settled" ? ("settled" as const) : needsApproval && states.approval !== "settled" ? ("blocked" as const) : ("awaiting-signature" as const), memo: draft ? t("route.orderReview.eip712OrderNoGas", { value: draft.hash.slice(0, 10) }) : t("route.orderReview.eip712OrderNoGas2"), fee: t("route.orderReview.perExecution", { fee: pe.fee, symbolIn: pe.symbolIn }), why: t("route.orderReview.keepersExecuteItWhenChainlinkSays"), tx: null, failure: null },
   ];
   const next = steps.find((s) => s.status === "awaiting-signature")?.id ?? null;
   const settled = steps.filter((s) => s.status === "settled").length;
@@ -52,10 +53,10 @@ export function orderReviewView(block: Extract<AnswerBlock, { kind: "order" }>, 
     decision,
     signable: decision !== "deny" && draft !== null,
     reasons,
-    send: [{ symbol: pe.symbolIn, amount: block.input.amount, where: block.executions > 1 ? `each of ${block.executions} executions` : "once, when it triggers", usd: null, minimum: null }],
-    get: [{ symbol: pe.symbolOut, amount: pe.minOut, where: "back in your wallet", usd: null, minimum: pe.minOut }],
+    send: [{ symbol: pe.symbolIn, amount: block.input.amount, where: block.executions > 1 ? t("route.orderReview.eachOfExecutions", { executions: block.executions }) : t("route.orderReview.onceWhenItTriggers"), usd: null, minimum: null }],
+    get: [{ symbol: pe.symbolOut, amount: pe.minOut, where: t("route.orderReview.backInYourWallet"), usd: null, minimum: pe.minOut }],
     steps,
-    fees: [`${pe.fee} ${pe.symbolIn} per execution`],
+    fees: [t("route.orderReview.perExecution", { fee: pe.fee, symbolIn: pe.symbolIn })],
     feeBps: null,
     signatures: steps.length - settled,
     nextStepId: next,
@@ -69,7 +70,7 @@ export function orderReviewView(block: Extract<AnswerBlock, { kind: "order" }>, 
 
 /** A cancel through the review modal: one transaction the maker sends. */
 export function cancelReviewView(input: { readonly hash: string; readonly name: string; readonly environment: ArcEnvironment }, state: OrderStepState): ReviewView {
-  const step = { id: "cancel", n: 1, summary: `Cancel ${input.name}`.slice(0, 200), kind: "cancel", venue: "LykiaOrders", status: state === "settled" ? ("settled" as const) : ("awaiting-signature" as const), memo: `cancel(${input.hash.slice(0, 10)}…)`, fee: null, why: "Only you, the maker, can cancel it; nothing else moves.", tx: null, failure: null };
+  const step = { id: "cancel", n: 1, summary: t("route.orderReview.cancel", { name: input.name }).slice(0, 200), kind: "cancel", venue: "LykiaOrders", status: state === "settled" ? ("settled" as const) : ("awaiting-signature" as const), memo: `cancel(${input.hash.slice(0, 10)}…)`, fee: null, why: t("route.orderReview.onlyYouTheMakerCanCancel"), tx: null, failure: null };
   return {
     id: input.hash.slice(0, 12),
     environment: input.environment,

@@ -6,6 +6,7 @@
  * to Letoon. Pure.
  */
 import { alertDraftOf, automationDraftOf, decodeDraft, describeAlert, describeAutomationTrigger } from "@lykia/core";
+import { t } from "../../i18n";
 
 /** Old /build tab ids (and hashes) mapped to The Forge's sections. */
 const FORGE_ALIASES: Readonly<Record<string, string>> = {
@@ -55,19 +56,19 @@ export function aliasTarget(pathname: string, hash = "", search = ""): string {
 
 /** What an old Move tab asks Ask Lyko for. Trailing spaces leave the caret where the owner types next. */
 const MOVE_INTENTS: Readonly<Record<string, string>> = {
-  send: "Pay ",
-  receive: "Show me a payment link for my wallet",
-  swap: "Convert ",
-  earn: "Put my idle USDC to work",
-  borrow: "Borrow ",
-  bridge: "Bridge ",
+  send: t("app.routes.aliases.pay"),
+  receive: t("app.routes.aliases.showMeAPaymentLinkFor"),
+  swap: t("app.routes.aliases.convert"),
+  earn: t("app.routes.aliases.putMyIdleUsdcToWork"),
+  borrow: t("app.routes.aliases.borrow"),
+  bridge: t("app.routes.aliases.bridge"),
 };
 
 /** The questions the pages that became Ask answers open with. */
 export const PAGE_QUESTIONS: Readonly<Record<"pastures" | "discover" | "markets", string>> = {
-  pastures: "Where can I earn on USDC?",
-  discover: "What are the new pools on Arc?",
-  markets: "Show me the perps markets",
+  pastures: t("app.routes.aliases.whereCanIEarnOnUsdc"),
+  discover: t("app.routes.aliases.whatAreTheNewPoolsOn"),
+  markets: t("app.routes.aliases.showMeThePerpsMarkets"),
 };
 
 export type LegacyDecision = { readonly kind: "redirect"; readonly to: string };
@@ -90,12 +91,12 @@ function draftSentence(routeId: string, search: string): string | null {
   const draft = decodeDraft(param(search, "draft"));
   if (routeId === "alerts") {
     const a = alertDraftOf(draft);
-    return a ? `Watch ${describeAlert(a).replace(/^Any /u, "my ")} and tell me${a.channels?.includes("telegram") ? " on Telegram" : a.channels?.includes("webhook") ? " by webhook" : ""}` : null;
+    return a ? t("app.routes.aliases.watchAndTellMe", { what: describeAlert(a).replace(/^Any /u, "my "), channel: a.channels?.includes("telegram") ? "telegram" : a.channels?.includes("webhook") ? "webhook" : "inbox" }) : null;
   }
   if (routeId === "automations") {
     const a = automationDraftOf(draft);
     if (!a) return null;
-    return `${describeAutomationTrigger(a.trigger)}, ${a.action.type === "plan" ? a.action.sentence : "notify my webhooks"}`;
+    return `${describeAutomationTrigger(a.trigger)}, ${a.action.type === "plan" ? a.action.sentence : t("app.routes.aliases.notifyMyWebhooks")}`;
   }
   return null;
 }
@@ -154,7 +155,7 @@ export function legacyDecision(routeId: string, params: Readonly<Record<string, 
     case "security":
       return { kind: "redirect", to: "/app/fold/fence#safety" };
     case "pack":
-      return { kind: "redirect", to: param(search, "draft") !== null ? askWith("Create an agent ") : "/app/fold/pack" };
+      return { kind: "redirect", to: param(search, "draft") !== null ? askWith(t("fold.tabs.packTab.createSeed")) : "/app/fold/pack" };
     case "pastures":
     case "discover":
     case "markets":

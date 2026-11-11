@@ -7,6 +7,7 @@
  * Matching is case-sensitive for literals; parameters are URI-decoded and a
  * malformed escape never matches.
  */
+import { t } from "../../i18n";
 
 export type RouteParams = Readonly<Record<string, string | undefined>>;
 
@@ -25,16 +26,16 @@ function splitPath(path: string): string[] {
 }
 
 export function compilePattern(pattern: string): CompiledPattern {
-  if (!pattern.startsWith("/")) throw new Error(`Route pattern must start with "/": ${pattern}`);
+  if (!pattern.startsWith("/")) throw new Error(t("app.routes.matchPath.routePatternMustStartWith", { pattern }));
   const segments: Segment[] = splitPath(pattern).map((part, index, all) => {
     if (part === "*") {
-      if (index !== all.length - 1) throw new Error(`"*" must be the last segment: ${pattern}`);
+      if (index !== all.length - 1) throw new Error(t("app.routes.matchPath.mustBeTheLastSegment", { pattern }));
       return { kind: "rest", value: "*" };
     }
     if (part.startsWith(":")) {
       const optional = part.endsWith("?");
       const name = part.slice(1, optional ? -1 : undefined);
-      if (!/^[A-Za-z][A-Za-z0-9]*$/u.test(name)) throw new Error(`Invalid parameter name in ${pattern}`);
+      if (!/^[A-Za-z][A-Za-z0-9]*$/u.test(name)) throw new Error(t("app.routes.matchPath.invalidParameterNameIn", { pattern }));
       return { kind: optional ? "optional" : "param", value: name };
     }
     return { kind: "literal", value: part };
@@ -42,7 +43,7 @@ export function compilePattern(pattern: string): CompiledPattern {
   let sawOptional = false;
   for (const segment of segments) {
     if (segment.kind === "optional") sawOptional = true;
-    else if (sawOptional && segment.kind !== "rest") throw new Error(`Optional parameters must be trailing: ${pattern}`);
+    else if (sawOptional && segment.kind !== "rest") throw new Error(t("app.routes.matchPath.optionalParametersMustBeTrailing", { pattern }));
   }
   return { pattern, segments };
 }
@@ -102,7 +103,7 @@ export function buildPath(pattern: string, params: Readonly<Record<string, strin
     } else {
       const value = params[segment.value];
       if (value === undefined || String(value).length === 0) {
-        if (segment.kind === "param") throw new Error(`Missing route parameter "${segment.value}" for ${pattern}`);
+        if (segment.kind === "param") throw new Error(t("app.routes.matchPath.missingRouteParameterFor", { value: segment.value, pattern }));
         break;
       }
       out.push(encodeURIComponent(String(value)));

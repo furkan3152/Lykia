@@ -16,6 +16,11 @@
  * tool call, a stored thread, a stream) and return null for anything off-shape.
  */
 
+import { phrase, tx, txKnown } from "../i18n/index.js";
+
+/** Source names code writes on cards, shown in the interface language where a source line is read. */
+export const SOURCE_NAMES = [phrase("Arc chain and venue APIs")] as const;
+
 export const CHAT_STEP_KINDS = ["intent", "wallet", "memory", "delegate", "route", "fence", "price", "simulate", "compile", "draft", "scent", "insight", "read"] as const;
 export type ChatStepKind = (typeof CHAT_STEP_KINDS)[number];
 
@@ -196,8 +201,8 @@ export function parseBlockSource(raw: unknown): BlockSource | null | undefined {
 
 /** "Chainlink EURC/USD · block 1234" or "Morpho API · 14:02 UTC": a source line for a card. */
 export function sourceLine(from: BlockSource): string {
-  const when = from.block ? `block ${from.block}` : `${from.readAt.slice(11, 16)} UTC`;
-  return `${from.source}${from.venue ? ` · ${from.venue}` : ""} · ${when}${from.stale ? ` · stale: ${from.stale}` : ""}`;
+  const when = from.block ? tx("block {block}", { block: from.block }) : `${from.readAt.slice(11, 16)} UTC`;
+  return `${txKnown(from.source)}${from.venue ? ` · ${from.venue}` : ""} · ${when}${from.stale ? ` · ${tx("stale: {value}", { value: txKnown(from.stale) })}` : ""}`;
 }
 
 /** At most this many blocks ride on one answer. */

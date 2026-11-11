@@ -10,6 +10,7 @@
  * `ReviewDialog` only draws (the kit page renders every state from
  * fixtures); `ReviewModal` wires it to the intent and the wallet.
  */
+import { PixelIcon } from "../../city/PixelIcon";
 import type { AgentProposal } from "@lykia/core/api/agents";
 import type { SecurityReport } from "@lykia/core/security/index";
 import { MEANINGS, networkFor, preflightGate, quoteAgeFinding, walletNetworkFinding, type ArcEnvironment, type Finding, type FindingFix } from "@lykia/core";
@@ -32,6 +33,7 @@ import { usePreflightAcks } from "./preflightModel";
 import { runFix } from "./preflightActions";
 import { leadSentence, plainReason, plainRouteWhy, plainStep } from "./plain";
 import { planTitle } from "../ask/cardModel";
+import { intlLocale, formatDateTime, t as msg } from "../../i18n";
 
 const TILE_COLS = 12;
 const TILE_ROWS = 8;
@@ -116,26 +118,26 @@ function useDialogFocus(ref: React.RefObject<HTMLElement | null>, open: boolean,
 
 function phaseBanner(p: ReviewDialogProps): { tone: "sea" | "ochre" | "ok" | "bad" | "ghost"; text: string } | null {
   const v = p.view;
-  if (!v) return { tone: "ghost", text: "Loading the plan…" };
+  if (!v) return { tone: "ghost", text: msg("route.reviewModal.loadingThePlan") };
   const st = p.stage;
-  if (st?.mode === "paused" && st.pause) return { tone: "bad", text: `Paused at step ${st.stage} of ${st.total}. ${st.pause.reason} Done steps stay done.` };
-  if (st && st.total > 1 && st.settled && (st.mode === "advancing" || p.phase === "quoting")) return { tone: "sea", text: `Step ${st.settled.n} settled${st.settled.received ? `: ${st.settled.received} arrived` : ""}. Rebuilding step ${st.stage} with exactly what arrived…` };
-  if (v.stage === "denied") return { tone: "bad", text: "Your Fence refused this plan. Nothing can be signed." };
-  if (v.stage === "dry-run") return { tone: "ghost", text: "Dry run: this plan is a preview for a sample address. Connect a wallet and plan again to sign." };
+  if (st?.mode === "paused" && st.pause) return { tone: "bad", text: msg("route.reviewModal.pausedAtStepOfDoneSteps", { stage: st.stage, total: st.total, reason: st.pause.reason }) };
+  if (st && st.total > 1 && st.settled && (st.mode === "advancing" || p.phase === "quoting")) return { tone: "sea", text: st.settled.received ? msg("route.reviewModal.stepSettledArrived", { n: st.settled.n, received: st.settled.received, stage: st.stage }) : msg("route.reviewModal.stepSettled", { n: st.settled.n, stage: st.stage }) };
+  if (v.stage === "denied") return { tone: "bad", text: msg("route.reviewModal.yourFenceRefusedThisPlanNothing") };
+  if (v.stage === "dry-run") return { tone: "ghost", text: msg("route.reviewModal.dryRunThisPlanIsA") };
   switch (p.phase) {
     case "quoting":
-      return { tone: "sea", text: p.refreshes > 0 || p.quotedAt ? "Refreshing the quote from Arc…" : "Loading a fresh quote from Arc…" };
+      return { tone: "sea", text: p.refreshes > 0 || p.quotedAt ? msg("route.reviewModal.refreshingTheQuoteFromArc") : msg("route.reviewModal.loadingAFreshQuoteFromArc") };
     case "quoted":
-      if (st && st.total > 1 && st.replanned) return { tone: "ok", text: `${st.replanned}. Checked against your Fence again; sign step ${st.stage} of ${st.total}.` };
-      return { tone: "ok", text: `Quote refreshed${p.quotedAt ? ` at ${new Date(p.quotedAt).toLocaleTimeString("en-GB")}` : ""}: rebuilt from Arc just now, checked against your Fence. It is rebuilt again if you wait more than 30 seconds.` };
+      if (st && st.total > 1 && st.replanned) return { tone: "ok", text: msg("route.reviewModal.checkedAgainstYourFenceAgainSign", { replanned: st.replanned, stage: st.stage, total: st.total }) };
+      return { tone: "ok", text: p.quotedAt ? msg("route.reviewModal.quoteRefreshedAt", { time: formatDateTime(p.quotedAt, { timeStyle: "medium" }) }) : msg("route.reviewModal.quoteRefreshed") };
     case "switching":
-      return { tone: "ochre", text: `Asking your wallet to switch to Arc ${v.environment}…` };
+      return { tone: "ochre", text: msg("route.reviewModal.askingYourWalletToSwitchTo", { environment: v.environment }) };
     case "signing":
-      return { tone: "ochre", text: `Waiting for your wallet${p.walletLabel ? ` (${p.walletLabel})` : ""}: check the amounts there and confirm.${p.txCount && p.txCount > 1 ? ` ${p.txCount} transactions, one after another.` : ""}` };
+      return { tone: "ochre", text: `${p.walletLabel ? msg("route.reviewModal.waitingForWalletNamed", { wallet: p.walletLabel }) : msg("route.reviewModal.waitingForWallet")}${p.txCount && p.txCount > 1 ? msg("route.reviewModal.transactionsOneAfterAnother", { txCount: p.txCount }) : ""}` };
     case "submitting":
-      return { tone: "sea", text: "Sent. Lykia is checking the receipt on Arc…" };
+      return { tone: "sea", text: msg("route.reviewModal.sentLykiaIsCheckingTheReceipt") };
     case "submitted":
-      return { tone: "sea", text: "Submitted. This step settles off Arc; the plan updates on its own." };
+      return { tone: "sea", text: msg("route.reviewModal.submittedThisStepSettlesOffArc") };
     case "settled":
       return null;
     case "failed":
@@ -148,24 +150,24 @@ function phaseBanner(p: ReviewDialogProps): { tone: "sea" | "ochre" | "ok" | "ba
 
 function primaryOf(p: ReviewDialogProps): { label: string; disabled: boolean; action: () => void } {
   const v = p.view;
-  if (!v) return { label: "Sign with wallet", disabled: true, action: p.onSign };
+  if (!v) return { label: msg("route.reviewModal.signWithWallet"), disabled: true, action: p.onSign };
   const gate = preflightGate(p.preflight, p.preflightAcked === true);
   const open = v.stage !== "settled" && v.stage !== "denied" && v.stage !== "dry-run" && v.settledCount === 0;
-  if (open && gate.blocked) return { label: "Fix it first", disabled: true, action: p.onSign };
-  if (open && gate.needsAck.length > 0 && p.phase !== "failed") return { label: "Tick the box first", disabled: true, action: p.onSign };
-  if (v.stage === "denied") return { label: "Refused by your Fence", disabled: true, action: p.onSign };
-  if (v.stage === "dry-run") return { label: "Dry run · nothing to sign", disabled: true, action: p.onSign };
-  if (v.stage === "settled" && p.phase !== "failed") return { label: "Done", disabled: false, action: p.onClose };
-  if (p.stage?.mode === "stopped") return { label: "Stopped", disabled: true, action: p.onClose };
-  if (p.stage?.mode === "paused" && (p.phase !== "failed" || !p.failure || p.failure.retry === "sign-again" || p.failure.retry === "switch-chain")) return { label: "Retry this step", disabled: p.stage.pause?.retryable === false, action: p.onRetry };
+  if (open && gate.blocked) return { label: msg("route.reviewModal.fixItFirst"), disabled: true, action: p.onSign };
+  if (open && gate.needsAck.length > 0 && p.phase !== "failed") return { label: msg("route.reviewModal.tickTheBoxFirst"), disabled: true, action: p.onSign };
+  if (v.stage === "denied") return { label: msg("route.reviewModal.refusedByYourFence"), disabled: true, action: p.onSign };
+  if (v.stage === "dry-run") return { label: msg("route.reviewModal.dryRunNothingToSign"), disabled: true, action: p.onSign };
+  if (v.stage === "settled" && p.phase !== "failed") return { label: msg("route.reviewModal.done"), disabled: false, action: p.onClose };
+  if (p.stage?.mode === "stopped") return { label: msg("route.reviewModal.stopped"), disabled: true, action: p.onClose };
+  if (p.stage?.mode === "paused" && (p.phase !== "failed" || !p.failure || p.failure.retry === "sign-again" || p.failure.retry === "switch-chain")) return { label: msg("route.reviewModal.retryThisStep"), disabled: p.stage.pause?.retryable === false, action: p.onRetry };
   if (p.phase === "failed" && p.failure) {
-    if (p.failure.retry === "replan") return { label: p.failure.retryLabel ?? "Plan again", disabled: !p.onReplan, action: p.onReplan ?? p.onClose };
-    if (p.failure.retry === "none") return { label: "Sign with wallet", disabled: true, action: p.onSign };
-    return { label: p.failure.retryLabel ?? "Try again", disabled: p.failure.retry === "confirm" && !p.confirmed, action: p.onRetry };
+    if (p.failure.retry === "replan") return { label: p.failure.retryLabel ?? msg("route.reviewModal.planAgain"), disabled: !p.onReplan, action: p.onReplan ?? p.onClose };
+    if (p.failure.retry === "none") return { label: msg("route.reviewModal.signWithWallet"), disabled: true, action: p.onSign };
+    return { label: p.failure.retryLabel ?? msg("route.reviewModal.tryAgain"), disabled: p.failure.retry === "confirm" && !p.confirmed, action: p.onRetry };
   }
-  if (!p.connected) return { label: "Connect wallet to sign", disabled: false, action: p.onConnect };
+  if (!p.connected) return { label: msg("route.reviewModal.connectWalletToSign"), disabled: false, action: p.onConnect };
   const busy = p.phase === "quoting" || p.phase === "switching" || p.phase === "signing" || p.phase === "submitting";
-  const label = p.phase === "signing" || p.phase === "switching" ? "Waiting for wallet…" : p.phase === "submitting" ? "Checking Arc…" : p.phase === "quoting" ? "Loading quote…" : p.stage && p.stage.total > 1 ? `Sign step ${p.stage.stage} of ${p.stage.total}` : v.settledCount > 0 && v.nextStepId ? `Sign step ${v.steps.findIndex((s) => s.id === v.nextStepId) + 1} with wallet` : "Sign with wallet";
+  const label = p.phase === "signing" || p.phase === "switching" ? msg("route.reviewModal.waitingForWallet") : p.phase === "submitting" ? msg("route.reviewModal.checkingArc") : p.phase === "quoting" ? msg("route.reviewModal.loadingQuote") : p.stage && p.stage.total > 1 ? msg("route.reviewModal.signStepOf", { stage: p.stage.stage, total: p.stage.total }) : v.settledCount > 0 && v.nextStepId ? msg("route.reviewModal.signStepWithWallet", { value: v.steps.findIndex((s) => s.id === v.nextStepId) + 1 }) : msg("route.reviewModal.signWithWallet");
   return { label, disabled: busy || !v.nextStepId || (v.decision === "confirm" && !p.confirmed), action: p.onSign };
 }
 
@@ -175,7 +177,7 @@ function Figures({ title, list, tone }: { readonly title: string; readonly list:
     <div className={cx("rv-fig", `rv-fig--${tone}`)}>
       <span className="m-kick">
         {title}
-        <Hint text={tone === "send" ? "What leaves your wallet in this step, at today's prices." : "What arrives. The amount can move a little with the price until you sign."} />
+        <Hint text={tone === "send" ? msg("route.reviewModal.whatLeavesYourWalletInThis") : msg("route.reviewModal.whatArrivesTheAmountCanMove")} />
       </span>
       {list.length === 0 ? <b className="rv-big">{"—"}</b> : null}
       {list.map((f) => (
@@ -184,11 +186,11 @@ function Figures({ title, list, tone }: { readonly title: string; readonly list:
             {f.amount} <span className="rv-sym">{f.symbol}</span>
           </b>
           <span className="m-small m-muted">
-            {[f.usd !== null ? `≈ $${Number(f.usd).toLocaleString("en-US", { maximumFractionDigits: 2 })}` : null, f.where, f.minimum ? `at least ${f.minimum} ${f.symbol}` : null].filter(Boolean).join(" · ")}
+            {[f.usd !== null ? `≈ $${Number(f.usd).toLocaleString(intlLocale(), { maximumFractionDigits: 2 })}` : null, f.where, f.minimum ? msg("route.reviewModal.atLeast", { minimum: f.minimum, symbol: f.symbol }) : null].filter(Boolean).join(" · ")}
           </span>
         </div>
       ))}
-      {min ? <span className="rv-mean">{`You get at least ${min.minimum} ${min.symbol}. ${MEANINGS.minReceived.replace("The least you can get. ", "")}`}</span> : null}
+      {min ? <span className="rv-mean">{msg("route.reviewModal.youGetAtLeast", { minimum: min.minimum, symbol: min.symbol, value: MEANINGS.minReceived.replace("The least you can get. ", "") })}</span> : null}
     </div>
   );
 }
@@ -201,7 +203,7 @@ function SecurityPanel({ report, phase }: { readonly report: SecurityReport | nu
         <Skeleton h={14} w="70%" />
       </div>
     ) : (
-      <p className="m-small m-muted">{"Checked when the quote loads: the calls are simulated against Arc and every balance change is listed here before you sign."}</p>
+      <p className="m-small m-muted">{msg("route.reviewModal.checkedWhenTheQuoteLoadsThe")}</p>
     );
   }
   const leaves = balanceLines(report);
@@ -210,12 +212,12 @@ function SecurityPanel({ report, phase }: { readonly report: SecurityReport | nu
     <div className="rv-sec">
       <div className="rv-sec__head">
         <Tag tone={decisionTone(report.decision)}>{decisionLabel(report.decision)}</Tag>
-        <b>{"What you will sign"}</b>
-        <span className="m-small m-muted">{report.simulation === "unavailable" ? "read, not test-run" : "test-run on Arc before your wallet opens"}</span>
+        <b>{msg("route.reviewModal.whatYouWillSign")}</b>
+        <span className="m-small m-muted">{report.simulation === "unavailable" ? msg("route.reviewModal.readNotTestRun") : msg("route.reviewModal.testRunOnArcBeforeYour")}</span>
       </div>
       {leaves.length > 0 ? (
         <p className="rv-diff">
-          <span className="m-kick">{"LEAVES YOUR WALLET"}</span> <b className="num">{leaves.join(" · ")}</b>
+          <span className="m-kick">{msg("route.reviewModal.leavesYourWallet")}</span> <b className="num">{leaves.join(" · ")}</b>
         </p>
       ) : null}
       <ul className="rv-sec__lines m-small">
@@ -242,7 +244,7 @@ export function ReviewDialog(p: ReviewDialogProps) {
   const v = p.view;
   const banner = phaseBanner(p);
   const primary = primaryOf(p);
-  const network = v ? (v.environment === "mainnet" ? "ARC MAINNET" : "ARC TESTNET") : "ARC";
+  const network = v ? (v.environment === "mainnet" ? msg("route.reviewModal.arcMainnet") : msg("route.reviewModal.arcTestnet")) : "ARC";
   const activeStep = v?.nextStepId ?? null;
   const settledAll = v?.stage === "settled" && p.phase !== "failed";
   // "Before you sign": the Fence's confirmation and preflight's warnings share one tick.
@@ -251,7 +253,7 @@ export function ReviewDialog(p: ReviewDialogProps) {
   const warned = Boolean(v && v.settledCount === 0 && (p.preflight ?? []).some((f) => f.severity === "warn"));
   const tickable = (confirmNeeded || warned) && !pfGate.blocked;
   const ticked = (!confirmNeeded || p.confirmed) && (!warned || p.preflightAcked === true);
-  const gas = p.transferCostUsd ? `from $${Number(p.transferCostUsd).toFixed(4)} per transaction at today's gas price` : "a few cents at most on Arc";
+  const gas = p.transferCostUsd ? msg("route.reviewModal.fromPerTransactionAtTodayS", { value: Number(p.transferCostUsd).toFixed(4) }) : msg("route.reviewModal.aFewCentsAtMostOn");
   return (
     <div className="rv-scrim" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && p.onClose()}>
       <div ref={ref} className="rv-dialog m-frame" role="dialog" aria-modal="true" aria-labelledby={`${uid}-t`} aria-describedby={`${uid}-d`} data-phase={p.phase} data-stage={v?.stage ?? "loading"}>
@@ -260,16 +262,16 @@ export function ReviewDialog(p: ReviewDialogProps) {
             <span key={t.i} className={`rv-tile rv-tile--${t.tone}`} style={{ "--d": t.d } as React.CSSProperties} />
           ))}
         </div>
-        <button type="button" className="rv-grab" aria-label="Close the review" onClick={p.onClose} />
+        <button type="button" className="rv-grab" aria-label={msg("route.reviewModal.closeTheReview")} onClick={p.onClose} />
         <header className="rv-head rv-lay" style={{ "--k": 0 } as React.CSSProperties}>
-          <span className="m-kick">{`REVIEW · ${network}`}</span>
+          <span className="m-kick">{msg("route.reviewModal.review", { network })}</span>
           <h2 id={`${uid}-t`} ref={titleRef} tabIndex={-1}>
             {p.stage && p.stage.total > 1 && v?.staged.current ? stageHeadline(p.stage, plainStep(v.staged.current.summary)) : p.title}
           </h2>
           <p id={`${uid}-d`} className="rv-lead">
-            {p.lead ?? "Check what leaves your wallet and what you get. Nothing moves until you confirm in your wallet."}
+            {p.lead ?? msg("route.reviewModal.checkWhatLeavesYourWalletAnd")}
           </p>
-          <button type="button" className="rv-x" aria-label="Close the review" onClick={p.onClose}>
+          <button type="button" className="rv-x" aria-label={msg("route.reviewModal.closeTheReview")} onClick={p.onClose}>
             <Mark name="cross" size={12} />
           </button>
         </header>
@@ -289,9 +291,9 @@ export function ReviewDialog(p: ReviewDialogProps) {
                   confirmNeeded ? (
                     <li className="pf-card rv-rules" data-severity="warn">
                       <div className="pf-card__body">
-                        <span className="pf-card__kick">{"YOUR RULES ASK YOU TO CONFIRM"}</span>
+                        <span className="pf-card__kick">{msg("route.reviewModal.yourRulesAskYouToConfirm")}</span>
                         <ul className="rv-rules__list">
-                          {(v.reasons.length > 0 ? v.reasons : ["A rule in your Fence asks you first."]).slice(0, 4).map((r) => (
+                          {(v.reasons.length > 0 ? v.reasons : [msg("route.reviewModal.aRuleInYourFenceAsks")]).slice(0, 4).map((r) => (
                             <li key={r}>{plainReason(r)}</li>
                           ))}
                         </ul>
@@ -310,7 +312,7 @@ export function ReviewDialog(p: ReviewDialogProps) {
                       if (warned) p.onPreflightAck?.(e.target.checked);
                     }}
                   />{" "}
-                  {warned ? "I read this and want to sign it as it is." : "I read this and confirm the plan."}
+                  {warned ? msg("route.reviewModal.iReadThisAndWantTo") : msg("route.reviewModal.iReadThisAndConfirmThe")}
                 </label>
               ) : null}
             </div>
@@ -323,17 +325,17 @@ export function ReviewDialog(p: ReviewDialogProps) {
           ) : null}
 
           <details className="rv-details rv-lay" style={{ "--k": 2 } as React.CSSProperties}>
-            <summary>{"Details"}<span className="m-small">{"amounts, steps, fees, your rules and the safety check"}</span></summary>
+            <summary>{msg("route.reviewModal.details")}<span className="m-small">{msg("route.reviewModal.amountsStepsFeesYourRulesAnd")}</span></summary>
             {v ? (
-              <section key={`stage-${p.stage?.stage ?? 0}`} className={cx("rv-swap rv-lay", p.stage && p.stage.total > 1 && p.stage.stage > 1 && "rv-stagein")} style={{ "--k": 1 } as React.CSSProperties} aria-label={p.stage && p.stage.total > 1 ? `What step ${p.stage.stage} sends and gets` : "What you send and what you get"}>
-                <Figures title="YOU SEND" list={v.send} tone="send" />
+              <section key={`stage-${p.stage?.stage ?? 0}`} className={cx("rv-swap rv-lay", p.stage && p.stage.total > 1 && p.stage.stage > 1 && "rv-stagein")} style={{ "--k": 1 } as React.CSSProperties} aria-label={p.stage && p.stage.total > 1 ? msg("route.reviewModal.whatStepSendsAndGets", { stage: p.stage.stage }) : msg("route.reviewModal.whatYouSendAndWhatYou")}>
+                <Figures title={msg("route.reviewModal.youSend")} list={v.send} tone="send" />
                 <span className="rv-arrow" aria-hidden="true">
                   <Mark name="arrow" size={18} />
                 </span>
-                <Figures title="YOU GET" list={v.get} tone="get" />
+                <Figures title={msg("route.reviewModal.youGet")} list={v.get} tone="get" />
               </section>
             ) : (
-              <section className="rv-swap" aria-label="Loading">
+              <section className="rv-swap" aria-label={msg("route.reviewModal.loading")}>
                 <Skeleton h={72} />
                 <span />
                 <Skeleton h={72} />
@@ -343,8 +345,8 @@ export function ReviewDialog(p: ReviewDialogProps) {
             <div className="rv-cols">
               <section className="rv-card rv-lay" style={{ "--k": 2 } as React.CSSProperties} aria-labelledby={`${uid}-steps`}>
                 <h3 id={`${uid}-steps`} className="rv-h">
-                  {"Steps"}
-                  {v ? <span className="m-kick">{`${v.settledCount} OF ${v.steps.length} SETTLED`}</span> : null}
+                  {msg("route.reviewModal.steps")}
+                  {v ? <span className="m-kick">{msg("route.reviewModal.ofSettled", { settledCount: v.settledCount, length: v.steps.length })}</span> : null}
                 </h3>
                 {v ? (
                   <ol className="rv-steps">
@@ -357,14 +359,14 @@ export function ReviewDialog(p: ReviewDialogProps) {
                           <b>{plainStep(s.summary)}</b>
                           <div className="rv-step__meta">
                             <Tag tone="sea">{s.venue}</Tag>
-                            <Tag tone={s.status === "settled" ? "ok" : s.status === "failed" ? "bad" : "ghost"}>{s.status === "awaiting-signature" ? "ready to sign" : s.status === "blocked" ? "next" : s.failure ? "paused" : s.status}</Tag>
+                            <Tag tone={s.status === "settled" ? "ok" : s.status === "failed" ? "bad" : "ghost"}>{s.status === "awaiting-signature" ? msg("route.reviewModal.readyToSign") : s.status === "blocked" ? "next" : s.failure ? "paused" : s.status}</Tag>
                           </div>
                           <code className="rv-memo" title={MEANINGS.arcMemo}>
-                            <span className="m-kick">{"REFERENCE"}</span> {s.memo}
+                            <span className="m-kick">{msg("route.reviewModal.reference")}</span> {s.memo}
                           </code>
                           {s.why ? (
                             <details className="rv-why">
-                              <summary className="m-small">{`Why ${s.venue}?`}</summary>
+                              <summary className="m-small">{msg("route.reviewModal.why", { venue: s.venue })}</summary>
                               <p className="m-small m-muted">{plainRouteWhy(s.why, s.venue)}</p>
                             </details>
                           ) : null}
@@ -379,25 +381,25 @@ export function ReviewDialog(p: ReviewDialogProps) {
 
               <div className="rv-side">
                 <section className="rv-card rv-lay" style={{ "--k": 3 } as React.CSSProperties} aria-labelledby={`${uid}-fees`}>
-                  <h3 id={`${uid}-fees`} className="rv-h">{"Fees"}</h3>
+                  <h3 id={`${uid}-fees`} className="rv-h">{msg("route.reviewModal.fees")}</h3>
                   <dl className="rv-fees">
                     <div>
-                      <dt>{`Lykia fee${v?.feeBps !== null && v?.feeBps !== undefined ? ` · ${bpsLabel(v.feeBps)}` : ""}`}<Hint text={MEANINGS.lykiaFee} /></dt>
-                      <dd className="num">{v ? (v.fees.length > 0 ? v.fees.join(" + ") : "none on this plan") : "…"}</dd>
+                      <dt>{v?.feeBps !== null && v?.feeBps !== undefined ? msg("route.reviewModal.lykiaFeeBps", { bps: bpsLabel(v.feeBps) }) : msg("route.reviewModal.lykiaFee")}<Hint text={MEANINGS.lykiaFee} /></dt>
+                      <dd className="num">{v ? (v.fees.length > 0 ? v.fees.join(" + ") : msg("route.reviewModal.noneOnThisPlan")) : "…"}</dd>
                     </div>
                     <div>
-                      <dt>{"Network fee · in USDC"}<Hint text={MEANINGS.gas} /></dt>
-                      <dd>{`${gas}${p.txCount ? ` · ${p.txCount} transaction${p.txCount === 1 ? "" : "s"}` : ""}; your wallet shows the exact figure`}</dd>
+                      <dt>{msg("route.reviewModal.networkFeeInUsdc")}<Hint text={MEANINGS.gas} /></dt>
+                      <dd>{p.txCount ? msg("route.reviewModal.gasWithTransactions", { gas, n: p.txCount }) : msg("route.reviewModal.gasExact", { gas })}</dd>
                     </div>
                   </dl>
-                  <p className="m-small m-muted">{"The Lykia fee is paid in the same transaction as the step. Repaying and withdrawing home are free. The network fee goes to Arc, not to Lykia."}</p>
+                  <p className="m-small m-muted">{msg("route.reviewModal.theLykiaFeeIsPaidIn")}</p>
                 </section>
 
                 <section className="rv-card rv-fence rv-lay" style={{ "--k": 4 } as React.CSSProperties} aria-labelledby={`${uid}-fence`}>
-                  <h3 id={`${uid}-fence`} className="rv-h">{"Your rules say"}<Hint text={MEANINGS.verdict} /></h3>
+                  <h3 id={`${uid}-fence`} className="rv-h">{msg("route.reviewModal.yourRulesSay")}<Hint text={MEANINGS.verdict} /></h3>
                   <div className="rv-fence__row">
                     {v ? <Seal decision={v.decision} /> : <Skeleton h={28} w={110} />}
-                    <span className="m-small">{v ? (v.decision === "allow" ? "Allowed: every step is inside your Fence (your spending rules)." : v.decision === "confirm" ? "Allowed once you confirm below: a rule asks you first." : "Refused: a rule in your Fence says no, so nothing can be signed.") : ""}</span>
+                    <span className="m-small">{v ? (v.decision === "allow" ? msg("route.reviewModal.allowedEveryStepIsInsideYour") : v.decision === "confirm" ? msg("route.reviewModal.allowedOnceYouConfirmBelowA") : msg("route.reviewModal.refusedARuleInYourFence")) : ""}</span>
                   </div>
                   {v && v.reasons.length > 0 ? (
                     <ul className="rv-reasons m-small">
@@ -409,7 +411,7 @@ export function ReviewDialog(p: ReviewDialogProps) {
                 </section>
 
                 <section className="rv-card rv-lay" style={{ "--k": 5 } as React.CSSProperties} aria-labelledby={`${uid}-sec`}>
-                  <h3 id={`${uid}-sec`} className="rv-h">{"Safety check"}<Hint text={MEANINGS.security} /></h3>
+                  <h3 id={`${uid}-sec`} className="rv-h">{msg("route.reviewModal.safetyCheck")}<Hint text={MEANINGS.security} /></h3>
                   <SecurityPanel report={p.security} phase={p.phase} />
                 </section>
               </div>
@@ -419,7 +421,7 @@ export function ReviewDialog(p: ReviewDialogProps) {
               <BetaRibbon inline />
             </div>
 
-            {v ? <p className="rv-ref m-small">{`Plan ${v.id}`}</p> : null}
+            {v ? <p className="rv-ref m-small">{msg("route.reviewModal.plan", { id: v.id })}</p> : null}
             <HowItWorks area="review" className="rv-how" />
           </details>
         </div>
@@ -432,8 +434,8 @@ export function ReviewDialog(p: ReviewDialogProps) {
                 <Mark name="check" size={18} />
               </span>
               <div>
-                <b>{settledAll ? "Settled on Arc" : "Step settled on Arc"}</b>
-                <p className="m-small m-muted">{settledAll ? "Final on the receipt: Arc settles in under a second." : "Final on the receipt. The next step is ready to sign."}</p>
+                <b>{settledAll ? msg("route.reviewModal.settledOnArc") : msg("route.reviewModal.stepSettledOnArc")}</b>
+                <p className="m-small m-muted">{settledAll ? msg("route.reviewModal.finalOnTheReceiptArcSettles") : msg("route.reviewModal.finalOnTheReceiptTheNext")}</p>
                 {p.lastTx ?? v?.lastTx ? <HashChip value={(p.lastTx ?? v?.lastTx) as string} kind="tx" environment={(v?.environment ?? "mainnet") as ArcEnvironment} /> : null}
               </div>
             </div>
@@ -444,7 +446,7 @@ export function ReviewDialog(p: ReviewDialogProps) {
               <p className="m-small">{p.failure.detail}</p>
               {p.failure.raw && p.failure.raw !== p.failure.detail ? (
                 <details>
-                  <summary className="m-small">{"Details"}</summary>
+                  <summary className="m-small">{msg("route.reviewModal.details")}</summary>
                   <code className="m-small">{p.failure.raw}</code>
                 </details>
               ) : null}
@@ -454,14 +456,15 @@ export function ReviewDialog(p: ReviewDialogProps) {
 
         <footer className="rv-foot">
           <button type="button" className="m-btn m-btn--ghost" onClick={p.onClose}>
-            {"Back"}
+            {msg("route.reviewModal.back")}
           </button>
           {p.stage?.mode === "paused" && p.onStop ? (
             <button type="button" className="m-btn m-btn--ghost" onClick={p.onStop}>
-              {"Stop here"}
+              {msg("route.reviewModal.stopHere")}
             </button>
           ) : null}
-          <button type="button" className="m-btn m-btn--lg rv-primary" onClick={primary.action} disabled={primary.disabled} data-busy={p.phase === "signing" || p.phase === "submitting" || p.phase === "quoting" || undefined}>
+          <button type="button" className="m-btn m-btn--hero rv-primary" onClick={primary.action} disabled={primary.disabled} data-busy={p.phase === "signing" || p.phase === "submitting" || p.phase === "quoting" || undefined}>
+            <PixelIcon name="key" size={16} />
             {primary.label}
           </button>
         </footer>
@@ -521,7 +524,7 @@ export function ReviewModal({ intentId, proposal, open, onClose, onReplan, askFi
   }, [flow.phase, flow.failure]);
   const serverPaused = Boolean(view?.staged.paused);
   // The title says what happens; the proposal's own title is often one verb ("bridge").
-  const title = view && view.steps.length === 1 ? plainStep(view.steps[0]!.summary) : proposal?.title ? planTitle(proposal.title) : "Review and sign";
+  const title = view && view.steps.length === 1 ? plainStep(view.steps[0]!.summary) : proposal?.title ? planTitle(proposal.title) : msg("route.reviewModal.reviewAndSign");
   const lead = query.data ? leadSentence(query.data.intent) : null;
   return (
     <ReviewDialog
@@ -530,7 +533,7 @@ export function ReviewModal({ intentId, proposal, open, onClose, onReplan, askFi
       title={title.length > 90 ? `${title.slice(0, 88)}…` : title}
       view={view}
       phase={query.isError && flow.phase === "idle" ? "failed" : flow.phase}
-      failure={flow.failure ?? (query.isError ? { kind: "rpc", title: "The plan could not be loaded", detail: "The Lykia API did not answer. Close this and open the plan again in a moment.", retry: "none", retryLabel: null, sent: false, raw: String(query.error) } : null)}
+      failure={flow.failure ?? (query.isError ? { kind: "rpc", title: msg("route.reviewModal.thePlanCouldNotBeLoaded"), detail: msg("route.reviewModal.theLykiaApiDidNotAnswer"), retry: "none", retryLabel: null, sent: false, raw: String(query.error) } : null)}
       security={flow.security}
       refreshes={flow.refreshes}
       quotedAt={flow.prepared?.at ?? null}

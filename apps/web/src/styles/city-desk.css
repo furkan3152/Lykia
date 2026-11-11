@@ -20,13 +20,13 @@
 .ctd-builder { grid-area: builder; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .ctd-table { grid-area: table; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .ctd-today__grid { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.ctd-today__grid div { padding: 10px 12px; background: #fffdf7; box-shadow: inset 0 0 0 2px var(--grout), inset 0 -3px 0 var(--city); min-width: 0; }
+.ctd-today__grid div { padding: 10px 12px; background: var(--ns-fffdf7); box-shadow: inset 0 0 0 2px var(--grout), inset 0 -3px 0 var(--city); min-width: 0; }
 .ctd-today__grid dt { font-family: Silkscreen, monospace; font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
 .ctd-today__grid dd { margin: 4px 0 0; font-family: "Pixelify Sans", monospace; font-size: 26px; line-height: 1; overflow-wrap: anywhere; }
 .ctd-today .ct-askbar { margin-top: auto; }
 .ctd-builder__in { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 .ctd-chip { min-height: 36px; }
-.ctd-qr { margin: 0; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; align-items: center; padding: 14px; background: #fffdf7; box-shadow: inset 0 0 0 2px var(--grout); }
+.ctd-qr { margin: 0; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; align-items: center; padding: 14px; background: var(--ns-fffdf7); box-shadow: inset 0 0 0 2px var(--grout); }
 .ctd-qr .ct-qr { width: 150px; }
 .ctd-qr figcaption { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .ctd-qr figcaption b { font-family: "Pixelify Sans", monospace; font-size: 24px; }
@@ -90,7 +90,7 @@
 .ctc-three .ct-card { align-content: start; }
 
 /* Lykia Agents: the way into the Fold's Pack, where agents and their leashes are managed. */
-.ct-fold { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; margin-top: 14px; padding: 12px 14px; color: var(--ink); text-decoration: none; background: repeating-linear-gradient(45deg, #f1e8d4 0 10px, #fbf5e6 10px 20px); box-shadow: inset 0 0 0 2px var(--navy), inset 0 -4px 0 var(--grout); }
+.ct-fold { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; margin-top: 14px; padding: 12px 14px; color: var(--ink); text-decoration: none; background: repeating-linear-gradient(45deg, var(--ns-f1e8d4) 0 10px, var(--ns-fbf5e6) 10px 20px); box-shadow: inset 0 0 0 2px var(--navy-line), inset 0 -4px 0 var(--grout); }
 .ct-fold > span:nth-child(2) { display: flex; flex-direction: column; gap: 2px; }
-.ct-fold > span:last-child { font-family: "Pixelify Sans", monospace; font-size: 24px; color: var(--terra); }
+.ct-fold > span:last-child { font-family: "Pixelify Sans", monospace; font-size: 24px; color: var(--terra-text); }
 .ct-fold:hover { transform: translateY(-1px); }

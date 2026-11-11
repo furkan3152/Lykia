@@ -15,6 +15,7 @@ import { useWallet } from "../wallet/store";
 import { useLykiaWallet } from "../wallet/useLykiaWallet";
 import { quoteStep, signStep, StepFlowError, type FlowPhase, type Prepared, type Sent, type StepEffects } from "./stepFlow";
 import type { TxFailure } from "./txErrors";
+import { t } from "../../i18n";
 
 export type ReviewPhase = "idle" | "quoting" | "quoted" | "switching" | "signing" | "submitting" | "submitted" | "settled" | "failed";
 
@@ -104,7 +105,7 @@ export function useReviewFlow(intentId: string | null, network: string, acknowle
   const onError = (error: unknown) => {
     const blocked = reportFromError(error instanceof StepFlowError ? error.original : error);
     if (blocked) setSecurity(blocked);
-    setFailure(error instanceof StepFlowError ? error.failure : { kind: "unknown", title: "The step did not go through", detail: String(error), retry: "sign-again", retryLabel: "Try again", sent: false, raw: String(error) });
+    setFailure(error instanceof StepFlowError ? error.failure : { kind: "unknown", title: t("route.useReviewFlow.theStepDidNotGoThrough"), detail: String(error), retry: "sign-again", retryLabel: t("route.useReviewFlow.tryAgain"), sent: false, raw: String(error) });
     // Preflight read the wallet again and found something new: show it.
     if (/PREFLIGHT_/u.test(String((error instanceof StepFlowError ? (error.original as { code?: string } | null)?.code : null) ?? ""))) void qc.invalidateQueries({ queryKey: ["intent", intentId] });
     setPhase("failed");

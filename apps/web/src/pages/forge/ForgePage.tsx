@@ -37,17 +37,18 @@ import { Studio } from "./Studio";
 import { Usage } from "./Usage";
 import { Webhooks } from "./Webhooks";
 import type { StudioConfig } from "./snippets";
+import { intlLocale, t as msg } from "../../i18n";
 
 export type ForgeSection = "strike" | "workshop" | "cities" | "keys" | "usage" | "webhooks" | "reference";
 
 const FORGE_SECTIONS: readonly { readonly id: ForgeSection; readonly label: string; readonly sub: string }[] = [
-  { id: "strike", label: "Strike", sub: "quickstart" },
-  { id: "workshop", label: "Workshop", sub: "playground" },
-  { id: "cities", label: "Your cities", sub: "projects" },
-  { id: "keys", label: "Keys", sub: "and your fee" },
-  { id: "usage", label: "Usage & logs", sub: "requests" },
-  { id: "webhooks", label: "Webhooks", sub: "events" },
-  { id: "reference", label: "Reference", sub: "API, SDK, MCP" },
+  { id: "strike", label: msg("forge.strike"), sub: "quickstart" },
+  { id: "workshop", label: msg("forge.workshop"), sub: "playground" },
+  { id: "cities", label: msg("forge.yourCities"), sub: "projects" },
+  { id: "keys", label: msg("forge.keys"), sub: msg("forge.andYourFee") },
+  { id: "usage", label: msg("forge.usageLogs"), sub: "requests" },
+  { id: "webhooks", label: msg("forge.webhooks"), sub: "events" },
+  { id: "reference", label: msg("forge.reference"), sub: "API, SDK, MCP" },
 ];
 
 const SDK = `import { Lykia } from "@lykia/sdk";
@@ -72,12 +73,12 @@ function isSection(value: string | undefined): value is ForgeSection {
 
 /** The Forge keeps its developer depth; each of its own words gets one plain line. */
 const FORGE_WORDS: readonly (readonly [string, string])[] = [
-  ["City", "Your project: your app's brand, its website, the features you turn on and your fee."],
-  ["Fence caps", "Spending limits for your users' moves. They can only make a user's own rules stricter."],
-  ["Key", "A secret your server sends with each API call. Test keys use Arc testnet; live keys move real money."],
-  ["Webhook", "A message Lykia sends to your server when something happens, such as a payment settling."],
-  ["MCP", "A standard way for AI tools to call Lykia's features."],
-  ["Leash", "A budget an outside bot cannot go past, enforced on chain."],
+  [msg("forge.city"), msg("forge.yourProjectYourAppSBrand")],
+  [msg("forge.fenceCaps"), msg("forge.spendingLimitsForYourUsersMoves")],
+  [msg("forge.key"), msg("forge.aSecretYourServerSendsWith")],
+  [msg("forge.webhook"), msg("forge.aMessageLykiaSendsToYour")],
+  ["MCP", msg("forge.aStandardWayForAiTools")],
+  ["Leash", msg("forge.aBudgetAnOutsideBotCannot")],
 ];
 
 export default function ForgePage() {
@@ -107,16 +108,16 @@ export default function ForgePage() {
 
   return (
     <div>
-      <PageHead kicker="THE FORGE · DEVELOPER PORTAL" title={<>Strike a city. <em>Ship it anywhere.</em></>} sub="Lykia's routing, Fence checks and assistant as a REST API, an MCP server, SDKs and drop-in components. Every app you build is a city: your brand, your modules, your Fence caps, your fee." mood="happy">
+      <PageHead kicker={msg("forge.theForgeDeveloperPortal")} title={<>{msg("forge.strikeACity")} <em>{msg("forge.shipItAnywhere")}</em></>} sub={msg("forge.lykiaSRoutingFenceChecksAnd")} mood="happy">
         <div className="flex justify-center gap-2 flex-wrap" style={{ marginTop: 18 }}>
-          {siwe.signedIn ? <Tag tone="ok">SIGNED IN · {siwe.session?.roles.join(", ").toUpperCase()}</Tag> : <Button onClick={() => void siwe.signIn()} disabled={siwe.busy}>{"SIGN IN WITH YOUR WALLET"}</Button>}
+          {siwe.signedIn ? <Tag tone="ok">{msg("forge.signedIn")} {siwe.session?.roles.join(", ").toUpperCase()}</Tag> : <Button onClick={() => void siwe.signIn()} disabled={siwe.busy}>{msg("forge.signInWithYourWallet")}</Button>}
         </div>
-        <p className="m-small m-muted m-center" style={{ marginTop: 8 }}>{"One signed message (SIWE), no transaction and no fee."}</p>
+        <p className="m-small m-muted m-center" style={{ marginTop: 8 }}>{msg("forge.oneSignedMessageSiweNoTransaction")}</p>
       </PageHead>
 
       <section className="m-wrap forge-words" aria-labelledby="forge-words">
         <div className="forge-words__head">
-          <h2 id="forge-words" className="m-kick">{"WORDS ON THIS PAGE"}</h2>
+          <h2 id="forge-words" className="m-kick">{msg("forge.wordsOnThisPage")}</h2>
           <HowItWorks area="forge" />
         </div>
         <dl>
@@ -127,12 +128,12 @@ export default function ForgePage() {
       </section>
 
       <section className="m-wrap forge-rails" aria-labelledby="forge-rails">
-        <h2 id="forge-rails" className="m-kick">{"ON TOP OF CIRCLE'S RAILS"}</h2>
-        <p className="m-small">{"Circle gives your app USDC, CCTP, Gateway and wallets. The Forge adds what sits between a sentence and a signature: a route across the Arc venues Lykia can execute, scored on what your user ends up with and simulated on Arc; a Fence that checks every step in USD before the wallet signs; one transaction carrying an Arc Memo of the verdict, with gas in USDC; and the keys, usage, webhooks and OpenAPI document to ship it. Plans come back unsigned for your user's wallet."}</p>
-        <Link to="/#usdc-circle" className="m-small forge-rails__link">{"Where USDC and Circle sit in each step"}</Link>
+        <h2 id="forge-rails" className="m-kick">{msg("forge.onTopOfCircleSRails")}</h2>
+        <p className="m-small">{msg("forge.circleGivesYourAppUsdcCctp")}</p>
+        <Link to="/#usdc-circle" className="m-small forge-rails__link">{msg("forge.whereUsdcAndCircleSitIn")}</Link>
       </section>
 
-      <nav className="m-wrap forge-rail" aria-label="The Forge">
+      <nav className="m-wrap forge-rail" aria-label={msg("forge.theForge")}>
         <ol>
           {FORGE_SECTIONS.map((s, i) => (
             <li key={s.id}>
@@ -159,7 +160,7 @@ export default function ForgePage() {
           <div style={{ display: "grid", gap: 24, gridTemplateColumns: "minmax(0, 1fr)" }}>
             <Strike onPreview={preview} />
             <div className="m-grid-4">
-              {[["Widget", "@lykia/widget · React components + hooks"], ["Embed", "@lykia/embed · one script tag"], ["Agent tools", "@lykia/agent-tools · AI SDK, LangChain, OpenAI, Anthropic adapters"], ["MCP + REST", "/v1/mcp · /v1 · x402 · webhooks"]].map(([t, d]) => (
+              {[[msg("forge.widget"), msg("forge.widgetLine")], [msg("forge.embed"), msg("forge.embedLine")], [msg("forge.agentTools"), msg("forge.agentToolsLine")], ["MCP + REST", "/v1/mcp · /v1 · x402 · webhooks"]].map(([t, d]) => (
                 <div key={t} className="m-frame m-card m-center"><h3 style={{ fontSize: 20 }}>{t}</h3><p className="m-small m-muted">{d}</p></div>
               ))}
             </div>
@@ -196,7 +197,7 @@ function FeeSettings({ enabled }: { readonly enabled: boolean }) {
   const save = async () => {
     try {
       await apiPut("/v1/developers/settings", { integratorFeeBps: Number(fee), feeRecipient: feeTo || null });
-      toast.success("Saved", { from: "LYKO" });
+      toast.success(msg("forge.saved"), { from: "LYKO" });
     } catch (e) {
       toast.error(describeError(e), { from: "LYKO" });
     }
@@ -204,9 +205,9 @@ function FeeSettings({ enabled }: { readonly enabled: boolean }) {
   return (
     <div className="m-grid-2" style={{ alignItems: "start" }}>
       <FeesCard />
-      <Card title={"Integrator fee"} kicker="MAX 50 BPS" footer={<Button disabled={!enabled} onClick={() => void save()}>SAVE</Button>}>
-        <div className="m-grid-2" style={{ gap: 10 }}><Field label="bps"><Input value={fee} onChange={(e) => setFee(e.target.value)} /></Field><Field label="Recipient"><Input value={feeTo} placeholder="0x…" onChange={(e) => setFeeTo(e.target.value)} /></Field></div>
-        <p className="m-small m-muted" style={{ marginTop: 8 }}>{"Your integrator fee is on top of Lykia's protocol fee. A city's own app fee is set on the city."}</p>
+      <Card title={msg("forge.integratorFee")} kicker={msg("forge.max50Bps")} footer={<Button disabled={!enabled} onClick={() => void save()}>{msg("forge.save")}</Button>}>
+        <div className="m-grid-2" style={{ gap: 10 }}><Field label={msg("forge.bps")}><Input value={fee} onChange={(e) => setFee(e.target.value)} /></Field><Field label={msg("forge.recipient")}><Input value={feeTo} placeholder="0x…" onChange={(e) => setFeeTo(e.target.value)} /></Field></div>
+        <p className="m-small m-muted" style={{ marginTop: 8 }}>{msg("forge.yourIntegratorFeeIsOnTop")}</p>
       </Card>
     </div>
   );
@@ -215,7 +216,7 @@ function FeeSettings({ enabled }: { readonly enabled: boolean }) {
 function Reference({ hash }: { readonly hash: string }) {
   const initial: RefTab = hash === "#integrate" ? "integrate" : hash === "#mcp" ? "mcp" : hash === "#sdk" ? "sdk" : hash === "#parser" ? "parser" : hash === "#circle" ? "circle" : hash === "#arc" ? "arc" : "api";
   const [tab, setTab] = useState<RefTab>(initial);
-  const [play, setPlay] = useState("put half my USDC to work");
+  const [play, setPlay] = useState(msg("forge.putHalfMyUsdcToWork"));
   const [playOut, setPlayOut] = useState("");
   const runPlay = async () => {
     try {
@@ -226,20 +227,20 @@ function Reference({ hash }: { readonly hash: string }) {
   };
   return (
     <div style={{ display: "grid", gap: 18, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <Tabs label="Reference" value={tab} onChange={setTab} tabs={[{ id: "api", label: "API" }, { id: "sdk", label: "SDK" }, { id: "mcp", label: "MCP" }, { id: "parser", label: "PARSER" }, { id: "integrate", label: "INTEGRATE" }, { id: "circle", label: "CIRCLE" }, { id: "arc", label: "ARC TOOLS" }]} />
+      <Tabs label={msg("forge.reference")} value={tab} onChange={setTab} tabs={[{ id: "api", label: "API" }, { id: "sdk", label: "SDK" }, { id: "mcp", label: "MCP" }, { id: "parser", label: "PARSER" }, { id: "integrate", label: "INTEGRATE" }, { id: "circle", label: "CIRCLE" }, { id: "arc", label: msg("forge.arcTools") }]} />
       {tab === "api" ? (
         <ApiReference />
       ) : tab === "sdk" ? (
-        <Card title="@lykia/sdk" kicker="TYPED · RETRIES · SSE · WEBHOOK VERIFY"><pre className="m-code">{SDK}</pre></Card>
+        <Card title="@lykia/sdk" kicker={msg("forge.typedRetriesSseWebhookVerify")}><pre className="m-code">{SDK}</pre></Card>
       ) : tab === "mcp" ? (
-        <Card title="MCP" kicker="STREAMABLE HTTP · READ + PROPOSE">
+        <Card title="MCP" kicker={msg("forge.streamableHttpReadPropose")}>
           <pre className="m-code">{JSON.stringify({ mcpServers: { lykia: { url: apiUrl("/v1/mcp"), headers: { "Lykia-Key": "lk_live_…" } } } }, null, 2)}</pre>
-          <p className="m-small m-muted" style={{ marginTop: 8 }}>Tools: lykia_plan, lykia_scent, lykia_flock, lykia_fence_evaluate, lykia_venues, lykia_outrun, lykia_pack, lykia_insights, lykia_pack_plan, lykia_fees, lykia_circle_status, lykia_circle_services, lykia_launches, lykia_perps_markets, lykia_orders, lykia_dev_tools.</p>
-          <p className="m-small m-muted">{"Plans returned by lykia_plan carry each step's Lykia fee (fee on the step, fees on the outrun); the fee is paid inside the step's own transaction."}</p>
+          <p className="m-small m-muted" style={{ marginTop: 8 }}>{msg("forge.toolsLykiaPlanLykiaScentLykia")}</p>
+          <p className="m-small m-muted">{msg("forge.plansReturnedByLykiaPlanCarry")}</p>
         </Card>
       ) : tab === "parser" ? (
-        <Card title="Sentence parser" kicker="POST /v1/language/parse" footer={<Button onClick={() => void runPlay()}>RUN</Button>}>
-          <Field label="Sentence"><Input value={play} onChange={(e) => setPlay(e.target.value)} /></Field>
+        <Card title={msg("forge.sentenceParser")} kicker="POST /v1/language/parse" footer={<Button onClick={() => void runPlay()}>{msg("forge.run")}</Button>}>
+          <Field label={msg("forge.sentence")}><Input value={play} onChange={(e) => setPlay(e.target.value)} /></Field>
           {playOut ? <pre className="m-code" style={{ marginTop: 10, maxHeight: 320 }}>{playOut}</pre> : null}
         </Card>
       ) : tab === "integrate" ? (
@@ -247,8 +248,8 @@ function Reference({ hash }: { readonly hash: string }) {
       ) : tab === "circle" ? (
         <div style={{ display: "grid", gap: 16, gridTemplateColumns: "minmax(0, 1fr)" }}>
           <div className="m-frame m-card">
-            <span className="m-kick">{"BUILT ON ARC NETWORK · ON CIRCLE'S RAILS"}</span>
-            <p className="m-small" style={{ marginTop: 6 }}>{"Circle moves the value: USDC, CCTP, Gateway and the agent stack. Lykia maps the protocols on Arc, routes through the ones it has an executable adapter for, checks each move against a DeFi-aware Fence and files every verdict as an ERC-8354 policy attestation in the ERC-8004 Validation Registry."}</p>
+            <span className="m-kick">{msg("forge.builtOnArcNetworkOnCircle")}</span>
+            <p className="m-small" style={{ marginTop: 6 }}>{msg("forge.circleMovesTheValueUsdcCctp")}</p>
           </div>
           <CircleMarket compact />
         </div>
@@ -273,36 +274,36 @@ function IntegrateSection() {
   const free = eco.data?.builders.freeTier ?? { perMinute: 120, perDay: 20000 };
   return (
     <section id="integrate" className="m-frame m-card" style={{ scrollMarginTop: 96 }} aria-labelledby="integrate-title">
-      <span className="m-kick">{"INTEGRATE YOUR PROTOCOL"}</span>
-      <h2 id="integrate-title" className="m-h2" style={{ marginTop: 6, fontSize: 26 }}>{"Reach every Lykia user and agent"}</h2>
-      <p className="m-small" style={{ marginTop: 6 }}>{`${eco.data ? `${coverageLine(eco.data.totals)}. ` : ""}Listing is free and open to every team building on Arc; an adapter makes a mapped protocol routable.`}</p>
+      <span className="m-kick">{msg("forge.integrateYourProtocol")}</span>
+      <h2 id="integrate-title" className="m-h2" style={{ marginTop: 6, fontSize: 26 }}>{msg("forge.reachEveryLykiaUserAndAgent")}</h2>
+      <p className="m-small" style={{ marginTop: 6 }}>{`${eco.data ? `${coverageLine(eco.data.totals)}. ` : ""}${msg("forge.listingIsFree")}`}</p>
       <div className="m-grid-3" style={{ marginTop: 14 }}>
         <div>
-          <b>{"1. Registry entry"}</b>
+          <b>{msg("forge.n1RegistryEntry")}</b>
           <ul className="m-small" style={{ margin: "6px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>
-            <li>{"Contract addresses per network, from your docs"}</li>
-            <li>{"eth_getCode is non-empty for every address"}</li>
-            <li>{"An eth_call simulation of your main action"}</li>
-            <li>{"Category, summary and website"}</li>
+            <li>{msg("forge.contractAddressesPerNetworkFromYour")}</li>
+            <li>{msg("forge.ethGetcodeIsNonEmptyFor")}</li>
+            <li>{msg("forge.anEthCallSimulationOfYour")}</li>
+            <li>{msg("forge.categorySummaryAndWebsite")}</li>
           </ul>
         </div>
         <div style={{ minWidth: 0 }}>
-          <b>{"2. One typed adapter"}</b>
+          <b>{msg("forge.n2OneTypedAdapter")}</b>
           <pre className="m-code" style={{ marginTop: 6, fontSize: 11 }}>{ADAPTER}</pre>
         </div>
         <div>
-          <b>{"3. What you get"}</b>
+          <b>{msg("forge.n3WhatYouGet")}</b>
           <ul className="m-small" style={{ margin: "6px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>
-            <li>{"Routing from Ask Lyko, the SDK, MCP and x402"}</li>
-            <li>{"A stall in the Harbour with TVL and value routed"}</li>
-            <li>{`Free developer keys: ${free.perMinute}/min, ${free.perDay.toLocaleString("en-US")}/day`}</li>
-            <li>{"Every move checked by the user's Fence first"}</li>
+            <li>{msg("forge.routingFromAskLykoTheSdk")}</li>
+            <li>{msg("forge.aStallInTheHarbourWith")}</li>
+            <li>{msg("forge.freeDeveloperKeysMinDay", { perMinute: free.perMinute, value: free.perDay.toLocaleString(intlLocale()) })}</li>
+            <li>{msg("forge.everyMoveCheckedByTheUser")}</li>
           </ul>
         </div>
       </div>
       <div className="flex flex-wrap gap-2" style={{ marginTop: 14 }}>
-        <a className="m-btn m-btn--sea" href="https://github.com/furkan3152/Lykia/blob/HEAD/docs/integrate-your-protocol.md" target="_blank" rel="noopener noreferrer">{"READ THE GUIDE"}</a>
-        <a className="m-btn m-btn--ghost" href={apiUrl("/.well-known/x402")} target="_blank" rel="noopener noreferrer">{"x402 MANIFEST"}</a>
+        <a className="m-btn m-btn--sea" href="https://github.com/furkan3152/Lykia/blob/HEAD/docs/integrate-your-protocol.md" target="_blank" rel="noopener noreferrer">{msg("forge.readTheGuide")}</a>
+        <a className="m-btn m-btn--ghost" href={apiUrl("/.well-known/x402")} target="_blank" rel="noopener noreferrer">{msg("forge.x402Manifest")}</a>
         <a className="m-btn m-btn--ghost" href={apiUrl("/v1/openapi.json")} target="_blank" rel="noopener noreferrer">{"OPENAPI"}</a>
       </div>
     </section>

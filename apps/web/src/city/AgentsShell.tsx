@@ -20,24 +20,25 @@ import { CityFrame, type CityTab } from "./CityFrame";
 import { PixelIcon } from "./PixelIcon";
 import { budgetUsed } from "./model";
 import {Sheet} from "./Sheet";
+import { intlLocale, formatUsd, t as msg } from "../i18n";
 
 type Tab = "agents" | "activity" | "whistle";
 
 /** Shown, labelled "sample", before a wallet is connected. */
 const sampleAgent = (id: string, name: string, role: PackAgentView["role"], cap: string, spent: string, tag?: string) =>
   ({ id, name, role, status: "active", depth: 0, agentId: tag, fenceHash: "sha256:0000000000000000", fence: { caps: { dailyUsd: cap } }, budget: { caps: { dailyUsd: cap }, allocated: {}, free: {}, spent: { dayUsd: spent, weekUsd: spent } } }) as unknown as PackAgentView;
-const SAMPLE_AGENTS: readonly PackAgentView[] = [sampleAgent("s1", "Payroll", "payroll", "250", "120", "1842"), sampleAgent("s2", "Yield keeper", "yield-keeper", "250", "214"), sampleAgent("s3", "Bill payer", "bill-payer", "100", "18")];
+const SAMPLE_AGENTS: readonly PackAgentView[] = [sampleAgent("s1", msg("city.agentsShell.payroll"), "payroll", "250", "120", "1842"), sampleAgent("s2", msg("city.agentsShell.yieldKeeper"), "yield-keeper", "250", "214"), sampleAgent("s3", msg("city.agentsShell.billPayer"), "bill-payer", "100", "18")];
 const SAMPLE_FEED = [
-  { id: "f1", kind: "plan", at: "Nov 4, 09:12", what: "Payroll · 4 payouts" },
-  { id: "f2", kind: "verdict", at: "Nov 4, 09:12", what: "allow · inside budget" },
-  { id: "f3", kind: "blocked", at: "Nov 4, 08:30", what: "Yield keeper · over cap" },
-  { id: "f4", kind: "submit", at: "Nov 3, 17:05", what: "Bill payer · electricity" },
+  { id: "f1", kind: "plan", at: msg("city.agentsShell.nov40912"), what: msg("city.agentsShell.payroll4Payouts") },
+  { id: "f2", kind: "verdict", at: msg("city.agentsShell.nov40912"), what: msg("city.agentsShell.allowInsideBudget") },
+  { id: "f3", kind: "blocked", at: msg("city.agentsShell.nov40830"), what: msg("city.agentsShell.yieldKeeperOverCap") },
+  { id: "f4", kind: "submit", at: msg("city.agentsShell.nov31705"), what: msg("city.agentsShell.billPayerElectricity") },
 ];
 
 const TABS: readonly CityTab<Tab>[] = [
-  { id: "agents", label: "Agents", icon: "agents" },
-  { id: "activity", label: "Activity", icon: "list" },
-  { id: "whistle", label: "Stop all", icon: "whistle" },
+  { id: "agents", label: msg("city.agentsShell.agents"), icon: "agents" },
+  { id: "activity", label: msg("city.agentsShell.activity"), icon: "list" },
+  { id: "whistle", label: msg("city.agentsShell.stopAll"), icon: "whistle" },
 ];
 
 function Meter({ used, label }: { readonly used: number; readonly label: string }) {
@@ -60,14 +61,14 @@ function AgentCard({ agent }: { readonly agent: PackAgentView }) {
         <PupIcon role={agent.role} scale={3} />
         <div style={{ minWidth: 0 }}>
           <b>{agent.name}</b>
-          <span className="m-small m-muted">{agent.role.replace(/-/gu, " ")}{agent.depth > 0 ? ` · sub-agent` : ""}</span>
+          <span className="m-small m-muted">{agent.role.replace(/-/gu, " ")}{agent.depth > 0 ? msg("city.agentsShell.subAgent") : ""}</span>
         </div>
         <Tag tone={agent.status === "active" ? "ok" : "bad"}>{agent.status.toUpperCase()}</Tag>
       </div>
-      <Meter used={used} label={`${agent.name}: ${Math.round(used * 100)}% of today's budget used`} />
+      <Meter used={used} label={msg("city.agentsShell.ofTodaySBudgetUsed", { name: agent.name, Math: Math.round(used * 100) })} />
       <div className="ct-agent__foot">
-        <span className="m-small num">{cap ? `$${Number(spent).toFixed(2)} of $${cap} today` : "No daily cap"}</span>
-        <Tag tone={agent.agentId ? "sea" : "ghost"}>{agent.agentId ? `TAG #${agent.agentId}` : "NO TAG YET"}</Tag>
+        <span className="m-small num">{cap ? msg("city.agentsShell.ofToday", { value: Number(spent).toFixed(2), cap }) : msg("city.agentsShell.noDailyCap")}</span>
+        <Tag tone={agent.agentId ? "sea" : "ghost"}>{agent.agentId ? msg("city.agentsShell.tag", { agentId: agent.agentId }) : msg("city.agentsShell.noTagYet")}</Tag>
       </div>
       <span className="m-small m-muted num" title={agent.fenceHash}>{`Fence ${agent.fenceHash.slice(7, 15)}`}</span>
     </li>
@@ -84,7 +85,7 @@ export function AgentsShell({ city, home }: { readonly city: LeagueCity; readonl
   const whistle = useLykiaStore((s) => whistleOn(s.fence));
   const setWhistle = useLykiaStore((s) => s.setWhistle);
   // A new agent starts in Ask Lyko, with the request filled in; it then shows here and in the Fold's Pack.
-  const newAgent = `${home}/app?intent=${encodeURIComponent("Create an agent with a daily budget of ")}`;
+  const newAgent = `${home}/app?intent=${encodeURIComponent(msg("city.agentsShell.newAgentSeed"))}`;
   const agents = useQuery({
     queryKey: ["city-pack", owner, env, siwe.signedIn],
     enabled: Boolean(owner),
@@ -100,7 +101,7 @@ export function AgentsShell({ city, home }: { readonly city: LeagueCity; readonl
     try {
       if (!whistle && owner && siwe.signedIn) await apiPost("/v1/pack/whistle", { owner, environment: env, reason: "Paused from Lykia Agents" });
       setWhistle(!whistle);
-      toast.success(whistle ? "Whistle released: agents may work again" : "Whistle blown: every agent stops", { from: "LYKO" });
+      toast.success(whistle ? msg("city.agentsShell.whistleReleasedAgentsMayWorkAgain") : msg("city.agentsShell.whistleBlownEveryAgentStops"), { from: "LYKO" });
       setConfirm(false);
     } catch (e) {
       toast.error(describeError(e), { from: "LYKO" });
@@ -108,10 +109,10 @@ export function AgentsShell({ city, home }: { readonly city: LeagueCity; readonl
   };
 
   return (
-    <CityFrame city={city} home={home} tab={tab} tabs={TABS} onTab={(t) => (t === "whistle" ? setConfirm(true) : setTab(t))} action={tab === "agents" ? <a className="m-btn ct-action__btn" href={newAgent}>{"NEW AGENT"}</a> : undefined}>
+    <CityFrame city={city} home={home} tab={tab} tabs={TABS} onTab={(t) => (t === "whistle" ? setConfirm(true) : setTab(t))} action={tab === "agents" ? <a className="m-btn ct-action__btn" href={newAgent}>{msg("city.agentsShell.newAgent")}</a> : undefined}>
       <div className={cx("ct-whistle", whistle && "is-on")} role="status">
         <span className="ct-whistle__lamp" aria-hidden="true" />
-        <span className="m-small">{whistle ? "The Whistle is blown: every agent is stopped. Moves that bring value home still pass." : `${list.filter((a) => a.status === "active").length} agents working inside your Fence.`}</span>
+        <span className="m-small">{whistle ? msg("city.agentsShell.theWhistleIsBlownEveryAgent") : msg("city.agentsShell.agentsWorkingInsideYourFence", { length: list.filter((a) => a.status === "active").length })}</span>
         <button type="button" className="ct-whistle__btn ct-wide-only" onClick={() => setConfirm(true)}><PixelIcon name="whistle" size={16} />{whistle ? "RELEASE" : "WHISTLE"}</button>
       </div>
       {tab === "agents" ? (
@@ -119,9 +120,9 @@ export function AgentsShell({ city, home }: { readonly city: LeagueCity; readonl
         <div className="ctd-ag__main">
         {!owner ? (
           <>
-            <EmptyState mood="happy" title="Connect a wallet to meet your agents">{"Each agent gets a budget carved from yours and its own spending rules (a Fence), which can only be stricter than yours."}</EmptyState>
+            <EmptyState mood="happy" title={msg("city.agentsShell.connectAWalletToMeetYour")}>{msg("city.agentsShell.eachAgentGetsABudgetCarved")}</EmptyState>
             <div className="ct-desk-only">
-              <div className="ctd-samplehead ctd-samplehead--row"><Tag tone="ochre">{"SAMPLE"}</Tag><span className="m-small m-muted">{"What your agents look like here once you have some."}</span></div>
+              <div className="ctd-samplehead ctd-samplehead--row"><Tag tone="ochre">{msg("city.agentsShell.sample")}</Tag><span className="m-small m-muted">{msg("city.agentsShell.whatYourAgentsLookLikeHere")}</span></div>
               <ul className="ct-agents">{SAMPLE_AGENTS.map((a) => <AgentCard key={a.id} agent={a} />)}</ul>
             </div>
           </>
@@ -129,12 +130,12 @@ export function AgentsShell({ city, home }: { readonly city: LeagueCity; readonl
           <div className="ct-agents">{[0, 1, 2].map((i) => <Skeleton key={i} h={170} />)}</div>
         ) : list.length === 0 ? (
           <div className="ct-empty ct-empty--big">
-            <EmptyState mood="watching" title="No agents yet">{"Start with one: a name, a role and a daily budget. It can never spend more than you give it."}</EmptyState>
+            <EmptyState mood="watching" title={msg("city.agentsShell.noAgentsYet")}>{msg("city.agentsShell.startWithOneANameA")}</EmptyState>
             <a className="m-btn ct-wide-only" href={newAgent}>{"CREATE YOUR FIRST AGENT IN ASK LYKO"}</a>
-            <ol className="ct-steps" aria-label="How an agent is held">
-              <li><PixelIcon name="spark" size={22} /><div><b>{"A budget carved from yours"}</b><span className="m-small m-muted">{`Daily caps up to $${city.project.fence.caps.dailyUsd ?? "250"} in this city.`}</span></div></li>
-              <li><PixelIcon name="shield" size={22} /><div><b>{"Its own spending rules"}</b><span className="m-small m-muted">{"It can only be tighter than your own rules."}</span></div></li>
-              <li><PixelIcon name="agents" size={22} /><div><b>{"A public ID card (Tag)"}</b><span className="m-small m-muted">{"An on-chain identity (ERC-8004) that names the rules it follows."}</span></div></li>
+            <ol className="ct-steps" aria-label={msg("city.agentsShell.howAnAgentIsHeld")}>
+              <li><PixelIcon name="spark" size={22} /><div><b>{msg("city.agentsShell.aBudgetCarvedFromYours")}</b><span className="m-small m-muted">{msg("city.agentsShell.dailyCapsUpTo", { amount: formatUsd(Number(city.project.fence.caps.dailyUsd ?? "250"), { min: 0 }) })}</span></div></li>
+              <li><PixelIcon name="shield" size={22} /><div><b>{msg("city.agentsShell.itsOwnSpendingRules")}</b><span className="m-small m-muted">{msg("city.agentsShell.itCanOnlyBeTighterThan")}</span></div></li>
+              <li><PixelIcon name="agents" size={22} /><div><b>{msg("city.agentsShell.aPublicIdCardTag")}</b><span className="m-small m-muted">{msg("city.agentsShell.anOnChainIdentityErc8004")}</span></div></li>
             </ol>
           </div>
         ) : (
@@ -142,50 +143,50 @@ export function AgentsShell({ city, home }: { readonly city: LeagueCity; readonl
         )}
         <a className="ct-fold" href={`${home}/app/fold/pack`}>
           <PixelIcon name="agents" size={22} />
-          <span><b>{"Manage them in the Fold"}</b><span className="m-small m-muted">{"Pack · your agents and their leashes: budgets, pause and Revoke, with everything else you run."}</span></span>
+          <span><b>{msg("city.agentsShell.manageThemInTheFold")}</b><span className="m-small m-muted">{msg("city.agentsShell.packYourAgentsAndTheirLeashes")}</span></span>
           <span aria-hidden="true">{"›"}</span>
         </a>
         </div>
-        <aside className="ctd-ag__side ct-desk-only" aria-label="Activity">
+        <aside className="ctd-ag__side ct-desk-only" aria-label={msg("city.agentsShell.activity")}>
           <section className="ct-card m-frame m-frame--thin">
-            <div className="ct-card__head"><h2>{"Today"}</h2><span className="m-kick">{owner ? "YOUR PACK" : "SAMPLE"}</span></div>
+            <div className="ct-card__head"><h2>{msg("city.agentsShell.today")}</h2><span className="m-kick">{owner ? msg("city.agentsShell.yourPack") : msg("ask.cards.sampleBadge")}</span></div>
             <dl className="ctd-today__grid">
-              <div><dt>{"Working"}</dt><dd className="num">{owner ? list.filter((a) => a.status === "active").length : 3}</dd></div>
-              <div><dt>{"Spent today"}</dt><dd className="num">{`$${(owner ? list.reduce((x, a) => x + Number(a.budget.spent.dayUsd || 0), 0) : 184.2).toFixed(2)}`}</dd></div>
+              <div><dt>{msg("city.agentsShell.working")}</dt><dd className="num">{owner ? list.filter((a) => a.status === "active").length : 3}</dd></div>
+              <div><dt>{msg("city.agentsShell.spentToday")}</dt><dd className="num">{`$${(owner ? list.reduce((x, a) => x + Number(a.budget.spent.dayUsd || 0), 0) : 184.2).toFixed(2)}`}</dd></div>
             </dl>
-            <a className="m-btn" href={newAgent}>{"NEW AGENT"}</a>
+            <a className="m-btn" href={newAgent}>{msg("city.agentsShell.newAgent")}</a>
           </section>
           <section className="ct-card m-frame m-frame--thin ctd-ag__feed">
-            <div className="ct-card__head"><h2>{"Activity"}</h2><span className="m-kick">{siwe.signedIn ? "AUDIT LOG" : "SAMPLE"}</span></div>
+            <div className="ct-card__head"><h2>{msg("city.agentsShell.activity")}</h2><span className="m-kick">{siwe.signedIn ? msg("city.agentsShell.auditLog") : "SAMPLE"}</span></div>
             <ul className="ct-list">
-              {(siwe.signedIn ? [...(audit.data?.entries ?? [])].reverse().slice(0, 8).map((e) => ({ id: String(e.seq), kind: e.kind, at: new Date(e.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short" }), what: e.subject.slice(0, 22) })) : SAMPLE_FEED).map((e) => (
+              {(siwe.signedIn ? [...(audit.data?.entries ?? [])].reverse().slice(0, 8).map((e) => ({ id: String(e.seq), kind: e.kind, at: new Date(e.at).toLocaleString(intlLocale(), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short" }), what: e.subject.slice(0, 22) })) : SAMPLE_FEED).map((e) => (
                 <li key={e.id}><span className={`ct-dot ct-dot--${e.kind === "blocked" || e.kind === "halt" ? "bad" : "invoice"}`} aria-hidden="true" /><div className="ct-list__t"><b>{e.kind}</b><span className="m-small m-muted">{`${e.at} · ${e.what}`}</span></div></li>
               ))}
             </ul>
-            {siwe.signedIn && (audit.data?.entries ?? []).length === 0 ? <p className="m-small m-muted">{"Nothing recorded yet. Every plan, verdict and stop lands here."}</p> : null}
-            {!siwe.signedIn ? <Button size="sm" tone="ghost" onClick={() => void siwe.signIn()} disabled={siwe.busy || !owner}>{owner ? "SIGN IN FOR YOURS" : "CONNECT A WALLET"}</Button> : null}
+            {siwe.signedIn && (audit.data?.entries ?? []).length === 0 ? <p className="m-small m-muted">{msg("city.agentsShell.nothingRecordedYetEveryPlanVerdict")}</p> : null}
+            {!siwe.signedIn ? <Button size="sm" tone="ghost" onClick={() => void siwe.signIn()} disabled={siwe.busy || !owner}>{owner ? msg("city.agentsShell.signInForYours") : msg("city.agentsShell.connectAWallet")}</Button> : null}
           </section>
         </aside>
         </div>
       ) : (
         <section className="ct-card m-frame m-frame--thin" aria-labelledby="ag-activity">
-          <div className="ct-card__head"><h2 id="ag-activity">{"Decisions"}</h2><span className="m-kick">{"HASH-CHAINED AUDIT LOG"}</span></div>
+          <div className="ct-card__head"><h2 id="ag-activity">{msg("city.agentsShell.decisions")}</h2><span className="m-kick">{msg("city.agentsShell.hashChainedAuditLog")}</span></div>
           {!siwe.signedIn ? (
-            <div className="ct-empty"><p className="m-small m-muted">{"Sign in to read every plan, verdict and stop your agents made."}</p><Button size="sm" onClick={() => void siwe.signIn()} disabled={siwe.busy || !owner}>{owner ? "SIGN IN" : "CONNECT A WALLET FIRST"}</Button></div>
-          ) : (audit.data?.entries ?? []).length === 0 ? <p className="m-small m-muted ct-empty">{"Nothing recorded yet."}</p> : (
+            <div className="ct-empty"><p className="m-small m-muted">{msg("city.agentsShell.signInToReadEveryPlan")}</p><Button size="sm" onClick={() => void siwe.signIn()} disabled={siwe.busy || !owner}>{owner ? msg("city.agentsShell.signIn") : msg("city.agentsShell.connectAWalletFirst")}</Button></div>
+          ) : (audit.data?.entries ?? []).length === 0 ? <p className="m-small m-muted ct-empty">{msg("city.agentsShell.nothingRecordedYet")}</p> : (
             <ul className="ct-list">
               {[...(audit.data?.entries ?? [])].reverse().slice(0, 12).map((e) => (
-                <li key={e.seq}><span className={`ct-dot ct-dot--${e.kind === "blocked" || e.kind === "halt" ? "bad" : "invoice"}`} aria-hidden="true" /><div className="ct-list__t"><b>{e.kind}</b><span className="m-small m-muted">{`${new Date(e.at).toLocaleString("en-US", { timeZoneName: "short" })} · ${e.subject.slice(0, 18)}`}</span></div></li>
+                <li key={e.seq}><span className={`ct-dot ct-dot--${e.kind === "blocked" || e.kind === "halt" ? "bad" : "invoice"}`} aria-hidden="true" /><div className="ct-list__t"><b>{e.kind}</b><span className="m-small m-muted">{`${new Date(e.at).toLocaleString(intlLocale(), { timeZoneName: "short" })} · ${e.subject.slice(0, 18)}`}</span></div></li>
               ))}
             </ul>
           )}
         </section>
       )}
 
-      <Sheet open={confirm} onClose={() => setConfirm(false)} title={whistle ? "Release the Whistle?" : "Blow the Whistle?"}>
+      <Sheet open={confirm} onClose={() => setConfirm(false)} title={whistle ? msg("city.agentsShell.releaseTheWhistle") : msg("city.agentsShell.blowTheWhistle")}>
         <div className="ct-form">
-          <p className="m-small">{whistle ? "Your agents may plan and spend again, inside their budgets and your Fence." : "Every agent stops at once: no new plans, no new spending. Repaying and withdrawing home still work. You can release it any time."}</p>
-          <Button className="ct-form__go" tone={whistle ? "sea" : "terra"} onClick={() => void blow()}>{whistle ? "RELEASE THE WHISTLE" : "STOP EVERY AGENT"}</Button>
+          <p className="m-small">{whistle ? msg("city.agentsShell.yourAgentsMayPlanAndSpend") : msg("city.agentsShell.everyAgentStopsAtOnceNo")}</p>
+          <Button className="ct-form__go" tone={whistle ? "sea" : "terra"} onClick={() => void blow()}>{whistle ? msg("city.agentsShell.releaseTheWhistle2") : msg("city.agentsShell.stopEveryAgent")}</Button>
         </div>
       </Sheet>
     </CityFrame>

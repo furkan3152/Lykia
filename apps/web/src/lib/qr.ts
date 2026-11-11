@@ -8,6 +8,7 @@
  * `qrMatrix(text)` returns the modules (true = dark); `qrSvgPath` draws
  * them as one SVG path.
  */
+import { t } from "../i18n";
 
 const ECC_PER_BLOCK_M = [-1, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26] as const;
 const BLOCKS_M = [-1, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5] as const;
@@ -84,7 +85,7 @@ export function qrMatrix(text: string): boolean[][] {
     const used = 4 + (version <= 9 ? 8 : 16) + bytes.length * 8;
     if (used <= capacityBits) break;
   }
-  if (version > MAX_VERSION) throw new Error("Too much data for a version 10 QR code.");
+  if (version > MAX_VERSION) throw new Error(t("lib.qr.tooMuchDataForAVersion"));
 
   // Data bits: mode 0100 (byte), count, bytes, terminator, padding.
   const bits: number[] = [];

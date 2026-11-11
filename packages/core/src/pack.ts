@@ -34,6 +34,7 @@ import {
 import type { Signer, StepKind } from "./intent.js";
 import type { ArcEnvironment } from "./networks.js";
 
+import { tx, phrase } from "./i18n/index.js";
 export const PACK_SCHEMA = "lykia.pack/v1" as const;
 export const MAX_PACK_DEPTH = 4;
 export const MAX_CHILDREN = 16;
@@ -98,15 +99,15 @@ const withoutSchedule = (fence: Fence): Fence => {
 export const ROLE_TEMPLATES: Readonly<Record<Exclude<PackRole, "custom">, RoleTemplate>> = Object.freeze({
   orchestrator: {
     role: "orchestrator",
-    title: { en: "Lyko (orchestrator)" },
-    summary: "Breaks a goal into tasks, hands them to specialists and merges their proposals. Never signs.",
+    title: { en: phrase("Lyko (orchestrator)") },
+    summary: phrase("Breaks a goal into tasks, hands them to specialists and merges their proposals. Never signs."),
     capabilities: ["read", "propose", "spawn"],
     fence: DEFAULT_FENCE,
   },
   treasurer: {
     role: "treasurer",
-    title: { en: "Treasurer" },
-    summary: "Keeps the stablecoin treasury: payees, FX, vaults and bridges.",
+    title: { en: phrase("Treasurer") },
+    summary: phrase("Keeps the stablecoin treasury: payees, FX, vaults and bridges."),
     capabilities: ["read", "propose", "spawn"],
     // No office hours: the role answers its owner's requests whenever they come, in any time zone. An owner who
     // wants hours adds them to the agent's own Fence.
@@ -114,10 +115,10 @@ export const ROLE_TEMPLATES: Readonly<Record<Exclude<PackRole, "custom">, RoleTe
   },
   payroll: {
     role: "payroll",
-    title: { en: "Payroll" },
-    summary: "Pays named people in USDC or EURC with an invoice memo. Nothing else.",
+    title: { en: phrase("Payroll") },
+    summary: phrase("Pays named people in USDC or EURC with an invoice memo. Nothing else."),
     capabilities: ["read", "propose"],
-    fence: base("Payroll", {
+    fence: base(phrase("Payroll"), {
       mode: "live",
       kinds: { allow: ["approve", "transfer", "fx"] },
       tokens: { allow: ["USDC", "EURC"], unlisted: "deny" },
@@ -132,10 +133,10 @@ export const ROLE_TEMPLATES: Readonly<Record<Exclude<PackRole, "custom">, RoleTe
   },
   "fx-hedger": {
     role: "fx-hedger",
-    title: { en: "FX hedger" },
-    summary: "Keeps the USDC/EURC mix on target with a tight band around the Chainlink reference rate.",
+    title: { en: phrase("FX hedger") },
+    summary: phrase("Keeps the USDC/EURC mix on target with a tight band around the Chainlink reference rate."),
     capabilities: ["read", "propose"],
-    fence: base("FX hedger", {
+    fence: base(phrase("FX hedger"), {
       mode: "live",
       kinds: { allow: ["approve", "fx", "swap"] },
       tokens: { allow: ["USDC", "EURC"], unlisted: "deny" },
@@ -150,10 +151,10 @@ export const ROLE_TEMPLATES: Readonly<Record<Exclude<PackRole, "custom">, RoleTe
   },
   "yield-keeper": {
     role: "yield-keeper",
-    title: { en: "Yield keeper" },
-    summary: "Moves idle stablecoins into vaults and back, never below the liquid floor the owner sets.",
+    title: { en: phrase("Yield keeper") },
+    summary: phrase("Moves idle stablecoins into vaults and back, never below the liquid floor the owner sets."),
     capabilities: ["read", "propose"],
-    fence: base("Yield keeper", {
+    fence: base(phrase("Yield keeper"), {
       mode: "live",
       kinds: { allow: ["approve", "deposit", "withdraw", "supply"] },
       tokens: { allow: ["USDC", "EURC"], unlisted: "deny" },
@@ -167,10 +168,10 @@ export const ROLE_TEMPLATES: Readonly<Record<Exclude<PackRole, "custom">, RoleTe
   },
   "bill-payer": {
     role: "bill-payer",
-    title: { en: "Bill payer" },
-    summary: "Pays recurring bills to known payees. Small caps, no FX, no bridges.",
+    title: { en: phrase("Bill payer") },
+    summary: phrase("Pays recurring bills to known payees. Small caps, no FX, no bridges."),
     capabilities: ["read", "propose"],
-    fence: base("Bill payer", {
+    fence: base(phrase("Bill payer"), {
       mode: "live",
       kinds: { allow: ["approve", "transfer"] },
       tokens: { allow: ["USDC"], unlisted: "deny" },
@@ -184,17 +185,17 @@ export const ROLE_TEMPLATES: Readonly<Record<Exclude<PackRole, "custom">, RoleTe
   },
   sentinel: {
     role: "sentinel",
-    title: { en: "Sentinel" },
-    summary: "Watches Scent, health factors and the pulse. Can blow the whistle; cannot move value.",
+    title: { en: phrase("Sentinel") },
+    summary: phrase("Watches Scent, health factors and the pulse. Can blow the whistle; cannot move value."),
     capabilities: ["read", "whistle"],
-    fence: base("Sentinel", { mode: "dry-run", kinds: { allow: [] }, tokens: { allow: [], unlisted: "deny" }, recipients: { mode: "own" }, scent: { require: "verified" }, signers: ["agent"] }),
+    fence: base(phrase("Sentinel"), { mode: "dry-run", kinds: { allow: [] }, tokens: { allow: [], unlisted: "deny" }, recipients: { mode: "own" }, scent: { require: "verified" }, signers: ["agent"] }),
   },
   researcher: {
     role: "researcher",
-    title: { en: "Researcher" },
-    summary: "Reads venues, quotes, prices and Scent; drafts dry-run plans for the others.",
+    title: { en: phrase("Researcher") },
+    summary: phrase("Reads venues, quotes, prices and Scent; drafts dry-run plans for the others."),
     capabilities: ["read", "propose"],
-    fence: base("Researcher", { mode: "dry-run", tokens: { unlisted: "deny" }, recipients: { mode: "own" }, scent: { require: "verified" }, signers: ["agent"] }),
+    fence: base(phrase("Researcher"), { mode: "dry-run", tokens: { unlisted: "deny" }, recipients: { mode: "own" }, scent: { require: "verified" }, signers: ["agent"] }),
   },
 });
 
@@ -239,23 +240,23 @@ export function subFenceViolations(parentInput: Fence, childInput: Fence): SubFe
   const out: SubFenceViolation[] = [];
   const add = (path: string, message: string) => out.push({ path, message });
 
-  if (c.schema !== p.schema) add("schema", "Schemas differ.");
+  if (c.schema !== p.schema) add("schema", tx("Schemas differ."));
   const pm = p.mode ?? "live";
   const cm = c.mode ?? "live";
-  if (!MODE_ALLOWED[pm].includes(cm)) add("mode", `A ${pm} parent cannot have a ${cm} child.`);
+  if (!MODE_ALLOWED[pm].includes(cm)) add("mode", tx("A {pm} parent cannot have a {cm} child.", { pm, cm }));
 
   const subset = (path: string, parent: readonly string[] | undefined, child: readonly string[] | undefined, caseless = true) => {
     if (parent === undefined) return;
-    if (child === undefined) return add(path, "The parent limits this list; the child must too.");
+    if (child === undefined) return add(path, tx("The parent limits this list; the child must too."));
     const pl = caseless ? lower(parent) : [...parent];
     const extra = child.filter((v) => !pl.includes(caseless ? v.toLowerCase() : v));
-    if (extra.length > 0) add(path, `Not allowed by the parent: ${extra.join(", ")}.`);
+    if (extra.length > 0) add(path, tx("Not allowed by the parent: {value}.", { value: extra.join(", ") }));
   };
   const superset = (path: string, parent: readonly string[] | undefined, child: readonly string[] | undefined) => {
     if (!parent || parent.length === 0) return;
     const cl = lower(child ?? []);
     const missing = parent.filter((v) => !cl.includes(v.toLowerCase()));
-    if (missing.length > 0) add(path, `The child must keep the parent's entries: ${missing.join(", ")}.`);
+    if (missing.length > 0) add(path, tx("The child must keep the parent's entries: {value}.", { value: missing.join(", ") }));
   };
 
   subset("environments", p.environments, c.environments);
@@ -263,11 +264,11 @@ export function subFenceViolations(parentInput: Fence, childInput: Fence): SubFe
   subset("venues.allow", p.venues?.allow, c.venues?.allow);
   superset("venues.deny", p.venues?.deny, c.venues?.deny);
   subset("tokens.allow", p.tokens?.allow, c.tokens?.allow);
-  if (p.tokens?.unlisted === "deny" && c.tokens?.unlisted !== "deny") add("tokens.unlisted", "The parent denies unlisted tokens.");
+  if (p.tokens?.unlisted === "deny" && c.tokens?.unlisted !== "deny") add("tokens.unlisted", tx("The parent denies unlisted tokens."));
 
   const prm = p.recipients?.mode ?? "own";
   const crm = c.recipients?.mode ?? "own";
-  if (RECIPIENT_RANK[crm] > RECIPIENT_RANK[prm]) add("recipients.mode", `A ${prm} parent cannot have a ${crm} child.`);
+  if (RECIPIENT_RANK[crm] > RECIPIENT_RANK[prm]) add("recipients.mode", tx("A {prm} parent cannot have a {crm} child.", { prm, crm }));
   if (prm !== "any" && crm !== "own") subset("recipients.allow", p.recipients?.allow ?? [], c.recipients?.allow ?? []);
   superset("recipients.deny", p.recipients?.deny, c.recipients?.deny);
   subset("bridges.destinations", p.bridges?.destinations, c.bridges?.destinations);
@@ -276,42 +277,42 @@ export function subFenceViolations(parentInput: Fence, childInput: Fence): SubFe
     const pv = p.caps?.[key];
     const cv = c.caps?.[key];
     if (pv === undefined) continue;
-    if (cv === undefined) add(`caps.${key}`, `The parent caps this at $${pv}; the child must set a cap too.`);
-    else if (usdMicros(cv) > usdMicros(pv)) add(`caps.${key}`, `$${cv} is above the parent's $${pv}.`);
+    if (cv === undefined) add(`caps.${key}`, tx("The parent caps this at ${pv}; the child must set a cap too.", { pv }));
+    else if (usdMicros(cv) > usdMicros(pv)) add(`caps.${key}`, tx("${cv} is above the parent's ${pv}.", { cv, pv }));
   }
   for (const key of ["maxSteps", "maxSlippageBps"] as const) {
     const pv = p.limits?.[key];
     const cv = c.limits?.[key];
     if (pv === undefined) continue;
-    if (cv === undefined) add(`limits.${key}`, `The parent limits this to ${pv}; the child must too.`);
-    else if (cv > pv) add(`limits.${key}`, `${cv} is above the parent's ${pv}.`);
+    if (cv === undefined) add(`limits.${key}`, tx("The parent limits this to {pv}; the child must too.", { pv }));
+    else if (cv > pv) add(`limits.${key}`, tx("{cv} is above the parent's {pv}.", { cv, pv }));
   }
   if (p.lending?.minHealthFactor) {
     const cv = c.lending?.minHealthFactor;
-    if (!cv) add("lending.minHealthFactor", `The parent keeps health above ${p.lending.minHealthFactor}; the child must too.`);
-    else if (ratioBps(cv) < ratioBps(p.lending.minHealthFactor)) add("lending.minHealthFactor", `${cv} is below the parent's ${p.lending.minHealthFactor}.`);
+    if (!cv) add("lending.minHealthFactor", tx("The parent keeps health above {minHealthFactor}; the child must too.", { minHealthFactor: p.lending.minHealthFactor }));
+    else if (ratioBps(cv) < ratioBps(p.lending.minHealthFactor)) add("lending.minHealthFactor", tx("{cv} is below the parent's {minHealthFactor}.", { cv, minHealthFactor: p.lending.minHealthFactor }));
   }
   if (p.fx?.maxDeviationBps !== undefined) {
     const cv = c.fx?.maxDeviationBps;
-    if (cv === undefined) add("fx.maxDeviationBps", "The parent sets an FX band; the child must too.");
-    else if (cv > p.fx.maxDeviationBps) add("fx.maxDeviationBps", `${cv} bps is wider than the parent's ${p.fx.maxDeviationBps} bps.`);
+    if (cv === undefined) add("fx.maxDeviationBps", tx("The parent sets an FX band; the child must too."));
+    else if (cv > p.fx.maxDeviationBps) add("fx.maxDeviationBps", tx("{cv} bps is wider than the parent's {maxDeviationBps} bps.", { cv, maxDeviationBps: p.fx.maxDeviationBps }));
   }
   const ps = p.scent?.require ?? "no-red-flags";
   const cs = c.scent?.require ?? "no-red-flags";
-  if (SCENT_RANK[cs] > SCENT_RANK[ps]) add("scent.require", `"${cs}" is looser than the parent's "${ps}".`);
+  if (SCENT_RANK[cs] > SCENT_RANK[ps]) add("scent.require", tx("\"{cs}\" is looser than the parent's \"{ps}\".", { cs, ps }));
 
   if (p.confirm?.aboveUsd !== undefined) {
     const cv = c.confirm?.aboveUsd;
-    if (cv === undefined || usdMicros(cv) > usdMicros(p.confirm.aboveUsd)) add("confirm.aboveUsd", `The child must confirm at $${p.confirm.aboveUsd} or less.`);
+    if (cv === undefined || usdMicros(cv) > usdMicros(p.confirm.aboveUsd)) add("confirm.aboveUsd", tx("The child must confirm at ${aboveUsd} or less.", { aboveUsd: p.confirm.aboveUsd }));
   }
   superset("confirm.when", p.confirm?.when, c.confirm?.when);
 
   if (p.schedule) {
-    if (!c.schedule) add("schedule", "The parent keeps hours; the child must too.");
-    else if (c.schedule.timezone !== p.schedule.timezone) add("schedule.timezone", `Use the parent's time zone (${p.schedule.timezone}).`);
+    if (!c.schedule) add("schedule", tx("The parent keeps hours; the child must too."));
+    else if (c.schedule.timezone !== p.schedule.timezone) add("schedule.timezone", tx("Use the parent's time zone ({timezone}).", { timezone: p.schedule.timezone }));
     else
       c.schedule.windows.forEach((w, i) => {
-        if (!p.schedule?.windows.some((pw) => windowInside(w, pw))) add(`schedule.windows.${i}`, "This window is outside the parent's hours.");
+        if (!p.schedule?.windows.some((pw) => windowInside(w, pw))) add(`schedule.windows.${i}`, tx("This window is outside the parent's hours."));
       });
   }
   subset("signers", p.signers, c.signers, false);
@@ -474,8 +475,8 @@ export function carveBudget(parent: BudgetLedger, child: PackBudget): CarveResul
     const available = free[key];
     if (available === undefined) continue;
     const want = child[key];
-    if (want === undefined) violations.push({ path: `caps.${key}`, message: `The parent's budget is capped; give the child a ${key} cap (at most $${available}).` });
-    else if (usdMicros(want) > usdMicros(available)) violations.push({ path: `caps.${key}`, message: `$${want} is more than the parent has free ($${available}).` });
+    if (want === undefined) violations.push({ path: `caps.${key}`, message: tx("The parent's budget is capped; give the child a {key} cap (at most ${available}).", { key, available }) });
+    else if (usdMicros(want) > usdMicros(available)) violations.push({ path: `caps.${key}`, message: tx("${want} is more than the parent has free (${available}).", { want, available }) });
   }
   if (violations.length > 0) return { ok: false, violations, remaining: free };
   const allocated: Record<string, string> = { ...parent.allocated } as Record<string, string>;

@@ -6,6 +6,7 @@
  * Pure and DOM free (node tests load it). Canvas drawing takes any context
  * with fillStyle/fillRect, so tests can pass a recorder.
  */
+import { t as msg } from "../i18n";
 
 export type Hex = `#${string}`;
 export type Cell = string | null;
@@ -143,7 +144,7 @@ export function drawTesserae(ctx: FillContext, b: Pick<Buffer, "W" | "H" | "g">,
 export function validateArt(rows: readonly string[], palette: Readonly<Record<string, string>>): string[] {
   const problems: string[] = [];
   rows.forEach((row, j) => {
-    for (const ch of row) if (ch !== "." && !(ch in palette)) problems.push(`row ${j}: "${ch}" has no colour`);
+    for (const ch of row) if (ch !== "." && !(ch in palette)) problems.push(msg("mosaic.tessera.rowHasNoColour", { j, ch }));
   });
   return problems;
 }

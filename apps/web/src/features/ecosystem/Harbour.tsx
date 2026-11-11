@@ -5,14 +5,15 @@
  */
 import { Card, Stat, Tag } from "../../mosaic";
 import { circleState, COVERAGE_MEANING, coverageSummary, LYKIA_ROLE, usdShort, type EcosystemView } from "./model";
+import { intlLocale, t as msg } from "../../i18n";
 
 export function CircleQuay({ data, compact = false }: { readonly data: EcosystemView | undefined; readonly compact?: boolean }) {
   const products = data?.circle ?? [];
   const shown = compact ? products.filter((p) => p.state === "live" || p.state === "configured").slice(0, 8) : products;
   return (
-    <Card title={"Circle's rails"} kicker={"THE QUAY EVERY STALL STANDS ON"} tone="sea">
-      <p className="m-small">{"USDC is Arc's gas and its unit of account. Lykia routes through CCTP and Gateway, and works with StableFX, USYC and Circle's agent stack beside its routes."}</p>
-      <ul className={compact ? "eco-quay eco-quay--compact" : "eco-quay"} aria-label="Circle products on Arc">
+    <Card title={msg("ecosystem.harbour.circleSRails")} kicker={msg("ecosystem.harbour.theQuayEveryStallStandsOn")} tone="sea">
+      <p className="m-small">{msg("ecosystem.harbour.usdcIsArcSGasAnd")}</p>
+      <ul className={compact ? "eco-quay eco-quay--compact" : "eco-quay"} aria-label={msg("ecosystem.harbour.circleProductsOnArc")}>
         {shown.length === 0 ? <li className="m-skel" style={{ height: 40 }} /> : null}
         {shown.map((p) => {
           const s = circleState(p.state);
@@ -33,7 +34,7 @@ export function PartnerStalls({ data, limit, filter = "all" }: { readonly data: 
   const rows = (data?.protocols ?? []).filter((p) => p.category !== "circle" && (filter === "all" || p.status === "verified"));
   const shown = limit ? rows.slice(0, limit) : rows;
   return (
-    <ul className="eco-stalls" aria-label="Arc protocols">
+    <ul className="eco-stalls" aria-label={msg("ecosystem.harbour.arcProtocols")}>
       {data === undefined ? Array.from({ length: limit ?? 9 }, (_, i) => <li key={i} className="m-skel" style={{ height: 120 }} />) : null}
       {shown.map((p) => {
         const role = LYKIA_ROLE[p.lykia];
@@ -43,15 +44,15 @@ export function PartnerStalls({ data, limit, filter = "all" }: { readonly data: 
               <b>{p.name}</b>
               <span title={COVERAGE_MEANING[p.lykia]}><Tag tone={role.tone}>{role.label}</Tag></span>
             </div>
-            <span className="m-kick">{`${p.category} · ${p.status === "verified" ? "VERIFIED ON ARC" : "ANNOUNCED"}${p.lykia === "routes" && p.verbs.some((v) => v !== "approve") ? ` · ${p.verbs.filter((v) => v !== "approve").join(", ").toUpperCase()}` : ""}`}</span>
+            <span className="m-kick">{`${p.category} · ${p.status === "verified" ? msg("ecosystem.harbour.verifiedOnArc") : "ANNOUNCED"}${p.lykia === "routes" && p.verbs.some((v) => v !== "approve") ? ` · ${p.verbs.filter((v) => v !== "approve").join(", ").toUpperCase()}` : ""}`}</span>
             <p className="m-small m-muted eco-stall__sum">{p.summary}</p>
             <div className="eco-stall__foot m-small">
               <span>{`TVL ${usdShort(p.tvlUsd)}`}</span>
-              <span>{p.routed.steps > 0 ? `ROUTED $${Number(p.routed.usd).toLocaleString("en-US")}` : p.lykia === "routes" ? "READY TO ROUTE" : ""}</span>
+              <span>{p.routed.steps > 0 ? msg("ecosystem.harbour.routed", { value: Number(p.routed.usd).toLocaleString(intlLocale()) }) : p.lykia === "routes" ? msg("ecosystem.harbour.readyToRoute") : ""}</span>
             </div>
             {p.arcEcosystem ? (
               <a className="m-small eco-stall__arc" href={p.arcEcosystem} target="_blank" rel="noreferrer noopener">
-                {"Arc ecosystem entry ↗"}
+                {msg("ecosystem.harbour.arcEcosystemEntry")}
               </a>
             ) : null}
           </li>
@@ -66,10 +67,10 @@ export function EcosystemStats({ data }: { readonly data: EcosystemView | undefi
   const readOnly = t ? (t.readOnly ?? t.verified - t.routable) : null;
   return (
     <div className="m-grid-4 eco-stats">
-      <Stat label="ROUTABLE TODAY" value={t ? String(t.routable) : "…"} hint={t && (t.routableVia ?? 0) > 0 ? `protocols Lykia can route through, plus ${t.routableVia} curators via Morpho` : "protocols Lykia can route through"} />
-      <Stat label="MAPPED ON ARC" value={t ? String(t.protocols) : "…"} hint={t ? `${readOnly} read-only · ${t.mapped ?? t.protocols - t.verified} mapped only` : undefined} />
-      <Stat label="TVL ON ARC" value={t ? usdShort(t.tvlUsd) : "…"} hint={data?.sources.tvl ?? "DefiLlama"} />
-      <Stat label="VALUE ROUTED" value={t ? `$${Number(t.routed.usd).toLocaleString("en-US")}` : "…"} hint={t ? `${t.routed.steps} settled steps` : undefined} />
+      <Stat label={msg("ecosystem.harbour.routableToday")} value={t ? String(t.routable) : "…"} hint={t && (t.routableVia ?? 0) > 0 ? msg("ecosystem.harbour.protocolsLykiaCanRouteThroughPlus", { routableVia: t.routableVia }) : msg("ecosystem.harbour.protocolsLykiaCanRouteThrough")} />
+      <Stat label={msg("ecosystem.harbour.mappedOnArc")} value={t ? String(t.protocols) : "…"} hint={t ? msg("ecosystem.harbour.readOnlyMappedOnly", { readOnly, value: t.mapped ?? t.protocols - t.verified }) : undefined} />
+      <Stat label={msg("ecosystem.harbour.tvlOnArc")} value={t ? usdShort(t.tvlUsd) : "…"} hint={data?.sources.tvl ?? "DefiLlama"} />
+      <Stat label={msg("ecosystem.harbour.valueRouted")} value={t ? `$${Number(t.routed.usd).toLocaleString(intlLocale())}` : "…"} hint={t ? msg("ecosystem.harbour.settledSteps", { steps: t.routed.steps }) : undefined} />
     </div>
   );
 }

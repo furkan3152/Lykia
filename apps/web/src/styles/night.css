@@ -1,0 +1,293 @@
+/*
+ * Night. Not an inverted day: the mosaic at dusk. The floor is night sea,
+ * cards are lifted slate tesserae over it, frames and meanders are set in
+ * muted terra and gold, ink is a warm off-white and the accents are re-tuned
+ * for a dark ground. No cream surface stays at night.
+ *
+ * Every light surface and dark ink in the stylesheets reads a token below
+ * (--ns-* a surface, --nl-* a line, --nt-* text) whose day value is the
+ * colour it always was and whose night value is its dusk counterpart.
+ */
+
+:root {
+  /* Ink and lines that stay put in day and change at night. */
+  --navy-ink: var(--navy);
+  --navy-line: var(--navy);
+  --cream-ink: #fbf5e6;
+  --lime-ink: #f1e8d4;
+  /* Ink on an accent fill (ochre, olive, sea): dark in day and night. */
+  --on-accent: #13233a;
+  --ns-d6deea: #d6deea;
+  --ns-d6eef2: #d6eef2;
+  --ns-eef7f8: #eef7f8;
+  --nt-11606f: #11606f;
+  --nt-2c5a31: #2c5a31;
+  --nt-2f6136: #2f6136;
+  --nt-3f6b25: #3f6b25;
+  --nt-3f7f45: #3f7f45;
+  --nt-6f4f12: #6f4f12;
+  --nt-7a5410: #7a5410;
+  --nt-8a5f12: #8a5f12;
+  --nt-a03a24: #a03a24;
+  --nt-c0392b: #c0392b;
+  --ok-text: var(--ok);
+  --bad-text: var(--bad);
+  --warn-text: var(--warn);
+  --terra-text: var(--terra);
+  --terra-2-text: var(--terra-2);
+  --sea-text: var(--sea);
+  --sea-2-text: var(--sea-2);
+  --olive-text: var(--olive);
+  --ochre-text: var(--ochre);
+  --nl-cfe0bf: #cfe0bf;
+  --nl-cfe3c6: #cfe3c6;
+  --nl-dfe9d2: #dfe9d2;
+  --nl-e6dbc0: #e6dbc0;
+  --nl-e8ddc4: #e8ddc4;
+  --nl-e9c3b8: #e9c3b8;
+  --nl-ebe1ca: #ebe1ca;
+  --nl-ecd7a6: #ecd7a6;
+  --nl-efc9bc: #efc9bc;
+  --nl-efe4c9: #efe4c9;
+  --nl-f0d9c8: #f0d9c8;
+  --nl-f2b8ab: #f2b8ab;
+  --nl-f2c9bd: #f2c9bd;
+  --nl-f3d9cf: #f3d9cf;
+  --nl-f4e1b4: #f4e1b4;
+  --nl-fbf5e6: #fbf5e6;
+  --nl-fff1b8: #fff1b8;
+  --nl-fff3c4: #fff3c4;
+  --nl-fffdf7: #fffdf7;
+  --ns-cfe7ec: #cfe7ec;
+  --ns-d8ecef: #d8ecef;
+  --ns-dbe9cf: #dbe9cf;
+  --ns-e1d5ba: #e1d5ba;
+  --ns-e3efe0: #e3efe0;
+  --ns-e5dac2: #e5dac2;
+  --ns-e6f0dc: #e6f0dc;
+  --ns-e7dcc4: #e7dcc4;
+  --ns-e8f2df: #e8f2df;
+  --ns-e8f4f5: #e8f4f5;
+  --ns-e9dfc6: #e9dfc6;
+  --ns-e9dfc8: #e9dfc8;
+  --ns-eaf2f8: #eaf2f8;
+  --ns-ebe1ca: #ebe1ca;
+  --ns-ece2cb: #ece2cb;
+  --ns-eef3e2: #eef3e2;
+  --ns-eef3e4: #eef3e4;
+  --ns-eef5e8: #eef5e8;
+  --ns-efd9a3: #efd9a3;
+  --ns-efe1bd: #efe1bd;
+  --ns-efe5cd: #efe5cd;
+  --ns-efe5cf: #efe5cf;
+  --ns-efe7d4: #efe7d4;
+  --ns-f0f6ea: #f0f6ea;
+  --ns-f1e2bf: #f1e2bf;
+  --ns-f1e7cf: #f1e7cf;
+  --ns-f1e8d4: #f1e8d4;
+  --ns-f1e8d496: rgba(241, 232, 212, 0.96);
+  --ns-f1e8d497: rgba(241,232,212,0.97);
+  --ns-f2cdc0: #f2cdc0;
+  --ns-f2f7f5: #f2f7f5;
+  --ns-f3d9d2: #f3d9d2;
+  --ns-f3ead6: #f3ead6;
+  --ns-f3ecdb: #f3ecdb;
+  --ns-f4d9cf: #f4d9cf;
+  --ns-f4ecd8: #f4ecd8;
+  --ns-f4ecd9: #f4ecd9;
+  --ns-f6d9cf: #f6d9cf;
+  --ns-f6e3b5: #f6e3b5;
+  --ns-f6e6bf: #f6e6bf;
+  --ns-f6edd9: #f6edd9;
+  --ns-f6edd970: rgba(246, 237, 217, 0.7);
+  --ns-f6eedb: #f6eedb;
+  --ns-f6efdc: #f6efdc;
+  --ns-f6efdd: #f6efdd;
+  --ns-f6f0df: #f6f0df;
+  --ns-f7e3dc: #f7e3dc;
+  --ns-f8e2da: #f8e2da;
+  --ns-f8f2e3: #f8f2e3;
+  --ns-fbe9e3: #fbe9e3;
+  --ns-fbefd6: #fbefd6;
+  --ns-fbf0d6: #fbf0d6;
+  --ns-fbf5e6: #fbf5e6;
+  --ns-fbf5e660: rgba(251, 245, 230, 0.6);
+  --ns-fbf5e670: rgba(251, 245, 230, 0.7);
+  --ns-fbf5e680: rgba(251, 245, 230, 0.8);
+  --ns-fbf5e685: rgba(251, 245, 230, 0.85);
+  --ns-fbf5e686: rgba(251,245,230,0.86);
+  --ns-fbf5e690: rgba(251, 245, 230, 0.9);
+  --ns-fbf5e692: rgba(251,245,230,0.92);
+  --ns-fbf5e694: rgba(251, 245, 230, 0.94);
+  --ns-fbf5e696: rgba(251, 245, 230, 0.96);
+  --ns-fbf6ea: #fbf6ea;
+  --ns-fdf3dc: #fdf3dc;
+  --ns-fdf5e2: #fdf5e2;
+  --ns-fff6de: #fff6de;
+  --ns-fff8ea: #fff8ea;
+  --ns-fffaf0: #fffaf0;
+  --ns-fffdf7: #fffdf7;
+  --ns-ffffff: #ffffff;
+  --ns-ffffff55: rgba(255,255,255,0.55);
+  --ns-ffffff70: rgba(255, 255, 255, 0.7);
+  --nt-13233a: #13233a;
+  --nt-8a2f1c: #8a2f1c;
+  --nt-8f2a1b: #8f2a1b;
+}
+
+html[data-night="on"] {
+  color-scheme: dark;
+  --ns-d6deea: #1e2a3c;
+  --ns-d6eef2: #1e393e;
+  --ns-eef7f8: #224144;
+  --nt-11606f: #90d2df;
+  --nt-2c5a31: #9fd1a4;
+  --nt-2f6136: #9fd1a6;
+  --nt-3f6b25: #afda95;
+  --nt-3f7f45: #9fd1a3;
+  --nt-6f4f12: #dfc490;
+  --nt-7a5410: #dfc390;
+  --nt-8a5f12: #dfc390;
+  --nt-a03a24: #df9e90;
+  --nt-c0392b: #df9890;
+  /* Surfaces: lifted slate cards over the night-sea floor. */
+  --cream: #1e2b42;
+  --lime: #17233a;
+  --grout: #33476b;
+  /* Ink: warm off-white, softer for the quieter lines. */
+  --ink: #f2ead7;
+  --ink-2: #cfc6b2;
+  --ink-3: #aea692;
+  --navy-ink: #f2ead7;
+  --navy-line: #3b5380;
+  /* Accents keep their fills (white and navy text on them already pass); as text they are re-tuned for a dark ground. */
+  --ok-text: #86c28b;
+  --bad-text: #f08368;
+  --warn-text: #e3b04f;
+  --terra-text: #f08a6c;
+  --terra-2-text: #f08a6c;
+  --sea-text: #6cc6d6;
+  --sea-2-text: #6cc6d6;
+  --olive-text: #a6cd7c;
+  --ochre-text: #e6bb62;
+  --sea-ink: #72cad8;
+  --olive-ink: #a9cf7f;
+  --ochre-ink: #e9c06c;
+  --terra-ink: #f19479;
+  --nl-cfe0bf: #5a7a3c;
+  --nl-cfe3c6: #4e783b;
+  --nl-dfe9d2: #5b753a;
+  --nl-e6dbc0: #364f79;
+  --nl-e8ddc4: #364e78;
+  --nl-e9c3b8: #7a4a3c;
+  --nl-ebe1ca: #354d76;
+  --nl-ecd7a6: #7c693d;
+  --nl-efc9bc: #784b3b;
+  --nl-efe4c9: #354d76;
+  --nl-f0d9c8: #354d76;
+  --nl-f2b8ab: #7a483c;
+  --nl-f2c9bd: #77483b;
+  --nl-f3d9cf: #744939;
+  --nl-f4e1b4: #78663b;
+  --nl-fbf5e6: #32486f;
+  --nl-fff1b8: #766a3a;
+  --nl-fff3c4: #746839;
+  --nl-fffdf7: #30466b;
+  --ns-cfe7ec: #1d363b;
+  --ns-d8ecef: #1e3a3e;
+  --ns-dbe9cf: #2a3a1d;
+  --ns-e1d5ba: #172132;
+  --ns-e3efe0: #263f1f;
+  --ns-e5dac2: #182235;
+  --ns-e6f0dc: #2f3f1f;
+  --ns-e7dcc4: #182336;
+  --ns-e8f2df: #2f401f;
+  --ns-e8f4f5: #214042;
+  --ns-e9dfc6: #192437;
+  --ns-e9dfc8: #192437;
+  --ns-eaf2f8: #213543;
+  --ns-ebe1ca: #192438;
+  --ns-ece2cb: #192538;
+  --ns-eef3e2: #374120;
+  --ns-eef3e4: #364120;
+  --ns-eef5e8: #304221;
+  --ns-efd9a3: #322b19;
+  --ns-efe1bd: #182336;
+  --ns-efe5cd: #1a253a;
+  --ns-efe5cf: #1a263a;
+  --ns-efe7d4: #1b263b;
+  --ns-f0f6ea: #324321;
+  --ns-f1e2bf: #192437;
+  --ns-f1e7cf: #1a263a;
+  --ns-f1e8d4: #1b273c;
+  --ns-f1e8d496: rgba(27, 39, 60, 0.96);
+  --ns-f1e8d497: rgba(27, 39, 60, 0.97);
+  --ns-f2cdc0: #39241c;
+  --ns-f2f7f5: #1e2c44;
+  --ns-f3d9d2: #3d251e;
+  --ns-f3ead6: #1b273c;
+  --ns-f3ecdb: #1c283e;
+  --ns-f4d9cf: #3d261e;
+  --ns-f4ecd8: #1b283d;
+  --ns-f4ecd9: #1c283d;
+  --ns-f6d9cf: #3d261e;
+  --ns-f6e3b5: #382f1b;
+  --ns-f6e6bf: #3a311c;
+  --ns-f6edd9: #1c283e;
+  --ns-f6edd970: rgba(28, 40, 62, 0.7);
+  --ns-f6eedb: #1c293e;
+  --ns-f6efdc: #1c293e;
+  --ns-f6efdd: #1c293f;
+  --ns-f6f0df: #1c293f;
+  --ns-f7e3dc: #402820;
+  --ns-f8e2da: #402820;
+  --ns-f8f2e3: #1d2a40;
+  --ns-fbe9e3: #432921;
+  --ns-fbefd6: #1c293e;
+  --ns-fbf0d6: #1c293e;
+  --ns-fbf5e6: #1e2b42;
+  --ns-fbf5e660: rgba(30, 43, 66, 0.6);
+  --ns-fbf5e670: rgba(30, 43, 66, 0.7);
+  --ns-fbf5e680: rgba(30, 43, 66, 0.8);
+  --ns-fbf5e685: rgba(30, 43, 66, 0.85);
+  --ns-fbf5e686: rgba(30, 43, 66, 0.86);
+  --ns-fbf5e690: rgba(30, 43, 66, 0.9);
+  --ns-fbf5e692: rgba(30, 43, 66, 0.92);
+  --ns-fbf5e694: rgba(30, 43, 66, 0.94);
+  --ns-fbf5e696: rgba(30, 43, 66, 0.96);
+  --ns-fbf6ea: #1e2b43;
+  --ns-fdf3dc: #1d2a40;
+  --ns-fdf5e2: #1d2b41;
+  --ns-fff6de: #1d2a41;
+  --ns-fff8ea: #1e2c44;
+  --ns-fffaf0: #1f2d45;
+  --ns-fffdf7: #202e46;
+  --ns-ffffff: #202f48;
+  --ns-ffffff55: rgba(32, 47, 72, 0.55);
+  --ns-ffffff70: rgba(32, 47, 72, 0.7);
+  --nt-13233a: #f2ead7;
+  --nt-8a2f1c: #e4a395;
+  --nt-8f2a1b: #e49f95;
+}
+
+/* The textures at dusk (the day ones are set on <html> at boot, so night sets them one level down). */
+html[data-night="on"] body {
+  --frame: var(--frame-dusk);
+  --frame-sea: var(--frame-sea-dusk);
+  --meander: var(--meander-dusk);
+  --wave: var(--wave-dusk);
+  --tess-plate: var(--tess-plate-dusk);
+  --rule8: var(--rule8-dusk);
+}
+
+/* Scenes at dusk: the same tesserae under evening light, not inverted. */
+html[data-night="on"] canvas[data-scene] { filter: brightness(0.72) saturate(0.88) contrast(1.06); }
+
+/* Step numbers sit on a tone's ink, which is light at night: their digit turns dark. */
+html[data-night="on"] .m-waypoints__n { color: var(--on-accent); }
+/* Step numbers on a done or paused stone keep light digits on the fill. */
+html[data-night="on"] .m-stages li:is([data-state="done"], [data-state="paused"]) .m-waypoints__n { color: #fff8e6; }
+/* A selected tally stone is filled with its tone's (light) ink at night: its label turns dark. */
+html[data-night="on"] .fd-run__stone[aria-selected="true"] { color: var(--on-accent); }
+/* Position badges mix their state colour with the ink: at night, more ink so a grey state still reads. */
+html[data-night="on"] .ps-badge:not([data-state="at-risk"]) { color: color-mix(in srgb, var(--sc) 30%, var(--ink)); }

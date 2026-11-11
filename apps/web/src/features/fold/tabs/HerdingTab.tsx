@@ -14,18 +14,19 @@ import { PixelIcon, type PixelIconName } from "../../../city/PixelIcon";
 import { Button, EmptyState, Seal, Tag, cx } from "../../../mosaic";
 import { ProposalStepper } from "../DraftSheet";
 import { controlOf, filterInstructions, HERDING_FILTERS, kindOf, SIGNER_LINE, type HerdingFilter } from "../model";
+import { intlLocale, t } from "../../../i18n";
 
-const SOURCE_LABEL: Readonly<Record<FoldProposal["source"]["kind"], string>> = { insight: "from an insight", automation: "from an automation", chat: "from a chat", fence: "Fence edit", holding: "from a holding" };
+const SOURCE_LABEL: Readonly<Record<FoldProposal["source"]["kind"], string>> = { insight: t("fold.tabs.herdingTab.fromAnInsight"), automation: t("fold.tabs.herdingTab.fromAnAutomation"), chat: t("fold.tabs.herdingTab.fromAChat"), fence: t("fold.tabs.herdingTab.fenceEdit"), holding: t("fold.tabs.herdingTab.fromAHolding") };
 
 /** Each noun's tessera: its pixel icon and its stone colour. */
 const KIND_ART: Readonly<Record<RunningKind, { readonly icon: PixelIconName; readonly tone: "sea" | "ochre" | "olive" | "terra" | "navy"; readonly word: string }>> = {
-  automation: { icon: "repeat", tone: "sea", word: "Automation" },
-  order: { icon: "order", tone: "ochre", word: "Order" },
-  watch: { icon: "eye", tone: "olive", word: "Watch" },
+  automation: { icon: "repeat", tone: "sea", word: t("fold.tabs.herdingTab.automation") },
+  order: { icon: "order", tone: "ochre", word: t("fold.tabs.herdingTab.order") },
+  watch: { icon: "eye", tone: "olive", word: t("fold.tabs.herdingTab.watch") },
   leash: { icon: "leash", tone: "terra", word: "Leash" },
   autopilot: { icon: "pilot", tone: "navy", word: "Autopilot" },
-  plan: { icon: "plan", tone: "ochre", word: "Plan" },
-  payment: { icon: "coin", tone: "olive", word: "Payment" },
+  plan: { icon: "plan", tone: "ochre", word: t("fold.tabs.herdingTab.plan") },
+  payment: { icon: "coin", tone: "olive", word: t("fold.tabs.herdingTab.payment") },
 };
 
 const STATE: Readonly<Record<FoldInstruction["status"], { readonly word: string; readonly tone: "ok" | "ghost" | "sea" | "bad" | "ochre" }>> = {
@@ -39,18 +40,18 @@ const STATE: Readonly<Record<FoldInstruction["status"], { readonly word: string;
 
 function when(at: string | null): string | null {
   if (!at) return null;
-  return new Date(at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  return new Date(at).toLocaleString(intlLocale(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 /** The stones above the list: one per noun, filled as many as run. */
 function Tally({ list, filter, onPick }: { readonly list: readonly FoldInstruction[]; readonly filter: HerdingFilter; readonly onPick: (f: HerdingFilter) => void }) {
   const kinds = HERDING_FILTERS.filter((f) => f.id !== "all" && f.id !== "paused") as { id: RunningKind; label: string }[];
   return (
-    <div className="fd-run__tally" role="tablist" aria-label="Filter what runs">
+    <div className="fd-run__tally" role="tablist" aria-label={t("fold.tabs.herdingTab.filterWhatRuns")}>
       <button type="button" role="tab" aria-selected={filter === "all"} className="fd-run__stone" data-tone="navy" onClick={() => onPick("all")}>
         <span className="fd-run__stoneicon" aria-hidden="true"><PixelIcon name="list" size={16} /></span>
         <b className="num">{list.length}</b>
-        <span>{"All"}</span>
+        <span>{t("fold.tabs.herdingTab.all")}</span>
       </button>
       {kinds.map((k) => {
         const n = filterInstructions(list, k.id).length;
@@ -67,7 +68,7 @@ function Tally({ list, filter, onPick }: { readonly list: readonly FoldInstructi
         <button type="button" role="tab" aria-selected={filter === "paused"} className="fd-run__stone" data-tone="ghost" onClick={() => onPick("paused")}>
           <span className="fd-run__stoneicon" aria-hidden="true"><PixelIcon name="shield" size={16} /></span>
           <b className="num">{filterInstructions(list, "paused").length}</b>
-          <span>{"Paused"}</span>
+          <span>{t("fold.tabs.herdingTab.paused")}</span>
         </button>
       ) : null}
     </div>
@@ -100,17 +101,17 @@ export function RunningRow({ i, busy, sample, onControl, onChange }: { readonly 
         {i.nextVerdict && i.nextVerdict.decision !== "unknown" && kind !== "payment" ? <Seal decision={i.nextVerdict.decision} stamp={false} /> : null}
       </div>
       <div className="fd-run__next">
-        <span className="fd-run__nextk">{"NEXT"}</span>
+        <span className="fd-run__nextk">{t("fold.tabs.herdingTab.next")}</span>
         <span className="fd-run__nextline">{i.nextLine ?? i.nextRunLabel}</span>
         <small className="num">{at ? `${i.nextRunLabel} · ${at}` : i.nextRunLabel}</small>
       </div>
       <div className="fd-run__acts">
         {control ? (
-          <Button size="sm" tone={stop ? "terra" : control.action === "resume" ? "sea" : "ghost"} disabled={busy || (sample && !control.sign)} onClick={() => onControl(i)} title={control.sign === "revoke-session" ? "The key stops at once; then your wallet ends its session on chain" : control.sign === "order-cancel" ? "One transaction you sign; nothing else moves" : undefined}>
+          <Button size="sm" tone={stop ? "terra" : control.action === "resume" ? "sea" : "ghost"} disabled={busy || (sample && !control.sign)} onClick={() => onControl(i)} title={control.sign === "revoke-session" ? t("fold.tabs.herdingTab.theKeyStopsAtOnceThen") : control.sign === "order-cancel" ? t("fold.tabs.herdingTab.oneTransactionYouSignNothingElse") : undefined}>
             {busy ? "…" : control.label.toUpperCase()}
           </Button>
         ) : null}
-        <button type="button" className="fd-run__ask" onClick={() => onChange(i)}>{"Change in Ask Lyko"}</button>
+        <button type="button" className="fd-run__ask" onClick={() => onChange(i)}>{t("fold.tabs.herdingTab.changeInAskLyko")}</button>
       </div>
     </li>
   );
@@ -142,11 +143,11 @@ export function HerdingTab(props: {
       {locked || (props.waiting && props.waiting.length > 0) ? (
         <section className="fd-card m-frame m-frame--thin fd-inbox" aria-labelledby="inbox-h">
           <header className="fd-card__head">
-            <h3 id="inbox-h">{"Waiting for your signature"}</h3>
+            <h3 id="inbox-h">{t("fold.tabs.herdingTab.waitingForYourSignature")}</h3>
             <span className="m-kick">{props.waiting ? `${props.waiting.length} DRAFT${props.waiting.length === 1 ? "" : "S"}` : "…"}</span>
           </header>
           {locked ? (
-            <EmptyState mood="watching" title="Drafts are personal">{"Sign in with your wallet to see what Lyko and your automations drafted for you."}<div style={{ marginTop: 10 }}><button type="button" className="m-btn m-btn--sm" onClick={props.onSignIn}>{"SIGN IN"}</button></div></EmptyState>
+            <EmptyState mood="watching" title={t("fold.tabs.herdingTab.draftsArePersonal")}>{t("fold.tabs.herdingTab.signInWithYourWalletTo")}<div style={{ marginTop: 10 }}><button type="button" className="m-btn m-btn--sm" onClick={props.onSignIn}>{t("fold.tabs.herdingTab.signIn")}</button></div></EmptyState>
           ) : (
             <ul className="fd-inbox__list">
               {(props.waiting ?? []).map((p) => (
@@ -161,8 +162,8 @@ export function HerdingTab(props: {
                     <ProposalStepper p={p} />
                   </div>
                   <div className="fd-proposal__acts">
-                    <Button size="sm" onClick={() => props.onOpen(p)}>{p.status === "approved" ? "CONTINUE" : "REVIEW AND SIGN"}</Button>
-                    <Button size="sm" tone="ghost" onClick={() => props.onStop(p)} disabled={props.busyId === p.id}>{"STOP"}</Button>
+                    <Button size="sm" onClick={() => props.onOpen(p)}>{p.status === "approved" ? "CONTINUE" : t("fold.tabs.herdingTab.reviewAndSign")}</Button>
+                    <Button size="sm" tone="ghost" onClick={() => props.onStop(p)} disabled={props.busyId === p.id}>{t("fold.tabs.herdingTab.stop")}</Button>
                   </div>
                 </li>
               ))}
@@ -174,20 +175,20 @@ export function HerdingTab(props: {
       <section className="fd-card m-frame m-frame--thin fd-run" aria-labelledby="run-h">
         <header className="fd-run__head">
           <div>
-            <h3 id="run-h">{"Running"}</h3>
-            <span className="m-small m-muted">{`${props.sample ? "Sample. " : ""}Everything in motion, one row each. ${props.waiting ? (props.waiting.length === 0 ? "Nothing waits for your signature." : `${props.waiting.length} draft${props.waiting.length === 1 ? " waits" : "s wait"} above.`) : ""}`}</span>
+            <h3 id="run-h">{t("fold.tabs.herdingTab.running")}</h3>
+            <span className="m-small m-muted">{props.waiting ? (props.waiting.length === 0 ? t("fold.tabs.herdingTab.nothingWaitsForYourSignature") : t("fold.tabs.herdingTab.draftsWaitAbove", { n: props.waiting.length })) : null}</span>
           </div>
-          <Button size="sm" tone="terra" onClick={props.onAsk}>{"ASK LYKO"}</Button>
+          <Button size="sm" tone="terra" onClick={props.onAsk}>{t("fold.tabs.herdingTab.askLyko")}</Button>
         </header>
         {props.instructions ? <Tally list={props.instructions} filter={filter} onPick={setFilter} /> : null}
         {locked ? (
-          <EmptyState mood="watching" title="What runs for you is personal">{"Sign in to see every automation, order, watch, leash and payment link in one list."}</EmptyState>
+          <EmptyState mood="watching" title={t("fold.tabs.herdingTab.whatRunsForYouIsPersonal")}>{t("fold.tabs.herdingTab.signInToSeeEveryAutomation")}</EmptyState>
         ) : !props.instructions ? (
           <div className="m-skel" style={{ height: 220 }} />
         ) : list.length === 0 ? (
-          <EmptyState mood="resting" title="Nothing running here">{"Start it in Ask Lyko: \"Every Friday pay the team\", \"Sell cirBTC if it drops 10%\", \"Tell me when EURC passes 1.12\", \"Give my bot $20 a day for a week\"."}</EmptyState>
+          <EmptyState mood="resting" title={t("fold.tabs.herdingTab.nothingRunningHere")}>{t("fold.tabs.herdingTab.startItInAskLykoEvery")}</EmptyState>
         ) : (
-          <ul className="fd-run__list" aria-label="Running">
+          <ul className="fd-run__list" aria-label={t("fold.tabs.herdingTab.running")}>
             {list.map((i) => (
               <RunningRow key={`${i.source}:${i.id}`} i={i} busy={props.busyId === i.id} sample={props.sample} onControl={props.onControl} onChange={props.onChange} />
             ))}

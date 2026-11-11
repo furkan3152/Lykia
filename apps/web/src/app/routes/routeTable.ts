@@ -14,6 +14,7 @@
 import type { ComponentType } from "react";
 
 import { buildPath, compilePattern, matchPattern, normalizePathname, type CompiledPattern, type RouteParams } from "./matchPath";
+import { t } from "../../i18n";
 
 export type RouteId =
   | "landing"
@@ -73,9 +74,9 @@ export interface RouteDefinition {
   readonly load: () => Promise<PageModule>;
 }
 
-const BRAND_TITLE = "Lykia — the policy layer for money that agents and apps move";
+const BRAND_TITLE = t("app.routes.routeTable.lykiaThePolicyLayerForMoney");
 const BRAND_DESCRIPTION =
-  "Say the outcome; Lykia compiles it into a route across Arc protocols and Circle rails, the Fence checks every step against your rules, and you or your agent sign it. The same engine is an API for every builder. Built on Arc Network, with USDC and Circle's rails.";
+  t("app.routes.routeTable.sayTheOutcomeLykiaCompilesIt");
 const PRIVATE_ROBOTS = "noindex,nofollow";
 
 /** Pages whose work Ask Lyko or the Fold does now: they redirect, keeping what they carried (see aliases.ts). */
@@ -85,45 +86,45 @@ const page = (id: RouteId, pattern: string, kind: RouteKind, title: string, desc
 
 export const ROUTES: Readonly<Record<RouteId, RouteDefinition>> = Object.freeze({
   landing: page("landing", "/", "site", BRAND_TITLE, BRAND_DESCRIPTION, () => import("../../pages/landing/LandingPage")),
-  ask: page("ask", "/app/ask/:threadId?", "app", "Ask Lyko · your agent", "Say the outcome in plain words: Lykia plans it across Arc protocols and Circle rails, the Fence checks every step, you sign once.", () => import("../../pages/ask/AskPage")),
-  fold: page("fold", "/app/fold/:tab?", "app", "The Fold · everything you own and everything in motion", "Everything you hold on Arc and everything in motion: holdings, activity, the Running list, your agents and their leashes, and the Fence, with Lyko on watch beside them.", () => import("../../pages/fold/FoldPage"), { robots: PRIVATE_ROBOTS }),
-  move: page("move", "/app/move/:tab?", "app", "Move · send and swap", "Moving money happens in Ask Lyko now: this address opens it with the intent filled in.", LEGACY, { robots: PRIVATE_ROBOTS }),
-  flock: page("flock", "/app/flock/:address?", "app", "Flock · holdings", "Holdings live in The Fold now.", LEGACY, { robots: PRIVATE_ROBOTS }),
-  pastures: page("pastures", "/app/pastures", "app", "Yields", "Where stablecoins earn on Arc is an answer in Ask Lyko now.", LEGACY, { robots: PRIVATE_ROBOTS }),
-  pack: page("pack", "/app/pack/:id?", "app", "Pack · your agents and their leashes", "Your agents and their leashes live in the Fold's Pack now.", LEGACY, { robots: PRIVATE_ROBOTS }),
-  fence: page("fence", "/app/fence", "app", "Fence · rules", "Your Fence lives in the Fold now.", LEGACY, { robots: PRIVATE_ROBOTS }),
-  scent: page("scent", "/app/scent/:token?", "app", "Scent · token check", "What can be proven about a token on Arc before anyone touches it. Never \"safe\".", () => import("../../pages/scent/ScentPage")),
-  tag: page("tag", "/app/tag/:agentId?", "app", "Tag · agent identity", "Agent Tags on Arc: an ERC-8004 identity that pins the Fence it obeys.", () => import("../../pages/tag/TagPage")),
-  outrun: page("outrun", "/app/outrun/:id", "app", "Outrun · plan", "Where the money is, step by step, from the first call to where it ends up.", () => import("../../pages/outrun/OutrunPage"), { robots: PRIVATE_ROBOTS }),
-  you: page("you", "/app/you", "app", "Your Lyko · preferences and memory", "How Lyko decides and speaks for you: risk profile, liquidity floor, target mix, gas floor, insights, the Fold's layout, Lyko's voice and look, and everything Lyko remembers.", () => import("../../pages/you/YourLykoPage"), { robots: PRIVATE_ROBOTS }),
-  memory: page("memory", "/app/memory", "app", "Memory", "Memory lives in Your Lyko now.", LEGACY, { robots: PRIVATE_ROBOTS }),
-  circle: page("circle", "/app/circle", "app", "Circle · rails", "Circle's products on Arc: Gateway unified balance, CCTP, StableFX, agent wallets, compliance, nanopayments and USYC.", () => import("../../pages/circle/CirclePage")),
-  orders: page("orders", "/app/orders", "app", "Orders", "Orders start in Ask Lyko and run in the Fold's Herding now.", LEGACY, { robots: PRIVATE_ROBOTS }),
-  markets: page("markets", "/app/markets", "app", "Perps markets", "Perps markets are an answer in Ask Lyko now.", LEGACY, { robots: PRIVATE_ROBOTS }),
-  discover: page("discover", "/app/discover", "app", "New pools", "New pools on Arc are an answer in Ask Lyko now.", LEGACY, { robots: PRIVATE_ROBOTS }),
-  alerts: page("alerts", "/app/alerts", "app", "Watches", "Watches start in Ask Lyko and run in the Fold's Herding now.", LEGACY, { robots: PRIVATE_ROBOTS }),
-  automations: page("automations", "/app/automations", "app", "Automations", "Automations start in Ask Lyko and run in the Fold's Herding now.", LEGACY, { robots: PRIVATE_ROBOTS }),
-  activity: page("activity", "/app/activity", "app", "Trails · activity", "Every intent, order and watch in one trail.", LEGACY, { robots: PRIVATE_ROBOTS }),
-  whatif: page("whatif", "/app/whatif", "app", "What-if · stress test", "Shock cirBTC and EURC and see your portfolio's value and health factors move, with the PnL explained.", LEGACY, { robots: PRIVATE_ROBOTS }),
-  pay: page("pay", "/pay/:id", "app", "Pay", "Pay an invoice or payment link on Arc: the amount, the line items and Lykia's fee shown before your wallet signs.", () => import("../../pages/pay/PayPage"), { robots: PRIVATE_ROBOTS }),
-  security: page("security", "/app/security", "app", "Safety", "Safety is a section of the Fold's Fence tab now.", LEGACY, { robots: PRIVATE_ROBOTS }),
-  build: page("build", "/build", "site", "The Forge · build", "The developer portal moved to The Forge.", () => import("../../pages/redirect/RedirectPage"), { robots: PRIVATE_ROBOTS }),
-  forge: page("forge", "/forge/:section?", "app", "The Forge · developer portal", "Build on Lykia's engine: strike a project (a city) in steps, try it in the workshop, manage keys, usage, logs and webhooks, and read the API reference, SDKs and MCP.", () => import("../../pages/forge/ForgePage")),
-  mint: page("mint", "/mint/:section?", "site", "The Forge · build", "The developer portal is The Forge now.", () => import("../../pages/redirect/RedirectPage"), { robots: PRIVATE_ROBOTS }),
-  league: page("league", "/league", "site", "The League · Lykia's cities", "The League hosts cities: projects built on Lykia, each with its own brand, modules and Fence caps. Official cities (Lykia Pay, Lykia Agents) are being launched.", () => import("../../pages/league/LeaguePage")),
-  city: page("city", "/league/:city", "site", "City of the League", "One city of the League: what it does, how it uses Lykia, whether it is live, and the city itself, running on Lykia.", () => import("../../pages/league/CityPage")),
-  letoon: page("letoon", "/letoon/:section?", "app", "Letoon · team console", "The Lykia team's console: the League council, contracts and deployments, flags and the Whistle, Circle setup, the audit log and platform usage. Admins only.", () => import("../../pages/letoon/LetoonPage"), { robots: PRIVATE_ROBOTS }),
-  ecosystem: page("ecosystem", "/ecosystem", "site", "Harbour · ecosystem", "The protocols on Arc, each marked routable, read-only or mapped on Lykia, linked to its official Arc ecosystem entry, with Circle's products, TVL and the value Lykia routes, live.", () => import("../../pages/ecosystem/EcosystemPage")),
-  stats: page("stats", "/stats", "site", "Ledger · stats", "Lykia in numbers: on-chain counts on Arc mainnet, value routed, venues routable, protocols mapped and integrators. Public, aggregate, sourced.", () => import("../../pages/stats/StatsPage")),
-  legal: page("legal", "/legal/:doc?", "site", "Notice, risks and privacy", "Lykia's draft software notice and risk disclosure (open source, who signs what, no warranty, beta caps) and privacy note.", () => import("../../pages/legal/LegalPage")),
-  owner: page("owner", "/owner", "site", "Letoon · team console", "The owner console moved to Letoon.", () => import("../../pages/redirect/RedirectPage"), { robots: PRIVATE_ROBOTS }),
-  kit: page("kit", "/kit", "site", "Mosaic kit", "Every Mosaic component and scene.", () => import("../../pages/kit/KitPage"), { robots: PRIVATE_ROBOTS, devOnly: true }),
-  chatKit: page("chatKit", "/app/kit/chat", "app", "Chat kit · sample", "Every Ask Lyko card and thinking state with sample data (development only; nothing here moves money).", () => import("../../pages/kit/ChatKitPage"), { robots: PRIVATE_ROBOTS, devOnly: true }),
-  reviewKit: page("reviewKit", "/app/kit/review", "app", "Review kit · sample", "Every state of the review-and-sign modal with sample data (development only; nothing here moves money).", () => import("../../pages/kit/ReviewKitPage"), { robots: PRIVATE_ROBOTS, devOnly: true }),
-  lykaion: page("lykaion", "/lykaion", "site", "Lykaion", "Mount Lykaion, Arcadia, at night.", () => import("../../pages/lykaion/LykaionPage"), { robots: PRIVATE_ROBOTS }),
-  developers: page("developers", "/developers", "site", "The Forge · build", BRAND_DESCRIPTION, () => import("../../pages/redirect/RedirectPage"), { robots: PRIVATE_ROBOTS }),
-  appNotFound: page("appNotFound", "/app/*", "site", "Page not found", BRAND_DESCRIPTION, () => import("../../pages/notFound/NotFoundPage"), { robots: "noindex,follow" }),
-  notFound: page("notFound", "/*", "site", "Page not found", BRAND_DESCRIPTION, () => import("../../pages/notFound/NotFoundPage"), { robots: "noindex,follow" }),
+  ask: page("ask", "/app/ask/:threadId?", "app", t("app.routes.routeTable.askLykoYourAgent"), t("app.routes.routeTable.sayTheOutcomeInPlainWords"), () => import("../../pages/ask/AskPage")),
+  fold: page("fold", "/app/fold/:tab?", "app", t("app.routes.routeTable.theFoldEverythingYouOwnAnd"), t("app.routes.routeTable.everythingYouHoldOnArcAnd"), () => import("../../pages/fold/FoldPage"), { robots: PRIVATE_ROBOTS }),
+  move: page("move", "/app/move/:tab?", "app", t("app.routes.routeTable.moveSendAndSwap"), t("app.routes.routeTable.movingMoneyHappensInAskLyko"), LEGACY, { robots: PRIVATE_ROBOTS }),
+  flock: page("flock", "/app/flock/:address?", "app", t("app.routes.routeTable.flockHoldings"), t("app.routes.routeTable.holdingsLiveInTheFoldNow"), LEGACY, { robots: PRIVATE_ROBOTS }),
+  pastures: page("pastures", "/app/pastures", "app", t("app.routes.routeTable.yields"), t("app.routes.routeTable.whereStablecoinsEarnOnArcIs"), LEGACY, { robots: PRIVATE_ROBOTS }),
+  pack: page("pack", "/app/pack/:id?", "app", t("app.routes.routeTable.packYourAgentsAndTheirLeashes"), t("app.routes.routeTable.yourAgentsAndTheirLeashesLive"), LEGACY, { robots: PRIVATE_ROBOTS }),
+  fence: page("fence", "/app/fence", "app", t("app.routes.routeTable.fenceRules"), t("app.routes.routeTable.yourFenceLivesInTheFold"), LEGACY, { robots: PRIVATE_ROBOTS }),
+  scent: page("scent", "/app/scent/:token?", "app", t("app.routes.routeTable.scentTokenCheck"), t("app.routes.routeTable.whatCanBeProvenAboutA"), () => import("../../pages/scent/ScentPage")),
+  tag: page("tag", "/app/tag/:agentId?", "app", t("app.routes.routeTable.tagAgentIdentity"), t("app.routes.routeTable.agentTagsOnArcAnErc"), () => import("../../pages/tag/TagPage")),
+  outrun: page("outrun", "/app/outrun/:id", "app", t("app.routes.routeTable.outrunPlan"), t("app.routes.routeTable.whereTheMoneyIsStepBy"), () => import("../../pages/outrun/OutrunPage"), { robots: PRIVATE_ROBOTS }),
+  you: page("you", "/app/you", "app", t("app.routes.routeTable.yourLykoPreferencesAndMemory"), t("app.routes.routeTable.howLykoDecidesAndSpeaksFor"), () => import("../../pages/you/YourLykoPage"), { robots: PRIVATE_ROBOTS }),
+  memory: page("memory", "/app/memory", "app", t("app.routes.routeTable.memory"), t("app.routes.routeTable.memoryLivesInYourLykoNow"), LEGACY, { robots: PRIVATE_ROBOTS }),
+  circle: page("circle", "/app/circle", "app", t("app.routes.routeTable.circleRails"), t("app.routes.routeTable.circleSProductsOnArcGateway"), () => import("../../pages/circle/CirclePage")),
+  orders: page("orders", "/app/orders", "app", t("app.routes.routeTable.orders"), t("app.routes.routeTable.ordersStartInAskLykoAnd"), LEGACY, { robots: PRIVATE_ROBOTS }),
+  markets: page("markets", "/app/markets", "app", t("app.routes.routeTable.perpsMarkets"), t("app.routes.routeTable.perpsMarketsAreAnAnswerIn"), LEGACY, { robots: PRIVATE_ROBOTS }),
+  discover: page("discover", "/app/discover", "app", t("app.routes.routeTable.newPools"), t("app.routes.routeTable.newPoolsOnArcAreAn"), LEGACY, { robots: PRIVATE_ROBOTS }),
+  alerts: page("alerts", "/app/alerts", "app", t("app.routes.routeTable.watches"), t("app.routes.routeTable.watchesStartInAskLykoAnd"), LEGACY, { robots: PRIVATE_ROBOTS }),
+  automations: page("automations", "/app/automations", "app", t("app.routes.routeTable.automations"), t("app.routes.routeTable.automationsStartInAskLykoAnd"), LEGACY, { robots: PRIVATE_ROBOTS }),
+  activity: page("activity", "/app/activity", "app", t("app.routes.routeTable.trailsActivity"), t("app.routes.routeTable.everyIntentOrderAndWatchIn"), LEGACY, { robots: PRIVATE_ROBOTS }),
+  whatif: page("whatif", "/app/whatif", "app", t("app.routes.routeTable.whatIfStressTest"), t("app.routes.routeTable.shockCirbtcAndEurcAndSee"), LEGACY, { robots: PRIVATE_ROBOTS }),
+  pay: page("pay", "/pay/:id", "app", t("app.routes.routeTable.pay"), t("app.routes.routeTable.payAnInvoiceOrPaymentLink"), () => import("../../pages/pay/PayPage"), { robots: PRIVATE_ROBOTS }),
+  security: page("security", "/app/security", "app", t("app.routes.routeTable.safety"), t("app.routes.routeTable.safetyIsASectionOfThe"), LEGACY, { robots: PRIVATE_ROBOTS }),
+  build: page("build", "/build", "site", t("app.routes.routeTable.theForgeBuild"), t("app.routes.routeTable.theDeveloperPortalMovedToThe"), () => import("../../pages/redirect/RedirectPage"), { robots: PRIVATE_ROBOTS }),
+  forge: page("forge", "/forge/:section?", "app", t("app.routes.routeTable.theForgeDeveloperPortal"), t("app.routes.routeTable.buildOnLykiaSEngineStrike"), () => import("../../pages/forge/ForgePage")),
+  mint: page("mint", "/mint/:section?", "site", t("app.routes.routeTable.theForgeBuild"), t("app.routes.routeTable.theDeveloperPortalIsTheForge"), () => import("../../pages/redirect/RedirectPage"), { robots: PRIVATE_ROBOTS }),
+  league: page("league", "/league", "site", t("app.routes.routeTable.theLeagueLykiaSCities"), t("app.routes.routeTable.theLeagueHostsCitiesProjectsBuilt"), () => import("../../pages/league/LeaguePage")),
+  city: page("city", "/league/:city", "site", t("app.routes.routeTable.cityOfTheLeague"), t("app.routes.routeTable.oneCityOfTheLeagueWhat"), () => import("../../pages/league/CityPage")),
+  letoon: page("letoon", "/letoon/:section?", "app", t("app.routes.routeTable.letoonTeamConsole"), t("app.routes.routeTable.theLykiaTeamSConsoleThe"), () => import("../../pages/letoon/LetoonPage"), { robots: PRIVATE_ROBOTS }),
+  ecosystem: page("ecosystem", "/ecosystem", "site", t("app.routes.routeTable.harbourEcosystem"), t("app.routes.routeTable.theProtocolsOnArcEachMarked"), () => import("../../pages/ecosystem/EcosystemPage")),
+  stats: page("stats", "/stats", "site", t("app.routes.routeTable.ledgerStats"), t("app.routes.routeTable.lykiaInNumbersOnChainCounts"), () => import("../../pages/stats/StatsPage")),
+  legal: page("legal", "/legal/:doc?", "site", t("app.routes.routeTable.noticeRisksAndPrivacy"), t("app.routes.routeTable.lykiaSDraftSoftwareNoticeAnd"), () => import("../../pages/legal/LegalPage")),
+  owner: page("owner", "/owner", "site", t("app.routes.routeTable.letoonTeamConsole"), t("app.routes.routeTable.theOwnerConsoleMovedToLetoon"), () => import("../../pages/redirect/RedirectPage"), { robots: PRIVATE_ROBOTS }),
+  kit: page("kit", "/kit", "site", t("app.routes.routeTable.mosaicKit"), t("app.routes.routeTable.everyMosaicComponentAndScene"), () => import("../../pages/kit/KitPage"), { robots: PRIVATE_ROBOTS, devOnly: true }),
+  chatKit: page("chatKit", "/app/kit/chat", "app", t("app.routes.routeTable.chatKitSample"), t("app.routes.routeTable.everyAskLykoCardAndThinking"), () => import("../../pages/kit/ChatKitPage"), { robots: PRIVATE_ROBOTS, devOnly: true }),
+  reviewKit: page("reviewKit", "/app/kit/review", "app", t("app.routes.routeTable.reviewKitSample"), t("app.routes.routeTable.everyStateOfTheReviewAnd"), () => import("../../pages/kit/ReviewKitPage"), { robots: PRIVATE_ROBOTS, devOnly: true }),
+  lykaion: page("lykaion", "/lykaion", "site", t("app.routes.routeTable.lykaion"), t("app.routes.routeTable.mountLykaionArcadiaAtNight"), () => import("../../pages/lykaion/LykaionPage"), { robots: PRIVATE_ROBOTS }),
+  developers: page("developers", "/developers", "site", t("app.routes.routeTable.theForgeBuild"), BRAND_DESCRIPTION, () => import("../../pages/redirect/RedirectPage"), { robots: PRIVATE_ROBOTS }),
+  appNotFound: page("appNotFound", "/app/*", "site", t("app.routes.routeTable.pageNotFound"), BRAND_DESCRIPTION, () => import("../../pages/notFound/NotFoundPage"), { robots: "noindex,follow" }),
+  notFound: page("notFound", "/*", "site", t("app.routes.routeTable.pageNotFound"), BRAND_DESCRIPTION, () => import("../../pages/notFound/NotFoundPage"), { robots: "noindex,follow" }),
 });
 
 /** Matching order: specific routes first, the catch-alls last. `/app` itself is Ask. */

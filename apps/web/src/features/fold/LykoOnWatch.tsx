@@ -4,7 +4,7 @@
  * behind a "Why?" and a one-tap draft); its chat is the same server thread
  * as Ask Lyko, so either one can pick up where the other stopped.
  */
-import { applyFoldShocks, describeShock, NO_SHOCK, shortAddress } from "@lykia/core";
+import { applyFoldShocks, describeShock, NO_SHOCK } from "@lykia/core";
 import type { FlockSnapshot } from "@lykia/core/api/flock";
 import type { FoldExplainArtifact, FoldInsight, FoldInsightsResponse, FoldInstruction, FoldQuestion } from "@lykia/core/api/fold";
 import type { ThreadView } from "@lykia/core/api/agents";
@@ -25,20 +25,21 @@ import { apiGet, describeError } from "../../lib/api";
 import { Button, LykoFace, LykoTile, Tag, cx, toast } from "../../mosaic";
 import { useAnswer, useInstructionControl, useMarkSeen, type FoldOwner } from "./data";
 import { FOLLOW_UPS, insightAction, openingLine } from "./model";
+import { formatDateTime, t as msg } from "../../i18n";
 
-const SEVERITY: Readonly<Record<FoldInsight["severity"], { label: string; tone: "bad" | "ochre" | "ghost" }>> = { act: { label: "Act", tone: "bad" }, watch: { label: "Watch", tone: "ochre" }, info: { label: "FYI", tone: "ghost" } };
+const SEVERITY: Readonly<Record<FoldInsight["severity"], { label: string; tone: "bad" | "ochre" | "ghost" }>> = { act: { label: msg("fold.lykoOnWatch.act"), tone: "bad" }, watch: { label: msg("fold.lykoOnWatch.watch"), tone: "ochre" }, info: { label: "FYI", tone: "ghost" } };
 
 /** "Add USDC to this wallet": the address on the clipboard, with how to use it. */
 async function copyAddress(address: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(address);
-    toast.success("Address copied", { description: `Send USDC on Arc to ${address}. Receiving needs no gas from this wallet.`, from: "LYKO" });
+    toast.success(msg("fold.lykoOnWatch.addressCopied"), { description: msg("fold.lykoOnWatch.sendUsdcOnArcToReceiving", { address }), from: "LYKO" });
   } catch {
-    toast.info("Send USDC on Arc to this address", { description: address, from: "LYKO" });
+    toast.info(msg("fold.lykoOnWatch.sendUsdcOnArcToThis"), { description: address, from: "LYKO" });
   }
 }
 
-const SENT_WORD: Readonly<Record<string, string>> = { planned: "planned", signed: "signed", done: "signed", refused: "refused by your Fence", stopped: "stopped", pending: "sent" };
+const SENT_WORD: Readonly<Record<string, string>> = { planned: "planned", signed: "signed", done: "signed", refused: msg("fold.lykoOnWatch.refusedByYourFence"), stopped: "stopped", pending: "sent" };
 
 function InsightCard({ insight, canDraft, busy, onAsk, onDraft, onOpenThread, onOpenHerding }: { readonly insight: FoldInsight; readonly canDraft: boolean; readonly busy: boolean; readonly onAsk: (i: FoldInsight) => void; readonly onDraft: (i: FoldInsight) => void; readonly onOpenThread: (threadId: string | null) => void; readonly onOpenHerding: () => void }) {
   const action = insightAction(insight, canDraft);
@@ -46,15 +47,15 @@ function InsightCard({ insight, canDraft, busy, onAsk, onDraft, onOpenThread, on
   return (
     <li className={cx("fd-insight", insight.handled && "fd-insight--handled")} data-severity={insight.severity}>
       <div className="fd-insight__top">
-        <Tag tone={insight.sent ? "sea" : insight.handled ? "ok" : SEVERITY[insight.severity].tone}>{insight.sent ? `Sent to Ask Lyko · ${SENT_WORD[insight.sent.status] ?? insight.sent.status}` : insight.handled ? "Drafted" : SEVERITY[insight.severity].label}</Tag>
-        {insight.origin?.agent === "ask" ? <Tag tone="ochre">From Ask Lyko</Tag> : null}
+        <Tag tone={insight.sent ? "sea" : insight.handled ? "ok" : SEVERITY[insight.severity].tone}>{insight.sent ? msg("fold.lykoOnWatch.sentToAskLyko", { value: SENT_WORD[insight.sent.status] ?? insight.sent.status }) : insight.handled ? msg("fold.lykoOnWatch.drafted") : SEVERITY[insight.severity].label}</Tag>
+        {insight.origin?.agent === "ask" ? <Tag tone="ochre">{msg("fold.lykoOnWatch.fromAskLyko")}</Tag> : null}
         <b>{insight.title}</b>
       </div>
       <p className="fd-insight__text">{insight.explain}</p>
       {insight.figures.length > 0 ? (
         <>
           <button type="button" className="fd-why-btn" aria-expanded={why} onClick={() => setWhy((w) => !w)}>
-            {why ? "Hide the figures" : "Why?"}
+            {why ? msg("fold.lykoOnWatch.hideTheFigures") : msg("fold.lykoOnWatch.why")}
           </button>
           {why ? (
             <dl className="fd-figures">
@@ -79,9 +80,9 @@ function InsightCard({ insight, canDraft, busy, onAsk, onDraft, onOpenThread, on
         >
           {action.label.toUpperCase()}
         </Button>
-        {action.kind === "draft" ? <button type="button" className="fd-why-btn" onClick={() => onAsk(insight)}>{"or talk it through in Ask"}</button> : null}
-        {action.kind === "draft" ? <small className="fd-insight__note">{"Lyko drafts it here; you review and sign. Nothing moves before."}</small> : null}
-        {action.kind === "receive" ? <small className="fd-insight__note">{`Copies ${action.address.slice(0, 6)}…${action.address.slice(-4)}: send USDC on Arc to it. Receiving needs no gas from this wallet.`}</small> : null}
+        {action.kind === "draft" ? <button type="button" className="fd-why-btn" onClick={() => onAsk(insight)}>{msg("fold.lykoOnWatch.orTalkItThroughInAsk")}</button> : null}
+        {action.kind === "draft" ? <small className="fd-insight__note">{msg("fold.lykoOnWatch.lykoDraftsItHereYouReview")}</small> : null}
+        {action.kind === "receive" ? <small className="fd-insight__note">{msg("fold.lykoOnWatch.copiesSendUsdcOnArcTo", { value: action.address.slice(0, 6), value2: action.address.slice(-4) })}</small> : null}
       </div>
     </li>
   );
@@ -150,7 +151,7 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
   const threadId = convo.threadId ?? latestId;
   const history = useQuery({ queryKey: ["thread", threadId, owner.address], enabled: Boolean(owner.signedIn && threadId && convo.messages.length === 0), retry: false, queryFn: ({ signal }) => apiGet<ThreadView>(`/v1/agent/threads/${encodeURIComponent(threadId!)}`, { query: { owner: owner.address }, signal }) });
   useEffect(() => {
-    if (latestId && !convo.threadId) adopt(latestId, latest.data?.threads[0]?.title ?? "Shared thread");
+    if (latestId && !convo.threadId) adopt(latestId, latest.data?.threads[0]?.title ?? msg("fold.lykoOnWatch.sharedThread"));
   }, [latestId, convo.threadId, adopt, latest.data]);
   const past = convo.messages.length === 0 ? (history.data?.messages ?? []).slice(-4) : [];
 
@@ -177,7 +178,7 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
             if (!owner.sample) adopt(r.threadId, r.question);
             setAnswers((a) => [...a, { id: Date.now(), question: r.question, artifact: r.artifact }]);
           },
-          onError: (e) => toast.error("Lyko could not answer", { description: describeError(e), from: "LYKO" }),
+          onError: (e) => toast.error(msg("fold.lykoOnWatch.lykoCouldNotAnswer"), { description: describeError(e), from: "LYKO" }),
         },
       );
       return;
@@ -186,33 +187,30 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
     if (question === "whatif" && p.snapshot) {
       const shocks = { ...NO_SHOCK, EURC: -5 };
       const result = applyFoldShocks(p.snapshot.holdings, p.snapshot.health, shocks);
-      setAnswers((a) => [...a, { id: Date.now(), question: label, artifact: { kind: "whatif", title: "If EURC drops 5%", summary: describeShock(result, shocks, p.minHealth), lines: [], sources: ["the shared shock model"], at: new Date().toISOString() } }]);
+      setAnswers((a) => [...a, { id: Date.now(), question: label, artifact: { kind: "whatif", title: msg("fold.lykoOnWatch.ifEurcDrops5"), summary: describeShock(result, shocks, p.minHealth), lines: [], sources: [msg("fold.lykoOnWatch.theSharedShockModel")], at: new Date().toISOString() } }]);
       return;
     }
-    setAnswers((a) => [...a, { id: Date.now(), question: label, artifact: { kind: question, title: label, summary: "Sign in as this address (one message, no transaction) and I will answer this from your own records.", lines: [], sources: [], at: new Date().toISOString() } }]);
+    setAnswers((a) => [...a, { id: Date.now(), question: label, artifact: { kind: question, title: label, summary: msg("fold.lykoOnWatch.signInAsThisAddressOne"), lines: [], sources: [], at: new Date().toISOString() } }]);
   };
 
   const chat = (text: string) => {
     void send(text, { environment: owner.environment, ...(owner.address ? { owner: owner.address as `0x${string}` } : {}), origin: "fold" });
   };
 
-  const short = owner.address ? shortAddress(owner.address) : "a sample flock";
   const actions: ChatActions = {
     environment: owner.environment,
     // Cards here hand a sentence to Ask Lyko, with what Lyko on watch was looking at.
-    prefill: (text) => p.onOpenInAsk(text, "From Lyko on watch in the Fold."),
+    prefill: (text) => p.onOpenInAsk(text, msg("fold.lykoOnWatch.fromLykoOnWatchInThe")),
     ask: (text) => chat(text),
   };
 
   return (
     <ChatActionsContext.Provider value={actions}>
-    <aside className={cx("fd-lyko m-frame", p.variant === "tab" && "fd-lyko--tab")} aria-label="Lyko on watch">
+    <aside className={cx("fd-lyko m-frame", p.variant === "tab" && "fd-lyko--tab")} aria-label={msg("fold.lykoOnWatch.lykoOnWatch")}>
       <header className="fd-lyko__head">
         <LykoFace mood={open.some((i) => i.severity === "act") ? "alert" : open.length > 0 ? "watching" : "resting"} scale={2} />
         <div>
-          <h2>{"Lyko on watch"}</h2>
-          <span className="m-kick">{"SUGGESTS · YOU SIGN"}</span>
-          <p className="m-small m-muted">{`Reads everything in your Fold (${short}, Arc ${owner.environment}) and tells you what needs you.`}</p>
+          <h2>{msg("fold.lykoOnWatch.lykoOnWatch")}</h2>
           <HowItWorks area="lyko" className="fd-lyko__how" />
         </div>
       </header>
@@ -220,7 +218,7 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
       <div className="fd-lyko__strip">
         <button type="button" className="fd-strip-btn" aria-expanded={stripOpen} onClick={() => setStripOpen((o) => !o)} disabled={watches.length === 0}>
           <span className="fd-strip-btn__dots" aria-hidden="true">{watches.slice(0, 8).map((w) => <i key={w.id} data-on={w.status === "active"} />)}</span>
-          {watches.length === 0 ? (owner.sample ? "Watches appear here once you have rules" : owner.signedIn ? "No watches yet" : "Sign in to see your watches") : `${on} of ${watches.length} watches on`}
+          {watches.length === 0 ? (owner.sample ? msg("fold.lykoOnWatch.watchesAppearHereOnceYouHave") : owner.signedIn ? msg("fold.lykoOnWatch.noWatchesYet") : msg("fold.lykoOnWatch.signInToSeeYourWatches")) : msg("fold.lykoOnWatch.ofWatchesOn", { on, length: watches.length })}
           {watches.length > 0 ? <span aria-hidden="true">{stripOpen ? "▴" : "▾"}</span> : null}
         </button>
         {stripOpen ? (
@@ -229,10 +227,10 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
               <li key={w.id}>
                 <span>
                   <b>{w.name}</b>
-                  <small>{w.source === "watch" ? `From Ask Lyko · ${w.lastResult ?? "not checked yet"}` : w.trigger}</small>
+                  <small>{w.source === "watch" ? msg("fold.lykoOnWatch.fromAskLyko2", { value: w.lastResult ?? msg("fold.lykoOnWatch.notCheckedYet") }) : w.trigger}</small>
                 </span>
                 <label className="fd-switch">
-                  <input type="checkbox" checked={w.status === "active"} disabled={!owner.signedIn || control.isPending} onChange={() => control.mutate({ id: w.id, action: w.status === "active" ? "pause" : "resume", source: w.source })} aria-label={`${w.status === "active" ? "Pause" : "Resume"} ${w.name}`} />
+                  <input type="checkbox" checked={w.status === "active"} disabled={!owner.signedIn || control.isPending} onChange={() => control.mutate({ id: w.id, action: w.status === "active" ? "pause" : "resume", source: w.source })} aria-label={`${w.status === "active" ? msg("fold.lykoOnWatch.pause") : msg("fold.lykoOnWatch.resume")} ${w.name}`} />
                   <i />
                 </label>
               </li>
@@ -243,40 +241,40 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
 
       <div className="fd-lyko__scroll" ref={scroll}>
         {p.insights && p.insights.brief.lines.length > 0 ? (
-          <section className="fd-brief" aria-label="New since your last visit">
-            <span className="m-kick">{`NEW SINCE ${p.insights.brief.since ? new Date(p.insights.brief.since).toLocaleString("en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit" }) : "YOUR LAST VISIT"}`}</span>
+          <section className="fd-brief" aria-label={msg("fold.lykoOnWatch.newSinceYourLastVisit")}>
+            <span className="m-kick">{msg("fold.lykoOnWatch.newSince", { when: p.insights.brief.since ? formatDateTime(p.insights.brief.since, { weekday: "short", hour: "2-digit", minute: "2-digit" }) : msg("fold.lykoOnWatch.yourLastVisit") })}</span>
             <ul>{p.insights.brief.lines.map((l) => <li key={l}>{l}</li>)}</ul>
-            <button type="button" className="fd-why-btn" onClick={() => seen.mutate()}>{"Got it"}</button>
+            <button type="button" className="fd-why-btn" onClick={() => seen.mutate()}>{msg("fold.lykoOnWatch.gotIt")}</button>
           </section>
         ) : null}
 
         <div className="fd-msg">
           <LykoTile mood={open.length === 0 ? "resting" : "happy"} size={32} />
-          <div className="fd-bubble">{p.loading && !p.insights ? "Counting the flock…" : <Markdown text={openingLine(insights, owner.sample)} environment={owner.environment} figures />}</div>
+          <div className="fd-bubble">{p.loading && !p.insights ? msg("fold.lykoOnWatch.countingTheFlock") : <Markdown text={openingLine(insights, owner.sample)} environment={owner.environment} figures />}</div>
         </div>
 
         {open.length === 0 && !p.loading ? (
           <div className="fd-quietvalley">
             <LykoFace mood="sleeping" scale={3} />
-            <b>{"All quiet in the valley"}</b>
-            <span className="m-small m-muted">{"Nothing needs you right now. I keep watching."}</span>
+            <b>{msg("fold.lykoOnWatch.allQuietInTheValley")}</b>
+            <span className="m-small m-muted">{msg("fold.lykoOnWatch.nothingNeedsYouRightNowI")}</span>
           </div>
         ) : (
           <ul className="fd-insights">
             {insights.map((i) => (
-              <InsightCard key={i.id} insight={i} canDraft={owner.signedIn && !owner.sample} busy={p.busy} onDraft={p.onDraft} onOpenHerding={p.onOpenHerding ?? (() => navigate("/app/fold/herding"))} onOpenThread={(t) => navigate(t ? `/app/ask/${encodeURIComponent(t)}` : "/app")} onAsk={(x) => p.onOpenInAsk(x.draft?.sentence ?? `Tell me more about this: ${x.title}`, `${x.title}. ${x.explain} ${x.figures.map((f) => `${f.label}: ${f.value}`).join("; ")}`)} />
+              <InsightCard key={i.id} insight={i} canDraft={owner.signedIn && !owner.sample} busy={p.busy} onDraft={p.onDraft} onOpenHerding={p.onOpenHerding ?? (() => navigate("/app/fold/herding"))} onOpenThread={(t) => navigate(t ? `/app/ask/${encodeURIComponent(t)}` : "/app")} onAsk={(x) => p.onOpenInAsk(x.draft?.sentence ?? msg("fold.lykoOnWatch.tellMeMoreAboutThis", { title: x.title }), `${x.title}. ${x.explain} ${x.figures.map((f) => `${f.label}: ${f.value}`).join("; ")}`)} />
             ))}
           </ul>
         )}
 
-        {past.length > 0 ? <span className="m-kick fd-past">{"EARLIER IN THIS THREAD"}</span> : null}
+        {past.length > 0 ? <span className="m-kick fd-past">{msg("fold.lykoOnWatch.earlierInThisThread")}</span> : null}
         {past.map((m, i) =>
           m.role === "user" ? (
             <UserMessage key={`p${i}`} text={m.text} compact />
           ) : (
             <div key={`p${i}`} className="fd-past-msg">
               <AssistantMessage compact m={storedMessage(m, `p${i}`)} />
-              <small className="fd-bubble__more">{m.origin === "fold" ? "in the Fold" : "in Ask Lyko"}</small>
+              <small className="fd-bubble__more">{m.origin === "fold" ? msg("fold.lykoOnWatch.inTheFold") : msg("fold.lykoOnWatch.inAskLyko")}</small>
             </div>
           ),
         )}
@@ -287,20 +285,20 @@ export function LykoOnWatch(p: LykoOnWatchProps) {
           </div>
         ))}
         {recent.map((m) => (m.role === "user" ? <UserMessage key={m.id} text={m.text} compact /> : <AssistantMessage key={m.id} m={m} compact onChoose={chat} />))}
-        {answer.isPending ? <div className="fd-msg"><LykoTile mood="herding" size={32} /><div className="fd-bubble m-caret">{"Reading your records…"}</div></div> : null}
+        {answer.isPending ? <div className="fd-msg"><LykoTile mood="herding" size={32} /><div className="fd-bubble m-caret">{msg("fold.lykoOnWatch.readingYourRecords")}</div></div> : null}
       </div>
 
       <div className="fd-lyko__foot">
-        <div className="fd-chips fd-chips--follow" aria-label="Ask a follow-up">
+        <div className="fd-chips fd-chips--follow" aria-label={msg("fold.lykoOnWatch.askAFollowUp")}>
           {FOLLOW_UPS.map((f) => (
             <button key={f.question} type="button" className="m-chip" disabled={answer.isPending} onClick={() => ask(f.question, f.label)}>
               {f.label}
             </button>
           ))}
         </div>
-        <Composer morph={false} onSubmit={chat} busy={status === "streaming"} onStop={stop} placeholder="Ask about your Fold…" meta="SAME THREAD AS ASK LYKO" sendLabel="ASK" className="fd-composer" />
+        <Composer morph={false} onSubmit={chat} busy={status === "streaming"} onStop={stop} placeholder={msg("fold.lykoOnWatch.askAboutYourFold")} sendLabel={msg("fold.lykoOnWatch.ask")} className="fd-composer" />
         {convo.threadId ? (
-          <button type="button" className="fd-why-btn" onClick={() => p.onOpenInAsk("", "Continued from the Fold.")}>{"Continue in Ask Lyko ›"}</button>
+          <button type="button" className="fd-why-btn" onClick={() => p.onOpenInAsk("", msg("fold.lykoOnWatch.continuedFromTheFold"))}>{msg("fold.lykoOnWatch.continueInAskLyko")}</button>
         ) : null}
       </div>
     </aside>

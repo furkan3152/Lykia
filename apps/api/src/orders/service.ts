@@ -39,6 +39,7 @@ import { FEEDS } from "../arc/prices.js";
 import { QUOTER_V2_ABI, SWAP_ROUTER_02_ABI } from "../engine/abis.js";
 import type { JsonValue } from "../store/types.js";
 
+import { tx } from "@lykia/core";
 const ORDERS_ABI = lykiaContracts.lykiaOrdersArtifact.abi;
 const ERC20_ABI = parseAbi(["function allowance(address owner, address spender) view returns (uint256)", "function approve(address spender, uint256 amount) returns (bool)"]);
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
@@ -125,10 +126,10 @@ export function orderHash(raw: SignedOrderStruct): `0x${string}` {
 }
 
 function describe(kind: OrderKind, sell: string, buy: string, amount: string, executions: number, pair: string | null, trigger: string | null, above: boolean): string {
-  const base = `Sell ${amount} ${sell} for ${buy}`;
-  const when = pair && trigger ? ` when ${pair} ${above ? "≥" : "≤"} ${trigger}` : "";
-  if (kind === "dca" || kind === "twap") return `${kind.toUpperCase()}: ${base}, ${executions} times${when}`;
-  const label = kind === "limit" ? "Limit" : kind === "stop-loss" ? "Stop-loss" : "Take-profit";
+  const base = tx("Sell {amount} {sell} for {buy}", { amount, sell, buy });
+  const when = pair && trigger ? tx(" when {pair} {op} {trigger}", { pair, op: above ? "≥" : "≤", trigger }) : "";
+  if (kind === "dca" || kind === "twap") return tx("{value}: {base}, {executions} times{when}", { value: kind.toUpperCase(), base, executions, when });
+  const label = kind === "limit" ? tx("Limit") : kind === "stop-loss" ? "Stop-loss" : "Take-profit";
   return `${label}: ${base}${when}`;
 }
 
@@ -147,11 +148,11 @@ class OrdersService {
     }
     const feeds = Object.fromEntries(Object.entries(FEEDS).filter(([s]) => s !== "USDC").map(([s, f]) => [s, { address: f.address, pair: f.pair }]));
     const notes = [
-      "Orders are signed off chain; funds stay in your wallet behind an allowance until a keeper executes a slice.",
-      `Each execution pays the protocol fee (${feeBps / 100}%) and a keeper tip of at most 1% from the slice; the rest is swapped and must meet your minimum.`,
+      tx("Orders are signed off chain; funds stay in your wallet behind an allowance until a keeper executes a slice."),
+      tx("Each execution pays the protocol fee ({value}%) and a keeper tip of at most 1% from the slice; the rest is swapped and must meet your minimum.", { value: feeBps / 100 }),
     ];
-    if (!address) notes.push(`LykiaOrders is not deployed on Arc ${environment} yet.`);
-    if (environment === "testnet") notes.push("Chainlink feeds are read on Arc mainnet; on testnet only time-based orders (DCA, TWAP) and plain limits are practical.");
+    if (!address) notes.push(tx("LykiaOrders is not deployed on Arc {environment} yet.", { environment }));
+    if (environment === "testnet") notes.push(tx("Chainlink feeds are read on Arc mainnet; on testnet only time-based orders (DCA, TWAP) and plain limits are practical."));
     return { environment, address, router: routerAddress(environment), feeBps, keeper: keeperKey() ? "server" : "anyone", domain: address ? orderDomain(environment, address) : null, types: ORDER_EIP712_TYPES, feeds, notes };
   }
 
@@ -206,12 +207,12 @@ class OrdersService {
       const price = Number(input.triggerPrice);
       const outWhole = sell.symbol === "USDC" ? swappedWhole / price : swappedWhole * price;
       expected = toBaseUnitsBig(outWhole.toFixed(buy.decimals), buy.decimals);
-      basis = `at the trigger (${feed.pair} ${input.triggerPrice})`;
+      basis = tx("at the trigger ({pair} {triggerPrice})", { pair: feed.pair, triggerPrice: input.triggerPrice });
     } else {
       const q = await this.quote(env, tokenIn, tokenOut, slice.swapped);
       if (q) {
         expected = q.amountOut;
-        basis = `from the live Uniswap v3 quote (${q.fee / 10_000}% pool)`;
+        basis = tx("from the live Uniswap v3 quote ({value}% pool)", { value: q.fee / 10_000 });
       }
     }
     if (expected === null || expected <= 0n) throw new LykiaHttpError("NO_ROUTE", 422, "No price to set a minimum output; add a triggerPrice.");
@@ -242,7 +243,7 @@ class OrdersService {
 
     const total = amountIn * BigInt(executions);
     const allowance = (await this.ctx.chains.client(env).readContract({ address: tokenIn, abi: ERC20_ABI, functionName: "allowance", args: [input.owner, address] }).catch(() => 0n)) as bigint;
-    const approval = allowance >= total ? null : { chainId: networkFor(env).chainId, from: input.owner, to: tokenIn, data: encodeFunctionData({ abi: ERC20_ABI, functionName: "approve", args: [address, total] }), value: "0", label: `Allow LykiaOrders to use ${fromBaseUnits(total, sell.decimals)} ${sell.symbol}` };
+    const approval = allowance >= total ? null : { chainId: networkFor(env).chainId, from: input.owner, to: tokenIn, data: encodeFunctionData({ abi: ERC20_ABI, functionName: "approve", args: [address, total] }), value: "0", label: tx("Allow LykiaOrders to use {value} {symbol}", { value: fromBaseUnits(total, sell.decimals), symbol: sell.symbol }) };
     const summary = describe(input.kind, sell.symbol, buy.symbol, input.amount, executions, feed?.pair ?? null, input.triggerPrice ?? null, triggerAbove);
     return {
       order,
@@ -251,7 +252,7 @@ class OrdersService {
       typedData: { domain: orderDomain(env, address), types: ORDER_EIP712_TYPES, primaryType: "Order" as const, message: order },
       approval,
       perExecution: { fee: fromBaseUnits(slice.fee, sell.decimals), maxTip: fromBaseUnits(maxTip, sell.decimals), swapped: fromBaseUnits(slice.swapped, sell.decimals), expectedOut: fromBaseUnits(expected, buy.decimals), minOut: fromBaseUnits(minAmountOut, buy.decimals), symbolIn: sell.symbol, symbolOut: buy.symbol },
-      notes: [`Minimum output is set ${basis}, minus ${Number(slippage) / 100}% slippage.`, ...config.notes],
+      notes: [tx("Minimum output is set {basis}, minus {value}% slippage.", { basis, value: Number(slippage) / 100 }), ...config.notes],
     };
   }
 
@@ -279,7 +280,7 @@ class OrdersService {
 
   private async views(environment: ArcEnvironment, records: readonly OrderRecord[]): Promise<OrderView[]> {
     const address = ordersAddress(environment);
-    if (!address || records.length === 0) return records.map((r) => ({ ...r, status: "invalid" as OrderStatus, executed: 0, waitingFor: "LykiaOrders is not deployed", lastExecutedAt: null }));
+    if (!address || records.length === 0) return records.map((r) => ({ ...r, status: "invalid" as OrderStatus, executed: 0, waitingFor: tx("LykiaOrders is not deployed"), lastExecutedAt: null }));
     const client = this.ctx.chains.client(environment);
     const reads = await client.multicall({
       contracts: records.flatMap((r) => [
@@ -319,15 +320,15 @@ class OrdersService {
   private async route(environment: ArcEnvironment, r: OrderRecord): Promise<{ steps: unknown[]; tip: bigint; expectedOut: bigint } | { reason: string }> {
     const uni = UNISWAP[environment];
     const router = routerAddress(environment);
-    if (!uni || !router) return { reason: "no keeper route on this network" };
+    if (!uni || !router) return { reason: tx("no keeper route on this network") };
     const amountIn = BigInt(r.order.amountIn);
     const tip = maxTipFor(amountIn, BigInt(r.order.maxTip));
     const feeBps = (await this.config(environment)).feeBps;
     const { swapped } = orderSlice(amountIn, feeBps, tip);
     const q = await this.quote(environment, r.order.tokenIn, r.order.tokenOut, swapped);
-    if (!q) return { reason: "no pool quote" };
+    if (!q) return { reason: tx("no pool quote") };
     const minOut = BigInt(r.order.minAmountOut);
-    if (q.amountOut < minOut) return { reason: "market below the order's minimum" };
+    if (q.amountOut < minOut) return { reason: tx("market below the order's minimum") };
     const data = encodeFunctionData({ abi: SWAP_ROUTER_02_ABI, functionName: "exactInputSingle", args: [{ tokenIn: r.order.tokenIn, tokenOut: r.order.tokenOut, fee: q.fee, recipient: router, amountIn: swapped, amountOutMinimum: minOut, sqrtPriceLimitX96: 0n }] });
     return { steps: [{ venue: uni.router, tokenIn: r.order.tokenIn, amountIn: 0n, tokenOut: r.order.tokenOut, minOut, data }], tip, expectedOut: q.amountOut };
   }
@@ -357,7 +358,7 @@ class OrdersService {
         continue;
       }
       if (!key) {
-        skipped[v.hash] = "due: waiting for a keeper";
+        skipped[v.hash] = tx("due: waiting for a keeper");
         continue;
       }
       try {
@@ -373,7 +374,7 @@ class OrdersService {
       } catch (error) {
         // The node's raw error stays in the log; the answer says what happened in plain words.
         this.ctx.log.warn("keeper execution failed", { order: v.hash, error: error instanceof Error ? error.message.slice(0, 300) : String(error) });
-        skipped[v.hash] = "execution failed: the swap would revert or the transaction was not accepted; it is retried on the next pass";
+        skipped[v.hash] = tx("execution failed: the swap would revert or the transaction was not accepted; it is retried on the next pass");
       }
     }
     return { due: open.length, executed, skipped };

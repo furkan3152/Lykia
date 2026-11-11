@@ -131,6 +131,10 @@ export interface ThreadMessage {
   readonly origin?: "ask" | "fold";
   /** The choices an assistant message offered (its chips), so "the second one" can be resolved on the next turn. */
   readonly options?: readonly string[];
+  /** The same choices as the owner saw them, in their interface language (when it is not English); options stays the sentence the reader understands. */
+  readonly shown?: readonly string[];
+  /** An assistant answer as code first wrote it in English, when the owner read it in another language (follow-ups read this one). */
+  readonly english?: string;
   /** For a short follow-up ("do it", "half of that"): the full request code resolved it to. */
   readonly meant?: string;
   /** A hand-off between the two agents this message carries: who sent what to whom. */

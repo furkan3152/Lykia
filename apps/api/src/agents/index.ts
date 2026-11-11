@@ -11,6 +11,8 @@ import { WebhookService } from "../platform/webhooks.js";
 import type { JsonValue } from "../store/types.js";
 import { anthropicClient, type LlmClient } from "./llm.js";
 import { PackService } from "./pack.js";
+import { withReplyLanguage } from "../language/replyLanguage.js";
+import { currentLocale } from "../i18n/index.js";
 
 export interface AgentServices {
   readonly pack: PackService;
@@ -87,7 +89,8 @@ export function agentServices(ctx: AppContext): AgentServices {
       if (!client) return null;
       const budget = modelBudget(ctx);
       if (!budget.open()) return null;
-      return { model: client.model, turn: async (request) => { await budget.spend(); return client.turn(request); } };
+      // Every prompt's language placeholders are filled in here, with the request's interface language.
+      return { model: client.model, turn: async (request) => { await budget.spend(); return client.turn({ ...request, system: withReplyLanguage(request.system, currentLocale()) }); } };
     },
   };
   GRAPH.set(ctx, built);

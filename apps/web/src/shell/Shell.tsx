@@ -3,7 +3,6 @@ import React, { Suspense, useEffect } from "react";
 import type { RouteId, RouteKind } from "../app/routes/routeTable";
 import { useLykiaStore, whistleOn } from "../lib/lykiaStore";
 import { useProfile } from "../lib/profile";
-import { BetaRibbon } from "../features/ecosystem/BetaRibbon";
 import { Link } from "../app/routes/Link";
 import { useOwnerFence } from "../features/fence/sync";
 import { AreaTabs } from "./AreaTabs";
@@ -12,6 +11,7 @@ import { Header } from "./Header";
 import { MobileTabs } from "./MobileTabs";
 import { PulseDriver } from "./PulseDriver";
 import { PulseStrip } from "./PulseStrip";
+import { t } from "../i18n";
 
 /** Pages that own the whole viewport below the header (no strip, no footer). */
 const FULL_BLEED: ReadonlySet<RouteId> = new Set(["ask"]);
@@ -35,7 +35,7 @@ export function Shell({ kind, routeId, children }: { readonly kind: RouteKind; r
   return (
     <>
       <a href="#main" className="sr-only">
-        Skip to content
+        {t("shell.skipToContent")}
       </a>
       <PulseDriver />
       <Header kind={kind} routeId={routeId} />
@@ -43,12 +43,11 @@ export function Shell({ kind, routeId, children }: { readonly kind: RouteKind; r
       {whistle ? (
         <div className="m-whistlebar" role="status">
           <span className="m-whistlebar__lamp" aria-hidden="true" />
-          <span>{"The Whistle is blown: nothing new starts. Money coming home still moves."}</span>
-          <Link to="/app/fold/fence">{"Release it"}</Link>
+          <span>{t("shell.theWhistleIsBlownNothingNew")}</span>
+          <Link to="/app/fold/fence">{t("shell.releaseIt")}</Link>
         </div>
       ) : null}
       {CHAIN_CHROME.has(routeId) ? <PulseStrip /> : null}
-      {CHAIN_CHROME.has(routeId) ? <BetaRibbon /> : null}
       <main id="main" style={{ minHeight: full ? undefined : "60vh" }}>
         <Suspense fallback={null}>{children}</Suspense>
       </main>

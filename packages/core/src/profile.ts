@@ -8,15 +8,17 @@ import { DEFAULT_FENCE, normalizeFence, timeMinutes, isSupportedTimeZone, USD_PA
 import type { ArcEnvironment } from "./networks.js";
 import { FENCE_PRESETS, type FencePresetId } from "./plain.js";
 import type { RiskTier } from "./routes.js";
+import { isLocale, matchLocale, type Locale } from "./locale.js";
 
 export const PROFILE_SCHEMA = "lykia.profile/v1" as const;
 export const PROFILE_VERSION = 1;
 
 /**
- * Lyko always replies in English and reads any language, so the only value
- * is "en". Older profiles stored "tr" or "auto"; they load as "en".
+ * The interface language: the app's text and Lyko's answers follow it,
+ * whatever language the owner types in. Older profiles stored "auto"; an
+ * unknown value loads as "en".
  */
-export type ProfileLanguage = "en";
+export type ProfileLanguage = Locale;
 export type DisplayCurrency = "USD" | "EUR" | "TRY";
 export type LykoTone = "friendly" | "concise" | "formal" | "playful";
 export type Verbosity = "short" | "normal" | "detailed";
@@ -110,7 +112,7 @@ export function validateProfile(input: unknown): { ok: true; profile: LykiaProfi
   const known = new Set(Object.keys(DEFAULT_PROFILE));
   for (const key of Object.keys(p)) if (!known.has(key)) add(key, "Unknown field.");
   if (p.schema !== PROFILE_SCHEMA) add("schema", `Must be "${PROFILE_SCHEMA}".`);
-  // language: any stored value is accepted and read as "en" (see ProfileLanguage).
+  // language: any stored value is accepted; one Lykia does not speak is read as "en" (see ProfileLanguage).
   if (!["USD", "EUR", "TRY"].includes(p.displayCurrency as string)) add("displayCurrency", "USD, EUR or TRY.");
   if (!["day", "night", "auto"].includes(p.theme as string)) add("theme", "day, night or auto.");
   if (p.defaultNetwork !== "mainnet" && p.defaultNetwork !== "testnet") add("defaultNetwork", "mainnet or testnet.");
@@ -152,7 +154,13 @@ export function validateProfile(input: unknown): { ok: true; profile: LykiaProfi
   if (!isRecord(m) || typeof m.enabled !== "boolean" || typeof m.learnContacts !== "boolean" || !(Number.isInteger(m.retentionDays) && (m.retentionDays as number) >= 1 && (m.retentionDays as number) <= 730)) add("memory", "enabled, learnContacts booleans and retentionDays 1..730.");
   if (!(Number.isInteger(p.version) && (p.version as number) >= 1)) add("version", "A positive integer.");
   if (issues.length > 0) return { ok: false, issues };
-  return { ok: true, profile: { ...(input as unknown as LykiaProfile), language: "en" } };
+  return { ok: true, profile: { ...(input as unknown as LykiaProfile), language: profileLanguage(p.language) } };
+}
+
+/** A stored language value as one Lykia speaks ("pt" is Brazilian Portuguese), else English. */
+export function profileLanguage(value: unknown): ProfileLanguage {
+  if (isLocale(value)) return value;
+  return matchLocale(typeof value === "string" ? value : null) ?? "en";
 }
 
 /** The Fence preset each risk tier is: one control, the same one Your Lyko's risk profile sets. */
@@ -278,7 +286,7 @@ export function toWebProfile(p: LykiaProfile): WebProfile {
 export function fromWebProfile(input: Record<string, unknown>, current: LykiaProfile): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
   const str = (k: string) => (typeof input[k] === "string" ? (input[k] as string) : undefined);
-  // "language" is ignored: replies are always in English.
+  if (str("language")) patch.language = profileLanguage(input.language);
   if (str("currency")) patch.displayCurrency = input.currency;
   if (str("network")) patch.defaultNetwork = input.network;
   if (str("theme")) patch.theme = input.theme;

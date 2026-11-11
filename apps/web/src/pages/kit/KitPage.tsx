@@ -1,3 +1,4 @@
+// i18n-ignore-file: design kit for reviewing states during development; its fixtures stand in for API answers.
 /** The Mosaic kit: every component and scene on one page. */
 import { useState } from "react";
 

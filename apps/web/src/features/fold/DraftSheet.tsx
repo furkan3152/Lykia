@@ -18,8 +18,9 @@ import { RouteArtifact } from "../route/RouteArtifact";
 import { useLykiaWallet } from "../wallet/useLykiaWallet";
 import { useWallet } from "../wallet/store";
 import { applyFencePatch, proposalStage } from "./model";
+import { t as msg } from "../../i18n";
 
-const STAGES = ["Proposed", "Signed", "Done"] as const;
+const STAGES = [msg("fold.draftSheet.proposed"), msg("fold.draftSheet.signed"), msg("fold.draftSheet.done")] as const;
 
 export function ProposalStepper({ p }: { readonly p: Pick<FoldProposal, "status"> }) {
   const stage = proposalStage(p);
@@ -28,7 +29,7 @@ export function ProposalStepper({ p }: { readonly p: Pick<FoldProposal, "status"
       {STAGES.map((s, i) => (
         <li key={s} data-on={i <= stage && p.status !== "stopped"} data-stopped={p.status === "stopped" && i === stage}>
           <i />
-          {p.status === "stopped" && i === stage ? "Stopped" : s}
+          {p.status === "stopped" && i === stage ? msg("fold.draftSheet.stopped") : s}
         </li>
       ))}
     </ol>
@@ -50,13 +51,13 @@ export function DraftSheet({ proposal, onClose, onMove }: { readonly proposal: F
     if (!wallet.connected) return openModal();
     setBusy(true);
     try {
-      if (p.status === "proposed") await onMove(p.id, "approve", "Signing started.");
+      if (p.status === "proposed") await onMove(p.id, "approve", msg("fold.draftSheet.signingStarted"));
       const hashes = await wallet.send((p.transactions ?? []).map((t) => ({ to: t.to, data: t.data, value: t.value, chainId: t.chainId })));
       await onMove(p.id, "done", `Signed: ${hashes.map((h) => `${h.slice(0, 10)}…`).join(", ")}`);
-      toast.success("Signed and sent", { from: "LYKO" });
+      toast.success(msg("fold.draftSheet.signedAndSent"), { from: "LYKO" });
       onClose();
     } catch (e) {
-      toast.error("Not sent", { description: describeError(e), from: "LYKO" });
+      toast.error(msg("fold.draftSheet.notSent"), { description: describeError(e), from: "LYKO" });
     } finally {
       setBusy(false);
     }
@@ -72,11 +73,11 @@ export function DraftSheet({ proposal, onClose, onMove }: { readonly proposal: F
       // The server keeps the Fence; a loosening is signed by the owner's wallet when the server asks for it.
       const saved = await write.save.mutateAsync({ fence: next });
       if (p.status === "proposed") await onMove(p.id, "approve");
-      await onMove(p.id, "done", loosened.length > 0 ? "Loosened with the owner's signature." : "Tightened.");
-      toast.success("Fence updated", { description: saved.hash.slice(0, 22), from: "LYKO" });
+      await onMove(p.id, "done", loosened.length > 0 ? msg("fold.draftSheet.loosenedWithTheOwnerSSignature") : "Tightened.");
+      toast.success(msg("fold.draftSheet.fenceUpdated"), { description: saved.hash.slice(0, 22), from: "LYKO" });
       onClose();
     } catch (e) {
-      toast.error("The Fence did not change", { description: describeError(e), from: "LYKO" });
+      toast.error(msg("fold.draftSheet.theFenceDidNotChange"), { description: describeError(e), from: "LYKO" });
     } finally {
       setBusy(false);
     }
@@ -89,7 +90,7 @@ export function DraftSheet({ proposal, onClose, onMove }: { readonly proposal: F
       <div className="fd-draft">
         <div className="fd-draft__head">
           <ProposalStepper p={p} />
-          {decision ? <Seal decision={decision} /> : <Tag tone="ghost">{p.fencePatch ? "FENCE EDIT" : "DRAFT"}</Tag>}
+          {decision ? <Seal decision={decision} /> : <Tag tone="ghost">{p.fencePatch ? msg("fold.draftSheet.fenceEdit") : "DRAFT"}</Tag>}
         </div>
         {p.steps.length > 0 ? (
           <ol className="fd-draft__steps">
@@ -100,7 +101,7 @@ export function DraftSheet({ proposal, onClose, onMove }: { readonly proposal: F
         ) : null}
         {p.reasons.length > 0 ? (
           <div className={decision === "deny" ? "m-note m-note--bad" : "m-note"}>
-            <b>{decision === "deny" ? "Why the Fence said no:" : "The Fence notes:"}</b>
+            <b>{decision === "deny" ? msg("fold.draftSheet.whyTheFenceSaidNo") : msg("fold.draftSheet.theFenceNotes")}</b>
             <ul>{p.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
           </div>
         ) : null}
@@ -112,31 +113,31 @@ export function DraftSheet({ proposal, onClose, onMove }: { readonly proposal: F
         ) : null}
         {open && p.transactions && p.transactions.length > 0 ? (
           <div className="fd-draft__tx">
-            <p className="m-small">{`${p.transactions.length} transaction${p.transactions.length === 1 ? "" : "s"} to sign in your wallet. Each sets an allowance back to zero.`}</p>
-            <Button onClick={() => void signTransactions()} disabled={busy}>{busy ? "WAITING FOR YOUR WALLET…" : wallet.connected ? "SIGN AND SEND" : "CONNECT TO SIGN"}</Button>
+            <p className="m-small">{msg("fold.draftSheet.transactionsToSignRevoke", { n: p.transactions.length })}</p>
+            <Button onClick={() => void signTransactions()} disabled={busy}>{busy ? msg("fold.draftSheet.waitingForYourWallet") : wallet.connected ? msg("fold.draftSheet.signAndSend") : msg("fold.draftSheet.connectToSign")}</Button>
           </div>
         ) : null}
         {open && p.fencePatch ? (
           <div className="fd-draft__tx">
             {loosens.length > 0 ? (
               <div className="m-note">
-                <b>{"This loosens your Fence. Your wallet signs it first:"}</b>
+                <b>{msg("fold.draftSheet.thisLoosensYourFenceYourWallet")}</b>
                 <ul>{loosens.map((l) => <li key={l}>{l}</li>)}</ul>
               </div>
             ) : (
-              <p className="m-small">{"This only tightens your Fence. It applies at once."}</p>
+              <p className="m-small">{msg("fold.draftSheet.thisOnlyTightensYourFenceIt")}</p>
             )}
-            <Button onClick={() => void applyFence()} disabled={busy}>{loosens.length > 0 ? "SIGN AND APPLY" : "APPLY"}</Button>
+            <Button onClick={() => void applyFence()} disabled={busy}>{loosens.length > 0 ? msg("fold.draftSheet.signAndApply") : "APPLY"}</Button>
           </div>
         ) : null}
-        {open && !p.intentId && !p.transactions && !p.fencePatch ? <p className="m-note">{"Lyko could not plan this one as written. Open it in Ask Lyko to finish the details."}</p> : null}
+        {open && !p.intentId && !p.transactions && !p.fencePatch ? <p className="m-note">{msg("fold.draftSheet.lykoCouldNotPlanThisOne")}</p> : null}
         <div className="fd-draft__foot">
           {open ? (
-            <Button tone="ghost" size="sm" disabled={busy} onClick={() => void onMove(p.id, "stop", "Stopped by the owner.").then(onClose)}>
-              {"STOP THIS DRAFT"}
+            <Button tone="ghost" size="sm" disabled={busy} onClick={() => void onMove(p.id, "stop", msg("fold.draftSheet.stoppedByTheOwner")).then(onClose)}>
+              {msg("fold.draftSheet.stopThisDraft")}
             </Button>
           ) : null}
-          <span className="m-kick">{"LYKO PROPOSES · YOU SIGN"}</span>
+          <span className="m-kick">{msg("fold.draftSheet.lykoProposesYouSign")}</span>
         </div>
       </div>
     </Sheet>

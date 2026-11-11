@@ -50,6 +50,7 @@ import type { Planner, PlanResult } from "./planner.js";
 import type { VenuePrefs, VenueRouter } from "./router.js";
 import { simulateRoute, type RouteSimulation } from "./simulate.js";
 
+import { tx } from "@lykia/core";
 const SEARCH_DEFAULTS = { maxCandidates: 10, horizonDays: 90, concurrency: 3, checks: 3, candidateTimeoutMs: 20_000 } as const;
 /** Gas the Memo / Multicall3From wrapping adds per step. */
 const STEP_OVERHEAD_GAS = 60_000;
@@ -156,8 +157,8 @@ function riskAllowed(risk: RiskTier, ceiling: RiskTier): boolean {
 
 function venueAllowedByFence(fence: Fence, venue: string): string | null {
   const family = venueFamily(venue);
-  if (family.some((v) => fence.venues?.deny?.includes(v))) return `the Fence denies ${venue}`;
-  if (fence.venues?.allow && fence.venues.allow.length > 0 && !family.some((v) => fence.venues!.allow!.includes(v))) return `${venue} is not on the Fence's venue list`;
+  if (family.some((v) => fence.venues?.deny?.includes(v))) return tx("the Fence denies {venue}", { venue });
+  if (fence.venues?.allow && fence.venues.allow.length > 0 && !family.some((v) => fence.venues!.allow!.includes(v))) return tx("{venue} is not on the Fence's venue list", { venue });
   return null;
 }
 
@@ -185,7 +186,7 @@ export function staticPrune(candidate: Candidate, fence: Fence, environment: Arc
   if (allowKinds && allowKinds.length > 0) {
     for (const kind of kindsOf(candidate.actions)) {
       // The planner names USDC<->EURC swaps "fx"; either is acceptable to a Fence that allows one of them.
-      if (!allowKinds.includes(kind) && !((kind === "swap" || kind === "fx") && (allowKinds.includes("swap") || allowKinds.includes("fx")))) return `the Fence does not allow ${kind}`;
+      if (!allowKinds.includes(kind) && !((kind === "swap" || kind === "fx") && (allowKinds.includes("swap") || allowKinds.includes("fx")))) return tx("the Fence does not allow {kind}", { kind });
     }
   }
   for (const action of candidate.actions) {
@@ -193,11 +194,11 @@ export function staticPrune(candidate: Candidate, fence: Fence, environment: Arc
     if (venue) {
       const denied = venueAllowedByFence(fence, venue);
       if (denied) return denied;
-      if (!EXECUTABLE_VENUES[environment].has(venue) && !adapterVenues.has(venue)) return `Lykia cannot execute ${venue} on Arc ${environment}`;
+      if (!EXECUTABLE_VENUES[environment].has(venue) && !adapterVenues.has(venue)) return tx("Lykia cannot execute {venue} on Arc {environment}", { venue, environment });
     }
     const acquired = action.verb === "swap" || action.verb === "fx" ? action.to : null;
     const allowTokens = fence.tokens?.allow;
-    if (acquired && allowTokens && allowTokens.length > 0 && !allowTokens.includes(acquired)) return `the Fence does not let the plan acquire ${acquired}`;
+    if (acquired && allowTokens && allowTokens.length > 0 && !allowTokens.includes(acquired)) return tx("the Fence does not let the plan acquire {acquired}", { acquired });
   }
   return null;
 }
@@ -209,7 +210,7 @@ export class RouteSearch {
   async candidates(input: RouteSearchInput, appetite: RiskTier): Promise<{ list: Candidate[]; pruned: { label: string; reason: string }[] }> {
     const env = input.environment;
     const base = [...input.actions];
-    const list: Candidate[] = [{ label: "As asked", strategy: "as-asked", actions: base }];
+    const list: Candidate[] = [{ label: tx("As asked"), strategy: "as-asked", actions: base }];
     const pruned: { label: string; reason: string }[] = [];
     const earnable = earnableAssets(KNOWLEDGE_ROWS);
     const replace = (index: number, actions: PlanAction[]) => [...base.slice(0, index), ...actions, ...base.slice(index + 1)];
@@ -217,7 +218,7 @@ export class RouteSearch {
     const earnOptions = async (symbol: string) => {
       const options = (await this.deps.router.earn(env, symbol).catch(() => [])).filter((c) => c.option.executable !== false && !(input.preferences?.blocked ?? []).includes(c.option.venue));
       const fitting = options.filter((c) => riskAllowed(c.option.risk, appetite));
-      for (const c of options) if (!riskAllowed(c.option.risk, appetite)) pruned.push({ label: `Earn ${symbol} on ${c.option.label}`, reason: `risk ${c.option.risk} is above your ${appetite} appetite` });
+      for (const c of options) if (!riskAllowed(c.option.risk, appetite)) pruned.push({ label: tx("Earn {symbol} on {label}", { symbol, label: c.option.label }), reason: tx("risk {risk} is above your {appetite} appetite", { risk: c.option.risk, appetite }) });
       const sorted = [...fitting].sort((a, b) => (apyFraction(b.option.apy) ?? -1) - (apyFraction(a.option.apy) ?? -1) || a.option.label.localeCompare(b.option.label));
       bestApy.set(symbol, sorted[0] ? apyFraction(sorted[0].option.apy) : null);
       return sorted;
@@ -228,7 +229,7 @@ export class RouteSearch {
         const own = await earnOptions(action.token);
         for (const c of own.slice(0, 3)) {
           const pin = c.adapter === "vault-deposit" ? `morpho-vaults:${c.params.vault}` : c.option.venue;
-          list.push({ label: `Earn ${action.token} on ${c.option.label}`, strategy: "venue", actions: replace(index, [{ ...action, venue: pin }]) });
+          list.push({ label: tx("Earn {token} on {label}", { token: action.token, label: c.option.label }), strategy: "venue", actions: replace(index, [{ ...action, venue: pin }]) });
         }
         for (const asset of earnable) {
           if (asset === action.token) continue;
@@ -238,24 +239,24 @@ export class RouteSearch {
           const here = bestApy.get(action.token) ?? null;
           const there = other[0] ? apyFraction(other[0].option.apy) : null;
           if (there === null || (here !== null && there <= here)) {
-            pruned.push({ label: `Convert ${action.token} to ${asset} and earn`, reason: there === null ? `no readable ${asset} yield` : `${asset} yields ${(there * 100).toFixed(2)}%, no more than ${action.token}'s ${((here ?? 0) * 100).toFixed(2)}%: converting cannot win` });
+            pruned.push({ label: tx("Convert {token} to {asset} and earn", { token: action.token, asset }), reason: there === null ? tx("no readable {asset} yield", { asset }) : tx("{asset} yields {value}%, no more than {token}'s {value2}%: converting cannot win", { asset, value: (there * 100).toFixed(2), token: action.token, value2: ((here ?? 0) * 100).toFixed(2) }) });
             continue;
           }
           const pin = other[0]!.adapter === "vault-deposit" ? `morpho-vaults:${other[0]!.params.vault}` : other[0]!.option.venue;
           const verb = (action.token === "USDC" && asset === "EURC") || (action.token === "EURC" && asset === "USDC") ? "fx" : "swap";
           const convert: PlanAction = verb === "fx" ? { verb: "fx", from: action.token, to: asset, amount: action.amount } : { verb: "swap", from: action.token, to: asset, amount: action.amount };
-          list.push({ label: `Convert ${action.token} to ${asset}, then earn on ${other[0]!.option.label}`, strategy: "convert-then-earn", actions: replace(index, [convert, { verb: "earn", token: asset, amount: { previous: true }, venue: pin, ...(action.maxRisk ? { maxRisk: action.maxRisk } : {}) }]) });
+          list.push({ label: tx("Convert {token} to {asset}, then earn on {label}", { token: action.token, asset, label: other[0]!.option.label }), strategy: "convert-then-earn", actions: replace(index, [convert, { verb: "earn", token: asset, amount: { previous: true }, venue: pin, ...(action.maxRisk ? { maxRisk: action.maxRisk } : {}) }]) });
         }
       }
       if (action.verb === "borrow" && !action.venue) {
-        for (const venue of ["aave-v4", "morpho-blue"]) list.push({ label: `Borrow ${action.token} on ${venueKnowledge(venue)?.venue === "aave-v4" ? "Aave V4" : "Morpho Blue"}`, strategy: "borrow-venue", actions: replace(index, [{ ...action, venue }]) });
+        for (const venue of ["aave-v4", "morpho-blue"]) list.push({ label: tx("Borrow {token} on {value}", { token: action.token, value: venueKnowledge(venue)?.venue === "aave-v4" ? "Aave V4" : tx("Morpho Blue") }), strategy: "borrow-venue", actions: replace(index, [{ ...action, venue }]) });
       }
       if ((action.verb === "swap" || action.verb === "fx") && !("venue" in action && action.venue)) {
         for (const route of tokenRoutes(KNOWLEDGE_ROWS, action.from, action.to, 2).filter((r) => r.length === 3)) {
           const via = route[1]!;
           const hop = (from: string, to: string, amount: ActionAmount): PlanAction =>
             (from === "USDC" && to === "EURC") || (from === "EURC" && to === "USDC") ? { verb: "fx", from, to, amount } : { verb: "swap", from, to, amount };
-          list.push({ label: `${action.from} → ${via} → ${action.to} as two swaps`, strategy: "multi-hop", actions: replace(index, [hop(action.from, via, action.amount), hop(via, action.to, { previous: true })]) });
+          list.push({ label: tx("{from} → {via} → {to} as two swaps", { from: action.from, via, to: action.to }), strategy: "multi-hop", actions: replace(index, [hop(action.from, via, action.amount), hop(via, action.to, { previous: true })]) });
         }
       }
     }
@@ -282,7 +283,7 @@ export class RouteSearch {
       const reason = staticPrune(c, fence, env, adapterVenues);
       if (reason) pruned.push({ label: c.label, reason });
       else if (queue.length < max) queue.push(c);
-      else pruned.push({ label: c.label, reason: `search bound: only ${max} candidates are planned` });
+      else pruned.push({ label: c.label, reason: tx("search bound: only {max} candidates are planned", { max }) });
     }
 
     const gasPrice = await this.gasPrice(env);
@@ -302,7 +303,7 @@ export class RouteSearch {
     for (const e of evaluated) {
       const key = e.result.graph.steps.map((st) => `${st.venue}|${st.summary}`).join("||");
       if (planKeys.has(key)) {
-        pruned.push({ label: e.candidate.label, reason: "plans to the same steps as an earlier candidate" });
+        pruned.push({ label: e.candidate.label, reason: tx("plans to the same steps as an earlier candidate") });
         continue;
       }
       planKeys.add(key);
@@ -318,7 +319,7 @@ export class RouteSearch {
         checks += 1;
         const simulation = await this.selfCheck(e, input);
         if (!simulation.ok) {
-          failedChecks.push({ label: e.candidate.label, reason: simulation.reason ?? "the simulation failed" });
+          failedChecks.push({ label: e.candidate.label, reason: simulation.reason ?? tx("the simulation failed") });
           alternatives.push(this.describe(e, ranked, horizonDays, appetite, simulation));
           continue;
         }
@@ -333,7 +334,7 @@ export class RouteSearch {
     }
     return {
       environment: env,
-      objective: `Maximise net USD over ${horizonDays} days: yield − borrow cost − Lykia fee − gas − slippage − risk penalty (${appetite} appetite) − async delay; ties go to fewer steps, then fewer signatures.`,
+      objective: tx("Maximise net USD over {horizonDays} days: yield − borrow cost − Lykia fee − gas − slippage − risk penalty ({appetite} appetite) − async delay; ties go to fewer steps, then fewer signatures.", { horizonDays, appetite }),
       best,
       alternatives: alternatives.slice(0, 6),
       considered: list.length,
@@ -378,10 +379,10 @@ export class RouteSearch {
         SEARCH_DEFAULTS.candidateTimeoutMs,
       );
     } catch (error) {
-      return { reason: error instanceof LykiaHttpError ? error.message : error instanceof Error ? error.message : "planning failed" };
+      return { reason: error instanceof LykiaHttpError ? error.message : error instanceof Error ? error.message : tx("planning failed") };
     }
     const verdict = result.graph.verdict;
-    if (verdict.decision === "deny") return { reason: `the Fence denies it: ${verdict.reasons.filter((r) => r.decision === "deny").map((r) => r.message).join("; ")}` };
+    if (verdict.decision === "deny") return { reason: tx("the Fence denies it: {value}", { value: verdict.reasons.filter((r) => r.decision === "deny").map((r) => r.message).join("; ") }) };
     const score = scoreGraph(result, { horizonDays, appetite, gasPrice });
     return { candidate, result, score, totalMicros: score.totalUsd === null ? null : usdMicros(score.totalUsd) };
   }
@@ -399,18 +400,18 @@ export class RouteSearch {
     const s = e.score;
     const runnerUp = ranked.find((r) => r !== e);
     const lines: string[] = [];
-    if (s.totalUsd === null) lines.push("Part of this route is unpriced, so its value could not be scored; it ranks after priced routes.");
-    else lines.push(`Net ${s.totalUsd} USD over ${horizonDays} days: yield ${s.yieldUsd}, borrow cost ${s.borrowCostUsd}, fee ${s.feeUsd}, gas ${s.gasUsd}, slippage ${s.slippageUsd}, risk penalty ${s.riskUsd} (${appetite} appetite).`);
+    if (s.totalUsd === null) lines.push(tx("Part of this route is unpriced, so its value could not be scored; it ranks after priced routes."));
+    else lines.push(tx("Net {totalUsd} USD over {horizonDays} days: yield {yieldUsd}, borrow cost {borrowCostUsd}, fee {feeUsd}, gas {gasUsd}, slippage {slippageUsd}, risk penalty {riskUsd} ({appetite} appetite).", { totalUsd: s.totalUsd, horizonDays, yieldUsd: s.yieldUsd, borrowCostUsd: s.borrowCostUsd, feeUsd: s.feeUsd, gasUsd: s.gasUsd, slippageUsd: s.slippageUsd, riskUsd: s.riskUsd, appetite }));
     const yieldM = usdMicros(s.yieldUsd);
     const oneOff = usdMicros(s.feeUsd) + usdMicros(s.gasUsd) + usdMicros(s.slippageUsd);
     const carry = yieldM - usdMicros(s.borrowCostUsd) - usdMicros(s.riskUsd);
-    if (carry > 0n && oneOff > 0n) lines.push(`One-off costs (${fmt(oneOff)} USD) are earned back in about ${Math.ceil((Number(oneOff) / Number(carry)) * horizonDays)} days at today's rates.`);
-    if (usdMicros(s.borrowCostUsd) > 0n && carry <= 0n) lines.push("The borrow costs more than the position earns at today's rates (negative carry).");
-    if (runnerUp && e.totalMicros !== null && runnerUp.totalMicros !== null && e.totalMicros >= runnerUp.totalMicros) lines.push(`Beats “${plannedLabel(runnerUp)}” by ${fmt(e.totalMicros - runnerUp.totalMicros)} USD.`);
+    if (carry > 0n && oneOff > 0n) lines.push(tx("One-off costs ({oneOff} USD) are earned back in about {value} days at today's rates.", { oneOff: fmt(oneOff), value: Math.ceil((Number(oneOff) / Number(carry)) * horizonDays) }));
+    if (usdMicros(s.borrowCostUsd) > 0n && carry <= 0n) lines.push(tx("The borrow costs more than the position earns at today's rates (negative carry)."));
+    if (runnerUp && e.totalMicros !== null && runnerUp.totalMicros !== null && e.totalMicros >= runnerUp.totalMicros) lines.push(tx("Beats “{runnerUp}” by {value} USD.", { runnerUp: plannedLabel(runnerUp), value: fmt(e.totalMicros - runnerUp.totalMicros) }));
     const reasons = graph.steps.map((st) => st.route?.reason).filter((r): r is string => typeof r === "string");
     lines.push(...reasons);
     const couldFail = [...new Set(graph.steps.flatMap((st) => failuresFor(e.result.plans[st.id]?.adapter)))];
-    const fenceLines = [`Fence: ${graph.verdict.decision}${graph.verdict.signable ? "" : " (not signable)"}.`, ...graph.verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message)];
+    const fenceLines = [`Fence: ${graph.verdict.decision}${graph.verdict.signable ? "" : tx(" (not signable)")}.`, ...graph.verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message)];
     return {
       id: graph.id,
       label: plannedLabel(e),
@@ -442,7 +443,7 @@ export function compareEvaluated(a: Pick<Evaluated, "totalMicros" | "score" | "c
 function plannedLabel(e: Evaluated): string {
   if (e.candidate.strategy !== "as-asked") return e.candidate.label;
   const venues = [...new Set(e.result.graph.steps.filter((st) => st.kind !== "approve").map((st) => st.route?.chosen.label ?? st.venue))];
-  return venues.length > 0 ? `As asked: ${venues.join(" then ")}` : "As asked";
+  return venues.length > 0 ? tx("As asked: {value}", { value: venues.join(" then ") }) : tx("As asked");
 }
 
 /** The route's inputs that no earlier step produces: what the wallet must hold. */
@@ -559,6 +560,6 @@ export function knowledgePaths(from: string, to: string, maxHops = 3): { venues:
   return assetPaths(KNOWLEDGE_ROWS, from, to, { verbs: ["swap", "fx", "deposit", "supply", "borrow", "withdraw", "bridge", "gateway-deposit", "transfer"], maxHops, executableOnly: true, limit: 20 }).map((p) => ({
     venues: p.hops.map((h) => `${h.venue} (${h.verb})`),
     tokens: [from, ...p.hops.map((h) => h.to)],
-    settlement: p.hops.some((h) => h.settlement === "async") ? `async, ~${p.delaySeconds}s` : "instant",
+    settlement: p.hops.some((h) => h.settlement === "async") ? tx("async, ~{delaySeconds}s", { delaySeconds: p.delaySeconds }) : "instant",
   }));
 }

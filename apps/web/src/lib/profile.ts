@@ -8,6 +8,7 @@ import { create } from "zustand";
 
 import { readStorage, writeStorage } from "../app/state/storage";
 import { DEFAULT_LOOK, type LykoLook } from "../mosaic/sprites";
+import { currentLocale, type Locale } from "../i18n";
 
 /** Day unless the owner picks night. ("auto" from older profiles loads as day: night never follows the system on its own.) */
 export type Theme = "day" | "night";
@@ -21,8 +22,8 @@ export const WIDGETS = ["flock", "insights", "outruns", "pack", "pulse", "standi
 export type Widget = (typeof WIDGETS)[number];
 
 export interface Profile {
-  /** Always "en": Lyko replies in English and reads any language. Older stored values load as "en". */
-  readonly language: "en";
+  /** The interface language: the app and Lyko's answers follow it (kept in step with the language picker). */
+  readonly language: Locale;
   readonly currency: Currency;
   readonly network: "mainnet" | "testnet";
   readonly theme: Theme;
@@ -42,7 +43,7 @@ export interface Profile {
 }
 
 export const DEFAULT_PROFILE: Profile = {
-  language: "en",
+  language: currentLocale(),
   currency: "USD",
   network: "mainnet",
   theme: "day",
@@ -69,7 +70,7 @@ export function sanitizeProfile(raw: unknown): Profile {
   const pick = <T>(value: unknown, allowed: readonly T[], fallback: T): T => (allowed.includes(value as T) ? (value as T) : fallback);
   const widgets = Array.isArray(v.widgets) ? v.widgets.filter((w): w is Widget => (WIDGETS as readonly string[]).includes(w as string)) : [];
   return {
-    language: "en",
+    language: currentLocale(),
     currency: pick(v.currency, ["USD", "EUR", "TRY"], DEFAULT_PROFILE.currency),
     network: pick(v.network, ["mainnet", "testnet"], DEFAULT_PROFILE.network),
     theme: pick(v.theme, ["day", "night"], DEFAULT_PROFILE.theme),

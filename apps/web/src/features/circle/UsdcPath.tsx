@@ -8,6 +8,7 @@ import { Link } from "../../app/routes/Link";
 import { PixelArt } from "../../mosaic/PixelArt";
 import { MARK_ART, STEP_ART } from "../../mosaic/pixelArtData";
 import { BESIDE_ROUTER, PROVIDER_LABEL, USDC_PATH, type BesidePlace, type Provider } from "./usdcPath";
+import { t } from "../../i18n";
 
 const REPO = "https://github.com/furkan3152/Lykia";
 
@@ -45,9 +46,9 @@ const ICON: Readonly<Record<string, { readonly art: readonly string[]; readonly 
 };
 
 const PLACES: readonly { readonly id: BesidePlace; readonly title: string; readonly line: string }[] = [
-  { id: "route", title: "IN THE ROUTE", line: "Inside a Lykia step" },
-  { id: "beside", title: "BESIDE IT", line: "Wallets, policy and identity around the step" },
-  { id: "not-route", title: "NOT ROUTES", line: "A reference quote or a payment rail; never a path your money takes" },
+  { id: "route", title: t("circle.usdcPath.inTheRoute"), line: t("circle.usdcPath.insideALykiaStep") },
+  { id: "beside", title: t("circle.usdcPath.besideIt"), line: t("circle.usdcPath.walletsPolicyAndIdentityAroundThe") },
+  { id: "not-route", title: t("circle.usdcPath.notRoutes"), line: t("circle.usdcPath.aReferenceQuoteOrAPayment") },
 ];
 
 export function UsdcCoin({ size = 28 }: { readonly size?: number }) {
@@ -58,39 +59,39 @@ export function UsdcPath() {
   return (
     <section id="usdc-circle" className="m-wrap usdc m-floor" style={{ scrollMarginTop: 80 }} aria-labelledby="usdc-title">
       <div className="m-center">
-        <span className="m-kick">{"WHERE USDC AND CIRCLE SIT IN LYKIA"}</span>
-        <h2 id="usdc-title" className="m-h2" style={{ marginTop: 8 }}>{"Follow one USDC through a Lykia step"}</h2>
-        <p className="m-sub" style={{ marginTop: 8 }}>{"USDC is what Lykia moves, what it measures in and what it pays gas with. Circle's rails carry it; Lykia adds the route and the rules."}</p>
+        <span className="m-kick">{t("circle.usdcPath.whereUsdcAndCircleSitIn")}</span>
+        <h2 id="usdc-title" className="m-h2" style={{ marginTop: 8 }}>{t("circle.usdcPath.followOneUsdcThroughALykia")}</h2>
+        <p className="m-sub" style={{ marginTop: 8 }}>{t("circle.usdcPath.usdcIsWhatLykiaMovesWhat")}</p>
       </div>
 
-      <p className="usdc-legend" aria-label="Tag colours">
+      <p className="usdc-legend" aria-label={t("circle.usdcPath.tagColours")}>
         {(["circle", "arc", "lykia"] as const).map((by) => (
           <span key={by} className="usdc-legend__item"><span className={`usdc-swatch usdc-swatch--${by}`} aria-hidden="true" />{PROVIDER_LABEL[by]}</span>
         ))}
       </p>
 
-      <ol className="usdc-path" aria-label="One USDC through a Lykia step">
+      <ol className="usdc-path" aria-label={t("circle.usdcPath.oneUsdcThroughALykiaStep")}>
         {USDC_PATH.map((stop, i) => (
           <li key={stop.id} className={stop.optional ? "usdc-stop usdc-stop--optional" : "usdc-stop"}>
             <div className="usdc-stop__head">
               <span className="usdc-stop__n" aria-hidden="true">{i === 0 ? <UsdcCoin size={28} /> : i + 1}</span>
               <b className="usdc-stop__title">
-                {stop.optional ? <span className="usdc-stop__opt">{"Optional: "}</span> : null}
+                {stop.optional ? <span className="usdc-stop__opt">{t("circle.usdcPath.optional")}</span> : null}
                 {stop.title}
               </b>
             </div>
             <p className="m-small m-muted">{stop.line}</p>
-            <ul className="usdc-stop__tags" aria-label="Uses">
+            <ul className="usdc-stop__tags" aria-label={t("circle.usdcPath.uses")}>
               {stop.primitives.map((p) => <li key={p.name}><PrimitiveTag name={p.name} by={p.by} /></li>)}
             </ul>
           </li>
         ))}
       </ol>
-      <p className="m-small m-muted m-center usdc-note">{"Shown from a wallet. Lykia's smart account runs the same calls after its own on-chain Fence check. Lykia's 1% fee is a transfer inside the same transaction, in the token the step spends."}</p>
+      <p className="m-small m-muted m-center usdc-note">{t("circle.usdcPath.shownFromAWalletLykiaS")}</p>
 
       <div className="usdc-beside">
-        <h3 className="m-kick m-center">{"ALSO FROM CIRCLE AND ARC, BESIDE THE ROUTER"}</h3>
-        <div className="usdc-map" aria-label="Circle and Arc integrations, by where they sit">
+        <h3 className="m-kick m-center">{t("circle.usdcPath.alsoFromCircleAndArcBeside")}</h3>
+        <div className="usdc-map" aria-label={t("circle.usdcPath.circleAndArcIntegrationsByWhere")}>
           {PLACES.map((place) => (
             <section key={place.id} className={`usdc-map__zone usdc-map__zone--${place.id}`} aria-label={`${place.title}: ${place.line}`}>
               <header className="usdc-map__head">
@@ -116,8 +117,8 @@ export function UsdcPath() {
         </div>
       </div>
       <div className="lp-cta" style={{ marginTop: 16 }}>
-        <Link to="/app/circle" className="m-btn m-btn--sm m-btn--navy">{"LIVE STATUS OF EACH CIRCLE PRODUCT"}</Link>
-        <a href={`${REPO}/blob/main/docs/circle/README.md`} className="m-btn m-btn--sm m-btn--ghost" target="_blank" rel="noreferrer">{"WHERE EACH ONE LIVES IN THE CODE"}</a>
+        <Link to="/app/circle" className="m-btn m-btn--sm m-btn--navy">{t("circle.usdcPath.liveStatusOfEachCircleProduct")}</Link>
+        <a href={`${REPO}/blob/main/docs/circle/README.md`} className="m-btn m-btn--sm m-btn--ghost" target="_blank" rel="noreferrer">{t("circle.usdcPath.whereEachOneLivesInThe")}</a>
       </div>
     </section>
   );

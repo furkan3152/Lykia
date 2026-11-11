@@ -22,6 +22,8 @@
  * key with the agents scope (a developer acting for its users). Nothing
  * here signs or moves funds.
  */
+import { LOCALES } from "@lykia/core";
+import { englishOf, localizeOut, nextLabel } from "../i18n/index.js";
 import { ownerFence } from "../personal/fence.js";
 import { DEFAULT_FENCE, evaluateFence, PACK_ROLES, type Address, type ArcEnvironment, type FenceFacts, type PackAgent, type PackRole } from "@lykia/core";
 import type { Request, Response } from "express";
@@ -52,6 +54,7 @@ import { factsSchema } from "./fence.js";
 import { leashService } from "../leash/service.js";
 import { blowWhistle } from "../whistle/service.js";
 
+import { tx } from "@lykia/core";
 const ownerQuery = z.object({ owner: evmAddress, environment: environmentSchema.optional() });
 const idParams = z.object({ id: z.string().min(8).max(120) });
 const roleSchema = z.enum(PACK_ROLES as unknown as [PackRole, ...PackRole[]]);
@@ -80,6 +83,7 @@ export const agentModule: ApiModule = {
           fence: z.unknown().optional(),
           origin: z.enum(["ask", "fold"]).optional(),
           context: z.string().max(1_000).optional(),
+          locale: z.enum(LOCALES).optional(),
         }),
       );
       const message = body.message ?? body.messages?.[body.messages.length - 1]?.content;
@@ -112,6 +116,10 @@ export const agentModule: ApiModule = {
       const now = new Date(ctx.clock.now()).toISOString();
       const stored: readonly ThreadMessage[] = fixtureTurn ? [] : thread.messages.length > 0 ? thread.messages : (body.messages ?? []).slice(0, -1).map((m) => ({ role: m.role, text: m.content, at: now }));
       const client = (await flags(ctx))["agents.llm"] ? s().llm() : null;
+      // A chip tapped in the owner's language is read as the sentence behind it.
+      const lastAsked = [...stored].reverse().find((m) => m.role === "assistant");
+      const tapped = lastAsked?.shown?.indexOf(message.trim()) ?? -1;
+      const asked = tapped >= 0 && lastAsked?.options?.[tapped] ? lastAsked.options[tapped]! : message;
 
       // SSE unless the client asks for JSON, or uses the original `messages` contract without asking for a stream.
       const accept = req.get("accept") ?? "";
@@ -119,7 +127,10 @@ export const agentModule: ApiModule = {
       const events: { event: string; data: unknown }[] = [];
       const blocks: unknown[] = [];
       const stream = wantsJson ? null : openSse(req, res, { slots: ctx.limits.streams });
-      const emit: Emit = (event, data) => {
+      const emit: Emit = (event, raw) => {
+        // Known phrases (card labels, status words, constants) leave in the request's language.
+        const labelled = event === "text" && raw && typeof (raw as { text?: unknown }).text === "string" ? { ...(raw as Record<string, unknown>), text: nextLabel((raw as { text: string }).text) } : raw;
+        const data = localizeOut(labelled);
         events.push({ event, data });
         if (event === "block") blocks.push(data);
         stream?.send(event, data);
@@ -134,22 +145,24 @@ export const agentModule: ApiModule = {
       let options: readonly string[] = [];
       try {
         const appContext = project ? projectPromptBlock(project) : "";
-        const result = await chatTurn({ ctx, client, environment, owner, proof, fence, pack, thread: stored, message, origin: watching ? "fold" : "ask", emit, threadId: thread.id, personal: proven !== null, ...(body.context ? { context: body.context } : {}), ...(appContext ? { appContext } : {}) });
-        text = result.text;
+        const result = await chatTurn({ ctx, client, environment, owner, proof, fence, pack, thread: stored, message: asked, origin: watching ? "fold" : "ask", emit, threadId: thread.id, personal: proven !== null, ...(body.context ? { context: body.context } : {}), ...(appContext ? { appContext } : {}) });
+        // The "**Next:**" label is written once in code and shown in the request's language.
+        text = nextLabel(result.text);
         proposals = result.proposals;
         stopReason = result.stopReason;
         meant = result.meant;
         options = result.options;
       } catch (error) {
         stopReason = "error";
-        const failure = error instanceof LykiaHttpError ? { code: error.code, message: error.message } : { code: "AGENT_FAILED", message: "Lyko could not finish this turn. Try again shortly." };
+        const failure = error instanceof LykiaHttpError ? { code: error.code, message: error.message } : { code: "AGENT_FAILED", message: tx("Lyko could not finish this turn. Try again shortly.") };
         ctx.log.warn("agent turn failed", { code: failure.code, error: error instanceof Error ? error.message.slice(0, 200) : String(error) });
         emit("error", failure);
       }
       if (!fixtureTurn) {
         await appendMessages(ctx, thread, [
           { role: "user", text: message, origin: body.origin ?? "ask", meant },
-          { role: "assistant", text: text || "(no answer)", proposals: proposals as never, blocks: blocks as never, origin: body.origin ?? "ask", options },
+          // The chips are kept as the English sentences the reader understands, and as the owner saw them.
+          { role: "assistant", text: text || tx("(no answer)"), proposals: proposals as never, blocks: blocks as never, origin: body.origin ?? "ask", options: options.map(englishOf), shown: options, english: englishOf(text) },
         ]).catch(() => undefined);
       }
       emit("done", { threadId: thread.id, stopReason });
@@ -176,7 +189,7 @@ export const agentModule: ApiModule = {
     router.post("/agent/threads", async (req, res) => {
       const body = parseBody(req, z.object({ owner: evmAddress, environment: environmentSchema.optional(), title: z.string().min(1).max(80).optional() }));
       await authorizeOwner(ctx, req, body.owner);
-      res.status(201).json(await openThread(ctx, body.owner as Address, environmentOf(ctx, body.environment), undefined, body.title ?? "New thread"));
+      res.status(201).json(await openThread(ctx, body.owner as Address, environmentOf(ctx, body.environment), undefined, body.title ?? tx("New thread")));
     });
 
     router.get("/agent/insights", ctx.limits.heavy, async (req, res) => {
@@ -285,9 +298,9 @@ export const agentModule: ApiModule = {
       }
       // One Whistle: the same server-side stop as POST /v1/whistle (automations, standing orders, agent automations,
       // Pack agents, leashes and Autopilot), plus blowWhistle() for the account named here or the owner's LykiaAccount.
-      const whistle = await blowWhistle(ctx, body.owner as Address, environment, body.reason ?? (by ? `blown by ${by.name}` : undefined));
+      const whistle = await blowWhistle(ctx, body.owner as Address, environment, body.reason ?? (by ? tx("blown by {name}", { name: by.name }) : undefined));
       const transaction = body.account
-        ? { chainId: environment === "mainnet" ? 5042 : 5042002, from: (by?.signer ?? body.owner) as Address, to: body.account as Address, data: encodeFunctionData({ abi: BLOW_WHISTLE_ABI, functionName: "blowWhistle" }) as Hex, value: "0", label: "Blow the whistle on the LykiaAccount" }
+        ? { chainId: environment === "mainnet" ? 5042 : 5042002, from: (by?.signer ?? body.owner) as Address, to: body.account as Address, data: encodeFunctionData({ abi: BLOW_WHISTLE_ABI, functionName: "blowWhistle" }) as Hex, value: "0", label: tx("Blow the whistle on the LykiaAccount") }
         : whistle.transaction;
       const autopilot = whistle.items.find((i) => i.kind === "autopilot" && i.environment === environment && i.state === "paused");
       res.json({ transaction, whistle, autopilot: autopilot ? { stopped: true, paused: true } : null, note: whistle.note });
@@ -338,7 +351,7 @@ export const agentModule: ApiModule = {
       const revoked = await s().pack.revoke(id, agent.owner);
       // A leash on any of these agents ends with it: its key stops at once.
       await leashService(ctx).revokeForAgents(agent.owner, revoked.map((a) => a.id));
-      res.json({ revoked: revoked.map((a) => a.id), note: revoked.some((a) => a.session) ? "Agents with on-chain sessions: also send revokeSession on the LykiaAccount (a parent's revocation already invalidates its sub-sessions there)." : null });
+      res.json({ revoked: revoked.map((a) => a.id), note: revoked.some((a) => a.session) ? tx("Agents with on-chain sessions: also send revokeSession on the LykiaAccount (a parent's revocation already invalidates its sub-sessions there).") : null });
     });
 
     for (const action of ["pause", "resume"] as const) {

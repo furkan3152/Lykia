@@ -37,8 +37,9 @@ import {
   type Weekday,
 } from "@lykia/core";
 import type { ClarifyChoice, ParseResponse } from "@lykia/core/api/language";
-import { turkishToEnglish } from "./turkish.js";
+import { readerEnglish } from "./vocabulary.js";
 
+import { tx } from "@lykia/core";
 /** Word boundaries that work with any Unicode letter. */
 const L = "[\\p{L}\\p{N}_]";
 function w(body: string, flags = "iu"): RegExp {
@@ -150,13 +151,13 @@ function amountText(clause: string): string {
 /** The amount in a clause: exact decimal, a share, or everything; or a problem to ask about. */
 export function readAmount(clause: string): { amount: ActionAmount | null; problem: string | null } {
   const text = amountText(clause);
-  if (w("\\d+,\\d+", "u").test(text) && !w("\\d{1,3}(?:,\\d{3})+", "u").test(text)) return { amount: null, problem: `“${/\d+,\d+/u.exec(text)?.[0]}” is ambiguous: write decimals with a dot (1.5).` };
-  if (w("\\d{1,3}(?:,\\d{3})+", "u").test(text)) return { amount: null, problem: "Write amounts without thousands separators (1500, not 1,500)." };
+  if (w("\\d+,\\d+", "u").test(text) && !w("\\d{1,3}(?:,\\d{3})+", "u").test(text)) return { amount: null, problem: tx("“{value}” is ambiguous: write decimals with a dot (1.5).", { value: /\d+,\d+/u.exec(text)?.[0] }) };
+  if (w("\\d{1,3}(?:,\\d{3})+", "u").test(text)) return { amount: null, problem: tx("Write amounts without thousands separators (1500, not 1,500).") };
   const percent = /(?:%\s*(\d{1,3})|(\d{1,3})\s*%|(\d{1,3})\s*percent)/iu.exec(text);
   if (percent) {
     const value = Number(percent[1] ?? percent[2] ?? percent[3]);
     if (value >= 1 && value <= 100) return { amount: value === 100 ? { all: true } : { percent: value }, problem: null };
-    return { amount: null, problem: "A share must be between 1% and 100%." };
+    return { amount: null, problem: tx("A share must be between 1% and 100%.") };
   }
   if (w("half").test(text)) return { amount: { percent: 50 }, problem: null };
   if (w("quarter").test(text)) return { amount: { percent: 25 }, problem: null };
@@ -171,7 +172,7 @@ export function readAmount(clause: string): { amount: ActionAmount | null; probl
       const zeros = unit === "k" ? 3 : 6;
       value = (BigInt(whole) * 10n ** BigInt(zeros) + BigInt(frac.padEnd(zeros, "0").slice(0, zeros) || "0")).toString();
     }
-    if (/^0(?:\.0+)?$/u.test(value)) return { amount: null, problem: "The amount must be more than zero." };
+    if (/^0(?:\.0+)?$/u.test(value)) return { amount: null, problem: tx("The amount must be more than zero.") };
     return { amount: { exact: value }, problem: null };
   }
   return { amount: null, problem: null };
@@ -234,7 +235,7 @@ function reasonIn(clause: string): string | undefined {
   if (w("payroll|salar(?:y|ies)|wages").test(clause)) return "payroll";
   if (w("rent").test(clause)) return "rent";
   if (w("taxes|tax").test(clause)) return "taxes";
-  if (w("emergency").test(clause)) return "emergency fund";
+  if (w("emergency").test(clause)) return tx("emergency fund");
   return undefined;
 }
 
@@ -288,12 +289,12 @@ function readClause(clause: string, previous: PlanAction | undefined): { action:
   if (verb === "rebalance") {
     const targets = targetsIn(clause);
     if (!targets) {
-      ask("Rebalance into what? Give target weights, e.g. 60% USDC 40% EURC.", ["60% USDC 40% EURC", "50% USDC 50% EURC", "80% USDC 20% EURC"]);
+      ask(tx("Rebalance into what? Give target weights, e.g. 60% USDC 40% EURC."), ["60% USDC 40% EURC", "50% USDC 50% EURC", "80% USDC 20% EURC"]);
       return { action: null, clarify, choices };
     }
     const sum = targets.reduce((s, t) => s + t.weightBps, 0);
     if (sum !== 10_000) {
-      ask(`Target weights add up to ${sum / 100}%; they must add up to 100%.`);
+      ask(tx("Target weights add up to {value}%; they must add up to 100%.", { value: sum / 100 }));
       return { action: null, clarify, choices };
     }
     return { action: { verb: "rebalance", targets }, clarify, choices };
@@ -309,7 +310,7 @@ function readClause(clause: string, previous: PlanAction | undefined): { action:
   // "it", "them", "the proceeds" after a step that produced something: exactly that output.
   const pronoun = previous !== undefined && produced !== undefined && w("it|them|that|those|the proceeds|the loan|the money").test(clause);
   const finalAmount: ActionAmount | null = amount ?? (pronoun && !restClause ? { previous: true } : previous && w("rest").test(clause) ? { all: true } : null);
-  if (!finalAmount && verb !== "unify" && !problem) ask("How much?", ["25%", "50%", "all"]);
+  if (!finalAmount && verb !== "unify" && !problem) ask(tx("How much?"), ["25%", "50%", tx("all")]);
   const venue = venueIn(clause, verb);
 
   switch (verb) {
@@ -321,7 +322,7 @@ function readClause(clause: string, previous: PlanAction | undefined): { action:
     }
     case "send": {
       const token = tokens[0] ?? inherited ?? "USDC";
-      if (!address) ask("Send to which address (0x…)?");
+      if (!address) ask(tx("Send to which address (0x…)?"));
       if (clarify.length > 0 || !finalAmount || !address) return { action: null, clarify, choices };
       const memo = memoIn(clause);
       return { action: { verb: "send", token, amount: finalAmount, to: address, ...(memo ? { memo } : {}) }, clarify, choices };
@@ -352,8 +353,8 @@ function readClause(clause: string, previous: PlanAction | undefined): { action:
       }
       from = from ?? inherited;
       if (verb === "fx" && from && !to) to = from === "EURC" ? "USDC" : "EURC";
-      if (!from || !to) ask("Swap which token into which?", ["USDC to EURC", "EURC to USDC", "USDC to cirBTC"]);
-      if (from && to && from === to) ask("Pick two different tokens.");
+      if (!from || !to) ask(tx("Swap which token into which?"), [tx("USDC to EURC"), tx("EURC to USDC"), tx("USDC to cirBTC")]);
+      if (from && to && from === to) ask(tx("Pick two different tokens."));
       if (clarify.length > 0 || !finalAmount || !from || !to) return { action: null, clarify, choices };
       const isFx = (from === "USDC" && to === "EURC") || (from === "EURC" && to === "USDC");
       const slippage = /(\d+(?:\.\d+)?)\s*%\s*slippage/iu.exec(clause);
@@ -373,15 +374,15 @@ function readClause(clause: string, previous: PlanAction | undefined): { action:
       const collateral = collateralIn(clause, tokens.find((t) => t === "USDC" || t === "EURC"));
       const loan = tokens.find((t) => t !== collateral?.token && (t === "USDC" || t === "EURC")) ?? "USDC";
       const minHealth = minHealthIn(clause);
-      if (finalAmount && !("exact" in finalAmount)) ask("Borrow how much, exactly (e.g. 1000 USDC)?", ["500 USDC", "1000 USDC", "5000 USDC"]);
-      if (minHealth !== undefined && Number(minHealth) < 1) ask("A health factor floor must be at least 1.0.");
+      if (finalAmount && !("exact" in finalAmount)) ask(tx("Borrow how much, exactly (e.g. 1000 USDC)?"), ["500 USDC", "1000 USDC", "5000 USDC"]);
+      if (minHealth !== undefined && Number(minHealth) < 1) ask(tx("A health factor floor must be at least 1.0."));
       if (clarify.length > 0 || !finalAmount || !("exact" in finalAmount)) return { action: null, clarify, choices };
       return { action: { verb: "borrow", token: loan, amount: finalAmount, collateral: collateral ?? { token: "cirBTC" }, ...(minHealth ? { minHealth } : {}), ...(venue ? { venue } : {}) }, clarify, choices };
     }
     case "bridge": {
       const token = tokens[0] ?? (inherited === "USDC" || inherited === undefined || restClause ? "USDC" : inherited);
-      if (token !== "USDC") ask("CCTP moves USDC only.");
-      if (!destination) ask("Bridge to which chain?", CCTP_DESTINATIONS.filter((d) => d.vm === "evm").slice(0, 6).map((d) => `to ${d.name}`));
+      if (token !== "USDC") ask(tx("CCTP moves USDC only."));
+      if (!destination) ask(tx("Bridge to which chain?"), CCTP_DESTINATIONS.filter((d) => d.vm === "evm").slice(0, 6).map((d) => `to ${d.name}`));
       if (clarify.length > 0 || !finalAmount || !destination) return { action: null, clarify, choices };
       return { action: { verb: "bridge", token: "USDC", amount: finalAmount, destination, ...(address ? { recipient: address } : {}) }, clarify, choices };
     }
@@ -472,10 +473,10 @@ function englishThousands(text: string): string {
 
 export function readSentence(text: string, options: ReadOptions = {}): ParseResponse {
   // Common Turkish phrasings are read too (language/turkish.ts); the reply is always English.
-  const trimmed = normalizePasture(englishThousands(turkishToEnglish(text.trim().slice(0, 500))));
+  const trimmed = normalizePasture(englishThousands(readerEnglish(text.trim().slice(0, 500))));
   // A decimal comma ("1,5") is never guessed: in many locales it is one and a half, elsewhere it can be a thousands separator.
   if (/\d,\d/u.test(trimmed)) {
-    const q = "Use a dot for decimals (1.5) and no thousands separators (1500).";
+    const q = tx("Use a dot for decimals (1.5) and no thousands separators (1500).");
     return { actions: [], command: null, easterEgg: null, clarify: [q], reply: q };
   }
   const command = commandOf(trimmed);
@@ -487,16 +488,16 @@ export function readSentence(text: string, options: ReadOptions = {}): ParseResp
   if (trigger) {
     const inner = readActions(trigger.rest);
     const clarify = [...new Set(inner.clarify)];
-    if (inner.actions.length === 0 && clarify.length === 0) clarify.push("What should happen when it fires?");
+    if (inner.actions.length === 0 && clarify.length === 0) clarify.push(tx("What should happen when it fires?"));
     const standing: StandingOrderDraft[] = clarify.length === 0 ? [{ trigger: trigger.trigger, actions: inner.actions, text: trimmed }] : [];
-    const reply = clarify.length > 0 ? "One question before I set the standing order." : "Standing order ready: when it fires I plan it, you sign it.";
+    const reply = clarify.length > 0 ? tx("One question before I set the standing order.") : tx("Standing order ready: when it fires I plan it, you sign it.");
     return { actions: [], command: null, easterEgg: null, clarify, ...(inner.choices.length > 0 ? { clarifyChoices: inner.choices } : {}), standing, reply };
   }
 
   const { actions, clarify, choices } = readActions(trimmed);
   let reply: string;
-  if (clarify.length > 0) reply = "One question before I run the outrun.";
-  else if (actions.length === 0) reply = "I did not catch that. Try “send 20 USDC to 0x… for invoice 12”.";
+  if (clarify.length > 0) reply = tx("One question before I plan this.");
+  else if (actions.length === 0) reply = tx("I did not catch that. Try “send 20 USDC to 0x… for invoice 12”.");
   else reply = LYKO_LINES.herding;
   return { actions, command: null, easterEgg: null, clarify: [...new Set(clarify)], ...(choices.length > 0 ? { clarifyChoices: choices } : {}), standing: [], reply };
 }

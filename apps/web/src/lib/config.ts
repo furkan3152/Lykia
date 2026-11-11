@@ -1,3 +1,4 @@
+// i18n-ignore-file: developer configuration warnings, printed to the console.
 /** Pure configuration rules (no import.meta.env here: node tests load this file). */
 
 export const DEFAULT_API_URL = "http://localhost:3002";

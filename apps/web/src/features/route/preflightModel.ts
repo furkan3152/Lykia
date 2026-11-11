@@ -7,8 +7,9 @@
  */
 import { preflightGate, topFindings, type Finding, type FindingFix } from "@lykia/core";
 import { create } from "zustand";
+import { t } from "../../i18n";
 
-export const SEVERITY_WORD: Readonly<Record<Finding["severity"], string>> = { block: "CAN'T SIGN YET", warn: "CHECK THIS", note: "GOOD TO KNOW" };
+export const SEVERITY_WORD: Readonly<Record<Finding["severity"], string>> = { block: t("route.preflightModel.canTSignYet"), warn: t("route.preflightModel.checkThis"), note: t("route.preflightModel.goodToKnow") };
 
 export interface PreflightChip {
   readonly key: string;
@@ -42,13 +43,13 @@ export function preflightChips(findings: readonly Finding[] | undefined, options
       chips.push({ key, label: fix.label, ...(fix.detail ? { detail: fix.detail } : {}), fix, role: "fix" });
     }
   }
-  if (!gate.blocked && gate.needsAck.length > 0) chips.push({ key: "proceed", label: shown.some((f) => AMOUNT_CHECKS.has(f.check)) ? "Use all anyway" : "Go ahead anyway", detail: "you read the warning", role: "proceed" });
-  if (options.cancellable && (gate.blocked || gate.needsAck.length > 0)) chips.push({ key: "cancel", label: "Cancel", role: "cancel" });
+  if (!gate.blocked && gate.needsAck.length > 0) chips.push({ key: "proceed", label: shown.some((f) => AMOUNT_CHECKS.has(f.check)) ? t("route.preflightModel.useAllAnyway") : t("route.preflightModel.goAheadAnyway"), detail: t("route.preflightModel.youReadTheWarning"), role: "proceed" });
+  if (options.cancellable && (gate.blocked || gate.needsAck.length > 0)) chips.push({ key: "cancel", label: t("route.preflightModel.cancel"), role: "cancel" });
   return chips;
 }
 
 /** "3 more checks", "1 more check". */
-export const moreLabel = (n: number) => `${n} more check${n === 1 ? "" : "s"}`;
+export const moreLabel = (n: number) => t("route.preflightModel.moreChecks", { n });
 
 /** Acknowledged plans, by intent id (this browser session only; the server keeps its own record at prepare). */
 export const usePreflightAcks = create<{ readonly acked: Readonly<Record<string, true>>; ack(intentId: string): void }>((set) => ({

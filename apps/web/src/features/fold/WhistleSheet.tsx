@@ -15,6 +15,7 @@ import { Button, Tag, toast } from "../../mosaic";
 import { useLykiaWallet } from "../wallet/useLykiaWallet";
 import { useWallet } from "../wallet/store";
 import { whistleGroups } from "./model";
+import { t as msg } from "../../i18n";
 
 export function WhistleSheet({ open, onClose, state, busyId, onResume, onResumeAll }: { readonly open: boolean; readonly onClose: () => void; readonly state: WhistleResponse | undefined; readonly busyId: string | null; readonly onResume: (i: WhistleItem) => void; readonly onResumeAll: () => void }) {
   const wallet = useLykiaWallet();
@@ -29,19 +30,19 @@ export function WhistleSheet({ open, onClose, state, busyId, onResume, onResumeA
       const t = state.transaction;
       const [hash] = await wallet.send([{ to: t.to, data: t.data, value: t.value, chainId: t.chainId }]);
       setSent(hash ?? "sent");
-      toast.success("Whistle blown on chain", { description: "Every session on your LykiaAccount stops; homeward calls still pass.", from: "LYKO" });
+      toast.success(msg("fold.whistleSheet.whistleBlownOnChain"), { description: msg("fold.whistleSheet.everySessionOnYourLykiaaccountStops"), from: "LYKO" });
     } catch (e) {
-      toast.error("Not sent", { description: describeError(e), from: "LYKO" });
+      toast.error(msg("fold.whistleSheet.notSent"), { description: describeError(e), from: "LYKO" });
     }
   };
   return (
-    <Sheet open={open} onClose={onClose} title={held.length > 0 ? "The Whistle is blown" : "The Whistle"}>
+    <Sheet open={open} onClose={onClose} title={held.length > 0 ? msg("fold.whistleSheet.theWhistleIsBlown") : msg("fold.whistleSheet.theWhistle")}>
       <div className="fd-whistle" data-blown={held.length > 0 || undefined}>
         <div className="fd-whistle__head">
           <span className="fd-whistle__icon" aria-hidden="true"><PixelIcon name="whistle" size={30} /></span>
           <div>
-            <b className="fd-whistle__count">{held.length === 0 ? "Nothing is held" : `${held.length} thing${held.length === 1 ? "" : "s"} stopped`}</b>
-            <p className="m-small">{state?.note ?? "Reading what the Whistle holds…"}</p>
+            <b className="fd-whistle__count">{held.length === 0 ? msg("fold.whistleSheet.nothingIsHeld") : msg("fold.whistleSheet.thingsStopped", { n: held.length })}</b>
+            <p className="m-small">{state?.note ?? msg("fold.whistleSheet.readingWhatTheWhistleHolds")}</p>
           </div>
         </div>
         {whistleGroups(items).map((g) => (
@@ -53,12 +54,12 @@ export function WhistleSheet({ open, onClose, state, busyId, onResume, onResumeA
                   <span className="fd-whistle__tile" aria-hidden="true" />
                   <span className="fd-whistle__name">
                     <b>{i.label}</b>
-                    <small>{i.environment ? `Arc ${i.environment}` : "every network"}</small>
+                    <small>{i.environment ? `Arc ${i.environment}` : msg("fold.whistleSheet.everyNetwork")}</small>
                   </span>
                   {i.state === "paused" ? (
                     <Button size="sm" tone="ghost" disabled={busyId === i.id} onClick={() => onResume(i)}>{busyId === i.id ? "…" : "RESUME"}</Button>
                   ) : (
-                    <Tag tone="ok">{"running again"}</Tag>
+                    <Tag tone="ok">{msg("fold.whistleSheet.runningAgain")}</Tag>
                   )}
                 </li>
               ))}
@@ -67,16 +68,16 @@ export function WhistleSheet({ open, onClose, state, busyId, onResume, onResumeA
         ))}
         {state?.transaction ? (
           <div className="fd-whistle__chain">
-            <span className="m-kick">{"ON CHAIN"}</span>
-            <p className="m-small">{`Lykia stopped everything it runs. Your LykiaAccount ${state.account ? `${state.account.slice(0, 6)}…${state.account.slice(-4)} ` : ""}still accepts its sessions until you send blowWhistle() from your wallet.`}</p>
-            <Button size="sm" disabled={Boolean(sent)} onClick={() => void signOnChain()}>{sent ? "SENT" : "SIGN BLOWWHISTLE()"}</Button>
+            <span className="m-kick">{msg("fold.whistleSheet.onChain")}</span>
+            <p className="m-small">{msg("fold.whistleSheet.stillAcceptsSessions", { account: state.account ? `${state.account.slice(0, 6)}…${state.account.slice(-4)}` : "" })}</p>
+            <Button size="sm" disabled={Boolean(sent)} onClick={() => void signOnChain()}>{sent ? "SENT" : msg("fold.whistleSheet.signCall", { call: "blowWhistle()" })}</Button>
           </div>
         ) : held.length > 0 ? (
-          <p className="m-small m-muted">{"No LykiaAccount yet, so there is no on-chain session to stop."}</p>
+          <p className="m-small m-muted">{msg("fold.whistleSheet.noLykiaaccountYetSoThereIs")}</p>
         ) : null}
         {held.length > 0 ? (
           <div className="fd-whistle__foot">
-            <Button tone="ochre" onClick={onResumeAll} disabled={busyId === "all"}>{busyId === "all" ? "…" : "RELEASE · RESUME EVERYTHING"}</Button>
+            <Button tone="ochre" onClick={onResumeAll} disabled={busyId === "all"}>{busyId === "all" ? "…" : msg("fold.whistleSheet.releaseResumeEverything")}</Button>
           </div>
         ) : null}
       </div>

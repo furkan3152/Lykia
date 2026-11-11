@@ -1,5 +1,6 @@
 /** Pure helpers for city mode: which shell a city gets, its accent colours, money formatting. */
 import type { LeagueCity } from "@lykia/core";
+import { intlLocale } from "../i18n";
 
 export type ShellKind = "pay" | "agents" | "coming" | "generic";
 
@@ -25,7 +26,7 @@ export function usdc18(units: string): string {
   const padded = units.padStart(19, "0");
   const whole = padded.slice(0, -18).replace(/^0+(?=\d)/u, "");
   const cents = padded.slice(-18, -16);
-  return `${Number(whole).toLocaleString("en-US")}.${cents}`;
+  return `${Number(whole).toLocaleString(intlLocale())}.${cents}`;
 }
 
 /** Share of a daily budget used, 0..1 (unknown caps read 0). */

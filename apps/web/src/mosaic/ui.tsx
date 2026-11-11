@@ -5,12 +5,14 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { useReducedMotion } from "../motion/useReducedMotion";
+import { t } from "../i18n";
 import { cx } from "./cx";
 import { useLook, useLookVersion } from "./look";
 import { MosaicCanvas } from "./MosaicCanvas";
 import { face, sprite } from "./scenes";
 import { buffer, drawTesserae } from "./tessera";
 import { COLLARS, LEASH, PAL, PUP, lykoFace, type FaceMood } from "./sprites";
+import { t as msg } from "../i18n";
 
 
 /* ----------------------------------------------------------- frames */
@@ -75,7 +77,7 @@ export function Tag({ tone, children, className, style }: { tone?: "ochre" | "ok
 }
 
 export function Seal({ decision, stamp = true, children }: { decision: "allow" | "confirm" | "deny"; stamp?: boolean; children?: React.ReactNode }) {
-  return <span className={cx("m-seal", decision !== "allow" && `m-seal--${decision}`, stamp && "m-seal--stamp")}>{children ?? `FENCE · ${decision.toUpperCase()}`}</span>;
+  return <span className={cx("m-seal", decision !== "allow" && `m-seal--${decision}`, stamp && "m-seal--stamp")}>{children ?? t(`mosaic.seal.${decision}`)}</span>;
 }
 
 export function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: React.ReactNode }) {
@@ -192,7 +194,7 @@ export function PupIcon({ role, scale = 3 }: { role: string; scale?: number }) {
 }
 
 /** CAVE CANEM medallion: Lyko in a round mosaic with a lettered ring. */
-export function Medallion({ size = 160, mood = "watching", spin = false, title = "Cave canem: beware of the dog. Lyko keeps the wolves out." }: { size?: number; mood?: FaceMood; spin?: boolean; title?: string }) {
+export function Medallion({ size = 160, mood = "watching", spin = false, title = msg("mosaic.ui.caveCanemBewareOfTheDog") }: { size?: number; mood?: FaceMood; spin?: boolean; title?: string }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const id = useId().replace(/:/gu, "");
   const tag = useLook((s) => s.look.tag);
@@ -227,7 +229,7 @@ export function Medallion({ size = 160, mood = "watching", spin = false, title =
           <path id={`ring-${id}`} d="M88,88 m-70,0 a70,70 0 1,1 140,0 a70,70 0 1,1 -140,0" />
         </defs>
         <text fontFamily="Silkscreen" fontSize="11" letterSpacing="3" fill="#FBF5E6">
-          <textPath href={`#ring-${id}`}>{`CAVE CANEM · ${tag || "LYKIA"} · CAVE CANEM · ${tag || "LYKIA"} ·`}</textPath>
+          <textPath href={`#ring-${id}`}>{/* i18n-ignore: the medallion ring is a Latin inscription, the same in every language */ `CAVE CANEM · ${tag || "LYKIA"} · CAVE CANEM · ${tag || "LYKIA"} ·`}</textPath>
         </text>
       </svg>
       <span className="sr-only">{title}</span>

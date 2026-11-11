@@ -4,6 +4,7 @@
  */
 import type { AgentProposal, AnswerBlock, ChatDraftLink, ChatEvent, ChatProgramView, ChatStep, ThreadMessage } from "@lykia/core/api/agents";
 import { MAX_BLOCKS, parseAnswerBlock, parseAnswerBlocks, parseChatStep } from "@lykia/core/api/answer";
+import { t as msg } from "../../i18n";
 
 export interface TrailItem {
   readonly label: string;
@@ -124,7 +125,7 @@ export function reduce(c: Conversation, e: ChatEvent): Conversation {
     case "error":
       return patchLast(c, (m) => ({ ...m, error: e.data.message, streaming: false, endedAt: m.endedAt ?? Date.now() }));
     case "done":
-      return patchLast({ ...c, threadId: c.messages[c.messages.length - 1]?.fixture ? c.threadId : (e.data.threadId ?? c.threadId) }, (m) => ({ ...m, streaming: false, endedAt: m.endedAt ?? Date.now(), steps: (m.steps ?? []).map((st) => (st.state === "running" ? { ...st, state: "warn" as const, result: st.result ?? "Stopped before it finished" } : st)) }));
+      return patchLast({ ...c, threadId: c.messages[c.messages.length - 1]?.fixture ? c.threadId : (e.data.threadId ?? c.threadId) }, (m) => ({ ...m, streaming: false, endedAt: m.endedAt ?? Date.now(), steps: (m.steps ?? []).map((st) => (st.state === "running" ? { ...st, state: "warn" as const, result: st.result ?? msg("ask.model.stoppedBeforeItFinished") } : st)) }));
     default:
       return c;
   }
@@ -147,8 +148,8 @@ function draftLinkOk(d: ChatDraftLink): boolean {
 
 /** "Lyko on watch → Ask Lyko · plan": the compact line over a hand-off message. */
 export function handoffLine(i: NonNullable<ChatMessage["instruction"]>): string {
-  const name = { watch: "Lyko on watch", ask: "Ask Lyko" } as const;
-  return `${name[i.from]} → ${name[i.to]} · ${i.kind === "plan" ? "plan" : "watch task"}`;
+  const name = { watch: msg("ask.model.lykoOnWatch"), ask: msg("ask.model.askLyko") } as const;
+  return `${name[i.from]} → ${name[i.to]} · ${i.kind === "plan" ? "plan" : msg("ask.model.watchTask")}`;
 }
 
 /** Plain-language reasons from failed steps, de-duplicated, for the reply bubble. */
@@ -178,5 +179,5 @@ export function latestProposal(c: Conversation): AgentProposal | null {
 /** A thread title from its first message. */
 export function titleOf(text: string): string {
   const clean = text.replace(/\s+/gu, " ").trim();
-  return clean.length > 48 ? `${clean.slice(0, 46)}…` : clean || "New thread";
+  return clean.length > 48 ? `${clean.slice(0, 46)}…` : clean || msg("ask.model.newThread");
 }

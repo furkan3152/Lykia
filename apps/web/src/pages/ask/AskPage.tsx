@@ -33,8 +33,10 @@ import { handleLine } from "../../shell/palette";
 import { useSession } from "../../lib/session";
 import type { ThreadSummaryView } from "@lykia/core/api/fold";
 import { mergeThreads } from "../../features/fold/model";
+import { SampleBar } from "../../features/ask/controlCards";
 import { NextStepBar, StarterChips, StarterGrid } from "../../features/ask/Starters";
 import { ASK_STARTERS, DO_STARTERS, followUps, nextStep, type Starter } from "../../features/ask/starters";
+import { intlLocale, t as msg } from "../../i18n";
 
 const PHONE = "(max-width: 640px)";
 /** True on phone widths: Ask then becomes a plain chat, the box at the bottom. */
@@ -157,7 +159,7 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
         await apiPost(`/v1/intents/${encodeURIComponent(intentId)}/stop`, {});
         await qc.invalidateQueries({ queryKey: ["intent", intentId] });
       } catch (error) {
-        toast.error("The plan could not be stopped", { description: describeError(error), from: "LYKO" });
+        toast.error(msg("ask.thePlanCouldNotBeStopped"), { description: describeError(error), from: "LYKO" });
       }
     },
     // Hand-offs are the owner's own: only offered once the wallet is signed in.
@@ -166,7 +168,7 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
           watchPosition: async (intentId: string) => {
             await apiPost("/v1/agent/instructions", { owner: address, environment, kind: "watch", from: "ask", to: "watch", intentId, ...(convo.threadId ? { threadId: convo.threadId } : {}) });
             await qc.invalidateQueries({ queryKey: ["fold-instructions"] });
-            toast.success("Lyko on watch has it", { description: "It shows in the Fold under Herding, marked From Ask Lyko.", from: "LYKO" });
+            toast.success(msg("ask.lykoOnWatchHasIt"), { description: msg("ask.itShowsInTheFoldUnder"), from: "LYKO" });
           },
         }
       : {}),
@@ -180,14 +182,12 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
   // History phrases ("again", "same as last week") only mean something inside a thread with a history, and only
   // while the box is empty; never beside an open question, which is the one thing to answer.
   const asking = Boolean(lastAnswer && status !== "streaming" && nextStep(lastAnswer).kind === "choose");
-  const hasHistory = convo.messages.length > 0 && !asking;
-  // One short line, sentence case: long notes in pixel caps wrap into two lines on a phone.
-  const walletLine = address ? "Lyko only proposes · your wallet signs" : "Sample mode · connect to plan yours";
-  const walletBadge = address ? "YOU SIGN" : "SAMPLE MODE";
+  // "Again" and "undo last swap" need something done in this thread: a step that settled.
+  const hasHistory = convo.messages.some((m) => m.role === "assistant" && (m.blocks ?? []).some((b) => b.kind === "settled")) && !asking;
   const threadTitle = threads.find((t) => t.id === convo.threadId)?.title ?? (lastUser || null);
   const small = usePhone();
   const docked = !empty || small;
-  const composer = <Composer onSubmit={ask} busy={status === "streaming"} onStop={stop} autoFocus={!small} memoryChips={hasHistory && !small} prefill={prefill} hints {...(docked ? { className: "m-composer--dock", placeholder: empty ? "Say what your money should do…" : "Reply, or ask something new…" } : {})} />;
+  const composer = <Composer onSubmit={ask} busy={status === "streaming"} onStop={stop} autoFocus={!small} memoryChips={hasHistory && !small} prefill={prefill} hints {...(docked ? { className: "m-composer--dock", placeholder: asking ? msg("ask.answerLyko") : empty ? msg("ask.sayWhatYourMoneyShouldDo") : msg("ask.replyOrAskSomethingNew") } : {})} />;
   // Phones: suggestions sit as small chips right above the box.
   const smallChips: readonly Starter[] = !small || status === "streaming"
     ? []
@@ -202,56 +202,50 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
       <aside className="m-rail" data-open={railOpen}>
         <div className="m-rail__head">
           <Button onClick={() => { fresh(); navigate("/app"); setRailOpen(false); }}>
-            + {"NEW PLAN"}
+            + {msg("ask.newPlan2")}
           </Button>
-          <span className="m-kick">{"THREADS"} · {threads.length}</span>
+          <span className="m-kick">{msg("ask.threads")}</span>
         </div>
         <div className="m-rail__list">
-          {threads.length === 0 ? <p className="m-small m-muted" style={{ padding: 10 }}>{"No threads yet. Ask Lyko anything."}</p> : null}
+          {threads.length === 0 ? <p className="m-small m-muted" style={{ padding: 10 }}>{msg("ask.noThreadsYetAskLykoAnything")}</p> : null}
           {threads.map((t) => (
-            <button key={t.id} type="button" className="m-thread" aria-current={t.id === convo.threadId} onClick={() => { openThread(t.id); navigate(`/app/ask/${encodeURIComponent(t.id)}`); setRailOpen(false); }}>
+            <button key={t.id} type="button" className="m-thread" title={new Date(t.at).toLocaleString(intlLocale())} aria-current={t.id === convo.threadId} onClick={() => { openThread(t.id); navigate(`/app/ask/${encodeURIComponent(t.id)}`); setRailOpen(false); }}>
               {t.title}
-              <small>{t.origin === "fold" ? "FROM THE FOLD · " : ""}{new Date(t.at).toLocaleString()}</small>
             </button>
           ))}
         </div>
-        {/* One small line: which rules and which network Lyko plans under. */}
-        <p className="m-rail__foot" title={convo.mode === "reader" ? "Reader mode: Lyko answers in simple sentences without the AI model." : undefined}>
-          {`Fence: ${fence.label ?? "custom"}${fence.mode && fence.mode !== "live" ? ` (${fence.mode === "dry-run" ? "practice" : fence.mode})` : ""} · Arc ${environment}`}
-        </p>
       </aside>
 
       <section className="m-convo">
         {/* Narrow screens: the threads button, the thread's name and the mode, in one slim row. */}
         <div className="m-convo__top">
-          <button type="button" className="m-btn m-btn--ghost m-btn--sm m-railbtn" onClick={() => setRailOpen((o) => !o)} aria-label="Threads" aria-expanded={railOpen}>
+          <button type="button" className="m-btn m-btn--ghost m-btn--sm m-railbtn" onClick={() => setRailOpen((o) => !o)} aria-label={msg("ask.threads2")} aria-expanded={railOpen}>
             ☰
           </button>
-          <span className="m-convo__title">{empty ? "New plan" : (threadTitle ?? "This thread")}</span>
-          <span className="m-askbadge" data-tone={address ? "ok" : "sample"} title={walletLine}>{walletBadge}</span>
+          <span className="m-convo__title">{empty ? msg("ask.newPlan") : (threadTitle ?? msg("ask.thisThread"))}</span>
         </div>
         <div className="m-convo__scroll" ref={scrollRef}>
           {/* The bay scrolls with the conversation: it never sits over a message. */}
           <div className="m-convo__scene" data-slim={empty ? undefined : true}>
             <div className="vt-scene m-frame m-frame--thin">
-              <MosaicCanvas build={(t) => strip({ lit, night, running: status === "streaming" }, t)} width={STRIP_W} height={STRIP_H} tile={4} fps={10} dataKey={`${lit}-${status}-${night}`} assembleKey="strip" label="The bay, folded into a strip; Lyko runs while he works" />
+              <MosaicCanvas build={(t) => strip({ lit, night, running: status === "streaming" }, t)} width={STRIP_W} height={STRIP_H} tile={4} fps={10} dataKey={`${lit}-${status}-${night}`} assembleKey="strip" label={msg("ask.theBayFoldedIntoAStrip")} />
             </div>
           </div>
           <div className="m-convo__col">
+            {address ? null : <SampleBar />}
             {empty ? (
               <div className="m-ask-empty m-ask-hero">
                 <div className="m-ask-hero__head">
                   <LykoFace mood="happy" scale={small ? 2 : 2.4} />
                   <div>
-                    <h1 className="m-title">{"What should your money do?"}</h1>
-                    {small ? <p className="m-sub">{"Pick one below or type it. You sign once."}</p> : <p className="m-sub">{"Say it in one sentence. Lyko plans it across Arc and Circle rails, your Fence checks every step, and you sign once."}</p>}
+                    <h1 className="m-title">{msg("ask.whatShouldYourMoneyDo")}</h1>
+                    <p className="m-sub">{msg("ask.sayItInOneSentenceYou")}</p>
                   </div>
                 </div>
                 {small ? null : (
                   <>
                     {composer}
                     <StarterGrid onPick={pick} />
-                    <p className="m-asknote m-ask-hero__foot">{walletLine}</p>
                   </>
                 )}
               </div>
@@ -274,14 +268,13 @@ export default function AskPage({ reviewId = null }: { readonly reviewId?: strin
             <div className="m-convo__col">
               <StarterChips items={smallChips} onPick={pick} />
               {composer}
-              <p className="m-asknote m-convo__note">{walletLine}</p>
             </div>
           </div>
         ) : null}
       </section>
 
       {showArtifact && proposal ? (
-        <aside className="m-artifact" aria-label="Route">
+        <aside className="m-artifact" aria-label={msg("ask.route")}>
           <RouteArtifact proposal={proposal} intentId={proposal.intentId} onClose={() => { setArtifactClosed(artifactKey); setPicked(null); }} onReview={proposal.intentId ? () => setReview({ intentId: proposal.intentId!, proposal }) : undefined} />
         </aside>
       ) : null}

@@ -7,6 +7,7 @@ import { useProfile } from "../lib/profile";
 import { LykoFace, Toggle } from "../mosaic";
 import { useSession } from "../lib/session";
 import { ACCOUNT, ADMIN, MORE } from "./nav";
+import { t } from "../i18n";
 
 export function YouMenu() {
   const mode = useUiStore((s) => s.mode);
@@ -32,8 +33,8 @@ export function YouMenu() {
   const item = { textDecoration: "none", fontFamily: "Silkscreen", fontSize: 12, letterSpacing: "0.1em" } as const;
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <button type="button" className="m-askbtn" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)} style={{ padding: "0 8px" }} aria-label="Settings and more">
-        <LykoFace mood="happy" scale={1} label="You" />
+      <button type="button" className="m-askbtn" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)} style={{ padding: "0 8px" }} aria-label={t("shell.youMenu.settingsAndMore")}>
+        <LykoFace mood="happy" scale={1} label={t("shell.youMenu.you")} />
         <span aria-hidden="true">▾</span>
       </button>
       {open ? (
@@ -43,7 +44,7 @@ export function YouMenu() {
               {l.label.toUpperCase()}
             </Link>
           ))}
-          <span className="m-kick" style={{ marginTop: 4 }}>{"MORE"}</span>
+          <span className="m-kick" style={{ marginTop: 4 }}>{t("shell.youMenu.more")}</span>
           {MORE.map((l) => (
             <Link key={l.href} to={l.href} role="menuitem" className="m-thread" title={l.blurb} onClick={() => setOpen(false)} style={item}>
               {l.label.toUpperCase()}
@@ -51,7 +52,7 @@ export function YouMenu() {
           ))}
           {admin ? (
             <>
-              <span className="m-kick" style={{ marginTop: 4 }}>{"TEAM"}</span>
+              <span className="m-kick" style={{ marginTop: 4 }}>{t("shell.youMenu.team")}</span>
               {ADMIN.map((l) => (
                 <Link key={l.href} to={l.href} role="menuitem" className="m-thread" title={l.blurb} onClick={() => setOpen(false)} style={item}>
                   {l.label.toUpperCase()}
@@ -60,8 +61,8 @@ export function YouMenu() {
             </>
           ) : null}
           <div style={{ borderTop: "2px dashed var(--grout)", paddingTop: 8, display: "grid", gap: 8 }}>
-            <Toggle light label="Network" value={mode} onChange={(m) => setMode(m)} options={[{ value: "mainnet", label: "MAINNET" }, { value: "testnet", label: "TESTNET" }]} />
-            <Toggle light label="Theme" value={profile.theme} onChange={(theme) => setProfile({ ...profile, theme })} options={[{ value: "day", label: "DAY" }, { value: "night", label: "NIGHT" }]} />
+            <Toggle light label={t("shell.youMenu.network")} value={mode} onChange={(m) => setMode(m)} options={[{ value: "mainnet", label: "MAINNET" }, { value: "testnet", label: "TESTNET" }]} />
+            <Toggle light label={t("shell.youMenu.theme")} value={profile.theme} onChange={(theme) => setProfile({ ...profile, theme })} options={[{ value: "day", label: "DAY" }, { value: "night", label: "NIGHT" }]} />
           </div>
         </div>
       ) : null}

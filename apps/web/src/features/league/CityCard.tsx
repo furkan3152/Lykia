@@ -5,6 +5,7 @@ import { Link } from "../../app/routes/Link";
 import { Tag } from "../../mosaic";
 import { Coin } from "./Coin";
 import { CATEGORY_LABEL, MODULE_LABEL, STATE_LABEL, STATE_TONE, STATUS_LABEL, usageLine } from "./model";
+import { t } from "../../i18n";
 
 export function CityCard({ city, index = 0 }: { readonly city: LeagueCity; readonly index?: number }) {
   const { league, project } = city;
@@ -23,9 +24,9 @@ export function CityCard({ city, index = 0 }: { readonly city: LeagueCity; reado
       <ul className="lg-card__mods" aria-label={`${project.name} modules`}>
         {project.modules.map((m) => <li key={m}>{MODULE_LABEL[m]}</li>)}
       </ul>
-      <p className="m-small m-muted lg-card__usage">{league.state === "coming" ? "Not running yet" : usageLine(city.usage)}</p>
-      <Link to={`/league/${city.slug}`} className={`m-btn m-btn--sm ${league.state === "live" ? "" : "m-btn--ghost"}`} aria-label={`Open ${project.name}`}>
-        {league.state === "live" ? "ENTER THE CITY" : league.state === "coming" ? "SEE THE PLAN" : "SEE WHY"}
+      <p className="m-small m-muted lg-card__usage">{league.state === "coming" ? t("league.cityCard.notRunningYet") : usageLine(city.usage)}</p>
+      <Link to={`/league/${city.slug}`} className={`m-btn m-btn--sm ${league.state === "live" ? "" : "m-btn--ghost"}`} aria-label={t("league.cityCard.open", { name: project.name })}>
+        {league.state === "live" ? t("league.cityCard.enterTheCity") : league.state === "coming" ? t("league.cityCard.seeThePlan") : t("league.cityCard.seeWhy")}
       </Link>
       <span className="sr-only">{STATUS_LABEL[league.status]}</span>
     </article>

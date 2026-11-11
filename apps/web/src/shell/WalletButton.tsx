@@ -9,6 +9,7 @@ import { canRestorePasskey, useWallet } from "../features/wallet/store";
 import { useLykiaWallet } from "../features/wallet/useLykiaWallet";
 import { toast } from "../mosaic";
 import { classifyTxError } from "../features/route/txErrors";
+import { t } from "../i18n";
 
 
 export default function WalletButton() {
@@ -35,13 +36,13 @@ export default function WalletButton() {
   if (!wallet.connected || !wallet.address) {
     control = (
       <button type="button" className="m-btn m-btn--sm" onClick={openModal}>
-        CONNECT
+        {t("shell.walletButton.connect")}
       </button>
     );
   } else if (wallet.wrongChain) {
     control = (
-      <button type="button" className="m-btn m-btn--sm m-btn--ochre" onClick={() => void wallet.switchToArc().catch((e: unknown) => toast.error("Could not switch", { description: classifyTxError(e, "chain").title, from: "LYKO" }))}>
-        SWITCH TO ARC
+      <button type="button" className="m-btn m-btn--sm m-btn--ochre" onClick={() => void wallet.switchToArc().catch((e: unknown) => toast.error(t("shell.walletButton.couldNotSwitch"), { description: classifyTxError(e, "chain").title, from: "LYKO" }))}>
+        {t("shell.walletButton.switchToArc")}
       </button>
     );
   } else {
@@ -54,11 +55,11 @@ export default function WalletButton() {
         {menu ? (
           <div role="menu" className="m-frame m-frame--thin m-walletmenu">
             <p className="m-small m-muted">{wallet.label}</p>
-            <button type="button" role="menuitem" className="m-thread" onClick={() => { void navigator.clipboard?.writeText(wallet.address!); setMenu(false); toast.info("Address copied", { from: "LYKO" }); }}>
-              COPY ADDRESS
+            <button type="button" role="menuitem" className="m-thread" onClick={() => { void navigator.clipboard?.writeText(wallet.address!); setMenu(false); toast.info(t("shell.walletButton.addressCopied"), { from: "LYKO" }); }}>
+              {t("shell.walletButton.copyAddress")}
             </button>
             <button type="button" role="menuitem" className="m-thread" onClick={() => { wallet.disconnect(); setMenu(false); }}>
-              DISCONNECT
+              {t("shell.walletButton.disconnect")}
             </button>
           </div>
         ) : null}

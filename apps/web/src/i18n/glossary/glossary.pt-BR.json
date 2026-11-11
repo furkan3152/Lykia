@@ -1,0 +1,211 @@
+{
+  "language": "pt-BR",
+  "register": "você, as Brazilian fintech apps write",
+  "keep": [
+    "Lykia",
+    "Lyko",
+    "Ask Lyko",
+    "The Fold",
+    "The Forge",
+    "the Fence",
+    "Leash",
+    "Whistle",
+    "Stile",
+    "Autopilot",
+    "Herding",
+    "Flock",
+    "Trails",
+    "Pack",
+    "the League",
+    "Harbour",
+    "Ledger",
+    "Letoon",
+    "Scent",
+    "Tag",
+    "Outrun",
+    "Lykaion",
+    "USDC",
+    "EURC",
+    "cirBTC",
+    "USYC",
+    "Morpho",
+    "Aave V4",
+    "CCTP",
+    "Gateway",
+    "Arc",
+    "Base",
+    "Circle"
+  ],
+  "strict": [
+    "liquidation",
+    "health factor",
+    "slippage",
+    "Lyko on watch",
+    "stress test",
+    "your spending rules",
+    "your holdings",
+    "your history",
+    "Review and sign",
+    "How this works",
+    "net worth",
+    "daily limit"
+  ],
+  "terms": {
+    "wallet": {
+      "use": "carteira",
+      "stem": "carteira"
+    },
+    "sign": {
+      "use": "assinar",
+      "stem": "assin"
+    },
+    "plan": {
+      "use": "plano",
+      "stem": "plano"
+    },
+    "liquidation": {
+      "use": "liquidação",
+      "stem": "liquidação"
+    },
+    "health factor": {
+      "use": "fator de saúde",
+      "stem": "fator de saúde"
+    },
+    "slippage": {
+      "use": "slippage",
+      "stem": "slippage"
+    },
+    "gas": {
+      "use": "gas",
+      "stem": "gas"
+    },
+    "network fee": {
+      "use": "taxa de rede",
+      "stem": "taxa de rede"
+    },
+    "fee": {
+      "use": "taxa",
+      "stem": "taxa"
+    },
+    "vault": {
+      "use": "cofre",
+      "stem": "cofre"
+    },
+    "yield": {
+      "use": "rendimento",
+      "stem": "rend"
+    },
+    "collateral": {
+      "use": "colateral",
+      "stem": "colateral"
+    },
+    "borrow": {
+      "use": "tomar emprestado",
+      "stem": "emprest"
+    },
+    "repay": {
+      "use": "pagar",
+      "stem": "pag"
+    },
+    "withdraw": {
+      "use": "sacar",
+      "stem": "sac"
+    },
+    "deposit": {
+      "use": "depositar",
+      "stem": "deposit"
+    },
+    "bridge": {
+      "use": "fazer bridge",
+      "stem": "bridge"
+    },
+    "convert": {
+      "use": "converter",
+      "stem": "convert"
+    },
+    "send": {
+      "use": "enviar",
+      "stem": "envi"
+    },
+    "idle": {
+      "use": "parado",
+      "stem": "parad"
+    },
+    "net worth": {
+      "use": "patrimônio líquido",
+      "stem": "patrimônio líquido"
+    },
+    "daily limit": {
+      "use": "limite diário",
+      "stem": "limite diário"
+    },
+    "beta limit": {
+      "use": "limite beta",
+      "stem": "limite beta"
+    },
+    "route": {
+      "use": "rota",
+      "stem": "rota"
+    },
+    "position": {
+      "use": "posição",
+      "stem": "posi"
+    },
+    "agent": {
+      "use": "agente",
+      "stem": "agente"
+    },
+    "watch": {
+      "use": "monitoramento",
+      "stem": "monitor"
+    },
+    "payee": {
+      "use": "destinatário",
+      "stem": "destinatário"
+    },
+    "invoice": {
+      "use": "fatura",
+      "stem": "fatura"
+    },
+    "Lyko on watch": {
+      "use": "Lyko de vigia",
+      "stem": "Lyko de vigia"
+    },
+    "stress test": {
+      "use": "teste de estresse",
+      "stem": "teste de estresse"
+    },
+    "dry run": {
+      "use": "simulação",
+      "stem": "simula"
+    },
+    "sample": {
+      "use": "exemplo",
+      "stem": "exemplo"
+    },
+    "How this works": {
+      "use": "Como funciona",
+      "stem": "Como funciona"
+    },
+    "Review and sign": {
+      "use": "Revisar e assinar",
+      "stem": "revisar e assinar"
+    },
+    "allowance": {
+      "use": "aprovação",
+      "stem": "aprova"
+    },
+    "your spending rules": {
+      "use": "suas regras de gasto",
+      "stem": "regras de gasto"
+    },
+    "your holdings": {
+      "use": "seus ativos",
+      "stem": "ativos"
+    },
+    "your history": {
+      "use": "seu histórico",
+      "stem": "histórico"
+    }
+  }
+}

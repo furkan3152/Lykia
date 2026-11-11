@@ -6,6 +6,7 @@
  *
  * Every line here was checked against the code it names.
  */
+import { t } from "../../i18n";
 
 /** Whose primitive it is: Circle's, Arc's, or Lykia's own. */
 export type Provider = "circle" | "arc" | "lykia";
@@ -29,12 +30,12 @@ export interface PathStop {
 
 /** One USDC through a Lykia step, in order. */
 export const USDC_PATH: readonly PathStop[] = [
-  { id: "wallet", title: "USDC in your wallet", primitives: [{ name: "USDC", by: "circle" }], line: "Your wallet or your agent holds it. Lykia never holds keys." },
-  { id: "fence", title: "The Fence checks it in USD", primitives: [{ name: "USD caps", by: "lykia" }], line: "Caps per step and per day, recipients, tokens. Beta: $1,000 a step, $5,000 a day." },
-  { id: "simulate", title: "The route is simulated", primitives: [{ name: "eth_call", by: "arc" }], line: "Routes are scored on what you end up with after fee, gas and slippage; the winner runs on Arc first." },
-  { id: "send", title: "One transaction, one signature", primitives: [{ name: "Multicall3From", by: "arc" }, { name: "Arc Memo", by: "arc" }, { name: "Gas in USDC", by: "arc" }], line: "Approve, act and a Memo with the Fence verdict go out together." },
-  { id: "settle", title: "Settled, final", primitives: [{ name: "Deterministic finality", by: "arc" }], line: "Final when the block is included: no confirmations to wait for." },
-  { id: "out", title: "Out to another chain", primitives: [{ name: "CCTP V2", by: "circle" }, { name: "Gateway", by: "circle" }], line: "Burned on Arc and minted on the destination, or held as one unified USDC balance.", optional: true },
+  { id: "wallet", title: t("circle.usdcPath.usdcInYourWallet"), primitives: [{ name: "USDC", by: "circle" }], line: t("circle.usdcPath.yourWalletOrYourAgentHolds") },
+  { id: "fence", title: t("circle.usdcPath.theFenceChecksItInUsd"), primitives: [{ name: t("circle.usdcPath.usdCaps"), by: "lykia" }], line: t("circle.usdcPath.capsPerStepAndPerDay") },
+  { id: "simulate", title: t("circle.usdcPath.theRouteIsSimulated"), primitives: [{ name: "eth_call", by: "arc" }], line: t("circle.usdcPath.routesAreScoredOnWhatYou") },
+  { id: "send", title: t("circle.usdcPath.oneTransactionOneSignature"), primitives: [{ name: "Multicall3From", by: "arc" }, { name: t("circle.usdcPath.arcMemo"), by: "arc" }, { name: t("circle.usdcPath.gasInUsdc"), by: "arc" }], line: t("circle.usdcPath.approveActAndAMemoWith") },
+  { id: "settle", title: t("circle.usdcPath.settledFinal"), primitives: [{ name: t("circle.usdcPath.deterministicFinality"), by: "arc" }], line: t("circle.usdcPath.finalWhenTheBlockIsIncluded") },
+  { id: "out", title: t("circle.usdcPath.outToAnotherChain"), primitives: [{ name: "CCTP V2", by: "circle" }, { name: "Gateway", by: "circle" }], line: t("circle.usdcPath.burnedOnArcAndMintedOn"), optional: true },
 ];
 
 export const PROVIDER_LABEL: Readonly<Record<Provider, string>> = { circle: "Circle", arc: "Arc", lykia: "Lykia" };
@@ -51,15 +52,15 @@ export interface BesideItem {
 
 /** The rest of Circle and Arc in Lykia, beside the router: EURC is a token routes convert to; none of the others is a route. */
 export const BESIDE_ROUTER: readonly BesideItem[] = [
-  { by: "circle", place: "route", primitive: "EURC", line: "Circle's euro stablecoin: USDC to EURC conversions route on Arc, checked against the FX band." },
-  { by: "circle", place: "route", primitive: "Compliance Engine", line: "With a Circle key, a recipient it denies becomes a Fence deny. Unscreened is never read as approved." },
-  { by: "circle", place: "beside", primitive: "Circle Wallets", line: "Optional, off by default: developer-controlled wallets, bound to the address that created them." },
-  { by: "circle", place: "beside", primitive: "Agent Wallet policy", line: "A Fence exports as a Circle spending policy; the owner applies it with the Circle CLI." },
-  { by: "circle", place: "not-route", primitive: "StableFX", line: "RFQ endpoints for USDC and EURC, with Circle StableFX access. A reference quote, not a route." },
-  { by: "circle", place: "not-route", primitive: "USYC Teller", line: "Subscribe and redeem for wallets Circle has entitled; Lykia checks the entitlement first." },
-  { by: "circle", place: "not-route", primitive: "x402 facilitator", line: "Settles Lykia's paid API routes in USDC through Circle's facilitator." },
-  { by: "circle", place: "not-route", primitive: "Agent Marketplace", line: "Agents find x402 services and pay them in USDC, inside their Fence caps." },
-  { by: "arc", place: "beside", primitive: "ERC-8004", line: "Agent identities (Tags) in the ERC-8004 registries on Arc, each pinning the hash of its Fence." },
+  { by: "circle", place: "route", primitive: "EURC", line: t("circle.usdcPath.circleSEuroStablecoinUsdcTo") },
+  { by: "circle", place: "route", primitive: t("circle.usdcPath.complianceEngine"), line: t("circle.usdcPath.withACircleKeyARecipient") },
+  { by: "circle", place: "beside", primitive: t("circle.usdcPath.circleWallets"), line: t("circle.usdcPath.optionalOffByDefaultDeveloperControlled") },
+  { by: "circle", place: "beside", primitive: t("circle.usdcPath.agentWalletPolicy"), line: t("circle.usdcPath.aFenceExportsAsACircle") },
+  { by: "circle", place: "not-route", primitive: "StableFX", line: t("circle.usdcPath.rfqEndpointsForUsdcAndEurc") },
+  { by: "circle", place: "not-route", primitive: t("circle.usdcPath.usycTeller"), line: t("circle.usdcPath.subscribeAndRedeemForWalletsCircle") },
+  { by: "circle", place: "not-route", primitive: t("circle.usdcPath.x402Facilitator"), line: t("circle.usdcPath.settlesLykiaSPaidApiRoutes") },
+  { by: "circle", place: "not-route", primitive: t("circle.usdcPath.agentMarketplace"), line: t("circle.usdcPath.agentsFindX402ServicesAndPay") },
+  { by: "arc", place: "beside", primitive: "ERC-8004", line: t("circle.usdcPath.agentIdentitiesTagsInTheErc") },
 ];
 
 /** The primitives a reader must find in README.md and docs/circle/README.md. */

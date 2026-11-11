@@ -11,6 +11,7 @@ import { useState } from "react";
 import { useLykiaWallet } from "../wallet/useLykiaWallet";
 import { apiGet, describeError } from "../../lib/api";
 import { Button, Card, Tag, toast } from "../../mosaic";
+import { t } from "../../i18n";
 
 interface RouterStatusView {
   readonly address: string | null;
@@ -33,7 +34,7 @@ export function RouterVenuesCard({ admin, environment }: { readonly admin: boole
     try {
       if (wallet.wrongChain) await wallet.switchToArc();
       await wallet.send([{ to: tx.to, data: tx.data, value: 0n, chainId: tx.chainId }]);
-      toast.success(tx.label ?? "Venue allowlisted", { from: "LYKO" });
+      toast.success(tx.label ?? t("deploy.routerVenuesCard.venueAllowlisted"), { from: "LYKO" });
       void qc.invalidateQueries({ queryKey: ["admin-router", environment] });
     } catch (e) {
       toast.error(describeError(e), { from: "LYKO" });
@@ -43,19 +44,19 @@ export function RouterVenuesCard({ admin, environment }: { readonly admin: boole
   };
 
   return (
-    <Card title={"LykiaRouter venues"} kicker={status.data?.paused ? "PAUSED" : "SPLIT SWAPS · ONE TRANSACTION"}>
-      {!admin ? <p className="m-muted m-small m-center">{"Admins only."}</p> : !status.data ? <p className="m-muted m-small m-center">{status.isError ? describeError(status.error) : "Reading the router…"}</p> : !status.data.address ? (
-        <p className="m-muted m-small">{"LykiaRouter is not deployed on this network."}</p>
+    <Card title={t("deploy.routerVenuesCard.lykiarouterVenues")} kicker={status.data?.paused ? "PAUSED" : t("deploy.routerVenuesCard.splitSwapsOneTransaction")}>
+      {!admin ? <p className="m-muted m-small m-center">{t("deploy.routerVenuesCard.adminsOnly")}</p> : !status.data ? <p className="m-muted m-small m-center">{status.isError ? describeError(status.error) : t("deploy.routerVenuesCard.readingTheRouter")}</p> : !status.data.address ? (
+        <p className="m-muted m-small">{t("deploy.routerVenuesCard.lykiarouterIsNotDeployedOnThis")}</p>
       ) : (
         <>
           <p className="m-small m-muted">
-            {"Router "}<a className="num" href={explorerAddress(network, status.data.address)} target="_blank" rel="noreferrer">{status.data.address.slice(0, 10)}…</a>
-            {status.data.owner ? <>{" · owner "}<span className="num">{status.data.owner.slice(0, 8)}…</span></> : null}
+            {t("deploy.routerVenuesCard.router")}<a className="num" href={explorerAddress(network, status.data.address)} target="_blank" rel="noreferrer">{status.data.address.slice(0, 10)}…</a>
+            {status.data.owner ? <>{t("deploy.routerVenuesCard.owner")}<span className="num">{status.data.owner.slice(0, 8)}…</span></> : null}
           </p>
           {status.data.venues.map((v) => (
             <div key={v.address} className="m-row" style={{ justifyContent: "space-between" }}>
               <span className="m-small">{v.label}</span>
-              <Tag tone={v.allowed ? "ok" : v.allowed === false ? "ghost" : "bad"}>{v.allowed ? "ALLOWED" : v.allowed === false ? "NOT ALLOWED" : "UNKNOWN"}</Tag>
+              <Tag tone={v.allowed ? "ok" : v.allowed === false ? "ghost" : "bad"}>{v.allowed ? "ALLOWED" : v.allowed === false ? t("deploy.routerVenuesCard.notAllowed") : "UNKNOWN"}</Tag>
             </div>
           ))}
           {status.data.adminCalls.map((tx, i) => (
@@ -64,8 +65,8 @@ export function RouterVenuesCard({ admin, environment }: { readonly admin: boole
               <Button size="sm" tone="ghost" disabled={!isOwner || busy !== null} onClick={() => void sign(tx, i)}>{busy === i ? "…" : "SIGN"}</Button>
             </div>
           ))}
-          {status.data.adminCalls.length > 0 && !isOwner ? <p className="m-note">{"Connect the router owner's wallet to sign these."}</p> : null}
-          {status.data.adminCalls.length === 0 ? <p className="m-note">{"Every venue is allowlisted: split swaps run through the router in one transaction."}</p> : <p className="m-note">{"Until these are signed, split swaps run as separate steps."}</p>}
+          {status.data.adminCalls.length > 0 && !isOwner ? <p className="m-note">{t("deploy.routerVenuesCard.connectTheRouterOwnerSWallet")}</p> : null}
+          {status.data.adminCalls.length === 0 ? <p className="m-note">{t("deploy.routerVenuesCard.everyVenueIsAllowlistedSplitSwaps")}</p> : <p className="m-note">{t("deploy.routerVenuesCard.untilTheseAreSignedSplitSwaps")}</p>}
         </>
       )}
     </Card>

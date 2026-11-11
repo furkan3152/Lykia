@@ -15,6 +15,7 @@
  * one control that fits (Pause, Resume, Stop or Cancel) as the HTTP call
  * that does it. Changing anything goes through Ask Lyko.
  */
+import { intlTag } from "../i18n/format.js";
 import { describeAlert, describeAutomationTrigger, describeTrigger, deriveIntentStatus, findToken, fromBaseUnits, nextScheduleRun, type Address, type ArcEnvironment, type StandingOrder } from "@lykia/core";
 import type { FoldInstruction, FoldInstructionsResponse, RunningControl, RunningKind } from "@lykia/core/api/fold";
 import { agentServices } from "../agents/index.js";
@@ -32,6 +33,7 @@ import { orderVerdict } from "../orders/verdict.js";
 import { ownerIntents } from "./trails.js";
 import type { WatchPayload } from "@lykia/core";
 
+import { tx } from "@lykia/core";
 const iso = (ms: number) => new Date(ms).toISOString();
 /** Plans older than this are not listed as in progress (their quotes are long stale). */
 const PLAN_WINDOW_MS = 7 * 86_400_000;
@@ -40,27 +42,27 @@ const PLAN_WINDOW_MS = 7 * 86_400_000;
 async function orderNextVerdict(ctx: AppContext, owner: Address, environment: ArcEnvironment, o: { readonly tokenIn: string; readonly tokenOut: string; readonly amountIn: string; readonly minAmountOut: string; readonly maxFeeBps: number; readonly maxTip: string; readonly triggerPrice: string; readonly oracle: string }): Promise<{ decision: "allow" | "confirm" | "deny" | "unknown"; reason: string }> {
   const sell = findToken(environment, o.tokenIn);
   const buy = findToken(environment, o.tokenOut);
-  if (!sell || !buy) return { decision: "unknown", reason: "Not a registry pair: checked by LykiaOrders on chain only." };
+  if (!sell || !buy) return { decision: "unknown", reason: tx("Not a registry pair: checked by LykiaOrders on chain only.") };
   try {
     const triggered = o.oracle !== "0x0000000000000000000000000000000000000000" && BigInt(o.triggerPrice) > 0n;
     const swapped = BigInt(o.amountIn) - (BigInt(o.amountIn) * BigInt(o.maxFeeBps)) / 10_000n - BigInt(o.maxTip);
     const quote = { swapped: fromBaseUnits(swapped, sell.decimals), expectedOut: fromBaseUnits((BigInt(o.minAmountOut) * 10_000n) / 9_900n, buy.decimals), ...(triggered ? { triggerPrice: fromBaseUnits(BigInt(o.triggerPrice), 8) } : {}) };
     const verdict = await orderVerdict(ctx, { environment, owner, sell: sell.symbol, buy: buy.symbol, perExecution: fromBaseUnits(BigInt(o.amountIn), sell.decimals), quote });
-    return { decision: verdict.decision, reason: verdict.reasons.find((r) => r.decision !== "allow")?.message ?? "One execution fits your Fence and the beta cap today; LykiaOrders enforces the price, size and deadline on chain." };
+    return { decision: verdict.decision, reason: verdict.reasons.find((r) => r.decision !== "allow")?.message ?? tx("One execution fits your Fence and the beta cap today; LykiaOrders enforces the price, size and deadline on chain.") };
   } catch (error) {
-    return { decision: "unknown", reason: error instanceof Error ? error.message.slice(0, 160) : "The Fence could not judge it now." };
+    return { decision: "unknown", reason: error instanceof Error ? error.message.slice(0, 160) : tx("The Fence could not judge it now.") };
   }
 }
 
 
 const usdShort = (v: string | number) => {
   const n = Number(v);
-  return Number.isFinite(n) ? `$${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : `$${v}`;
+  return Number.isFinite(n) ? `$${n.toLocaleString(intlTag(), { maximumFractionDigits: 2 })}` : `$${v}`;
 };
 
 /** Pause or resume through /v1/automations/:id (automations, standing orders, recurring payments, alerts, agent automations). */
 function automationControl(id: string, owner: Address, paused: boolean): RunningControl {
-  return { action: paused ? "resume" : "pause", label: paused ? "Resume" : "Pause", method: "post", path: `/v1/automations/${encodeURIComponent(id)}/${paused ? "resume" : "pause"}`, query: { owner: owner.toLowerCase() } };
+  return { action: paused ? "resume" : "pause", label: paused ? tx("Resume") : tx("Pause"), method: "post", path: `/v1/automations/${encodeURIComponent(id)}/${paused ? "resume" : "pause"}`, query: { owner: owner.toLowerCase() } };
 }
 
 /** "in 3 h", "in 2 d", "now" — for a next-run time. */
@@ -68,19 +70,19 @@ export function inWords(at: string | null, now: number): string {
   if (!at) return "—";
   const ms = Date.parse(at) - now;
   if (!Number.isFinite(ms)) return "—";
-  if (ms <= 60_000) return "due now";
+  if (ms <= 60_000) return tx("due now");
   const min = Math.round(ms / 60_000);
-  if (min < 60) return `in ${min} min`;
+  if (min < 60) return tx("in {min} min", { min });
   const h = Math.round(min / 60);
-  if (h < 48) return `in ${h} h`;
-  return `in ${Math.round(h / 24)} d`;
+  if (h < 48) return tx("in {h} h", { h });
+  return tx("in {value} d", { value: Math.round(h / 24) });
 }
 
 async function verdictOfIntent(ctx: AppContext, intentId: string | null | undefined): Promise<{ decision: "allow" | "confirm" | "deny"; reason: string; result: string } | null> {
   if (!intentId) return null;
   const intent = await services(ctx).intents.get(intentId).then((r) => r.intent).catch(() => null);
   if (!intent) return null;
-  const reason = intent.verdict.reasons.find((r) => r.decision !== "allow")?.message ?? (intent.verdict.decision === "allow" ? "Every rule passed last time." : "The Fence asked for a confirmation.");
+  const reason = intent.verdict.reasons.find((r) => r.decision !== "allow")?.message ?? (intent.verdict.decision === "allow" ? tx("Every rule passed last time.") : tx("The Fence asked for a confirmation."));
   return { decision: intent.verdict.decision, reason, result: deriveIntentStatus(intent) };
 }
 
@@ -95,21 +97,21 @@ function standingRow(o: StandingOrder, now: number, verdict: Awaited<ReturnType<
   return {
     id: o.id,
     source: recurring ? "recurring" : "standing",
-    sourceLabel: recurring ? "Recurring payment" : "Automation",
+    sourceLabel: recurring ? tx("Recurring payment") : tx("Automation"),
     name: o.text,
     status,
     trigger: describeTrigger(o.trigger),
     nextRunAt: next,
-    nextRunLabel: status !== "active" ? status : next ? inWords(next, now) : o.trigger.kind === "price" ? "on price" : "on health factor",
+    nextRunLabel: status !== "active" ? status : next ? inWords(next, now) : o.trigger.kind === "price" ? tx("on price") : tx("on health factor"),
     lastRunAt: o.lastFiredAt ?? o.lastCheckedAt ?? null,
-    lastResult: o.lastObservation ?? (verdict ? `Plan ${verdict.result}` : o.fired > 0 ? `Fired ${o.fired} time(s)` : "Not run yet"),
-    nextVerdict: verdict ? { decision: verdict.decision, reason: verdict.reason } : { decision: "unknown", reason: "Planned and checked by the Fence when it fires." },
+    lastResult: o.lastObservation ?? (verdict ? tx("Plan {result}", { result: verdict.result }) : o.fired > 0 ? tx("Fired {fired} time(s)", { fired: o.fired }) : tx("Not run yet")),
+    nextVerdict: verdict ? { decision: verdict.decision, reason: verdict.reason } : { decision: "unknown", reason: tx("Planned and checked by the Fence when it fires.") },
     controllable: o.status === "active" || o.status === "paused",
-    editSentence: `Change my automation "${o.text}": `,
+    editSentence: tx("Change my automation \"{text}\": ", { text: o.text }),
     environment: o.environment,
     kind: "automation",
     signs: o.signer === "agent" ? "leash" : "you",
-    nextLine: status !== "active" ? (status === "paused" ? "Paused: nothing runs until you resume it." : "Finished.") : next ? `Runs ${inWords(next, now)}; you sign what it plans.` : `Runs when its ${o.trigger.kind === "price" ? "price" : "health factor"} condition holds.`,
+    nextLine: status !== "active" ? (status === "paused" ? tx("Paused: nothing runs until you resume it.") : "Finished.") : next ? tx("Runs {value}; you sign what it plans.", { value: inWords(next, now) }) : tx("Runs when its {value} condition holds.", { value: o.trigger.kind === "price" ? "price" : tx("health factor") }),
     control: o.status === "active" || o.status === "paused" ? automationControl(o.id, owner, o.status === "paused") : null,
   };
 }
@@ -132,21 +134,21 @@ export async function instructionsFor(ctx: AppContext, owner: Address): Promise<
     out.push({
       id: a.id,
       source: "automation",
-      sourceLabel: "Automation",
+      sourceLabel: tx("Automation"),
       name: a.name,
       status: a.status,
       trigger: describeAutomationTrigger(a.trigger),
       nextRunAt: next,
-      nextRunLabel: a.status !== "active" ? "paused" : next ? inWords(next, now) : a.trigger.type === "price" ? "on price" : a.trigger.type === "balance" ? "on balance" : "on event",
+      nextRunLabel: a.status !== "active" ? "paused" : next ? inWords(next, now) : a.trigger.type === "price" ? tx("on price") : a.trigger.type === "balance" ? tx("on balance") : tx("on event"),
       lastRunAt: a.lastFiredAt,
-      lastResult: a.lastObservation ?? (verdict ? `Plan ${verdict.result}` : a.fired > 0 ? `Fired ${a.fired} time(s)` : "Not run yet"),
-      nextVerdict: a.action.type === "notify" ? { decision: "allow", reason: "Notifies your webhooks; moves nothing." } : verdict ? { decision: verdict.decision, reason: verdict.reason } : { decision: "unknown", reason: "Planned and checked by the Fence when it fires." },
+      lastResult: a.lastObservation ?? (verdict ? tx("Plan {result}", { result: verdict.result }) : a.fired > 0 ? tx("Fired {fired} time(s)", { fired: a.fired }) : tx("Not run yet")),
+      nextVerdict: a.action.type === "notify" ? { decision: "allow", reason: tx("Notifies your webhooks; moves nothing.") } : verdict ? { decision: verdict.decision, reason: verdict.reason } : { decision: "unknown", reason: tx("Planned and checked by the Fence when it fires.") },
       controllable: true,
-      editSentence: `Change my automation "${a.name}": `,
+      editSentence: tx("Change my automation \"{name}\": ", { name: a.name }),
       environment: a.environment,
       kind: "automation",
       signs: "you",
-      nextLine: a.status !== "active" ? "Paused: nothing runs until you resume it." : a.action.type === "notify" ? `Notifies your webhooks ${next ? inWords(next, now) : "when it fires"}; moves nothing.` : `Plans its sentence ${next ? inWords(next, now) : `on ${a.trigger.type}`}; you sign what it plans.`,
+      nextLine: a.status !== "active" ? tx("Paused: nothing runs until you resume it.") : a.action.type === "notify" ? tx("Notifies your webhooks {value}; moves nothing.", { value: next ? inWords(next, now) : tx("when it fires") }) : tx("Plans its sentence {value}; you sign what it plans.", { value: next ? inWords(next, now) : `on ${a.trigger.type}` }),
       control: automationControl(a.id, owner, a.status !== "active"),
     });
   }
@@ -161,21 +163,21 @@ export async function instructionsFor(ctx: AppContext, owner: Address): Promise<
     out.push({
       id: r.id,
       source: "alert",
-      sourceLabel: "Watch",
+      sourceLabel: tx("Watch"),
       name,
       status: r.paused ? "paused" : "active",
       trigger: r.kind.replace(/-/gu, " "),
       nextRunAt: null,
-      nextRunLabel: r.paused ? "paused" : "when it happens",
+      nextRunLabel: r.paused ? "paused" : tx("when it happens"),
       lastRunAt: r.lastFiredAt,
-      lastResult: r.lastFiredAt ? `Told you on ${channelsOf(r.channels).join(", ")}` : "Quiet so far",
-      nextVerdict: { decision: "allow", reason: "A watch only tells you; it moves nothing." },
+      lastResult: r.lastFiredAt ? tx("Told you on {value}", { value: channelsOf(r.channels).join(", ") }) : tx("Quiet so far"),
+      nextVerdict: { decision: "allow", reason: tx("A watch only tells you; it moves nothing.") },
       controllable: true,
-      editSentence: `Change my watch "${name}": `,
+      editSentence: tx("Change my watch \"{name}\": ", { name }),
       environment: r.environment,
       kind: "watch",
       channels: channelsOf(r.channels),
-      nextLine: r.paused ? "Paused: it tells you nothing until you resume it." : `Tells you on ${channelsOf(r.channels).join(", ")} when it happens.`,
+      nextLine: r.paused ? tx("Paused: it tells you nothing until you resume it.") : tx("Tells you on {value} when it happens.", { value: channelsOf(r.channels).join(", ") }),
       control: automationControl(r.id, owner, r.paused === true),
     });
   }
@@ -186,21 +188,21 @@ export async function instructionsFor(ctx: AppContext, owner: Address): Promise<
     out.push({
       id: a.id,
       source: "agent",
-      sourceLabel: "Automation",
+      sourceLabel: tx("Automation"),
       name: a.sentence,
       status: a.enabled ? "active" : "paused",
-      trigger: "insight" in a.when ? `on the ${a.when.insight} insight` : `every ${every} min`,
+      trigger: "insight" in a.when ? tx("on the {insight} insight", { insight: a.when.insight }) : tx("every {every} min", { every }),
       nextRunAt: next,
-      nextRunLabel: !a.enabled ? "paused" : next ? inWords(next, now) : "on an insight",
+      nextRunLabel: !a.enabled ? "paused" : next ? inWords(next, now) : tx("on an insight"),
       lastRunAt: a.lastRunAt ?? null,
-      lastResult: a.lastRunAt ? "Proposed a plan" : "Not run yet",
-      nextVerdict: { decision: a.mode === "session" ? "unknown" : "confirm", reason: a.mode === "session" ? "Runs through the agent's on-chain session, inside its Fence." : "Lands as a proposal; you sign." },
+      lastResult: a.lastRunAt ? tx("Proposed a plan") : tx("Not run yet"),
+      nextVerdict: { decision: a.mode === "session" ? "unknown" : "confirm", reason: a.mode === "session" ? tx("Runs through the agent's on-chain session, inside its Fence.") : tx("Lands as a proposal; you sign.") },
       controllable: true,
-      editSentence: `Change my automation "${a.sentence}": `,
+      editSentence: tx("Change my automation \"{sentence}\": ", { sentence: a.sentence }),
       environment: a.environment,
       kind: "automation",
       signs: a.mode === "session" ? "leash" : "you",
-      nextLine: !a.enabled ? "Paused: nothing runs until you resume it." : `Plans ${next ? inWords(next, now) : "on an insight"}; ${a.mode === "session" ? "its agent signs inside its leash" : "you sign what it plans"}.`,
+      nextLine: !a.enabled ? tx("Paused: nothing runs until you resume it.") : tx("Plans {value}; {value2}.", { value: next ? inWords(next, now) : tx("on an insight"), value2: a.mode === "session" ? tx("its agent signs inside its leash") : tx("you sign what it plans") }),
       control: automationControl(a.id, owner, !a.enabled),
     });
   }
@@ -212,24 +214,24 @@ export async function instructionsFor(ctx: AppContext, owner: Address): Promise<
     out.push({
       id: o.hash,
       source: "order",
-      sourceLabel: "Order",
+      sourceLabel: tx("Order"),
       name: o.summary,
       status: o.status === "filled" ? "done" : o.status === "cancelled" || o.status === "expired" ? "cancelled" : o.status === "invalid" ? "failed" : o.status === "waiting" ? "waiting" : "active",
-      trigger: o.waitingFor ? `waiting for ${o.waitingFor}` : interval ? `${o.executed} of ${o.order.executions} slices` : "ready",
+      trigger: o.waitingFor ? tx("waiting for {waitingFor}", { waitingFor: o.waitingFor }) : interval ? tx("{executed} of {executions} slices", { executed: o.executed, executions: o.order.executions }) : "ready",
       nextRunAt: next,
-      nextRunLabel: !open ? o.status : next ? inWords(next, now) : o.waitingFor ? `on ${o.waitingFor}` : "next keeper pass",
+      nextRunLabel: !open ? o.status : next ? inWords(next, now) : o.waitingFor ? `on ${o.waitingFor}` : tx("next keeper pass"),
       lastRunAt: o.lastExecutedAt,
-      lastResult: o.executed > 0 ? `${o.executed} of ${o.order.executions} executed` : "Not filled yet",
+      lastResult: o.executed > 0 ? tx("{executed} of {executions} executed", { executed: o.executed, executions: o.order.executions }) : tx("Not filled yet"),
       // The real verdict: the owner's Fence and the beta cap on one execution today, as the keeper would face it.
       nextVerdict: open ? await orderNextVerdict(ctx, owner, environment, o.order) : null,
       controllable: false,
-      editSentence: `Change my order "${o.summary}": `,
+      editSentence: tx("Change my order \"{summary}\": ", { summary: o.summary }),
       environment,
       ...(open ? { cancel: { hash: o.hash, environment } } : {}),
       kind: "order",
       signs: "you",
-      nextLine: !open ? `Order ${o.status}.` : next ? `Next slice ${inWords(next, now)}; a keeper executes it inside the terms you signed.` : o.waitingFor ? `Executes when ${o.waitingFor}; a keeper runs it inside the terms you signed.` : "A keeper executes it on its next pass.",
-      control: open ? { action: "cancel", label: "Cancel", method: "get", path: `/v1/orders/${o.hash}/cancel-tx`, query: { environment }, sign: "order-cancel" } : null,
+      nextLine: !open ? tx("Order {status}.", { status: o.status }) : next ? tx("Next slice {value}; a keeper executes it inside the terms you signed.", { value: inWords(next, now) }) : o.waitingFor ? tx("Executes when {waitingFor}; a keeper runs it inside the terms you signed.", { waitingFor: o.waitingFor }) : tx("A keeper executes it on its next pass."),
+      control: open ? { action: "cancel", label: tx("Cancel"), method: "get", path: `/v1/orders/${o.hash}/cancel-tx`, query: { environment }, sign: "order-cancel" } : null,
     });
   }
 
@@ -244,23 +246,23 @@ export async function instructionsFor(ctx: AppContext, owner: Address): Promise<
     out.push({
       id: g.id,
       source: "plan",
-      sourceLabel: "Plan",
+      sourceLabel: tx("Plan"),
       name: (g.source || steps.map((st) => st.summary).join(" → ")).slice(0, 160),
       status: "active",
-      trigger: `${settled} of ${steps.length} step${steps.length === 1 ? "" : "s"} settled`,
+      trigger: tx("{settled} of {length, plural, one {# step} other {# steps}} settled", { settled, length: steps.length }),
       nextRunAt: null,
-      nextRunLabel: next?.status === "submitted" || next?.status === "settling" ? "settling" : "your signature",
+      nextRunLabel: next?.status === "submitted" || next?.status === "settling" ? "settling" : tx("your signature"),
       lastRunAt: g.steps.map((st) => st.settledAt).filter((t): t is string => Boolean(t)).sort().pop() ?? g.createdAt,
-      lastResult: next ? `Next: ${next.summary}`.slice(0, 160) : "All steps settled",
-      nextVerdict: { decision: g.verdict.decision, reason: g.verdict.reasons.find((r) => r.decision !== "allow")?.message ?? "Every rule passed when it was planned; each step is checked again before you sign." },
+      lastResult: next ? `Next: ${next.summary}`.slice(0, 160) : tx("All steps settled"),
+      nextVerdict: { decision: g.verdict.decision, reason: g.verdict.reasons.find((r) => r.decision !== "allow")?.message ?? tx("Every rule passed when it was planned; each step is checked again before you sign.") },
       controllable: false,
-      editSentence: `Change my plan "${(g.source || "").slice(0, 80)}": `,
+      editSentence: tx("Change my plan \"{value}\": ", { value: (g.source || "").slice(0, 80) }),
       environment: g.environment,
       stop: { intentId: g.id },
       kind: "plan",
       signs: "you",
-      nextLine: next ? (next.status === "submitted" || next.status === "settling" ? `Settling: ${next.summary}`.slice(0, 160) : `Waits for your signature: ${next.summary}`.slice(0, 160)) : "All steps settled.",
-      control: { action: "stop", label: "Stop", method: "post", path: `/v1/intents/${encodeURIComponent(g.id)}/stop` },
+      nextLine: next ? (next.status === "submitted" || next.status === "settling" ? `Settling: ${next.summary}`.slice(0, 160) : tx("Waits for your signature: {summary}", { summary: next.summary }).slice(0, 160)) : tx("All steps settled."),
+      control: { action: "stop", label: tx("Stop"), method: "post", path: `/v1/intents/${encodeURIComponent(g.id)}/stop` },
     });
   }
 
@@ -270,22 +272,22 @@ export async function instructionsFor(ctx: AppContext, owner: Address): Promise<
     out.push({
       id: w.id,
       source: "watch",
-      sourceLabel: "Watch",
+      sourceLabel: tx("Watch"),
       name: p.label,
       status: w.status === "paused" ? "paused" : "active",
-      trigger: `watch task · ${p.condition.kind.replace(/-/gu, " ")}`,
+      trigger: tx("watch task · {value}", { value: p.condition.kind.replace(/-/gu, " ") }),
       nextRunAt: null,
-      nextRunLabel: w.status === "paused" ? "paused" : "on each Fold read",
+      nextRunLabel: w.status === "paused" ? "paused" : tx("on each Fold read"),
       lastRunAt: p.lastFiredAt,
-      lastResult: p.observation ?? "Not checked yet",
-      nextVerdict: { decision: "allow", reason: "A watch only raises an insight; it moves nothing." },
+      lastResult: p.observation ?? tx("Not checked yet"),
+      nextVerdict: { decision: "allow", reason: tx("A watch only raises an insight; it moves nothing.") },
       controllable: true,
-      editSentence: `Change my watch "${p.label}": `,
+      editSentence: tx("Change my watch \"{label}\": ", { label: p.label }),
       environment: w.environment,
       kind: "watch",
       channels: ["in-app"],
-      nextLine: w.status === "paused" ? "Paused: Lyko on watch skips it until you resume it." : "Lyko on watch checks it each time it reads your Fold and raises an insight in-app.",
-      control: { action: w.status === "paused" ? "resume" : "pause", label: w.status === "paused" ? "Resume" : "Pause", method: "post", path: `/v1/agent/instructions/${encodeURIComponent(w.id)}/${w.status === "paused" ? "resume" : "pause"}`, body: { owner: owner.toLowerCase() } },
+      nextLine: w.status === "paused" ? tx("Paused: Lyko on watch skips it until you resume it.") : tx("Lyko on watch checks it each time it reads your Fold and raises an insight in-app."),
+      control: { action: w.status === "paused" ? "resume" : "pause", label: w.status === "paused" ? tx("Resume") : tx("Pause"), method: "post", path: `/v1/agent/instructions/${encodeURIComponent(w.id)}/${w.status === "paused" ? "resume" : "pause"}`, body: { owner: owner.toLowerCase() } },
     });
   }
 
@@ -322,20 +324,20 @@ async function spendingRows(ctx: AppContext, owner: Address, now: number): Promi
       id: l.id,
       source: "leash",
       sourceLabel: stile ? "Leash · Stile" : "Leash",
-      name: `${l.agentName}: ${usdShort(l.budget.perDayUsd)} a day, ${usdShort(l.budget.totalUsd)} in all`,
+      name: tx("{agentName}: {perDayUsd} a day, {totalUsd} in all", { agentName: l.agentName, perDayUsd: usdShort(l.budget.perDayUsd), totalUsd: usdShort(l.budget.totalUsd) }),
       status: paused ? "paused" : l.status === "pending" ? "waiting" : "active",
-      trigger: stile ? "spends from your Gateway balance through your LykiaStile" : "spends from your LykiaAccount on Arc",
+      trigger: stile ? tx("spends from your Gateway balance through your LykiaStile") : tx("spends from your LykiaAccount on Arc"),
       nextRunAt: l.expiresAt,
-      nextRunLabel: l.status === "pending" ? "your signature" : paused ? "paused" : `key stops ${inWords(l.expiresAt, now)}`,
+      nextRunLabel: l.status === "pending" ? tx("your signature") : paused ? "paused" : tx("key stops {value}", { value: inWords(l.expiresAt, now) }),
       lastRunAt: null,
-      lastResult: l.status === "pending" ? "Waiting for the session you sign" : null,
-      nextVerdict: { decision: "allow", reason: "Every step is checked against the leash's Fence, its budget and the session's limits on chain." },
+      lastResult: l.status === "pending" ? tx("Waiting for the session you sign") : null,
+      nextVerdict: { decision: "allow", reason: tx("Every step is checked against the leash's Fence, its budget and the session's limits on chain.") },
       controllable: true,
-      editSentence: `Change ${l.agentName}'s leash: `,
+      editSentence: tx("Change {agentName}'s leash: ", { agentName: l.agentName }),
       environment: l.environment,
       kind: "leash",
-      nextLine: l.status === "pending" ? "Goes live once you sign its session." : paused ? "Held by the Whistle: its key is refused until resumed." : `May spend up to ${usdShort(l.budget.perDayUsd)} today, ${usdShort(l.budget.perStepUsd)} in one step; the key stops ${inWords(l.expiresAt, now)}.`,
-      control: { action: "stop", label: "Revoke", method: "post", path: `/v1/leashes/${encodeURIComponent(l.id)}/revoke`, sign: "revoke-session" },
+      nextLine: l.status === "pending" ? tx("Goes live once you sign its session.") : paused ? tx("Held by the Whistle: its key is refused until resumed.") : tx("May spend up to {perDayUsd} today, {perStepUsd} in one step; the key stops {value}.", { perDayUsd: usdShort(l.budget.perDayUsd), perStepUsd: usdShort(l.budget.perStepUsd), value: inWords(l.expiresAt, now) }),
+      control: { action: "stop", label: tx("Revoke"), method: "post", path: `/v1/leashes/${encodeURIComponent(l.id)}/revoke`, sign: "revoke-session" },
     });
   }
   for (const a of await agentServices(ctx).pack.ownedBy(owner).catch(() => [])) {
@@ -347,20 +349,20 @@ async function spendingRows(ctx: AppContext, owner: Address, now: number): Promi
       id: a.id,
       source: "pack-agent",
       sourceLabel: "Leash",
-      name: `${a.name}: ${a.role.replace(/-/gu, " ")} agent${daily ? `, ${usdShort(daily)} a day` : ""}`,
+      name: tx("{name}: {value} agent{value2}", { name: a.name, value: a.role.replace(/-/gu, " "), value2: daily ? tx(", {daily} a day", { daily: usdShort(daily) }) : "" }),
       status: paused ? "paused" : "active",
-      trigger: a.session ? "signs through its on-chain session" : "proposes; you sign",
+      trigger: a.session ? tx("signs through its on-chain session") : tx("proposes; you sign"),
       nextRunAt: null,
-      nextRunLabel: paused ? "paused" : "when you ask",
+      nextRunLabel: paused ? "paused" : tx("when you ask"),
       lastRunAt: null,
       lastResult: null,
-      nextVerdict: { decision: "allow", reason: "Its own Fence sits inside yours; its budget is carved from yours." },
+      nextVerdict: { decision: "allow", reason: tx("Its own Fence sits inside yours; its budget is carved from yours.") },
       controllable: true,
-      editSentence: `Change my agent ${a.name}: `,
+      editSentence: tx("Change my agent {name}: ", { name: a.name }),
       environment: a.environment,
       kind: "leash",
-      nextLine: paused ? "Lying down: it proposes nothing until resumed." : daily ? `May propose up to ${usdShort(daily)} a day; you sign each plan.` : "Proposes plans inside its Fence; you sign each one.",
-      control: { action: paused ? "resume" : "pause", label: paused ? "Resume" : "Pause", method: "post", path: `/v1/pack/${encodeURIComponent(a.id)}/${paused ? "resume" : "pause"}` },
+      nextLine: paused ? tx("Lying down: it proposes nothing until resumed.") : daily ? tx("May propose up to {daily} a day; you sign each plan.", { daily: usdShort(daily) }) : tx("Proposes plans inside its Fence; you sign each one."),
+      control: { action: paused ? "resume" : "pause", label: paused ? tx("Resume") : tx("Pause"), method: "post", path: `/v1/pack/${encodeURIComponent(a.id)}/${paused ? "resume" : "pause"}` },
     });
   }
   return out;
@@ -377,21 +379,21 @@ async function autopilotRows(ctx: AppContext, owner: Address, now: number): Prom
       id: `autopilot:${environment}`,
       source: "autopilot",
       sourceLabel: "Autopilot",
-      name: `Autopilot on Arc ${environment}: up to ${usdShort(ap.limits.perStepUsd)} a step, ${usdShort(ap.limits.perDayUsd)} a day`,
+      name: tx("Autopilot on Arc {environment}: up to {perStepUsd} a step, {perDayUsd} a day", { environment, perStepUsd: usdShort(ap.limits.perStepUsd), perDayUsd: usdShort(ap.limits.perDayUsd) }),
       status: on ? "active" : ap.status === "pending" ? "waiting" : "paused",
       trigger: `${ap.tasks.length} task${ap.tasks.length === 1 ? "" : "s"}`,
       nextRunAt: null,
-      nextRunLabel: ap.status === "pending" ? "your signature" : on ? "runs its tasks" : "paused",
+      nextRunLabel: ap.status === "pending" ? tx("your signature") : on ? tx("runs its tasks") : "paused",
       lastRunAt: ap.updatedAt,
       lastResult: ap.paused?.reason ?? null,
-      nextVerdict: { decision: "allow", reason: "Each run is checked against your Fence and its leash before Lyko signs." },
+      nextVerdict: { decision: "allow", reason: tx("Each run is checked against your Fence and its leash before Lyko signs.") },
       controllable: ap.status !== "pending",
-      editSentence: "Change my Autopilot: ",
+      editSentence: tx("Change my Autopilot: "),
       environment,
       kind: "autopilot",
       signs: "autopilot",
-      nextLine: ap.status === "pending" ? "Starts once you sign its session." : on ? `Signs your own automations below, inside ${usdShort(ap.limits.perDayUsd)} a day.` : `Paused: ${ap.paused?.reason ?? "nothing is signed until resumed"}`.slice(0, 160),
-      control: ap.status === "pending" ? null : { action: on ? "pause" : "resume", label: on ? "Pause" : "Resume", method: "post", path: `/v1/autopilot/${on ? "pause" : "resume"}`, body: { environment } },
+      nextLine: ap.status === "pending" ? tx("Starts once you sign its session.") : on ? tx("Signs your own automations below, inside {perDayUsd} a day.", { perDayUsd: usdShort(ap.limits.perDayUsd) }) : `Paused: ${ap.paused?.reason ?? tx("nothing is signed until resumed")}`.slice(0, 160),
+      control: ap.status === "pending" ? null : { action: on ? "pause" : "resume", label: on ? tx("Pause") : tx("Resume"), method: "post", path: `/v1/autopilot/${on ? "pause" : "resume"}`, body: { environment } },
     });
     for (const t of ap.tasks) {
       const schedule = t.when.kind === "schedule" ? t.when.every : null;
@@ -399,22 +401,22 @@ async function autopilotRows(ctx: AppContext, owner: Address, now: number): Prom
       out.push({
         id: t.id,
         source: "autopilot-task",
-        sourceLabel: "Automation",
+        sourceLabel: tx("Automation"),
         name: t.label,
         status: t.enabled ? (on ? "active" : "paused") : "paused",
-        trigger: schedule ? `every ${schedule}` : "when its condition holds",
+        trigger: schedule ? `every ${schedule}` : tx("when its condition holds"),
         nextRunAt: next,
-        nextRunLabel: !t.enabled ? "paused" : !on ? "Autopilot paused" : next ? inWords(next, now) : "on condition",
+        nextRunLabel: !t.enabled ? "paused" : !on ? tx("Autopilot paused") : next ? inWords(next, now) : tx("on condition"),
         lastRunAt: t.lastRunAt,
-        lastResult: t.lastResult ?? (t.runs > 0 ? `Ran ${t.runs} time(s)` : "Not run yet"),
-        nextVerdict: { decision: "allow", reason: `Autopilot signs at most ${usdShort(t.amountUsd)} a run, inside your Fence and its leash.` },
+        lastResult: t.lastResult ?? (t.runs > 0 ? tx("Ran {runs} time(s)", { runs: t.runs }) : tx("Not run yet")),
+        nextVerdict: { decision: "allow", reason: tx("Autopilot signs at most {amountUsd} a run, inside your Fence and its leash.", { amountUsd: usdShort(t.amountUsd) }) },
         controllable: true,
-        editSentence: `Change my automation "${t.label}": `,
+        editSentence: tx("Change my automation \"{label}\": ", { label: t.label }),
         environment,
         kind: "automation",
         signs: "autopilot",
-        nextLine: !t.enabled ? "Paused: Autopilot skips it until you resume it." : `${next ? `Runs ${inWords(next, now)}` : "Runs when its condition holds"}; Autopilot signs up to ${usdShort(t.amountUsd)}.`,
-        control: { action: t.enabled ? "pause" : "resume", label: t.enabled ? "Pause" : "Resume", method: "post", path: `/v1/autopilot/tasks/${encodeURIComponent(t.id)}/${t.enabled ? "pause" : "resume"}`, body: { environment } },
+        nextLine: !t.enabled ? tx("Paused: Autopilot skips it until you resume it.") : tx("{value}; Autopilot signs up to {amountUsd}.", { value: next ? tx("Runs {value}", { value: inWords(next, now) }) : tx("Runs when its condition holds"), amountUsd: usdShort(t.amountUsd) }),
+        control: { action: t.enabled ? "pause" : "resume", label: t.enabled ? tx("Pause") : tx("Resume"), method: "post", path: `/v1/autopilot/tasks/${encodeURIComponent(t.id)}/${t.enabled ? "pause" : "resume"}`, body: { environment } },
       });
     }
   }
@@ -429,25 +431,25 @@ async function paymentRows(ctx: AppContext, owner: Address, now: number): Promis
     .filter((i) => i.status === "open" || i.status === "partially-paid" || i.status === "overdue")
     .map((i): FoldInstruction => {
       const link = i.lineItems.length === 0 && !i.reference && !i.dueDate;
-      const amount = i.amount && Number(i.amount) > 0 ? `${i.amount} ${i.token}` : "any amount";
+      const amount = i.amount && Number(i.amount) > 0 ? `${i.amount} ${i.token}` : tx("any amount");
       return {
         id: i.id,
         source: "invoice",
-        sourceLabel: link ? "Payment link" : "Invoice",
-        name: `${i.memo ?? (link ? "Payment link" : "Invoice")}: ${amount}`.slice(0, 160),
+        sourceLabel: link ? tx("Payment link") : tx("Invoice"),
+        name: `${i.memo ?? (link ? tx("Payment link") : tx("Invoice"))}: ${amount}`.slice(0, 160),
         status: i.status === "overdue" ? "waiting" : "active",
-        trigger: i.status === "partially-paid" ? `${i.paid} of ${i.amount} ${i.token} paid` : "open",
+        trigger: i.status === "partially-paid" ? tx("{paid} of {amount} {token} paid", { paid: i.paid, amount: i.amount, token: i.token }) : "open",
         nextRunAt: i.dueDate,
-        nextRunLabel: i.dueDate ? `due ${inWords(i.dueDate, now)}` : "when paid",
+        nextRunLabel: i.dueDate ? `due ${inWords(i.dueDate, now)}` : tx("when paid"),
         lastRunAt: i.payments.length > 0 ? i.updatedAt : null,
-        lastResult: i.payments.length > 0 ? `${i.payments.length} payment(s)` : "Not paid yet",
-        nextVerdict: { decision: "allow", reason: "Money comes in; nothing leaves your wallet." },
+        lastResult: i.payments.length > 0 ? `${i.payments.length} payment(s)` : tx("Not paid yet"),
+        nextVerdict: { decision: "allow", reason: tx("Money comes in; nothing leaves your wallet.") },
         controllable: true,
-        editSentence: `Change my ${link ? "payment link" : "invoice"} "${i.memo ?? i.id}": `,
+        editSentence: tx("Change my {value} \"{value2}\": ", { value: link ? tx("payment link") : "invoice", value2: i.memo ?? i.id }),
         environment: i.environment,
         kind: "payment",
-        nextLine: i.status === "overdue" ? "Overdue: still payable until you cancel it." : `Waits for the payer${i.dueDate ? `, due ${inWords(i.dueDate, now)}` : ""}; Lykia records the payment from the chain.`,
-        control: { action: "cancel", label: "Cancel", method: "post", path: `/v1/invoices/${encodeURIComponent(i.id)}/void` },
+        nextLine: i.status === "overdue" ? tx("Overdue: still payable until you cancel it.") : tx("Waits for the payer{value}; Lykia records the payment from the chain.", { value: i.dueDate ? tx(", due {value}", { value: inWords(i.dueDate, now) }) : "" }),
+        control: { action: "cancel", label: tx("Cancel"), method: "post", path: `/v1/invoices/${encodeURIComponent(i.id)}/void` },
       };
     });
 }

@@ -16,6 +16,7 @@
  *   POST /intents/:id/stop                       stop every unstarted step
  *   GET  /intents/:id/stream                     SSE: intent, outrun
  */
+import { LOCALES } from "@lykia/core";
 import type { Address } from "@lykia/core";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
@@ -55,6 +56,8 @@ export const createSchema = z
     account: z.enum(["eoa", "smart"]).optional(),
     dryRun: z.boolean().optional(),
     proposedByAgent: z.boolean().optional(),
+    /** The language step summaries, findings and reasons come back in (overrides Accept-Language). */
+    locale: z.enum(LOCALES).optional(),
   })
   .refine((b) => (b.text === undefined) !== (b.actions === undefined), "Send either text or actions.");
 

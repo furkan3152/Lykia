@@ -2,15 +2,17 @@
  * Memory references in the composer (pure): `@name` contacts and phrases
  * that point at history ("again", "same as last week", "undo last swap").
  */
+import { t } from "../../i18n";
 export interface ContactRef {
   readonly name: string;
   readonly address: string;
   readonly confirmed: boolean;
 }
 
-export const MEMORY_PHRASES = {
-  en: ["again", "same as last week", "undo last swap"],
-} as const;
+/** The history phrases, in the interface language (read when shown, so a language switch follows). */
+export function memoryPhrases(): readonly string[] {
+  return [t("ask.memoryRefs.again"), t("ask.memoryRefs.sameAsLastWeek"), t("ask.memoryRefs.undoLastSwap")];
+}
 
 /** The `@partial` being typed at the caret, or null. */
 export function mentionAt(text: string, caret: number): { readonly start: number; readonly query: string } | null {

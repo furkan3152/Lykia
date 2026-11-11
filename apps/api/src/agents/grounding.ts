@@ -13,6 +13,9 @@
  * question and options. A venue the owner did not name is dropped, so the
  * deterministic route search picks it (see plan_intent).
  */
+import type { Locale } from "@lykia/core";
+import { currentLocale } from "../i18n/context.js";
+import { numberPattern, readNumber } from "../language/numbers.js";
 import { protocolsFor, type Address, type ArcEnvironment, type PlanAction } from "@lykia/core";
 import type { AppContext } from "../context.js";
 import { getPreferences } from "../fold/preferences.js";
@@ -34,22 +37,31 @@ export interface Ground {
 /** How many earlier owner turns count as "stated" (the recent-thread window). */
 export const THREAD_WINDOW = 6;
 
-const NUMBER = /(?<![\p{L}\p{N}_.])(?:\$\s?)?(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?\s*(k|m|bn)?(?![\p{L}\p{N}_])/giu;
+const NUMBERS = new Map<Locale, RegExp>();
+/** Numbers written in the owner's or the answer's language ("$1,950.00", "1.950,00", "1 950,00"), with an optional k/m/bn. */
+function numberRe(locale: Locale): RegExp {
+  let re = NUMBERS.get(locale);
+  if (!re) NUMBERS.set(locale, (re = new RegExp(`(?<![\\p{L}\\p{N}_.,])(?:\\$\\s?)?(${numberPattern(locale)})\\s*(k|m|bn)?(?![\\p{L}\\p{N}_])`, "giu")));
+  return re;
+}
 
-/** "1,950.00" -> "1950"; "1.5k" -> "1500"; null when it is not a finite number. */
-export function normalizeNumber(raw: string, suffix?: string | null): string | null {
-  const value = Number(raw.replace(/,/gu, "")) * (suffix ? ({ k: 1e3, m: 1e6, bn: 1e9 } as const)[suffix.toLowerCase() as "k" | "m" | "bn"] : 1);
+/** "1,950.00" -> "1950"; "1.5k" -> "1500"; "1.950,00" (in a comma-decimal language) -> "1950"; null when it is not a finite number. */
+export function normalizeNumber(raw: string, suffix?: string | null, locale: Locale = "en"): string | null {
+  const read = readNumber(raw.trim(), locale);
+  if (!read) return null;
+  const value = read.value * (suffix ? ({ k: 1e3, m: 1e6, bn: 1e9 } as const)[suffix.toLowerCase() as "k" | "m" | "bn"] : 1);
   if (!Number.isFinite(value)) return null;
   return String(Number(value.toPrecision(15)));
 }
 
-/** Every number written in a text, normalised. */
-export function numbersIn(text: string): Set<string> {
+/** Every number written in a text, normalised. English and the interface language's own way of writing numbers are both read. */
+export function numbersIn(text: string, locale: Locale = currentLocale()): Set<string> {
   const out = new Set<string>();
-  for (const m of text.matchAll(NUMBER)) {
-    const raw = `${m[1] ?? ""}${m[2] ? `.${m[2]}` : ""}`;
-    const n = normalizeNumber(raw, m[3] ?? null);
-    if (n !== null) out.add(n);
+  for (const l of locale === "en" ? (["en"] as const) : (["en", locale] as const)) {
+    for (const m of text.matchAll(numberRe(l))) {
+      const n = normalizeNumber(m[1]!, m[2] ?? null, l);
+      if (n !== null) out.add(n);
+    }
   }
   return out;
 }

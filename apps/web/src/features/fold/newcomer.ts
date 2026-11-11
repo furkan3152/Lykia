@@ -4,6 +4,7 @@
  * Herding, Pack and Fence tabs then show one friendly state with one action
  * instead of panels full of zeros. Unknown (still loading) is not a newcomer.
  */
+import { t } from "../../i18n";
 export interface NewcomerFacts {
   readonly signedIn: boolean;
   readonly sample: boolean;
@@ -28,7 +29,7 @@ export type NewcomerTab = "herding" | "pack" | "fence";
 
 /** The one state each tab shows a newcomer: a title, one line, and the one thing to do (filled into Ask Lyko). */
 export const NEWCOMER: Readonly<Record<NewcomerTab, { readonly title: string; readonly line: string; readonly action: string; readonly ask: string }>> = {
-  herding: { title: "Nothing is running yet", line: "Repeats, orders, watches and payment links you start in Ask Lyko show up here, one row each, with a Stop button.", action: "START ONE IN ASK LYKO", ask: "Every Friday pay " },
-  pack: { title: "No agents work for you yet", line: "An agent or an outside bot gets a leash: a budget it cannot go past, until a date you choose. You set it up in Ask Lyko and sign once.", action: "GIVE A BOT A LEASH", ask: "Give my bot " },
-  fence: { title: "Your Fence is on", line: "These rules check every plan before you sign. Nothing has been checked yet: the first plan you make in Ask Lyko is checked here.", action: "MAKE A FIRST PLAN", ask: "Bridge [amount] USDC to [chain]" },
+  herding: { title: t("fold.newcomer.nothingIsRunningYet"), line: t("fold.newcomer.repeatsOrdersWatchesAndPaymentLinks"), action: "START ONE IN ASK LYKO", ask: t("fold.newcomer.everyFridayPay") },
+  pack: { title: t("fold.newcomer.noAgentsWorkForYouYet"), line: t("fold.newcomer.anAgentOrAnOutsideBot"), action: "GIVE A BOT A LEASH", ask: t("fold.newcomer.giveMyBot") },
+  fence: { title: t("fold.newcomer.yourFenceIsOn"), line: t("fold.newcomer.theseRulesCheckEveryPlanBefore"), action: "MAKE A FIRST PLAN", ask: t("fold.newcomer.bridgeAmountUsdcToChain") },
 };

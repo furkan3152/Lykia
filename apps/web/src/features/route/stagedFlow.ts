@@ -16,6 +16,7 @@
  * right stage: "graph" alone rebuilds the state.
  */
 import type { StagedPlan } from "@lykia/core";
+import { t } from "../../i18n";
 
 export type StageMode = "loading" | "review" | "signing" | "settling" | "advancing" | "paused" | "done" | "stopped" | "dry-run" | "denied";
 
@@ -49,7 +50,7 @@ function fromPlan(state: StageState, plan: StagedPlan, decision: "allow" | "conf
   const current = plan.current;
   if (!current) return { ...state, mode: "done", stage: total, total };
   const replanned = current.replanned;
-  if (current.state === "paused") return { ...state, mode: "paused", stage: current.n, total, replanned, pause: { reason: current.reason ?? "This step did not go through.", retryable: current.retryable } };
+  if (current.state === "paused") return { ...state, mode: "paused", stage: current.n, total, replanned, pause: { reason: current.reason ?? t("route.stagedFlow.thisStepDidNotGoThrough"), retryable: current.retryable } };
   if (current.state === "settling") return { ...state, mode: "settling", stage: current.n, total, replanned, pause: null };
   // A stage that moved forward since the last view: the one before it settled.
   if (state.stage > 0 && current.n > state.stage) {
@@ -85,6 +86,6 @@ export function stageReduce(state: StageState, event: StageEvent): StageState {
 
 /** The modal's headline for the stage on screen. */
 export function stageHeadline(state: StageState, summary: string | null): string {
-  if (state.total <= 1 || state.stage === 0) return summary ?? "Review and sign";
-  return `Step ${state.stage} of ${state.total}${summary ? `: ${summary}` : ""}`;
+  if (state.total <= 1 || state.stage === 0) return summary ?? t("route.stagedFlow.reviewAndSign");
+  return summary ? t("route.stagedFlow.stepOfSummary", { stage: state.stage, total: state.total, summary }) : t("route.stagedFlow.stepOf", { stage: state.stage, total: state.total });
 }

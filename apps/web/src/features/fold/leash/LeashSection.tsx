@@ -25,6 +25,7 @@ import { actionLine, destinationsLabel, draftFromParam, meterOf, nearCap, spendF
 import { NewLeashSheet } from "./NewLeashSheet";
 import { AgentCard, AskTile } from "../tabs/PackTab";
 import type { PackAgentView } from "@lykia/core/api/agents";
+import { t } from "../../../i18n";
 
 function Bar({ m, label }: { readonly m: MeterView; readonly label: string }) {
   const n = 14;
@@ -33,9 +34,9 @@ function Bar({ m, label }: { readonly m: MeterView; readonly label: string }) {
     <div className="fd-meter fd-leash__meter" data-tone={m.tone}>
       <div className="fd-leash__meterhead">
         <span className="m-kick">{label}</span>
-        <span className="num">{`${usdText(m.used)} of ${usdText(m.cap)}`}</span>
+        <span className="num">{t("common.usedOf", { used: usdText(m.used), cap: usdText(m.cap) })}</span>
       </div>
-      <div className="fd-meter__row fd-leash__row" role="meter" aria-valuemin={0} aria-valuemax={m.cap} aria-valuenow={m.used} aria-label={`${label}: ${usdText(m.used)} of ${usdText(m.cap)} used`}>
+      <div className="fd-meter__row fd-leash__row" role="meter" aria-valuemin={0} aria-valuemax={m.cap} aria-valuenow={m.used} aria-label={t("fold.leash.leashSection.ofUsed", { label, usdText: usdText(m.used), usdText2: usdText(m.cap) })}>
         {Array.from({ length: n }, (_, i) => <i key={i} data-f={i < filled} />)}
       </div>
     </div>
@@ -51,35 +52,35 @@ export function LeashCard({ l, now, busy, onRevoke, offer, onAsk }: { readonly l
       <header className="fd-leash__head">
         <span className="fd-leash__mark" aria-hidden="true"><LeashMark scale={2} /></span>
         <h3>{l.agentName}</h3>
-        <Button size="sm" tone="navy" className="fd-leash__revoke" disabled={!live || busy} onClick={() => onRevoke(l)} aria-label={`Revoke ${l.agentName}'s leash`}>
+        <Button size="sm" tone="navy" className="fd-leash__revoke" disabled={!live || busy} onClick={() => onRevoke(l)} aria-label={t("fold.leash.leashSection.revokeSLeash", { agentName: l.agentName })}>
           {live ? (busy ? "REVOKING…" : "REVOKE") : l.status.toUpperCase()}
         </Button>
         <span className="m-kick fd-leash__kick">{`${LEASH_TEMPLATES[l.template].title} · ${statusLabel(l)}`}</span>
       </header>
-      <Bar m={meterOf(l.usage.day)} label="SPENT TODAY" />
-      <Bar m={meterOf(l.usage.total)} label="SPENT IN TOTAL" />
-      {close && live ? <p className="fd-leash__warn">{`Near its cap: ${usdText(stepLeft(l))} left for the next step.`}</p> : null}
+      <Bar m={meterOf(l.usage.day)} label={t("fold.leash.leashSection.spentToday")} />
+      <Bar m={meterOf(l.usage.total)} label={t("fold.leash.leashSection.spentInTotal")} />
+      {close && live ? <p className="fd-leash__warn">{t("fold.leash.leashSection.nearItsCapLeftForThe", { usdText: usdText(stepLeft(l)) })}</p> : null}
       <p className="fd-leash__from">
         <Tag tone={l.spendFrom === "gateway" ? "sea" : "ghost"}>{spendFromLabel(l).toUpperCase()}</Tag>
-        {paysOn ? <span className="m-small">{`Pays on ${paysOn}`}</span> : null}
+        {paysOn ? <span className="m-small">{t("fold.leash.leashSection.paysOn", { paysOn })}</span> : null}
       </p>
       <dl className="fd-agent__facts">
-        <div><dt>{"Key stops in"}</dt><dd className="num">{live ? timeLeft(l.expiresAt, now) : "ended"}</dd></div>
-        <div><dt>{"Most in one go"}</dt><dd className="num">{usdText(l.budget.perStepUsd)}</dd></div>
-        <div><dt>{l.template === "pay-invoices" ? "May pay" : "May use"}</dt><dd>{venueLabel(l)}</dd></div>
-        <div><dt>{"Limits read from"}</dt><dd>{l.usage.source === "chain" ? "the chain" : "Lykia's record"}</dd></div>
+        <div><dt>{t("fold.leash.leashSection.keyStopsIn")}</dt><dd className="num">{live ? timeLeft(l.expiresAt, now) : "ended"}</dd></div>
+        <div><dt>{t("fold.leash.leashSection.mostInOneGo")}</dt><dd className="num">{usdText(l.budget.perStepUsd)}</dd></div>
+        <div><dt>{l.template === "pay-invoices" ? t("fold.leash.leashSection.mayPay") : t("fold.leash.leashSection.mayUse")}</dt><dd>{venueLabel(l)}</dd></div>
+        <div><dt>{t("fold.leash.leashSection.limitsReadFrom")}</dt><dd>{l.usage.source === "chain" ? t("fold.leash.leashSection.theChain") : t("fold.leash.leashSection.lykiaSRecord")}</dd></div>
       </dl>
       {l.recent.length > 0 ? (
-        <ul className="fd-leash__recent" aria-label="Last actions">
+        <ul className="fd-leash__recent" aria-label={t("fold.leash.leashSection.lastActions")}>
           {l.recent.slice(0, 3).map((a) => (
             <li key={`${a.at}${a.summary}`} data-kind={a.kind}>
               <span>{actionLine(a)}</span>
-              {a.chainProven ? <Tag tone="ok">ON CHAIN</Tag> : a.kind === "denied" ? <Tag tone="bad">REFUSED</Tag> : null}
+              {a.chainProven ? <Tag tone="ok">{t("fold.leash.leashSection.onChain")}</Tag> : a.kind === "denied" ? <Tag tone="bad">{t("fold.leash.leashSection.refused")}</Tag> : null}
             </li>
           ))}
         </ul>
-      ) : <p className="m-small m-muted">{l.status === "pending" ? "Nothing yet. It goes live once you sign the session." : "No actions yet."}</p>}
-      {onAsk && live ? <button type="button" className="fd-run__ask" onClick={() => onAsk(l)}>{"Change in Ask Lyko"}</button> : null}
+      ) : <p className="m-small m-muted">{l.status === "pending" ? t("fold.leash.leashSection.nothingYetItGoesLiveOnce") : t("fold.leash.leashSection.noActionsYet")}</p>}
+      {onAsk && live ? <button type="button" className="fd-run__ask" onClick={() => onAsk(l)}>{t("fold.leash.leashSection.changeInAskLyko")}</button> : null}
     </article>
   );
 }
@@ -107,7 +108,7 @@ export function LeashSection({ owner, agents, busyId: agentBusy, onPauseAgent, o
 
   const revoke = async (l: LeashView) => {
     if (owner.sample) {
-      toast.info("This is a sample leash", { description: "Connect a wallet and your own leashes show here.", from: "LYKO" });
+      toast.info(t("fold.leash.leashSection.thisIsASampleLeash"), { description: t("fold.leash.leashSection.connectAWalletAndYourOwn"), from: "LYKO" });
       return;
     }
     setBusyId(l.id);
@@ -116,16 +117,16 @@ export function LeashSection({ owner, agents, busyId: agentBusy, onPauseAgent, o
       const r = await apiPost<RevokeLeashResponse>(`/v1/leashes/${encodeURIComponent(l.id)}/revoke`, {});
       await qc.invalidateQueries({ queryKey: ["leashes"] });
       void qc.invalidateQueries({ queryKey: ["fold-instructions"] });
-      toast.success(`${l.agentName}'s key stopped working`, { description: r.transaction ? "Sign revokeSession to end it on chain too." : r.note, from: "LYKO" });
+      toast.success(t("fold.leash.leashSection.sKeyStoppedWorking", { agentName: l.agentName }), { description: r.transaction ? t("fold.leash.leashSection.signRevokesessionToEndItOn") : r.note, from: "LYKO" });
       if (r.transaction) {
         if (!wallet.connected) openModal();
         else {
           const [hash] = await wallet.send([{ to: r.transaction.to, data: r.transaction.data, value: r.transaction.value, chainId: r.transaction.chainId }]);
-          toast.success("Session ended on chain", { description: hash, from: "LYKO" });
+          toast.success(t("fold.leash.leashSection.sessionEndedOnChain"), { description: hash, from: "LYKO" });
         }
       }
     } catch (e) {
-      toast.error("Not revoked on chain yet", { description: describeError(e), from: "LYKO" });
+      toast.error(t("fold.leash.leashSection.notRevokedOnChainYet"), { description: describeError(e), from: "LYKO" });
     } finally {
       setBusyId(null);
     }
@@ -137,17 +138,17 @@ export function LeashSection({ owner, agents, busyId: agentBusy, onPauseAgent, o
       <header className="fd-leashes__head fd-pk__head m-floor">
         <span className="fd-leashes__mark" aria-hidden="true"><LeashMark scale={3} /></span>
         <div>
-          <h3 id="fd-pk-h">{"Agents and their leashes"} <span className="p-h-sub">{`· ${LYKIA_TERMS.leash.plain}`}</span></h3>
-          <p className="m-small">{"An agent is what holds a leash: a budget it cannot go past, per step, per day and in total, until a date, only to who you allow. For outside bots the limits sit on chain, and Revoke stops a key at once."}</p>
+          <h3 id="fd-pk-h">{t("fold.leash.leashSection.agentsAndTheirLeashes")} <span className="p-h-sub">{`· ${LYKIA_TERMS.leash.plain}`}</span></h3>
+          <p className="m-small">{t("fold.leash.leashSection.anAgentIsWhatHoldsA")}</p>
         </div>
         <span className="fd-pk__count num" aria-label={`${live.length + own.length} agents`}>{live.length + own.length}</span>
       </header>
-      {owner.sample ? <p className="fd-leashes__sample m-small m-floor">{"Sample agents and leashes, so you can look around."}</p> : null}
-      {!owner.sample && !owner.signedIn ? <p className="m-small m-muted m-floor">{"Sign in as the owner to see and manage your agents and leashes."}</p> : null}
+      {owner.sample ? <p className="fd-leashes__sample m-small m-floor">{t("fold.leash.leashSection.sampleAgentsAndLeashesSoYou")}</p> : null}
+      {!owner.sample && !owner.signedIn ? <p className="m-small m-muted m-floor">{t("fold.leash.leashSection.signInAsTheOwnerTo")}</p> : null}
       <div className="fd-leashes__grid fd-pk__grid">
         {loading ? <div className="m-skel" style={{ height: 260 }} /> : null}
-        {live.map((l) => <LeashCard key={l.id} l={l} now={now} busy={busyId === l.id} onRevoke={(x) => void revoke(x)} offer={offer.data} onAsk={(x) => onAsk(`Change ${x.agentName}'s leash: `, `Leash ${x.id} for ${x.agentName}: $${x.budget.perDayUsd} a day, $${x.budget.totalUsd} in all, until ${x.expiresAt}.`)} />)}
-        {own.map((a) => <AgentCard key={a.id} a={a} sample={owner.sample} busy={agentBusy === a.id} onPause={onPauseAgent} onRevoke={onRevokeAgent} onAsk={(x) => onAsk(`Change my agent ${x.name}: `, `Agent ${x.name} (${x.role}), ${x.status}; daily cap ${x.budget.caps.dailyUsd ?? "none"}, spent today ${x.budget.spent.dayUsd}.`)} />)}
+        {live.map((l) => <LeashCard key={l.id} l={l} now={now} busy={busyId === l.id} onRevoke={(x) => void revoke(x)} offer={offer.data} onAsk={(x) => onAsk(t("fold.leash.leashSection.changeSLeash", { agentName: x.agentName }), t("fold.leash.leashSection.leashForADayInAll", { id: x.id, agentName: x.agentName, perDayUsd: x.budget.perDayUsd, totalUsd: x.budget.totalUsd, expiresAt: x.expiresAt }))} />)}
+        {own.map((a) => <AgentCard key={a.id} a={a} sample={owner.sample} busy={agentBusy === a.id} onPause={onPauseAgent} onRevoke={onRevokeAgent} onAsk={(x) => onAsk(t("fold.leash.leashSection.changeMyAgent", { name: x.name }), /* i18n-ignore: context for Lyko */ `Agent ${x.name} (${x.role}), ${x.status}; daily cap ${x.budget.caps.dailyUsd ?? "none"}, spent today ${x.budget.spent.dayUsd}.`)} />)}
         <AskTile onAsk={onAsk} />
       </div>
       {ended.length > 0 ? (

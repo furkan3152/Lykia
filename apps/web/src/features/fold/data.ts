@@ -18,6 +18,7 @@ import { useLykiaWallet } from "../wallet/useLykiaWallet";
 import { controlRoute, sampleInsights, samplePack, sampleSnapshot } from "./model";
 import { samplePositions } from "./positionsModel";
 import { genericPositionInsights } from "@lykia/core";
+import { t } from "../../i18n";
 
 export interface FoldOwner {
   /** The address the Fold reads: ?address=, else the connected wallet, else null (sample). */
@@ -128,7 +129,7 @@ export function usePositions(o: FoldOwner): PositionMap {
     const gi = groups.findIndex((g) => g.includes(info.id));
     const q = results[gi];
     const answered = q?.data?.venues.find((r) => r.venue === info.id) ?? null;
-    const failed: VenueRead | null = !answered && q?.isError ? { venue: info.id, venueName: info.name, venueKind: info.kind, status: "unavailable", reason: "Lykia's API did not answer for this venue.", positions: [], source: "chain", method: "", readAt: new Date().toISOString(), block: null, ms: 0 } : null;
+    const failed: VenueRead | null = !answered && q?.isError ? { venue: info.id, venueName: info.name, venueKind: info.kind, status: "unavailable", reason: t("fold.data.lykiaSApiDidNotAnswer"), positions: [], source: "chain", method: "", readAt: new Date().toISOString(), block: null, ms: 0 } : null;
     return { info, read: holdingsOnly(answered ?? failed), loading: !answered && !failed, refetch: () => void q?.refetch() };
   });
   const reads = slots.map((s) => s.read).filter((r): r is VenueRead => r !== null);
@@ -264,7 +265,7 @@ export function useInstructionControl(o: FoldOwner) {
   return useMutation({
     mutationFn: async (input: { id: string; action: "pause" | "resume" | "remove"; source: FoldInstruction["source"] }) => {
       const route = controlRoute(input, input.action);
-      if (!route) throw new Error("Orders are cancelled with a signed transaction, and plans are stopped with Stop.");
+      if (!route) throw new Error(t("fold.data.ordersAreCancelledWithASigned"));
       const query = route.query === "owner" ? { owner: o.address } : undefined;
       if (route.method === "delete") return apiDelete(route.path, { ...(query ? { query } : {}) });
       return apiPost(route.path, route.body === "owner" ? { owner: o.address } : {}, { ...(query ? { query } : {}) });

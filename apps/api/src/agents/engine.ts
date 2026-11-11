@@ -4,6 +4,7 @@
  * under the Fence of the agent that asks, and get back a stored intent (or
  * a dry run) with the Fence's verdict.
  */
+import { englishOf } from "../i18n/context.js";
 import { bridgeRefusal, type Address, type ArcEnvironment, type Fence, type Finding, type PlanAction } from "@lykia/core";
 import { LykiaHttpError } from "../http/errors.js";
 import type { CreateIntentResponse } from "@lykia/core/api/intents";
@@ -82,7 +83,7 @@ export async function planActions(ctx: AppContext, rawActions: readonly PlanActi
       const preview = await create(true).catch(() => null);
       if (preview && (preview.intent.preflight ?? []).some((f) => f.severity === "block")) return { kind: "planned", result: preview, actions };
     }
-    if (error instanceof LykiaHttpError && error.code === "NO_ROUTE" && /CCTP destination|token account as the mint recipient|in CCTP fees/iu.test(message)) return { kind: "refused", message, findings: [bridgeRefusal(request.environment, message)] };
+    if (error instanceof LykiaHttpError && error.code === "NO_ROUTE" && /CCTP destination|token account as the mint recipient|in CCTP fees/iu.test(englishOf(message))) return { kind: "refused", message, findings: [bridgeRefusal(request.environment, message)] };
     return { kind: "refused", message };
   }
 }

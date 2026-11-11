@@ -20,6 +20,7 @@ import { LEASH_EARN_VENUES, LEASH_SWAP_VENUES } from "./leash.js";
 import { watchIssue, watchLabel, type WatchCondition } from "./agentInstructions.js";
 import type { ArcEnvironment } from "./networks.js";
 
+import { tx, phrase, localized } from "./i18n/index.js";
 export const AUTOPILOT_SCHEMA = "lykia.autopilot/v1" as const;
 
 /**
@@ -40,7 +41,7 @@ export const AUTOPILOT_LIMITS = Object.freeze({
 });
 
 /** What every signed Autopilot step is labelled with, in the Fold and the trail. */
-export const AUTOPILOT_LABEL = "Signed by Lyko under your Autopilot leash";
+export const AUTOPILOT_LABEL = phrase("Signed by Lyko under your Autopilot leash");
 
 /**
  * The risk acknowledgement the owner reads before turning Autopilot on. The
@@ -48,11 +49,11 @@ export const AUTOPILOT_LABEL = "Signed by Lyko under your Autopilot leash";
  * owner agreed to is on record.
  */
 export const AUTOPILOT_ACK_LINES: readonly string[] = Object.freeze([
-  "Lyko signs for you up to these limits.",
-  "Lykia never holds your funds: they stay in your own LykiaAccount.",
-  "The signing key is a Circle wallet made for you; Circle holds it, Lykia asks Circle to sign.",
-  "The server can act within these caps until you revoke, even if Lykia's server is compromised.",
-  "Stop Autopilot ends server signing at once; signing revokeSession ends it on chain.",
+  phrase("Lyko signs for you up to these limits."),
+  phrase("Lykia never holds your funds: they stay in your own LykiaAccount."),
+  phrase("The signing key is a Circle wallet made for you; Circle holds it, Lykia asks Circle to sign."),
+  phrase("The server can act within these caps until you revoke, even if Lykia's server is compromised."),
+  phrase("Stop Autopilot ends server signing at once; signing revokeSession ends it on chain."),
 ]);
 
 export const AUTOPILOT_ACK_TEXT = AUTOPILOT_ACK_LINES.join("\n");
@@ -151,51 +152,51 @@ function money(v: string): string {
 export function autopilotTask(input: AutopilotTaskInput, at: { readonly id: string; readonly now: string; readonly limits: Pick<AutopilotLimits, "perStepUsd">; readonly payees: readonly Address[] }): { readonly task: AutopilotTask | null; readonly issues: readonly AutopilotIssue[] } {
   const issues: AutopilotIssue[] = [];
   const amount = input.amountUsd;
-  if (typeof amount !== "string" || !USD_PATTERN.test(amount) || usdMicros(amount) <= 0n) issues.push({ path: "amountUsd", message: 'A USD amount above 0, e.g. "25".' });
-  else if (usdMicros(amount) > usdMicros(at.limits.perStepUsd)) issues.push({ path: "amountUsd", message: `Autopilot moves at most $${at.limits.perStepUsd} in one step; ask for that or less.` });
+  if (typeof amount !== "string" || !USD_PATTERN.test(amount) || usdMicros(amount) <= 0n) issues.push({ path: "amountUsd", message: tx("A USD amount above 0, e.g. \"25\".") });
+  else if (usdMicros(amount) > usdMicros(at.limits.perStepUsd)) issues.push({ path: "amountUsd", message: tx("Autopilot moves at most ${perStepUsd} in one step; ask for that or less.", { perStepUsd: at.limits.perStepUsd }) });
   const base = { id: at.id, enabled: true, createdAt: at.now, lastRunAt: null, lastResult: null, runs: 0, amountUsd: amount };
   let task: AutopilotTask | null = null;
   switch (input.kind) {
     case "repay": {
       const floor = Number(input.floor);
-      if (!Number.isFinite(floor) || floor <= 1 || floor > 5) issues.push({ path: "floor", message: "A health factor between 1 and 5, e.g. 1.5." });
+      if (!Number.isFinite(floor) || floor <= 1 || floor > 5) issues.push({ path: "floor", message: tx("A health factor between 1 and 5, e.g. 1.5.") });
       const condition: WatchCondition = { kind: "health-below", threshold: String(input.floor), venue: input.venue ?? "aave-v4" };
-      task = { ...base, kind: "repay", label: `Repay ${money(amount)} USDC on Aave when health drops below ${input.floor}`, when: { kind: "condition", condition }, sentence: `repay ${money(amount)} USDC on Aave` };
+      task = { ...base, kind: "repay", label: tx("Repay {amount} USDC on Aave when health drops below {floor}", { amount: money(amount), floor: input.floor }), when: { kind: "condition", condition }, sentence: tx("repay {amount} USDC on Aave", { amount: money(amount) }) };
       break;
     }
     case "dca": {
-      if (!PERIOD_MS[input.every]) issues.push({ path: "every", message: "day, week or month." });
-      if (input.to !== "EURC" && input.to !== "USDC") issues.push({ path: "to", message: "EURC or USDC." });
+      if (!PERIOD_MS[input.every]) issues.push({ path: "every", message: tx("day, week or month.") });
+      if (input.to !== "EURC" && input.to !== "USDC") issues.push({ path: "to", message: tx("EURC or USDC.") });
       const from = input.to === "EURC" ? "USDC" : "EURC";
-      task = { ...base, kind: "dca", label: `Buy ${money(amount)} ${from === "USDC" ? "USDC worth of EURC" : "EURC worth of USDC"} every ${input.every}`, when: { kind: "schedule", every: input.every }, sentence: `convert ${money(amount)} ${from} to ${input.to}` };
+      task = { ...base, kind: "dca", label: tx("Buy {amount} {value} every {every, select, day {day} week {week} other {month}}", { amount: money(amount), value: from === "USDC" ? tx("USDC worth of EURC") : tx("EURC worth of USDC"), every: input.every }), when: { kind: "schedule", every: input.every }, sentence: tx("convert {amount} {from} to {to}", { amount: money(amount), from, to: input.to }) };
       break;
     }
     case "sweep": {
-      if (typeof input.keepUsd !== "string" || !USD_PATTERN.test(input.keepUsd)) issues.push({ path: "keepUsd", message: 'What stays in the account, e.g. "200".' });
-      if (typeof input.vault !== "string" || !/^[A-Za-z0-9 .'-]{2,48}$/u.test(input.vault)) issues.push({ path: "vault", message: 'A vault name, e.g. "Galaxy vault" or "Morpho".' });
+      if (typeof input.keepUsd !== "string" || !USD_PATTERN.test(input.keepUsd)) issues.push({ path: "keepUsd", message: tx("What stays in the account, e.g. \"200\".") });
+      if (typeof input.vault !== "string" || !/^[A-Za-z0-9 .'-]{2,48}$/u.test(input.vault)) issues.push({ path: "vault", message: tx("A vault name, e.g. \"Galaxy vault\" or \"Morpho\".") });
       const keep = issues.some((i) => i.path === "keepUsd") ? "0" : input.keepUsd;
       const condition: WatchCondition = { kind: "idle-above", token: "USDC", amount: keep === "0" ? "0.01" : keep };
-      task = { ...base, kind: "sweep", label: `Move idle USDC above $${money(keep)} into ${input.vault}, up to $${money(amount)} at a time`, when: { kind: "condition", condition }, sentence: `deposit {amount} USDC into ${input.vault}`, keepUsd: keep };
+      task = { ...base, kind: "sweep", label: tx("Move idle USDC above ${amount} into {vault}, up to ${amount2} at a time", { amount: money(keep), vault: input.vault, amount2: money(amount) }), when: { kind: "condition", condition }, sentence: tx("deposit {amount} USDC into {vault}", { vault: input.vault }), keepUsd: keep };
       break;
     }
     case "pay": {
-      if (!isAddress(input.payee)) issues.push({ path: "payee", message: "An address, 0x followed by 40 hex characters." });
-      else if (!at.payees.some((p) => p.toLowerCase() === input.payee.toLowerCase())) issues.push({ path: "payee", message: "Autopilot pays only payees named when it was turned on. Turn it on again with this payee." });
-      if (!PERIOD_MS[input.every]) issues.push({ path: "every", message: "day, week or month." });
+      if (!isAddress(input.payee)) issues.push({ path: "payee", message: tx("An address, 0x followed by 40 hex characters.") });
+      else if (!at.payees.some((p) => p.toLowerCase() === input.payee.toLowerCase())) issues.push({ path: "payee", message: tx("Autopilot pays only payees named when it was turned on. Turn it on again with this payee.") });
+      if (!PERIOD_MS[input.every]) issues.push({ path: "every", message: tx("day, week or month.") });
       const note = input.note ? input.note.replace(/[^\w .#:-]/gu, "").slice(0, 40) : "";
-      task = { ...base, kind: "pay", label: `Pay ${money(amount)} USDC to ${input.payee.slice(0, 6)}…${input.payee.slice(-4)} every ${input.every}${note ? ` (${note})` : ""}`, when: { kind: "schedule", every: input.every }, sentence: `send ${money(amount)} USDC to ${input.payee.toLowerCase()}${note ? ` for ${note}` : ""}` };
+      task = { ...base, kind: "pay", label: tx("Pay {amount} USDC to {value}…{value2} every {every, select, day {day} week {week} other {month}}{value3}", { amount: money(amount), value: input.payee.slice(0, 6), value2: input.payee.slice(-4), every: input.every, value3: note ? ` (${note})` : "" }), when: { kind: "schedule", every: input.every }, sentence: tx("send {amount} USDC to {value}{value2}", { amount: money(amount), value: input.payee.toLowerCase(), value2: note ? ` for ${note}` : "" }) };
       break;
     }
     case "watch": {
-      const bad = input.condition ? watchIssue(input.condition) : "The watch's condition is missing.";
+      const bad = input.condition ? watchIssue(input.condition) : tx("The watch's condition is missing.");
       if (bad) issues.push({ path: "condition", message: bad });
-      if (typeof input.sentence !== "string" || input.sentence.trim().length < 4 || input.sentence.length > 200) issues.push({ path: "sentence", message: 'What Lyko should do, e.g. "repay 50 USDC on Aave".' });
-      if (!/^[0-9a-fx]{42}:ins_[a-f0-9]{16}$/u.test(input.watchId ?? "")) issues.push({ path: "watchId", message: "The id of one of your watches." });
-      task = bad || !input.condition ? null : { ...base, kind: "watch", label: `${watchLabel(input.condition)}, then ${input.sentence.trim()}`, when: { kind: "condition", condition: input.condition, watchId: input.watchId }, sentence: input.sentence.trim() };
+      if (typeof input.sentence !== "string" || input.sentence.trim().length < 4 || input.sentence.length > 200) issues.push({ path: "sentence", message: tx("What Lyko should do, e.g. \"repay 50 USDC on Aave\".") });
+      if (!/^[0-9a-fx]{42}:ins_[a-f0-9]{16}$/u.test(input.watchId ?? "")) issues.push({ path: "watchId", message: tx("The id of one of your watches.") });
+      task = bad || !input.condition ? null : { ...base, kind: "watch", label: tx("{condition}, then {value}", { condition: watchLabel(input.condition), value: input.sentence.trim() }), when: { kind: "condition", condition: input.condition, watchId: input.watchId }, sentence: input.sentence.trim() };
       break;
     }
     default:
-      issues.push({ path: "kind", message: `One of ${AUTOPILOT_TASK_KINDS.join(", ")}.` });
+      issues.push({ path: "kind", message: tx("One of {value}.", { value: AUTOPILOT_TASK_KINDS.join(", ") }) });
   }
   return { task: issues.length > 0 ? null : task, issues };
 }
@@ -221,18 +222,18 @@ export function scheduleDue(task: Pick<AutopilotTask, "when" | "lastRunAt" | "cr
 /** Checks Autopilot limits against its ceilings and the mainnet beta cap. */
 export function autopilotLimitIssues(limits: Partial<AutopilotLimits> | undefined, beta: { readonly perStepUsd: string; readonly perDayUsd: string } | null): AutopilotIssue[] {
   const out: AutopilotIssue[] = [];
-  if (!limits) return [{ path: "limits", message: "Give perStepUsd, perDayUsd and days." }];
+  if (!limits) return [{ path: "limits", message: tx("Give perStepUsd, perDayUsd and days.") }];
   const step = limits.perStepUsd;
   const day = limits.perDayUsd;
   for (const [key, v] of [["perStepUsd", step], ["perDayUsd", day]] as const) {
-    if (typeof v !== "string" || !USD_PATTERN.test(v) || usdMicros(v) <= 0n) out.push({ path: `limits.${key}`, message: 'A USD amount above 0, e.g. "50".' });
+    if (typeof v !== "string" || !USD_PATTERN.test(v) || usdMicros(v) <= 0n) out.push({ path: `limits.${key}`, message: tx("A USD amount above 0, e.g. \"50\".") });
   }
-  if (!Number.isInteger(limits.days) || (limits.days as number) < AUTOPILOT_LIMITS.minDays || (limits.days as number) > AUTOPILOT_LIMITS.maxDays) out.push({ path: "limits.days", message: `${AUTOPILOT_LIMITS.minDays} to ${AUTOPILOT_LIMITS.maxDays} days.` });
+  if (!Number.isInteger(limits.days) || (limits.days as number) < AUTOPILOT_LIMITS.minDays || (limits.days as number) > AUTOPILOT_LIMITS.maxDays) out.push({ path: "limits.days", message: tx("{minDays} to {maxDays} days.", { minDays: AUTOPILOT_LIMITS.minDays, maxDays: AUTOPILOT_LIMITS.maxDays }) });
   if (out.length > 0) return out;
   const ceiling = autopilotCeiling(beta);
-  if (usdMicros(step!) > usdMicros(ceiling.perStepUsd)) out.push({ path: "limits.perStepUsd", message: `Autopilot allows at most $${ceiling.perStepUsd} per step${ceiling.perStepUsd === AUTOPILOT_BETA.perStepUsd ? " while it is in beta" : " (the mainnet beta cap)"}.` });
-  if (usdMicros(day!) > usdMicros(ceiling.perDayUsd)) out.push({ path: "limits.perDayUsd", message: `Autopilot allows at most $${ceiling.perDayUsd} a day${ceiling.perDayUsd === AUTOPILOT_BETA.perDayUsd ? " while it is in beta" : " (the mainnet beta cap)"}.` });
-  if (usdMicros(step!) > usdMicros(day!)) out.push({ path: "limits.perStepUsd", message: "One step cannot be more than a day." });
+  if (usdMicros(step!) > usdMicros(ceiling.perStepUsd)) out.push({ path: "limits.perStepUsd", message: tx("Autopilot allows at most ${perStepUsd} per step{value}.", { perStepUsd: ceiling.perStepUsd, value: ceiling.perStepUsd === AUTOPILOT_BETA.perStepUsd ? tx(" while it is in beta") : tx(" (the mainnet beta cap)") }) });
+  if (usdMicros(day!) > usdMicros(ceiling.perDayUsd)) out.push({ path: "limits.perDayUsd", message: tx("Autopilot allows at most ${perDayUsd} a day{value}.", { perDayUsd: ceiling.perDayUsd, value: ceiling.perDayUsd === AUTOPILOT_BETA.perDayUsd ? tx(" while it is in beta") : tx(" (the mainnet beta cap)") }) });
+  if (usdMicros(step!) > usdMicros(day!)) out.push({ path: "limits.perStepUsd", message: tx("One step cannot be more than a day.") });
   return out;
 }
 
@@ -302,14 +303,14 @@ export interface GuardEvent {
 export function guardVerdict(events: readonly GuardEvent[], input: { readonly now: number; readonly perDayUsd: string; readonly next?: { readonly usd: string | null } }): { readonly pause: false } | { readonly pause: true; readonly code: Exclude<AutopilotPauseCode, "owner">; readonly reason: string } {
   const g = AUTOPILOT_GUARD;
   const denies = events.filter((e) => e.kind === "refused" && input.now - e.at <= g.denyWindowMs).length;
-  if (denies >= g.denies) return { pause: true, code: "anomaly.denies", reason: `${denies} refusals in the last hour: something is off, so Autopilot paused itself.` };
+  if (denies >= g.denies) return { pause: true, code: "anomaly.denies", reason: tx("{denies} refusals in the last hour: something is off, so Autopilot paused itself.", { denies }) };
   if (!input.next) return { pause: false };
   const hour = events.filter((e) => e.kind === "signed" && input.now - e.at <= 3_600_000).length;
-  if (hour + 1 > g.stepsPerHour) return { pause: true, code: "anomaly.velocity", reason: `This would be step ${hour + 1} in an hour; more than ${g.stepsPerHour} is unusual, so Autopilot paused itself.` };
+  if (hour + 1 > g.stepsPerHour) return { pause: true, code: "anomaly.velocity", reason: tx("This would be step {value} in an hour; more than {stepsPerHour} is unusual, so Autopilot paused itself.", { value: hour + 1, stepsPerHour: g.stepsPerHour }) };
   const burst = events.filter((e) => e.kind === "signed" && input.now - e.at <= g.burstWindowMs).reduce((s, e) => s + usdMicros(e.usd && USD_PATTERN.test(e.usd) ? e.usd : "0"), 0n);
   const next = input.next.usd && USD_PATTERN.test(input.next.usd) ? usdMicros(input.next.usd) : 0n;
   const limit = (usdMicros(input.perDayUsd) * BigInt(Math.round(g.burstShare * 100))) / 100n;
-  if (burst + next > limit && burst > 0n) return { pause: true, code: "anomaly.velocity", reason: `$${formatUsdMicros(burst + next)} in ${g.burstWindowMs / 60_000} minutes is more than half the $${input.perDayUsd} daily cap, so Autopilot paused itself.` };
+  if (burst + next > limit && burst > 0n) return { pause: true, code: "anomaly.velocity", reason: tx("${value} in {value2} minutes is more than half the ${perDayUsd} daily cap, so Autopilot paused itself.", { value: formatUsdMicros(burst + next), value2: g.burstWindowMs / 60_000, perDayUsd: input.perDayUsd }) };
   return { pause: false };
 }
 
@@ -321,9 +322,9 @@ export interface TrustLine {
 }
 
 /** Who holds what. The docs and the opt-in screen show this table. */
-export const AUTOPILOT_TRUST: readonly TrustLine[] = [
-  { who: "You", holds: "Your funds, in your own LykiaAccount. Only your wallet can create, widen or revoke the session, withdraw, or blow the Whistle." },
-  { who: "Circle", holds: "The signing key, as an MPC developer-controlled wallet under the operator's Circle entity. The private key never exists on Lykia's servers." },
-  { who: "Lykia", holds: "The right to ask Circle to sign, with the operator's entity secret. It asks only for steps that passed the Fence, the Autopilot ceilings, the anomaly guard and the leash checks, and stops asking the moment you press Stop." },
-  { who: "Chain", holds: "Your LykiaAccount enforces the session: per call, per day and lifetime caps per token, payees, call rules that pin outputs to your account, a call count and the expiry. A compromised server can do no more than that until you revoke." },
-];
+export const AUTOPILOT_TRUST: readonly TrustLine[] = localized([
+  { who: phrase("You"), holds: phrase("Your funds, in your own LykiaAccount. Only your wallet can create, widen or revoke the session, withdraw, or blow the Whistle.") },
+  { who: "Circle", holds: phrase("The signing key, as an MPC developer-controlled wallet under the operator's Circle entity. The private key never exists on Lykia's servers.") },
+  { who: "Lykia", holds: phrase("The right to ask Circle to sign, with the operator's entity secret. It asks only for steps that passed the Fence, the Autopilot ceilings, the anomaly guard and the leash checks, and stops asking the moment you press Stop.") },
+  { who: phrase("Chain"), holds: phrase("Your LykiaAccount enforces the session: per call, per day and lifetime caps per token, payees, call rules that pin outputs to your account, a call count and the expiry. A compromised server can do no more than that until you revoke.") },
+]);

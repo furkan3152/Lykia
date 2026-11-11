@@ -7,6 +7,8 @@
  *                                                          deployment has a model key), every case
  *   READER=deterministic BASE=... npm run eval:intents ... live, forcing the lexicon
  *   ONLY=studio,defensive   CATEGORY=injection   VERBOSE=1  filters and per-check output
+ *   LYKIA_EVAL_LOCALE=all (default) | en | tr,fr            interface languages for the conversation suite: every
+ *                                                          answer must come back whole in that language
  *
  * Offline runs score the "both" cases (English); live runs score every case,
  * other languages included. Offline runs also score whole Lyko turns
@@ -15,6 +17,7 @@
  * (conversations.ts: what people type into Ask Lyko, through the chat route). Each case is scored check by check (score.ts)
  * and a summary table is printed. Exit code 1 when a scored case fails.
  */
+import { isLocale, LOCALES as LOCALE_LIST, type Locale } from "@lykia/core";
 import { compileOffline } from "../compiler/service.js";
 import { EVAL_CASES, type EvalCase } from "./intents.js";
 import { scoreResult, type CaseScore } from "./score.js";
@@ -28,6 +31,12 @@ const READER = (process.env.READER ?? (BASE ? "llm" : "deterministic")) as "llm"
 const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(",").map((s) => s.trim())) : null;
 const CATEGORY = process.env.CATEGORY ?? null;
 const VERBOSE = process.env.VERBOSE === "1";
+const LOCALES: readonly Locale[] = (() => {
+  const raw = (process.env.LYKIA_EVAL_LOCALE ?? "all").trim();
+  if (raw === "all") return LOCALE_LIST;
+  const picked = raw.split(",").map((s) => s.trim()).filter(isLocale);
+  return picked.length > 0 ? picked : ["en"];
+})();
 const TIMEOUT_MS = Number(process.env.TIMEOUT_MS ?? 90_000);
 
 async function live(c: EvalCase): Promise<unknown> {
@@ -70,7 +79,7 @@ async function main(): Promise<void> {
   // Preflight on whole plans (fake Arc): offline only.
   if (!BASE) scores.push(...(await runPreflightCases(ONLY, CATEGORY)));
   // Whole conversations through the chat route (fake Arc, the reader path): offline only; `npm run eval:live` runs them against a deployment.
-  if (!BASE) scores.push(...(await runConversationCases(ONLY, CATEGORY, process.env.PRINT === "1")));
+  if (!BASE) scores.push(...(await runConversationCases(ONLY, CATEGORY, process.env.PRINT === "1", LOCALES)));
   console.log(`${pad("case", 26)} ${pad("category", 14)} ${pad("result", 6)} ${pad("checks", 7)} failing`);
   console.log("-".repeat(100));
   for (const s of scores) {

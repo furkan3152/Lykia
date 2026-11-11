@@ -22,7 +22,7 @@ import type { AgentProposal, ThreadMessage } from "@lykia/core/api/agents";
 import type { AnswerBlock } from "@lykia/core/api/answer";
 import { capabilityMap } from "../capabilities/map.js";
 import type { AppContext } from "../context.js";
-import { turkishIntent } from "../language/turkish.js";
+import { intentEnglish } from "../language/vocabulary.js";
 import { assistTurn } from "./assist.js";
 import { emitBlock, infoQuestion, stepsFor } from "./cards.js";
 import { deskTurn, isActionRequest, knowledgeTurn, readDesk, readSelf, type DeskInput } from "./desk.js";
@@ -33,6 +33,8 @@ import { runTurn, type Emit, type TurnResult } from "./orchestrator.js";
 import { perceive } from "./perception.js";
 import { cleanProse, PLACEHOLDER, sampleWording, summaryOfTurn } from "./prose.js";
 
+import { englishText, tx } from "@lykia/core";
+import { rememberEnglish } from "../i18n/context.js";
 /** "Send 50 USDC" with no one to send it to: the amount and token, or null. Bots, budgets and schedules are not this. */
 export function missingRecipient(text: string): { amount: string; token: string } | null {
   const t = text.trim();
@@ -91,8 +93,6 @@ function touchesMoney(blocks: readonly AnswerBlock[], proposals: readonly unknow
   return usedModel && /\d/u.test(text);
 }
 
-const SAMPLE_LEAD = "**Sample address, not your wallet.**";
-const SAMPLE_FOLD_LEAD = "**Sample flock, not your wallet.**";
 
 export async function chatTurn(input: ChatTurnInput): Promise<ChatTurnResult> {
   const { ctx, client, environment, owner } = input;
@@ -131,25 +131,33 @@ export async function chatTurn(input: ChatTurnInput): Promise<ChatTurnResult> {
   };
 
   // 1. Thread memory.
-  const turns: ThreadTurn[] = input.thread.map((m) => ({ role: m.role, text: m.text, ...(m.options ? { options: m.options } : {}), ...(m.meant ? { meant: m.meant } : {}), ...(m.blocks ? { blocks: m.blocks } : {}), ...(m.proposals ? { proposals: m.proposals } : {}) }));
+  const turns: ThreadTurn[] = input.thread.map((m) => ({ role: m.role, text: m.text, ...(m.options ? { options: m.options } : {}), ...(m.meant ? { meant: m.meant } : {}), ...(m.english ? { english: m.english } : {}), ...(m.blocks ? { blocks: m.blocks } : {}), ...(m.proposals ? { proposals: m.proposals } : {}) }));
   const follow = resolveFollowUp(message, turns);
   if (follow.kind === "resolved") {
-    steps.start("memory", "Reading this thread").end("ok", "A follow-up", `Read as: ${follow.sentence} (${follow.how}).`);
+    steps.start("memory", tx("Reading this thread")).end("ok", tx("A follow-up"), tx("Read as: {sentence} ({how}).", { sentence: follow.sentence, how: follow.how }));
     message = follow.sentence;
     meant = follow.sentence;
   } else if (follow.kind === "ready") {
-    steps.start("memory", "Reading this thread").end("ok", "The plan is already here");
+    steps.start("memory", tx("Reading this thread")).end("ok", tx("The plan is already here"));
     path = "desk";
-    result = finishNow(`It is ready: the plan from my last answer is on the card again.\n\n- **Steps:** ${follow.proposals.reduce((n, p) => n + p.steps.length, 0)}\n\n**Next:** review it and sign it in your wallet; I cannot sign for you.`, [...follow.proposals]);
+    result = finishNow(tx("It is ready: the plan from my last answer is on the card again.\n\n- **Steps:** {value}\n\n**Next:** review it and sign it in your wallet; I cannot sign for you.", { value: follow.proposals.reduce((n, p) => n + p.steps.length, 0) }), [...follow.proposals]);
   } else if (follow.kind === "ask") {
-    steps.start("memory", "Reading this thread").end("warn", "Needs one detail", follow.question);
-    if (follow.options.length > 0) emit("clarify", { question: follow.question, options: [...follow.options] });
+    steps.start("memory", tx("Reading this thread")).end("warn", tx("Needs one detail"), follow.question);
+    // Choices read back from the thread are shown as the owner first saw them, and still mean their English sentence.
+    const seen = [...input.thread].reverse().find((m) => m.role === "assistant" && m.options && m.options.length > 0);
+    const asShown = follow.options.map((o) => {
+      const i = seen?.options?.indexOf(o) ?? -1;
+      const shown = i >= 0 ? seen?.shown?.[i] : undefined;
+      if (shown) rememberEnglish(shown, o);
+      return shown ?? o;
+    });
+    if (follow.options.length > 0) emit("clarify", { question: follow.question, options: asShown });
     path = "desk";
-    result = finishNow(`${follow.question}\n\n**Next:** ${follow.options.length > 0 ? "pick one below." : "say the move and the amount, like “convert 100 USDC to EURC”."}`, [], "clarify");
+    result = finishNow(`${follow.question}\n\n**Next:** ${follow.options.length > 0 ? tx("pick one below.") : tx("say the move and the amount, like “convert 100 USDC to EURC”.")}`, [], "clarify");
   }
 
   const base: DeskInput = { ctx, environment, owner, fence: input.fence, pack: input.pack, message, emit, ownerVerified: input.proof !== null, threadId: input.threadId, ...(input.proof ? { actor: input.proof } : {}), origin: input.origin };
-  const english = turkishIntent(message);
+  const english = intentEnglish(message);
   const acts = isActionRequest(message);
 
   // 2. The desk.
@@ -171,9 +179,9 @@ export async function chatTurn(input: ChatTurnInput): Promise<ChatTurnResult> {
   // nothing to plan: it is a picture, not money.
   if (!result && watching && acts) {
     if (sample) {
-      steps.start("intent", "Reading your request").end("ok", "A move on the sample flock");
+      steps.start("intent", tx("Reading your request")).end("ok", tx("A move on the sample flock"));
       path = "desk";
-      result = finishNow("This is the sample flock, so there is nothing of yours to move.\n\n**Next:** connect a wallet and I plan this for your own money.");
+      result = finishNow(tx("This is the sample flock, so there is nothing of yours to move.\n\n**Next:** connect a wallet and I plan this for your own money."));
     } else watching = false;
   }
 
@@ -201,9 +209,9 @@ export async function chatTurn(input: ChatTurnInput): Promise<ChatTurnResult> {
     } else if (!watching && missingRecipient(english)) {
       // "Send 50 USDC": the one thing missing is who gets it. Code asks; a model is not needed to ask it.
       const m = missingRecipient(english)!;
-      steps.start("intent", "Reading your request").end("warn", "Needs one detail", "Who gets it");
+      steps.start("intent", tx("Reading your request")).end("warn", tx("Needs one detail"), tx("Who gets it"));
       path = "map";
-      result = finishNow(`Who should get the ${m.amount} ${m.token}?\n\n**Next:** paste the address (0x…), or name a saved contact.`, [], "clarify");
+      result = finishNow(tx("Who should get the {amount} {token}?\n\n**Next:** paste the address (0x…), or name a saved contact.", { amount: m.amount, token: m.token }), [], "clarify");
     } else if (!watching && info) {
       // Plain reads (gas, holdings, where the money is, a rate) need no model round: one read, one card.
       result = await infoTurn({ ...base, message: english }, info);
@@ -242,23 +250,22 @@ export async function chatTurn(input: ChatTurnInput): Promise<ChatTurnResult> {
   if (text.replace(/\*\*Next:?\*\*[^\n]*/giu, "").trim().length === 0) {
     const asked = lastQuestion as string | null;
     const question = asked ? asked.trim() : "";
-    text = question ? `${question}\n\n**Next:** ${options.length > 0 ? "pick one below, or say it your way." : "answer it, and I plan the rest."}` : summaryOfTurn(blocks, result.proposals);
+    text = question ? `${question}\n\n**Next:** ${options.length > 0 ? tx("pick one below, or say it your way.") : tx("answer it, and I plan the rest.")}` : summaryOfTurn(blocks, result.proposals);
   }
   // Signed out, a question or a feature offered still says first whose money it would be, and carries Connect.
-  if (sample && !blocks.some((b) => b.kind === "sample") && (result.stopReason === "clarify" || offered) && !/^\*\*Sample/u.test(text)) {
-    text = `${input.origin === "fold" ? SAMPLE_FOLD_LEAD : SAMPLE_LEAD} ${text}`;
-    emitBlock(emit, { kind: "sample", address: SAMPLE_OWNER, line: offered ? "No wallet is connected: this shows what would happen. Connect a wallet to do it for your own money." : "No wallet is connected: what you pick is planned as a dry run for a sample address. Connect a wallet to plan your own.", cta: "Connect a wallet" });
+  // The app shows one sample notice at the top of the conversation; the answer itself never repeats it.
+  if (sample && !blocks.some((b) => b.kind === "sample") && (result.stopReason === "clarify" || offered)) {
+    emitBlock(emit, { kind: "sample", address: SAMPLE_OWNER, line: offered ? tx("No wallet is connected: this shows what would happen. Connect a wallet to do it for your own money.") : tx("No wallet is connected: what you pick is planned as a dry run for a sample address. Connect a wallet to plan your own."), cta: tx("Connect a wallet") });
   }
-  if (sample && text && !/^\*\*Sample/u.test(text) && touchesMoney(blocks, result.proposals, text, path === "model")) {
+  else if (sample && text && touchesMoney(blocks, result.proposals, text, path === "model")) {
     const fold = input.origin === "fold";
-    const lead = fold ? SAMPLE_FOLD_LEAD : SAMPLE_LEAD;
     // Nothing in an answer about the sample is "yours".
-    text = `${lead} ${sampleWording(text)}`;
-    emitBlock(emit, { kind: "sample", address: SAMPLE_OWNER, line: fold ? "No wallet is connected. These figures are the Fold's sample flock, not read from Arc and not yours." : "No wallet is connected. These figures are read from a sample address on Arc, not from your wallet, and any plan here is a dry run.", cta: "Connect a wallet" });
+    text = sampleWording(text);
+    emitBlock(emit, { kind: "sample", address: SAMPLE_OWNER, line: fold ? tx("No wallet is connected. These figures are the Fold's sample flock, not read from Arc and not yours.") : tx("No wallet is connected. These figures are read from a sample address on Arc, not from your wallet, and any plan here is a dry run."), cta: tx("Connect a wallet") });
   }
   // An answer that sends a visitor to connect a wallet carries the Connect action itself.
-  else if (sample && /\bconnect a wallet\b/iu.test(text) && !blocks.some((b) => b.kind === "sample")) {
-    emitBlock(emit, { kind: "sample", address: SAMPLE_OWNER, line: "No wallet is connected, so there is nothing of yours to read or change here yet.", cta: "Connect a wallet" });
+  else if (sample && /\bconnect a wallet\b/iu.test(englishText(text)) && !blocks.some((b) => b.kind === "sample")) {
+    emitBlock(emit, { kind: "sample", address: SAMPLE_OWNER, line: tx("No wallet is connected, so there is nothing of yours to read or change here yet."), cta: tx("Connect a wallet") });
   }
   if (text) input.emit("text", { text });
   return { text, proposals: result.proposals, stopReason: result.stopReason, meant, options: [...options], blocks, path, modelCalls };

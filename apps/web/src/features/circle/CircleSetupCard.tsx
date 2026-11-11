@@ -12,6 +12,7 @@ import { apiGet, apiPost, describeError } from "../../lib/api";
 import { Button, Card, Tag, toast } from "../../mosaic";
 import { passkeyConfig } from "../wallet/passkeyConfig";
 import { circleSetup, parseEntitySecret, recoveryBytes, type EntitySecretResult, type Readiness } from "./setup";
+import { t } from "../../i18n";
 
 const TONE: Record<Readiness, "ok" | "ochre" | "ghost"> = { configured: "ok", missing: "ochre", unknown: "ghost" };
 const WORD: Record<Readiness, string> = { configured: "CONFIGURED", missing: "MISSING", unknown: "UNKNOWN" };
@@ -40,13 +41,13 @@ export function CircleSetupCard({ admin }: { readonly admin: boolean }) {
     setBusy(true);
     try {
       const parsed = parseEntitySecret(await apiPost<unknown>("/v1/admin/circle/entity-secret", result || setup.entitySecret === "configured" ? { replace: true } : {}));
-      if (!parsed) throw new Error("The API answered without an entity secret.");
+      if (!parsed) throw new Error(t("circle.circleSetupCard.theApiAnsweredWithoutAnEntity"));
       setResult(parsed);
       setShown(false);
       download(parsed);
-      toast.success("Entity secret created", { description: "Save the recovery file, then add the secret to Vercel.", from: "LYKO" });
+      toast.success(t("circle.circleSetupCard.entitySecretCreated"), { description: t("circle.circleSetupCard.saveTheRecoveryFileThenAdd"), from: "LYKO" });
     } catch (e) {
-      toast.error("Could not create the entity secret", { description: describeError(e), from: "LYKO" });
+      toast.error(t("circle.circleSetupCard.couldNotCreateTheEntitySecret"), { description: describeError(e), from: "LYKO" });
     } finally {
       setBusy(false);
     }
@@ -56,22 +57,22 @@ export function CircleSetupCard({ admin }: { readonly admin: boolean }) {
     if (!result) return;
     try {
       await navigator.clipboard.writeText(result.secret);
-      toast.success("Copied", { description: "Paste it into Vercel as CIRCLE_ENTITY_SECRET.", from: "LYKO" });
+      toast.success(t("circle.circleSetupCard.copied"), { description: t("circle.circleSetupCard.pasteItIntoVercelAsCircle"), from: "LYKO" });
     } catch {
       setShown(true);
-      toast.warning("Copy blocked", { description: "Select the secret and copy it by hand.", from: "LYKO" });
+      toast.warning(t("circle.circleSetupCard.copyBlocked"), { description: t("circle.circleSetupCard.selectAndCopy"), from: "LYKO" });
     }
   };
 
   const rows: [string, Readiness, string][] = [
-    ["Circle API key", setup.apiKey, "CIRCLE_API_KEY · console.circle.com → API Keys"],
-    ["Entity secret", setup.entitySecret, "CIRCLE_ENTITY_SECRET · created here"],
-    ["Client key for passkeys", clientKey, "VITE_CIRCLE_CLIENT_KEY + VITE_CIRCLE_CLIENT_URL · on the web project"],
-    ["StableFX access", setup.stablefx, "STABLEFX_API_KEY · request access from Circle"],
+    [t("circle.circleSetupCard.circleApiKey"), setup.apiKey, t("circle.circleSetupCard.circleApiKeyConsoleCircleCom")],
+    [t("circle.circleSetupCard.entitySecret"), setup.entitySecret, t("circle.circleSetupCard.circleEntitySecretCreatedHere")],
+    [t("circle.circleSetupCard.clientKeyForPasskeys"), clientKey, t("circle.circleSetupCard.viteCircleClientKeyViteCircle")],
+    [t("circle.circleSetupCard.stablefxAccess"), setup.stablefx, t("circle.circleSetupCard.stablefxApiKeyRequestAccessFrom")],
   ];
 
   return (
-    <Card title="Circle setup" kicker="KEYS · ENTITY SECRET · PASSKEYS" tone="sea">
+    <Card title={t("circle.circleSetupCard.circleSetup")} kicker={t("circle.circleSetupCard.keysEntitySecretPasskeys")} tone="sea">
       <ul className="m-setup">
         {rows.map(([name, state, hint]) => (
           <li key={name}>
@@ -80,38 +81,38 @@ export function CircleSetupCard({ admin }: { readonly admin: boolean }) {
           </li>
         ))}
       </ul>
-      <p className="m-small"><a href="https://console.circle.com" target="_blank" rel="noreferrer">Open console.circle.com ↗</a> · <a href="https://developers.circle.com/wallets/dev-controlled/entity-secret-management" target="_blank" rel="noreferrer">Entity secret guide ↗</a></p>
+      <p className="m-small"><a href="https://console.circle.com" target="_blank" rel="noreferrer">{t("circle.circleSetupCard.openConsoleCircleCom")}</a> · <a href="https://developers.circle.com/wallets/dev-controlled/entity-secret-management" target="_blank" rel="noreferrer">{t("circle.circleSetupCard.entitySecretGuide")}</a></p>
 
       <div className="m-setup__secret">
         {setup.entitySecret === "configured" && !result ? (
-          <p className="m-note">Already configured: the API has an entity secret. Rotating it (below) means updating Vercel again.</p>
+          <p className="m-note">{t("circle.circleSetupCard.alreadyConfiguredTheApiHasAn")}</p>
         ) : !admin ? (
-          <p className="m-note">Sign in on Arc with an admin wallet to create the entity secret.</p>
+          <p className="m-note">{t("circle.circleSetupCard.signInOnArcWithAn")}</p>
         ) : setup.apiKey === "missing" ? (
-          <p className="m-note">Add CIRCLE_API_KEY to the API first; the entity secret is registered with it.</p>
+          <p className="m-note">{t("circle.circleSetupCard.addCircleApiKeyToThe")}</p>
         ) : null}
         {admin && setup.apiKey !== "missing" ? (
           <Button tone={setup.entitySecret === "configured" && !result ? "ghost" : "sea"} onClick={() => void create()} disabled={busy}>
-            {busy ? "CREATING…" : result || setup.entitySecret === "configured" ? "ROTATE ENTITY SECRET" : "CREATE ENTITY SECRET"}
+            {busy ? "CREATING…" : result || setup.entitySecret === "configured" ? t("circle.circleSetupCard.rotateEntitySecret") : "CREATE ENTITY SECRET"}
           </Button>
         ) : null}
         {result ? (
           <div className="m-setup__result">
-            <label className="m-small m-muted" htmlFor="es-value">Entity secret (shown once)</label>
+            <label className="m-small m-muted" htmlFor="es-value">{t("circle.circleSetupCard.entitySecretShownOnce")}</label>
             <div className="m-setup__field">
               <input id="es-value" className="m-input num" readOnly type={shown ? "text" : "password"} value={result.secret} onFocus={(e) => shown && e.currentTarget.select()} autoComplete="off" spellCheck={false} />
               <button type="button" className="m-btn m-btn--ghost m-btn--sm" onClick={() => setShown((s) => !s)}>{shown ? "HIDE" : "SHOW"}</button>
-              <button type="button" className="m-btn m-btn--sm" onClick={() => void copy()}>COPY</button>
+              <button type="button" className="m-btn m-btn--sm" onClick={() => void copy()}>{t("circle.circleSetupCard.copy")}</button>
             </div>
             {result.recovery ? (
-              <button type="button" className="m-btn m-btn--ghost m-btn--sm" onClick={() => download(result)}>DOWNLOAD RECOVERY FILE AGAIN</button>
+              <button type="button" className="m-btn m-btn--ghost m-btn--sm" onClick={() => download(result)}>{t("circle.circleSetupCard.downloadRecoveryFileAgain")}</button>
             ) : (
-              <p className="m-note m-note--bad">The API returned no recovery file. Register the secret again from Circle's console to get one.</p>
+              <p className="m-note m-note--bad">{t("circle.circleSetupCard.theApiReturnedNoRecoveryFile")}</p>
             )}
             <ol className="m-setup__steps">
-              <li>Save the recovery file somewhere safe (a password manager or your cloud drive). Without it a lost secret cannot be recovered.</li>
-              <li>In Vercel → lykia-api → Settings → Environment Variables, add <b>CIRCLE_ENTITY_SECRET</b> as Sensitive with the copied value.</li>
-              <li>Redeploy lykia-api so the new variable takes effect.</li>
+              <li>{t("circle.circleSetupCard.saveTheRecoveryFileSomewhereSafe")}</li>
+              <li>{t("circle.circleSetupCard.inVercelLykiaApiSettingsEnvironment")} <b>CIRCLE_ENTITY_SECRET</b> {t("circle.circleSetupCard.asSensitiveWithTheCopiedValue")}</li>
+              <li>{t("circle.circleSetupCard.redeployLykiaApiSoTheNew")}</li>
             </ol>
           </div>
         ) : null}

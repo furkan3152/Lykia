@@ -13,9 +13,11 @@
  * PLACEHOLDER lists the phrases an earlier number guard used to leave inside
  * sentences. They can never appear in an answer (tested).
  */
+import { intlTag } from "../i18n/format.js";
 import type { AnswerBlock } from "@lykia/core/api/answer";
 import { dropSentences } from "./numberGuard.js";
 
+import { tx } from "@lykia/core";
 /** Phrases that mean a figure was cut out of a sentence. Never valid output. */
 export const PLACEHOLDER = /\b(?:an amount|a rate) \(see the card\)|\b(?:an amount|a rate) that is unavailable right now|\bthe an? (?:amount|rate)\b/iu;
 
@@ -104,15 +106,15 @@ export function cleanProse(text: string, options: ProseOptions = {}): string {
   return out.replace(/[ \t]+\n/gu, "\n").trim();
 }
 
-const dollars = (v: string) => `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const dollars = (v: string) => `$${Number(v).toLocaleString(intlTag(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** The answer code writes when a model's prose did not survive: the plan on screen first, then the cards. */
 export function summaryOfTurn(blocks: readonly AnswerBlock[], proposals: readonly { readonly decision: string; readonly steps: readonly string[]; readonly reasons: readonly string[] }[]): string {
   const p = proposals[0];
   if (p) {
-    if (p.decision === "deny") return `The Fence said no to this plan.\n\n${p.reasons.slice(0, 2).map((r) => `- ${r}`).join("\n")}\n\n**Next:** ask for less, or change the rule in your Fence.`.replace(/\n\n\n/gu, "\n\n");
+    if (p.decision === "deny") return tx("The Fence said no to this plan.\n\n{reasons}\n\n**Next:** ask for less, or change the rule in your Fence.", { reasons: p.reasons.slice(0, 2).map((r) => `- ${r}`).join("\n") }).replace(/\n\n\n/gu, "\n\n");
     const steps = proposals.flatMap((x) => x.steps);
-    return `The plan is ready to review: ${steps.length} step${steps.length === 1 ? "" : "s"}, checked against your Fence.\n\n${steps.slice(0, 3).map((st) => `- ${st}`).join("\n")}\n\n**Next:** review it on the card and sign it in your wallet.`;
+    return tx("The plan is ready to review: {length, plural, one {# step} other {# steps}}, checked against your Fence.\n\n{value2}\n\n**Next:** review it on the card and sign it in your wallet.", { length: steps.length, value2: steps.slice(0, 3).map((st) => `- ${st}`).join("\n") });
   }
   return summaryFromBlocks(blocks);
 }
@@ -123,12 +125,12 @@ export function summaryOfTurn(blocks: readonly AnswerBlock[], proposals: readonl
  */
 export function summaryFromBlocks(blocks: readonly AnswerBlock[]): string {
   for (const b of blocks) {
-    if (b.kind === "positions") return `${b.netUsd !== null ? `Net worth is ${dollars(b.netUsd)} across the positions on the card.` : "The positions are on the card; some have no price, so there is no total."}${b.lowestHealth ? `\n\n- **Lowest health:** ${Number(b.lowestHealth).toFixed(2)}` : ""}\n\n**Next:** say what the money should do, or ask about one position.`;
-    if (b.kind === "balance") return `${b.totalUsd !== null ? `The holdings on the card are worth ${dollars(b.totalUsd)}.` : "The holdings are on the card; some have no price, so there is no total."}\n\n**Next:** say what the money should do.`;
-    if (b.kind === "gas") return `Gas is ${b.balance} USDC against a floor of ${b.floor} USDC.\n\n**Next:** ${Number(b.balance) < Number(b.floor) ? "top it up before planning." : "nothing to do."}`;
-    if (b.kind === "rate") return `1 ${b.base} buys ${b.rate} ${b.quote}.\n\n**Next:** say an amount to convert.`;
-    if (b.kind === "facts" && b.rows[0]) return `${b.rows[0].label}: ${b.rows[0].value}. The card has the rest, each with its source.\n\n**Next:** ask about any line on the card.`;
-    if (b.kind === "yields") return "The live rates are on the card, best first, each with its source.\n\n**Next:** say how much should go to work.";
+    if (b.kind === "positions") return tx("{value}{value2}\n\n**Next:** say what the money should do, or ask about one position.", { value: b.netUsd !== null ? tx("Net worth is {amount} across the positions on the card.", { amount: dollars(b.netUsd) }) : tx("The positions are on the card; some have no price, so there is no total."), value2: b.lowestHealth ? tx("\n\n- **Lowest health:** {value}", { value: Number(b.lowestHealth).toFixed(2) }) : "" });
+    if (b.kind === "balance") return tx("{value}\n\n**Next:** say what the money should do.", { value: b.totalUsd !== null ? tx("The holdings on the card are worth {amount}.", { amount: dollars(b.totalUsd) }) : tx("The holdings are on the card; some have no price, so there is no total.") });
+    if (b.kind === "gas") return tx("Gas is {balance} USDC against a floor of {floor} USDC.\n\n**Next:** {value}", { balance: b.balance, floor: b.floor, value: Number(b.balance) < Number(b.floor) ? tx("top it up before planning.") : tx("nothing to do.") });
+    if (b.kind === "rate") return tx("1 {base} buys {rate} {quote}.\n\n**Next:** say an amount to convert.", { base: b.base, rate: b.rate, quote: b.quote });
+    if (b.kind === "facts" && b.rows[0]) return tx("{label}: {value}. The card has the rest, each with its source.\n\n**Next:** ask about any line on the card.", { label: b.rows[0].label, value: b.rows[0].value });
+    if (b.kind === "yields") return tx("The live rates are on the card, best first, each with its source.\n\n**Next:** say how much should go to work.");
   }
-  return blocks.length > 0 ? "The figures are on the card below, each with its source.\n\n**Next:** ask about any line on it." : "I could not read a figure I can stand behind for that.\n\n**Next:** ask again in a moment, or ask it another way.";
+  return blocks.length > 0 ? tx("The figures are on the card below, each with its source.\n\n**Next:** ask about any line on it.") : tx("I could not read a figure I can stand behind for that.\n\n**Next:** ask again in a moment, or ask it another way.");
 }

@@ -12,11 +12,14 @@ import { CCTP_DESTINATIONS } from "@lykia/core";
 import type { AnswerBlock } from "@lykia/core/api/answer";
 import type { AgentProposal } from "@lykia/core/api/agents";
 
+import { tx } from "@lykia/core";
 export interface ThreadTurn {
   readonly role: "user" | "assistant";
   readonly text: string;
   readonly options?: readonly string[];
   readonly meant?: string;
+  /** The answer in English when the owner read it in another language. */
+  readonly english?: string;
   readonly blocks?: readonly AnswerBlock[];
   readonly proposals?: readonly AgentProposal[];
 }
@@ -108,7 +111,7 @@ function nextStepOf(text: string): string | null {
 /** The moves a card's rows suggest, in order (a yields card: one sentence per venue). */
 function rowSentences(blocks: readonly AnswerBlock[] | undefined): string[] {
   for (const b of blocks ?? []) {
-    if (b.kind === "yields") return b.rows.slice(0, 6).map((r) => `Put my idle ${b.token} to work in ${r.venue}`);
+    if (b.kind === "yields") return b.rows.slice(0, 6).map((r) => tx("Put my idle {token} to work in {venue}", { token: b.token, venue: r.venue }));
   }
   return [];
 }
@@ -118,7 +121,7 @@ export function resolveFollowUp(message: string, thread: readonly ThreadTurn[]):
   const text = message.trim();
   if (text.length === 0 || text.length > 90) return { kind: "none" };
   const t = text.toLowerCase().replace(/[’]/gu, "'");
-  if (thread.length === 0) return YES.test(t) ? { kind: "ask", question: "Do what? Tell me the move and the amount.", options: [] } : { kind: "none" };
+  if (thread.length === 0) return YES.test(t) ? { kind: "ask", question: tx("Do what? Tell me the move and the amount."), options: [] } : { kind: "none" };
   const prev = lastAssistant(thread);
   const options = prev?.options ?? [];
   const request = lastRequest(thread);
@@ -129,37 +132,37 @@ export function resolveFollowUp(message: string, thread: readonly ThreadTurn[]):
     const ord = ORDINALS.find(([re]) => re.test(t));
     const list = options.length > 0 ? options : rowSentences(prev?.blocks);
     if (ord && u("one|option|number|choice|birinci(?:si)?|ikinci(?:si)?|ilki|sonuncu(?:su)?|\u00fc\u00e7\u00fcnc\u00fc(?:s\u00fc)?|\\d(?:st|nd|rd|th)").test(t)) {
-      if (list.length === 0) return { kind: "ask", question: "Which one do you mean? I have no list of choices in this thread.", options: [] };
+      if (list.length === 0) return { kind: "ask", question: tx("Which one do you mean? I have no list of choices in this thread."), options: [] };
       const picked = ord[1] < 0 ? list[list.length - 1] : list[ord[1]];
-      if (!picked) return { kind: "ask", question: `There ${list.length === 1 ? "is only one choice" : `are ${list.length} choices`}. Which one?`, options: [...list].slice(0, 4) };
-      return { kind: "resolved", sentence: picked, how: "a choice from the previous answer" };
+      if (!picked) return { kind: "ask", question: tx("There {value}. Which one?", { value: list.length === 1 ? tx("is only one choice") : tx("are {length} choices", { length: list.length }) }), options: [...list].slice(0, 4) };
+      return { kind: "resolved", sentence: picked, how: tx("a choice from the previous answer") };
     }
   }
 
   // "Do it", "yes", "go ahead".
   if (YES.test(t)) {
-    if (options.length === 1) return { kind: "resolved", sentence: options[0]!, how: "the choice the previous answer offered" };
-    if (options.length > 1) return { kind: "ask", question: "Which one should I do?", options: [...options].slice(0, 4) };
+    if (options.length === 1) return { kind: "resolved", sentence: options[0]!, how: tx("the choice the previous answer offered") };
+    if (options.length > 1) return { kind: "ask", question: tx("Which one should I do?"), options: [...options].slice(0, 4) };
     if (prev?.proposals && prev.proposals.length > 0) return { kind: "ready", proposals: prev.proposals };
-    const next = prev ? nextStepOf(prev.text) : null;
-    if (next) return { kind: "resolved", sentence: next, how: "the next step the previous answer named" };
-    if (request) return { kind: "resolved", sentence: request, how: "your last request" };
-    return { kind: "ask", question: "Do what? Tell me the move and the amount.", options: [] };
+    const next = prev ? nextStepOf(prev.english ?? prev.text) : null;
+    if (next) return { kind: "resolved", sentence: next, how: tx("the next step the previous answer named") };
+    if (request) return { kind: "resolved", sentence: request, how: tx("your last request") };
+    return { kind: "ask", question: tx("Do what? Tell me the move and the amount."), options: [] };
   }
 
   // "Half of that", "double it", "a quarter".
   const scale = SCALES.find(([re]) => re.test(t));
   if (scale && words <= 7 && (u("that|it|this|of|the same|amount|instead|bunun|onun|only|just|make it").test(t) || /^(?:half|double|twice|a quarter|a third|yar[\u0131i]s[\u0131i](?:n[\u0131i])?)[.! ]*$/iu.test(t)) && !TOKEN.test(text)) {
-    if (!request) return { kind: "ask", question: "Half of what? Tell me the move and the amount.", options: [] };
+    if (!request) return { kind: "ask", question: tx("Half of what? Tell me the move and the amount."), options: [] };
     const scaled = scaleSentence(request, scale[1]);
-    if (!scaled) return { kind: "ask", question: "I could not find the amount to change. What amount should I use?", options: [] };
-    return { kind: "resolved", sentence: scaled, how: "your last request, with the amount recomputed" };
+    if (!scaled) return { kind: "ask", question: tx("I could not find the amount to change. What amount should I use?"), options: [] };
+    return { kind: "resolved", sentence: scaled, how: tx("your last request, with the amount recomputed") };
   }
 
   // "Same but to Base", "same again", "make it 200", "same but in EURC".
   const same = /\b(?:same|again|ayn[\u0131i]s[\u0131i](?:n[\u0131i])?|tekr\u0061r|make it|change it to|instead|but)\b/iu.test(t);
   if (same && words <= 9) {
-    if (!request) return /\b(?:same|again|ayn[\u0131i]s[\u0131i]|tekr\u0061r)\b/iu.test(t) ? { kind: "ask", question: "The same as what? I have no earlier request in this thread.", options: [] } : { kind: "none" };
+    if (!request) return /\b(?:same|again|ayn[\u0131i]s[\u0131i]|tekr\u0061r)\b/iu.test(t) ? { kind: "ask", question: tx("The same as what? I have no earlier request in this thread."), options: [] } : { kind: "none" };
     let sentence = request;
     let touched = false;
     const chain = chainIn(text);
@@ -169,7 +172,7 @@ export function resolveFollowUp(message: string, thread: readonly ThreadTurn[]):
       else {
         const amount = AMOUNT.exec(request);
         const token = TOKEN.exec(request)?.[1] ?? "USDC";
-        sentence = amount ? `Bridge ${amount[0].replace(/^\$\s?/u, "")} ${token} to ${chain.name}` : `${request.replace(/[.?!]+$/u, "")}, then bridge it to ${chain.name}`;
+        sentence = amount ? tx("Bridge {value} {token} to {name}", { value: amount[0].replace(/^\$\s?/u, ""), token, name: chain.name }) : tx("{value}, then bridge it to {name}", { value: request.replace(/[.?!]+$/u, ""), name: chain.name });
       }
       touched = true;
     }
@@ -190,8 +193,8 @@ export function resolveFollowUp(message: string, thread: readonly ThreadTurn[]):
         touched = true;
       }
     }
-    if (touched) return { kind: "resolved", sentence, how: "your last request, with that one change" };
-    if (/^(?:the )?same(?: again| thing| as before)?[.! ]*$|^(?:do (?:it|that) )?again[.! ]*$|^ayn[\u0131i]s[\u0131i](?:n[\u0131i])?(?: yap)?[.! ]*$|^tekr\u0061r(?: yap)?[.! ]*$/iu.test(t)) return { kind: "resolved", sentence: request, how: "your last request" };
+    if (touched) return { kind: "resolved", sentence, how: tx("your last request, with that one change") };
+    if (/^(?:the )?same(?: again| thing| as before)?[.! ]*$|^(?:do (?:it|that) )?again[.! ]*$|^ayn[\u0131i]s[\u0131i](?:n[\u0131i])?(?: yap)?[.! ]*$|^tekr\u0061r(?: yap)?[.! ]*$/iu.test(t)) return { kind: "resolved", sentence: request, how: tx("your last request") };
   }
   return { kind: "none" };
 }

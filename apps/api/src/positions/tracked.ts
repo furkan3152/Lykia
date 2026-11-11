@@ -4,6 +4,7 @@
  * money on its own, so both are overlays (the money is already counted in
  * the wallet). Their detail is drawn with the generic blocks. Owner-only.
  */
+import { intlTag } from "../i18n/format.js";
 import { classifyPosition, deriveIntentStatus, type Position } from "@lykia/core";
 import { autopilotService } from "../autopilot/service.js";
 import { instructionsFor } from "../fold/instructions.js";
@@ -72,7 +73,7 @@ export const readPlans: Reader = async (r, venue) => {
       state: classifyPosition({ kind: "commitment" }),
       blocks: [
         { type: "timeline", label: "Steps", steps: g.steps.map((s) => ({ label: s.summary, at: null, done: s.status === "settled" })), meaning: "Each next step is rebuilt from what the previous one delivered, and checked by your Fence again before you sign." },
-        { type: "facts", items: [{ label: "Done", value: `${done} of ${g.steps.length} steps` }, { label: "Still to move", value: `$${Number(value).toLocaleString("en-US", { maximumFractionDigits: 2 })}`, meaning: "Still in your wallet until you sign the next step." }] },
+        { type: "facts", items: [{ label: "Done", value: `${done} of ${g.steps.length} steps` }, { label: "Still to move", value: `$${Number(value).toLocaleString(intlTag(), { maximumFractionDigits: 2 })}`, meaning: "Still in your wallet until you sign the next step." }] },
       ],
       since: g.createdAt,
       actions: [action("cancel", "Continue or stop it", `Show me my plan "${g.source.slice(0, 120)}" so I can sign the next step or stop it`, "ask")],

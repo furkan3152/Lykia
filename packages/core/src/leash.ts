@@ -33,6 +33,7 @@ import type { StepKind } from "./intent.js";
 import type { ArcEnvironment } from "./networks.js";
 import type { Sha256Digest } from "./canonical.js";
 
+import { tx, phrase, localized } from "./i18n/index.js";
 export const LEASH_SCHEMA = "lykia.leash/v1" as const;
 
 export const LEASH_LIMITS = Object.freeze({
@@ -113,8 +114,8 @@ export const LEASH_EARN_VENUES: readonly string[] = ["morpho-vaults", "aave-v4"]
 export const LEASH_TEMPLATES: Readonly<Record<LeashTemplateKey, LeashTemplate>> = Object.freeze({
   "pay-invoices": {
     key: "pay-invoices",
-    title: "Pay invoices",
-    summary: "Transfers only, to payees you name. No swaps, no lending, no bridges.",
+    title: phrase("Pay invoices"),
+    summary: phrase("Transfers only, to payees you name. No swaps, no lending, no bridges."),
     kinds: ["transfer"],
     tokens: ["USDC", "EURC"],
     venues: ["arc-transfer"],
@@ -124,8 +125,8 @@ export const LEASH_TEMPLATES: Readonly<Record<LeashTemplateKey, LeashTemplate>> 
   },
   "trade-small": {
     key: "trade-small",
-    title: "Trade small",
-    summary: "USDC and EURC swaps on DEXs whose output the account can pin to itself, with a slippage cap.",
+    title: phrase("Trade small"),
+    summary: phrase("USDC and EURC swaps on DEXs whose output the account can pin to itself, with a slippage cap."),
     kinds: ["swap", "fx"],
     tokens: ["USDC", "EURC"],
     venues: LEASH_SWAP_VENUES,
@@ -135,8 +136,8 @@ export const LEASH_TEMPLATES: Readonly<Record<LeashTemplateKey, LeashTemplate>> 
   },
   earn: {
     key: "earn",
-    title: "Earn",
-    summary: "Deposit into and withdraw from Morpho vaults and Aave V4. Everything stays in the account.",
+    title: phrase("Earn"),
+    summary: phrase("Deposit into and withdraw from Morpho vaults and Aave V4. Everything stays in the account."),
     kinds: ["deposit", "withdraw", "supply"],
     tokens: ["USDC", "EURC"],
     venues: LEASH_EARN_VENUES,
@@ -146,8 +147,8 @@ export const LEASH_TEMPLATES: Readonly<Record<LeashTemplateKey, LeashTemplate>> 
   },
   custom: {
     key: "custom",
-    title: "Custom",
-    summary: "Your own Fence, narrowed to the leash's budget and expiry. It must sit inside the parent's Fence.",
+    title: phrase("Custom"),
+    summary: phrase("Your own Fence, narrowed to the leash's budget and expiry. It must sit inside the parent's Fence."),
     kinds: [],
     tokens: ["USDC", "EURC"],
     venues: null,
@@ -365,36 +366,36 @@ export interface EnforcementLine {
 }
 
 /** Exactly which limit is enforced where. The docs and the UI show this table. */
-export const LEASH_ENFORCEMENT: readonly EnforcementLine[] = [
-  { limit: "Expiry", enforcedBy: "both", how: "LykiaAccount refuses every call after validUntil; the API stops the key at expiresAt." },
-  { limit: "Per-step cap", enforcedBy: "both", how: "On chain: perCall in token units per token (USDC 1:1, EURC at the reference rate when the leash was made). At the API: USD per step (caps.perStepUsd)." },
-  { limit: "Daily cap", enforcedBy: "both", how: "On chain: daily in token units over a rolling 24 h window. At the API: USD per day (caps.dailyUsd)." },
-  { limit: "Total budget", enforcedBy: "both", how: "On chain: budget in token units over the session's life, charged up the whole session chain. At the API: USD over the leash's life." },
-  { limit: "Payees", enforcedBy: "both", how: "On chain: agentTransfer only to the session's recipient list or the owner. At the API: the Fence's recipient allowlist." },
-  { limit: "Contracts and functions", enforcedBy: "chain", how: "agentExecute only on (target, selector) call rules, each pinning its output argument to the account; approve, transfer and permit selectors can never be allowlisted." },
-  { limit: "Number of calls", enforcedBy: "chain", how: "maxCalls on the session, counted on every node of the chain." },
-  { limit: "Revocation", enforcedBy: "both", how: "The API disables the key the moment you revoke; revokeSession on the account ends the session (and every sub-session) once signed." },
-  { limit: "USD valuation", enforcedBy: "api", how: "The chain counts token units. Dollar amounts, prices and the beta cap are checked by the Fence at the API." },
-  { limit: "Venues", enforcedBy: "api", how: "The Fence's venue list and the router's choice. On chain only the call rules exist, which are derived from these venues." },
-  { limit: "Slippage", enforcedBy: "api", how: "limits.maxSlippageBps sets the minimum output in the calldata. The chain does not compare prices." },
-  { limit: "Scent, schedule, step count", enforcedBy: "api", how: "Fence rules evaluated on every plan." },
-];
+export const LEASH_ENFORCEMENT: readonly EnforcementLine[] = localized([
+  { limit: phrase("Expiry"), enforcedBy: "both", how: phrase("LykiaAccount refuses every call after validUntil; the API stops the key at expiresAt.") },
+  { limit: phrase("Per-step cap"), enforcedBy: "both", how: phrase("On chain: perCall in token units per token (USDC 1:1, EURC at the reference rate when the leash was made). At the API: USD per step (caps.perStepUsd).") },
+  { limit: phrase("Daily cap"), enforcedBy: "both", how: phrase("On chain: daily in token units over a rolling 24 h window. At the API: USD per day (caps.dailyUsd).") },
+  { limit: phrase("Total budget"), enforcedBy: "both", how: phrase("On chain: budget in token units over the session's life, charged up the whole session chain. At the API: USD over the leash's life.") },
+  { limit: phrase("Payees"), enforcedBy: "both", how: phrase("On chain: agentTransfer only to the session's recipient list or the owner. At the API: the Fence's recipient allowlist.") },
+  { limit: phrase("Contracts and functions"), enforcedBy: "chain", how: phrase("agentExecute only on (target, selector) call rules, each pinning its output argument to the account; approve, transfer and permit selectors can never be allowlisted.") },
+  { limit: phrase("Number of calls"), enforcedBy: "chain", how: phrase("maxCalls on the session, counted on every node of the chain.") },
+  { limit: phrase("Revocation"), enforcedBy: "both", how: phrase("The API disables the key the moment you revoke; revokeSession on the account ends the session (and every sub-session) once signed.") },
+  { limit: phrase("USD valuation"), enforcedBy: "api", how: phrase("The chain counts token units. Dollar amounts, prices and the beta cap are checked by the Fence at the API.") },
+  { limit: phrase("Venues"), enforcedBy: "api", how: phrase("The Fence's venue list and the router's choice. On chain only the call rules exist, which are derived from these venues.") },
+  { limit: phrase("Slippage"), enforcedBy: "api", how: phrase("limits.maxSlippageBps sets the minimum output in the calldata. The chain does not compare prices.") },
+  { limit: phrase("Scent, schedule, step count"), enforcedBy: "api", how: phrase("Fence rules evaluated on every plan.") },
+]);
 
 /** The same split for a Gateway leash: what LykiaStile enforces, what Gateway checks and what the API holds. */
-export const LEASH_GATEWAY_ENFORCEMENT: readonly EnforcementLine[] = [
-  { limit: "Expiry", enforcedBy: "both", how: "LykiaStile refuses reservations after validUntil and stops validating its digests; the API stops the key at expiresAt." },
-  { limit: "Per-transfer cap", enforcedBy: "both", how: "On chain: perTransfer in USDC units, payment plus Lykia fee, never above the Stile's immutable ceiling ($100 while unaudited). At the API: USD per step." },
-  { limit: "Daily cap", enforcedBy: "both", how: "On chain: daily over a rolling 24 h window, never above the Stile's ceiling ($300 while unaudited). At the API: USD per day." },
-  { limit: "Total budget", enforcedBy: "both", how: "On chain: lifetime on the session. At the API: USD over the leash's life." },
-  { limit: "Payees", enforcedBy: "both", how: "On chain: the session's recipient list (32-byte addresses). At the API: the Fence's recipient allowlist." },
-  { limit: "Destination chains", enforcedBy: "both", how: "On chain: the session's allowed Gateway domains. At the API: the leash's destination list." },
-  { limit: "Source of funds", enforcedBy: "chain", how: "Every reserved intent must debit the owner's deposit on Arc through Gateway Wallet, signed by the Stile, with empty hook data." },
-  { limit: "Lykia fee", enforcedBy: "chain", how: "With a fee, a reservation is a burn intent set [payment, fee]: Gateway attests and mints both together or neither." },
-  { limit: "Gateway fee", enforcedBy: "chain", how: "maxFee of each intent is at most the session's maxGatewayFee; Circle charges at most that." },
-  { limit: "Revocation", enforcedBy: "both", how: "The API disables the key at once; revokeSession on the Stile stops new reservations and validation. Gateway may validate against a block up to about 5 minutes old." },
-  { limit: "Signature check", enforcedBy: "chain", how: "Gateway calls isValidSignature (read-only, in its validation enclave, with an RPC quorum); it answers only for reserved, unexpired, uncancelled digests of a live session while the Stile is not paused." },
-  { limit: "USD valuation, Scent, schedule", enforcedBy: "api", how: "The Fence evaluates every transfer before the reservation is prepared." },
-];
+export const LEASH_GATEWAY_ENFORCEMENT: readonly EnforcementLine[] = localized([
+  { limit: phrase("Expiry"), enforcedBy: "both", how: phrase("LykiaStile refuses reservations after validUntil and stops validating its digests; the API stops the key at expiresAt.") },
+  { limit: phrase("Per-transfer cap"), enforcedBy: "both", how: phrase("On chain: perTransfer in USDC units, payment plus Lykia fee, never above the Stile's immutable ceiling ($100 while unaudited). At the API: USD per step.") },
+  { limit: phrase("Daily cap"), enforcedBy: "both", how: phrase("On chain: daily over a rolling 24 h window, never above the Stile's ceiling ($300 while unaudited). At the API: USD per day.") },
+  { limit: phrase("Total budget"), enforcedBy: "both", how: phrase("On chain: lifetime on the session. At the API: USD over the leash's life.") },
+  { limit: phrase("Payees"), enforcedBy: "both", how: phrase("On chain: the session's recipient list (32-byte addresses). At the API: the Fence's recipient allowlist.") },
+  { limit: phrase("Destination chains"), enforcedBy: "both", how: phrase("On chain: the session's allowed Gateway domains. At the API: the leash's destination list.") },
+  { limit: phrase("Source of funds"), enforcedBy: "chain", how: phrase("Every reserved intent must debit the owner's deposit on Arc through Gateway Wallet, signed by the Stile, with empty hook data.") },
+  { limit: phrase("Lykia fee"), enforcedBy: "chain", how: phrase("With a fee, a reservation is a burn intent set [payment, fee]: Gateway attests and mints both together or neither.") },
+  { limit: phrase("Gateway fee"), enforcedBy: "chain", how: phrase("maxFee of each intent is at most the session's maxGatewayFee; Circle charges at most that.") },
+  { limit: phrase("Revocation"), enforcedBy: "both", how: phrase("The API disables the key at once; revokeSession on the Stile stops new reservations and validation. Gateway may validate against a block up to about 5 minutes old.") },
+  { limit: phrase("Signature check"), enforcedBy: "chain", how: phrase("Gateway calls isValidSignature (read-only, in its validation enclave, with an RPC quorum); it answers only for reserved, unexpired, uncancelled digests of a live session while the Stile is not paused.") },
+  { limit: phrase("USD valuation, Scent, schedule"), enforcedBy: "api", how: phrase("The Fence evaluates every transfer before the reservation is prepared.") },
+]);
 
 /* ------------------------------------------------------------ building */
 
@@ -420,27 +421,27 @@ export interface LeashIssue {
 /** Checks a leash budget: decimals, positive, and perStep <= perDay <= total (the order LykiaAccount requires). */
 export function budgetIssues(budget: Partial<LeashBudget> | undefined): LeashIssue[] {
   const out: LeashIssue[] = [];
-  if (!budget) return [{ path: "budget", message: "Give perStepUsd, perDayUsd and totalUsd." }];
+  if (!budget) return [{ path: "budget", message: tx("Give perStepUsd, perDayUsd and totalUsd.") }];
   for (const key of ["perStepUsd", "perDayUsd", "totalUsd"] as const) {
     const v = budget[key];
-    if (typeof v !== "string" || !USD_PATTERN.test(v)) out.push({ path: `budget.${key}`, message: 'A USD amount as a string, e.g. "50".' });
-    else if (usdMicros(v) <= 0n) out.push({ path: `budget.${key}`, message: "Must be more than zero." });
+    if (typeof v !== "string" || !USD_PATTERN.test(v)) out.push({ path: `budget.${key}`, message: tx("A USD amount as a string, e.g. \"50\".") });
+    else if (usdMicros(v) <= 0n) out.push({ path: `budget.${key}`, message: tx("Must be more than zero.") });
   }
   if (out.length > 0) return out;
   const step = usdMicros(budget.perStepUsd as string);
   const day = usdMicros(budget.perDayUsd as string);
   const total = usdMicros(budget.totalUsd as string);
-  if (step > day) out.push({ path: "budget.perStepUsd", message: "The per-step cap cannot be above the daily cap." });
-  if (day > total) out.push({ path: "budget.perDayUsd", message: "The daily cap cannot be above the total budget." });
+  if (step > day) out.push({ path: "budget.perStepUsd", message: tx("The per-step cap cannot be above the daily cap.") });
+  if (day > total) out.push({ path: "budget.perDayUsd", message: tx("The daily cap cannot be above the total budget.") });
   return out;
 }
 
 /** Checks the expiry: at least an hour ahead, at most LEASH_LIMITS.maxDays. */
 export function expiryIssues(expiresAt: string, now: number): LeashIssue[] {
   const at = Date.parse(expiresAt);
-  if (!Number.isFinite(at)) return [{ path: "expiresAt", message: "An ISO date, e.g. 2026-11-15T12:00:00Z." }];
-  if (at < now + LEASH_LIMITS.minHours * 3_600_000) return [{ path: "expiresAt", message: "At least an hour from now." }];
-  if (at > now + LEASH_LIMITS.maxDays * 86_400_000) return [{ path: "expiresAt", message: `At most ${LEASH_LIMITS.maxDays} days from now.` }];
+  if (!Number.isFinite(at)) return [{ path: "expiresAt", message: tx("An ISO date, e.g. 2026-11-15T12:00:00Z.") }];
+  if (at < now + LEASH_LIMITS.minHours * 3_600_000) return [{ path: "expiresAt", message: tx("At least an hour from now.") }];
+  if (at > now + LEASH_LIMITS.maxDays * 86_400_000) return [{ path: "expiresAt", message: tx("At most {maxDays} days from now.", { maxDays: LEASH_LIMITS.maxDays }) }];
   return [];
 }
 
@@ -454,29 +455,29 @@ export function expiryIssues(expiresAt: string, now: number): LeashIssue[] {
 export function leashFence(input: LeashLimitsInput): { readonly fence: Fence | null; readonly issues: readonly LeashIssue[] } {
   const issues: LeashIssue[] = [...budgetIssues(input.budget)];
   const t = LEASH_TEMPLATES[input.template];
-  if (!t) return { fence: null, issues: [{ path: "template", message: `One of ${LEASH_TEMPLATE_KEYS.join(", ")}.` }] };
+  if (!t) return { fence: null, issues: [{ path: "template", message: tx("One of {value}.", { value: LEASH_TEMPLATE_KEYS.join(", ") }) }] };
   if (input.spendFrom === "gateway") return gatewayLeashFence(input, issues);
   const slip = input.maxSlippageBps ?? t.maxSlippageBps;
-  if (!Number.isInteger(slip) || slip < 0 || slip > LEASH_LIMITS.maxSlippageBps) issues.push({ path: "maxSlippageBps", message: `0 to ${LEASH_LIMITS.maxSlippageBps}.` });
-  else if (input.template !== "custom" && slip > t.maxSlippageBps) issues.push({ path: "maxSlippageBps", message: `The ${t.title} template allows at most ${t.maxSlippageBps} bps.` });
+  if (!Number.isInteger(slip) || slip < 0 || slip > LEASH_LIMITS.maxSlippageBps) issues.push({ path: "maxSlippageBps", message: tx("0 to {maxSlippageBps}.", { maxSlippageBps: LEASH_LIMITS.maxSlippageBps }) });
+  else if (input.template !== "custom" && slip > t.maxSlippageBps) issues.push({ path: "maxSlippageBps", message: tx("The {title} template allows at most {maxSlippageBps} bps.", { title: t.title, maxSlippageBps: t.maxSlippageBps }) });
   const recipients = [...new Set((input.recipients ?? []).map((r) => r.toLowerCase()))] as Address[];
-  if (recipients.length > LEASH_LIMITS.recipients) issues.push({ path: "recipients", message: `At most ${LEASH_LIMITS.recipients} recipients.` });
-  if (!recipients.every((r) => isAddress(r))) issues.push({ path: "recipients", message: "Addresses, 0x followed by 40 hex characters." });
-  if (t.recipients === "allowlist" && recipients.length === 0) issues.push({ path: "recipients", message: "Name at least one payee: this leash pays known recipients only." });
+  if (recipients.length > LEASH_LIMITS.recipients) issues.push({ path: "recipients", message: tx("At most {recipients} recipients.", { recipients: LEASH_LIMITS.recipients }) });
+  if (!recipients.every((r) => isAddress(r))) issues.push({ path: "recipients", message: tx("Addresses, 0x followed by 40 hex characters.") });
+  if (t.recipients === "allowlist" && recipients.length === 0) issues.push({ path: "recipients", message: tx("Name at least one payee: this leash pays known recipients only.") });
   let venues: readonly string[] | undefined;
   if (input.venues !== undefined) {
     if (t.venues) {
       const extra = input.venues.filter((v) => !t.venues!.includes(v));
-      if (extra.length > 0) issues.push({ path: "venues", message: `Not part of the ${t.title} template: ${extra.join(", ")}. Allowed: ${t.venues.join(", ")}.` });
+      if (extra.length > 0) issues.push({ path: "venues", message: tx("Not part of the {title} template: {value}. Allowed: {value2}.", { title: t.title, value: extra.join(", "), value2: t.venues.join(", ") }) });
     }
-    if (input.venues.length === 0) issues.push({ path: "venues", message: "Name at least one venue, or leave the list out." });
+    if (input.venues.length === 0) issues.push({ path: "venues", message: tx("Name at least one venue, or leave the list out.") });
     venues = input.venues;
   } else venues = t.venues ?? undefined;
   const caps = { perStepUsd: input.budget.perStepUsd, perIntentUsd: input.budget.perDayUsd, dailyUsd: input.budget.perDayUsd };
   const label = `Leash · ${input.name}`.slice(0, 64);
   let fence: Fence;
   if (input.template === "custom") {
-    if (!input.fence) return { fence: null, issues: [...issues, { path: "fence", message: "A custom leash needs a Fence." }] };
+    if (!input.fence) return { fence: null, issues: [...issues, { path: "fence", message: tx("A custom leash needs a Fence.") }] };
     const checked = validateFence(input.fence);
     if (!checked.ok) return { fence: null, issues: [...issues, ...checked.issues.map((i) => ({ path: `fence.${i.path}`, message: i.message }))] };
     const f = checked.fence;
@@ -516,21 +517,21 @@ export function leashFence(input: LeashLimitsInput): { readonly fence: Fence | n
 /** Budget issues against the Stile beta ceilings. */
 export function stileBudgetIssues(budget: Pick<LeashBudget, "perStepUsd" | "perDayUsd">): LeashIssue[] {
   const out: LeashIssue[] = [];
-  if (USD_PATTERN.test(budget.perStepUsd) && usdMicros(budget.perStepUsd) > usdMicros(STILE_BETA.perStepUsd)) out.push({ path: "budget.perStepUsd", message: `A Gateway leash allows at most $${STILE_BETA.perStepUsd} per transfer while LykiaStile is unaudited.` });
-  if (USD_PATTERN.test(budget.perDayUsd) && usdMicros(budget.perDayUsd) > usdMicros(STILE_BETA.perDayUsd)) out.push({ path: "budget.perDayUsd", message: `A Gateway leash allows at most $${STILE_BETA.perDayUsd} a day while LykiaStile is unaudited.` });
+  if (USD_PATTERN.test(budget.perStepUsd) && usdMicros(budget.perStepUsd) > usdMicros(STILE_BETA.perStepUsd)) out.push({ path: "budget.perStepUsd", message: tx("A Gateway leash allows at most ${perStepUsd} per transfer while LykiaStile is unaudited.", { perStepUsd: STILE_BETA.perStepUsd }) });
+  if (USD_PATTERN.test(budget.perDayUsd) && usdMicros(budget.perDayUsd) > usdMicros(STILE_BETA.perDayUsd)) out.push({ path: "budget.perDayUsd", message: tx("A Gateway leash allows at most ${perDayUsd} a day while LykiaStile is unaudited.", { perDayUsd: STILE_BETA.perDayUsd }) });
   return out;
 }
 
 /** A Gateway leash: USDC transfers to named payees through Circle Gateway, nothing else. */
 function gatewayLeashFence(input: LeashLimitsInput, issues: LeashIssue[]): { readonly fence: Fence | null; readonly issues: readonly LeashIssue[] } {
-  if (input.template !== "pay-invoices") issues.push({ path: "template", message: 'A Gateway leash pays named payees: use the "pay-invoices" template.' });
-  if (input.venues !== undefined && !(input.venues.length === 1 && input.venues[0] === LEASH_GATEWAY_VENUE)) issues.push({ path: "venues", message: `A Gateway leash uses one venue, ${LEASH_GATEWAY_VENUE}.` });
-  if (input.maxSlippageBps !== undefined && input.maxSlippageBps !== 0) issues.push({ path: "maxSlippageBps", message: "A Gateway transfer has no slippage; leave it out or send 0." });
+  if (input.template !== "pay-invoices") issues.push({ path: "template", message: tx("A Gateway leash pays named payees: use the \"pay-invoices\" template.") });
+  if (input.venues !== undefined && !(input.venues.length === 1 && input.venues[0] === LEASH_GATEWAY_VENUE)) issues.push({ path: "venues", message: tx("A Gateway leash uses one venue, {LEASH_GATEWAY_VENUE}.", { LEASH_GATEWAY_VENUE }) });
+  if (input.maxSlippageBps !== undefined && input.maxSlippageBps !== 0) issues.push({ path: "maxSlippageBps", message: tx("A Gateway transfer has no slippage; leave it out or send 0.") });
   issues.push(...stileBudgetIssues(input.budget));
   const recipients = [...new Set((input.recipients ?? []).map((r) => r.toLowerCase()))] as Address[];
-  if (recipients.length === 0) issues.push({ path: "recipients", message: "Name at least one payee: this leash pays known recipients only." });
-  if (recipients.length > LEASH_LIMITS.recipients) issues.push({ path: "recipients", message: `At most ${LEASH_LIMITS.recipients} recipients.` });
-  if (!recipients.every((r) => isAddress(r))) issues.push({ path: "recipients", message: "Addresses, 0x followed by 40 hex characters." });
+  if (recipients.length === 0) issues.push({ path: "recipients", message: tx("Name at least one payee: this leash pays known recipients only.") });
+  if (recipients.length > LEASH_LIMITS.recipients) issues.push({ path: "recipients", message: tx("At most {recipients} recipients.", { recipients: LEASH_LIMITS.recipients }) });
+  if (!recipients.every((r) => isAddress(r))) issues.push({ path: "recipients", message: tx("Addresses, 0x followed by 40 hex characters.") });
   const fence: Fence = {
     schema: FENCE_SCHEMA,
     label: `Leash · ${input.name}`.slice(0, 64),
@@ -565,7 +566,7 @@ export function leashCeiling(input: { readonly template: LeashTemplateKey; reado
     const recipients = [...new Set((input.recipients ?? []).map((r) => r.toLowerCase()))] as Address[];
     return {
       schema: FENCE_SCHEMA,
-      label: "Gateway leash ceiling",
+      label: tx("Gateway leash ceiling"),
       mode: "live",
       environments: [input.environment],
       kinds: { allow: ["transfer"] },

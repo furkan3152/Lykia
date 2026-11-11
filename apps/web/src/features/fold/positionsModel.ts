@@ -5,6 +5,7 @@
  * Node tests import it directly.
  */
 import { POSITION_STATE_LABELS, type Position, type PositionState, type PositionVenueInfo, type VenueRead } from "@lykia/core";
+import { formatUsd, intlLocale, t } from "../../i18n";
 
 /* --------------------------------------------------------------- states */
 
@@ -144,7 +145,7 @@ export function positionPasture(venues: readonly { readonly name: string; readon
 /** A tile's short name: "USDC", "USDC/EURC", "Borrowed USDC". */
 export function shortLabel(p: Position): string {
   if (p.venueKind === "lp") return p.assets.map((a) => a.symbol).join("/");
-  if (Number(p.valueUsd ?? 0) < 0) return `Borrowed ${p.symbol}`;
+  if (Number(p.valueUsd ?? 0) < 0) return t("fold.positionsModel.borrowed", { symbol: p.symbol });
   if (p.venueKind === "vault") return p.label.replace(/^Morpho\s+/u, "");
   return p.symbol;
 }
@@ -157,20 +158,16 @@ export function rowDomId(id: string): string {
 /* ----------------------------------------------------------- formatting */
 
 export function money(n: number | null | undefined, digits?: number): string {
-  if (n === null || n === undefined || !Number.isFinite(n)) return "unpriced";
+  if (n === null || n === undefined || !Number.isFinite(n)) return t("fold.unpriced");
   const d = digits ?? (Math.abs(n) >= 1000 ? 0 : 2);
-  const sign = n < 0 ? "−" : "";
-  return `${sign}$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d })}`;
+  return `${n < 0 ? "−" : ""}${formatUsd(Math.abs(n), { min: d, max: d })}`;
 }
 
 export function compactMoney(n: number): string {
   const a = Math.abs(n);
   const sign = n < 0 ? "−" : "";
-  if (a >= 1_000_000) return `${sign}$${(a / 1_000_000).toFixed(a >= 10_000_000 ? 0 : 1)}M`;
-  if (a >= 10_000) return `${sign}$${(a / 1000).toFixed(0)}k`;
-  if (a >= 1000) return `${sign}$${(a / 1000).toFixed(1)}k`;
-  if (a >= 1) return `${sign}$${a.toFixed(0)}`;
-  return `${sign}$${a.toFixed(2)}`;
+  if (a >= 1000) return `${sign}${formatUsd(a, { compact: true, min: 0, max: a >= 10_000 && a < 1_000_000 ? 0 : 1 })}`;
+  return `${sign}${formatUsd(a, { min: a >= 1 ? 0 : 2, max: a >= 1 ? 0 : 2 })}`;
 }
 
 export function amountText(amount: string, symbol: string): string {
@@ -178,15 +175,15 @@ export function amountText(amount: string, symbol: string): string {
   if (!Number.isFinite(n)) return `${amount} ${symbol}`;
   const a = Math.abs(n);
   const digits = a >= 1000 ? 0 : a >= 1 ? 2 : a >= 0.01 ? 4 : 6;
-  return `${n.toLocaleString("en-US", { maximumFractionDigits: digits })} ${symbol}`;
+  return `${n.toLocaleString(intlLocale(), { maximumFractionDigits: digits })} ${symbol}`;
 }
 
 /** "12 s ago", "3 min ago". */
 export function ago(iso: string, now: number): string {
   const s = Math.max(0, Math.round((now - Date.parse(iso)) / 1000));
-  if (s < 60) return `${s} s ago`;
-  if (s < 3600) return `${Math.round(s / 60)} min ago`;
-  return `${Math.round(s / 3600)} h ago`;
+  if (s < 60) return t("fold.positionsModel.sAgo", { s });
+  if (s < 3600) return t("fold.positionsModel.minAgo", { Math: Math.round(s / 60) });
+  return t("fold.positionsModel.hAgo", { Math: Math.round(s / 3600) });
 }
 
 /** Health gauge: where the factor sits between liquidation (1.0) and comfortable (3.0), with the floor marked. */

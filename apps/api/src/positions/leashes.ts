@@ -5,11 +5,13 @@
  * drawn with the generic blocks: today's budget and the whole budget as
  * gauges, the end date as a countdown. Owner-only.
  */
+import { intlTag } from "../i18n/format.js";
 import { classifyPosition, LEASH_TEMPLATES, type Position } from "@lykia/core";
 import { leashService } from "../leash/service.js";
 import { action, finish, type Reader } from "./context.js";
 
-const money = (v: string | number) => `$${Number(v).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+import { tx } from "@lykia/core";
+const money = (v: string | number) => `$${Number(v).toLocaleString(intlTag(), { maximumFractionDigits: 2 })}`;
 
 export const readLeashes: Reader = async (r, venue) => {
   const list = (await leashService(r.ctx).list(r.owner, r.environment)).filter((l) => l.status === "active" || l.status === "pending");
@@ -29,12 +31,12 @@ export const readLeashes: Reader = async (r, venue) => {
       counts: "overlay",
       state: classifyPosition({ kind: "commitment" }),
       blocks: [
-        { type: "gauge", label: "Used today", value: Number(day.spentUsd), min: 0, max: Number(day.capUsd) || 1, display: `${money(day.spentUsd)} of ${money(day.capUsd)}`, threshold: { at: Number(day.capUsd), label: `today's cap (${money(day.capUsd)})`, danger: "above" }, meaning: `${l.agentName} can spend ${money(day.remainingUsd)} more today; past the cap the chain refuses.` },
-        { type: "gauge", label: "Used in total", value: Number(total.spentUsd), min: 0, max: Number(total.capUsd) || 1, display: `${money(total.spentUsd)} of ${money(total.capUsd)}`, threshold: { at: Number(total.capUsd), label: `the whole budget (${money(total.capUsd)})`, danger: "above" } },
-        { type: "facts", items: [{ label: "Per step", value: money(l.usage.perStepUsd), meaning: "The most it can move in one go." }, { label: "Spends from", value: l.spendFrom === "gateway" ? "your Gateway balance (LykiaStile)" : "your Arc wallet (LykiaAccount)", meaning: l.spendFrom === "gateway" ? "Gateway asks your LykiaStile before every transfer; it answers only inside this leash's caps." : "Your LykiaAccount holds the caps on chain." }, { label: "Status", value: l.status === "pending" ? "waiting for your signature" : "active" }] },
-        { type: "countdown", label: "Ends", until: l.expiresAt, ends: true, meaning: "After this date the bot's key stops working on its own." },
+        { type: "gauge", label: tx("Used today"), value: Number(day.spentUsd), min: 0, max: Number(day.capUsd) || 1, display: `${money(day.spentUsd)} of ${money(day.capUsd)}`, threshold: { at: Number(day.capUsd), label: tx("today's cap ({amount})", { amount: money(day.capUsd) }), danger: "above" }, meaning: tx("{agentName} can spend {amount} more today; past the cap the chain refuses.", { agentName: l.agentName, amount: money(day.remainingUsd) }) },
+        { type: "gauge", label: tx("Used in total"), value: Number(total.spentUsd), min: 0, max: Number(total.capUsd) || 1, display: `${money(total.spentUsd)} of ${money(total.capUsd)}`, threshold: { at: Number(total.capUsd), label: tx("the whole budget ({amount})", { amount: money(total.capUsd) }), danger: "above" } },
+        { type: "facts", items: [{ label: tx("Per step"), value: money(l.usage.perStepUsd), meaning: tx("The most it can move in one go.") }, { label: tx("Spends from"), value: l.spendFrom === "gateway" ? tx("your Gateway balance (LykiaStile)") : tx("your Arc wallet (LykiaAccount)"), meaning: l.spendFrom === "gateway" ? tx("Gateway asks your LykiaStile before every transfer; it answers only inside this leash's caps.") : tx("Your LykiaAccount holds the caps on chain.") }, { label: tx("Status"), value: l.status === "pending" ? tx("waiting for your signature") : "active" }] },
+        { type: "countdown", label: tx("Ends"), until: l.expiresAt, ends: true, meaning: tx("After this date the bot's key stops working on its own.") },
       ],
-      actions: [action("cancel", "Revoke", `Revoke ${l.agentName}'s leash`, "ask")],
+      actions: [action("cancel", tx("Revoke"), tx("Revoke {agentName}'s leash", { agentName: l.agentName }), "ask")],
       source: "history",
       readAt: r.readAt,
       block: l.usage.block,

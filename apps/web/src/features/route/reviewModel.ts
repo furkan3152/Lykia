@@ -4,6 +4,7 @@
  * step to sign next, from an intent graph and its outrun.
  */
 import { fromBaseUnits, getProtocol, memoString, planStages, verdictTag, type IntentGraph, type IntentStep, type Outrun, type StagedPlan, type StepAmount } from "@lykia/core";
+import { intlLocale, t as msg } from "../../i18n";
 
 export interface Figure {
   readonly symbol: string;
@@ -62,12 +63,12 @@ export function displayAmount(units: string, decimals: number): string {
   const text = fromBaseUnits(units, decimals);
   const [whole, fraction = ""] = text.split(".");
   const cut = fraction.slice(0, Number(whole) >= 1 ? 4 : 6).replace(/0+$/u, "");
-  return `${Number(whole).toLocaleString("en-US")}${cut ? `.${cut}` : ""}`;
+  return `${Number(whole).toLocaleString(intlLocale())}${cut ? `.${cut}` : ""}`;
 }
 
 export function venueLabel(step: Pick<IntentStep, "venue" | "route" | "kind">): string {
   if (step.route?.chosen.label) return step.route.chosen.label;
-  if (step.kind === "approve") return "Exact approval";
+  if (step.kind === "approve") return msg("route.reviewModel.exactApproval");
   return getProtocol(step.venue)?.name ?? step.venue;
 }
 
@@ -107,14 +108,14 @@ export function reviewView(graph: IntentGraph, outrun: Outrun | null): ReviewVie
   const get = sum(
     steps
       .filter((s) => !consumed.has(s.id))
-      .flatMap((s) => s.outputs.map((a) => ({ a, output: true, where: s.kind === "bridge" ? `on ${s.settlement.kind !== "receipt" ? destinationName(s.settlement.destination) : "the destination"}` : a.symbol.includes("@") ? `in ${venueLabel(s)}` : s.kind === "transfer" ? "to the recipient" : null }))),
+      .flatMap((s) => s.outputs.map((a) => ({ a, output: true, where: s.kind === "bridge" ? msg("route.reviewModel.onPlace", { place: s.settlement.kind !== "receipt" ? destinationName(s.settlement.destination) : msg("route.reviewModel.theDestination") }) : a.symbol.includes("@") ? msg("route.reviewModel.inPlace", { place: venueLabel(s) }) : s.kind === "transfer" ? msg("route.reviewModel.toTheRecipient") : null }))),
   );
   const staged = planStages(graph);
   // A staged plan shows the current stage's own figures: what this signature sends and what it gets.
   const scope = staged.total > 1 && staged.current ? new Set(staged.current.stepIds) : null;
   const stageSteps = scope ? graph.steps.filter((s) => scope.has(s.id)) : null;
   const stageSend = stageSteps ? sum(stageSteps.flatMap((s) => s.inputs.map((a) => ({ a, output: false, where: null })))) : null;
-  const stageGet = stageSteps ? sum(stageSteps.flatMap((s) => s.outputs.map((a) => ({ a, output: true, where: a.symbol.includes("@") ? `in ${venueLabel(s)}` : s.kind === "transfer" ? "to the recipient" : null })))) : null;
+  const stageGet = stageSteps ? sum(stageSteps.flatMap((s) => s.outputs.map((a) => ({ a, output: true, where: a.symbol.includes("@") ? msg("route.reviewModel.inPlace", { place: venueLabel(s) }) : s.kind === "transfer" ? msg("route.reviewModel.toTheRecipient") : null })))) : null;
   const tag = verdictTag(graph.verdict.digest);
   const reviewSteps: ReviewStep[] = steps.map((s, i) => ({
     id: s.id,

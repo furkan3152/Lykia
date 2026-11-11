@@ -5,6 +5,8 @@
  * artifact (label, value, note per line) and written to the owner's shared
  * thread, so Ask Lyko sees the same conversation.
  */
+import { formatList, intlTag } from "../i18n/format.js";
+import { count } from "../i18n/count.js";
 import { ownerFence } from "../personal/fence.js";
 import { applyFoldShocks, describeShock, isSampleOwner, NO_SHOCK, TRAIL_FEE_WINDOW_DAYS, type Address, type ArcEnvironment, type FoldShocks, type PositionsResponse, type ShockHolding } from "@lykia/core";
 import type { BlockSource } from "@lykia/core/api/answer";
@@ -18,13 +20,14 @@ import { instructionsFor } from "./instructions.js";
 import { foldPositions } from "./sample.js";
 import { trailsFor } from "./trails.js";
 
-const usd = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+import { tx, phrase } from "@lykia/core";
+const usd = (n: number) => `$${n.toLocaleString(intlTag(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const QUESTIONS: Readonly<Record<FoldQuestion, string>> = {
-  yield: "Explain my yield",
-  whatif: "Am I safe if EURC drops 5%?",
-  week: "What runs this week?",
-  approvals: "Tidy my approvals",
+  yield: phrase("Explain my yield"),
+  whatif: phrase("Am I safe if EURC drops 5%?"),
+  week: phrase("What runs this week?"),
+  approvals: phrase("Tidy my approvals"),
 };
 
 async function minHealth(ctx: AppContext, owner: Address): Promise<number> {
@@ -62,15 +65,15 @@ export async function explain(ctx: AppContext, environment: ArcEnvironment, owne
     const from = w.from ?? records;
     return {
       kind: "whatif",
-      title: "If prices move",
+      title: tx("If prices move"),
       summary: w.sentence,
       lines: [
-        { label: "Flock now", value: usd(w.result.before), note: null, from },
-        { label: "After the shock", value: usd(w.result.after), note: null, from },
-        ...w.result.health.map((h) => ({ label: `Health on ${h.venue}`, value: h.after === null ? "unavailable" : h.after.toFixed(2), note: h.before === null ? null : `now ${h.before.toFixed(2)}`, from })),
-        ...(w.result.unpriced > 0 ? [{ label: "Unpriced", value: `${w.result.unpriced} holding${w.result.unpriced === 1 ? "" : "s"}`, note: "left out of both totals, never counted as $0", from }] : []),
+        { label: tx("Flock now"), value: usd(w.result.before), note: null, from },
+        { label: tx("After the shock"), value: usd(w.result.after), note: null, from },
+        ...w.result.health.map((h) => ({ label: tx("Health on {venue}", { venue: h.venue }), value: h.after === null ? "unavailable" : h.after.toFixed(2), note: h.before === null ? null : `now ${h.before.toFixed(2)}`, from })),
+        ...(w.result.unpriced > 0 ? [{ label: tx("Unpriced"), value: count(w.result.unpriced, "holding"), note: tx("left out of both totals, never counted as $0"), from }] : []),
       ],
-      sources: ["the position map", "Chainlink prices", "the shared shock model"],
+      sources: [tx("the position map"), tx("Chainlink prices"), tx("the shared shock model")],
       at,
       block: from.block,
     };
@@ -82,10 +85,10 @@ export async function explain(ctx: AppContext, environment: ArcEnvironment, owne
     const onEvent = all.filter((i) => i.status === "active" && !i.nextRunAt && i.source !== "plan").length;
     return {
       kind: "week",
-      title: "This week in Herding",
-      summary: week.length === 0 ? `Nothing is scheduled for the next seven days${onEvent > 0 ? `; ${onEvent} instruction(s) wait for a price or an event` : ""}.` : `${week.length} run(s) in the next seven days${onEvent > 0 ? `, and ${onEvent} waiting for a price or an event` : ""}.`,
+      title: tx("This week in Herding"),
+      summary: week.length === 0 ? tx("Nothing is scheduled for the next seven days{value}.", { value: onEvent > 0 ? tx("; {onEvent} instruction(s) wait for a price or an event", { onEvent }) : "" }) : tx("{length} run(s) in the next seven days{value}.", { length: week.length, value: onEvent > 0 ? tx(", and {onEvent} waiting for a price or an event", { onEvent }) : "" }),
       lines: week.map((i) => ({ label: i.name, value: i.nextRunLabel, note: i.nextVerdict ? `${i.nextVerdict.decision}: ${i.nextVerdict.reason}` : null, from: records })),
-      sources: ["automations", "standing orders", "orders", "watches"],
+      sources: ["automations", tx("standing orders"), "orders", "watches"],
       at,
       block: null,
     };
@@ -95,10 +98,10 @@ export async function explain(ctx: AppContext, environment: ArcEnvironment, owne
     const from: BlockSource = { source: "ERC-20 allowance reads on Arc", readAt: at, block: null };
     return {
       kind: "approvals",
-      title: "Open approvals",
-      summary: list.length === 0 ? "No allowances are left open to the venues Lykia knows. Nothing to tidy." : `${list.length} allowance(s) are open. Lyko drafted one revoke each; sign them from the insight or from Herding.`,
+      title: tx("Open approvals"),
+      summary: list.length === 0 ? tx("No allowances are left open to the venues Lykia knows. Nothing to tidy.") : tx("{length} allowance(s) are open. Lyko drafted one revoke each; sign them from the insight or from Herding.", { length: list.length }),
       lines: list.map((a) => ({ label: a.title, value: a.severity === "act" ? "unlimited" : "limited", note: a.detail.slice(0, 140), from })),
-      sources: ["ERC-20 allowance reads on Arc"],
+      sources: [tx("ERC-20 allowance reads on Arc")],
       at,
       block: null,
     };
@@ -115,22 +118,22 @@ export async function explain(ctx: AppContext, environment: ArcEnvironment, owne
   const idle = wallet.reduce((a, p) => a + (p.valueUsd === null ? 0 : Number(p.valueUsd)), 0);
   const lines: FoldExplainArtifact["lines"][number][] = [];
   const from = (p: (typeof all)[number]): BlockSource => ({ source: sample ? "sample" : (p.apy?.source ?? p.source).slice(0, 80), readAt: isoOf(p.readAt), block: blockOf(p.block), venue: p.venueName.slice(0, 60) });
-  for (const p of earning) lines.push({ label: p.label, value: usd(Number(p.valueUsd)), note: `${p.apy!.percent}% a year (${p.apy!.kind})`, from: from(p) });
-  for (const p of debts) lines.push({ label: p.label, value: `−${usd(Math.abs(Number(p.valueUsd)))}`, note: p.apy ? `${p.apy.percent}% a year accrues against your yield` : "interest accrues against your yield", from: from(p) });
-  lines.push({ label: "Resting in the wallet", value: usd(idle), note: unpricedWallet.length > 0 ? `plus ${unpricedWallet.length} unpriced holding${unpricedWallet.length === 1 ? "" : "s"} (no price, not counted as $0)` : "earns nothing; kept liquid for gas and payments", from: mapFrom });
+  for (const p of earning) lines.push({ label: p.label, value: usd(Number(p.valueUsd)), note: tx("{percent}% a year ({kind})", { percent: p.apy!.percent, kind: p.apy!.kind }), from: from(p) });
+  for (const p of debts) lines.push({ label: p.label, value: `−${usd(Math.abs(Number(p.valueUsd)))}`, note: p.apy ? tx("{percent}% a year accrues against your yield", { percent: p.apy.percent }) : tx("interest accrues against your yield"), from: from(p) });
+  lines.push({ label: tx("Resting in the wallet"), value: usd(idle), note: unpricedWallet.length > 0 ? tx("plus {length, plural, one {# unpriced holding} other {# unpriced holdings}} (no price, not counted as $0)", { length: unpricedWallet.length }) : tx("earns nothing; kept liquid for gas and payments"), from: mapFrom });
   // The same figure as the Trails totals: one function over the same trail (core trailFeesUsd).
   const fees = sample ? "0.00" : (await trailsFor(ctx, owner)).totals.feesUsd;
-  lines.push({ label: `Lykia fees, last ${TRAIL_FEE_WINDOW_DAYS} days`, value: `$${fees}`, note: "1% of the amount moved, paid on chain in the same transaction", from: records });
+  lines.push({ label: tx("Lykia fees, last {TRAIL_FEE_WINDOW_DAYS} days", { TRAIL_FEE_WINDOW_DAYS }), value: `$${fees}`, note: tx("1% of the amount moved, paid on chain in the same transaction"), from: records });
   const s = map.summary;
   const earningUsd = earning.reduce((a, p) => a + Number(p.valueUsd), 0);
-  const blended = s.weightedApyPercent !== null ? `${s.weightedApyPercent}% blended` : "a blended rate that is unavailable";
-  const yearly = s.yearlyYieldUsd !== null ? `${usd(Number(s.yearlyYieldUsd))} a year net of borrowing at today's rates` : "a yearly figure that is unavailable";
+  const blended = s.weightedApyPercent !== null ? tx("{weightedApyPercent}% blended", { weightedApyPercent: s.weightedApyPercent }) : tx("a blended rate that is unavailable");
+  const yearly = s.yearlyYieldUsd !== null ? tx("{amount} a year net of borrowing at today's rates", { amount: usd(Number(s.yearlyYieldUsd)) }) : tx("a yearly figure that is unavailable");
   return {
     kind: "yield",
-    title: "Where your yield comes from",
-    summary: earning.length === 0 ? `Nothing earns yet: ${usd(idle)} rests in the wallet. Ask Lyko to put part of it to work.` : `${usd(earningUsd)} earns ${blended}, ${yearly}; ${usd(idle)} rests in the wallet.`,
+    title: tx("Where your yield comes from"),
+    summary: earning.length === 0 ? tx("Nothing earns yet: {amount} rests in the wallet. Ask Lyko to put part of it to work.", { amount: usd(idle) }) : tx("{amount} earns {blended}, {yearly}; {amount2} rests in the wallet.", { amount: usd(earningUsd), blended, yearly, amount2: usd(idle) }),
     lines,
-    sources: [sample ? "sample" : "the position map", ...new Set(earning.map((p) => p.apy!.source)), "Trails (fees)"],
+    sources: [sample ? "sample" : tx("the position map"), ...new Set(earning.map((p) => p.apy!.source)), tx("Trails (fees)")],
     at,
     block: mapFrom.block,
   };
@@ -138,7 +141,7 @@ export async function explain(ctx: AppContext, environment: ArcEnvironment, owne
 
 /** Answers a chip and writes the exchange to the shared thread (origin: the Fold). */
 export async function answer(ctx: AppContext, environment: ArcEnvironment, owner: Address, question: FoldQuestion, threadId: string | undefined, shocks?: FoldShocks): Promise<FoldAnswerResponse> {
-  const text = question === "whatif" && shocks ? `Am I safe if ${(["EURC", "cirBTC"] as const).filter((k) => shocks[k] !== 0).map((k) => `${k} moves ${shocks[k]}%`).join(" and ") || "nothing moves"}?` : QUESTIONS[question];
+  const text = question === "whatif" && shocks ? tx("Am I safe if {value}?", { value: formatList((["EURC", "cirBTC"] as const).filter((k) => shocks[k] !== 0).map((k) => tx("{token} moves {value}%", { token: k, value: shocks[k] }))) || tx("nothing moves") }) : QUESTIONS[question];
   const artifact = await explain(ctx, environment, owner, question, shocks);
   const reply = artifact.summary;
   if (isSampleOwner(owner)) return { threadId: "sample", question: text, reply, artifact };

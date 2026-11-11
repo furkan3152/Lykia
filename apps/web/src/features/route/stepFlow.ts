@@ -16,6 +16,7 @@ import type { PrepareStepResponse, SubmitStepResponse } from "@lykia/core/api/in
 import { ApiError } from "../../lib/apiErrors";
 import type { WalletTx } from "../wallet/useLykiaWallet";
 import { classifyTxError, type TxFailure, type TxStage } from "./txErrors";
+import { t } from "../../i18n";
 
 /** A prepared step is re-quoted before signing once it is older than this. */
 export const QUOTE_TTL_MS = 30_000;
@@ -133,8 +134,8 @@ export async function signStep(effects: StepEffects, input: SignInput, hooks: Fl
   hooks.onPhase?.("submitting", stepId);
   const result = await submitWithRetry(effects, stepId, sent);
   if (result.step.status === "failed") {
-    const message = result.step.failure?.message ?? "The transaction reverted on Arc.";
-    throw new StepFlowError(classifyTxError(new Error(`execution reverted: ${message}`), "submit"), null);
+    const message = result.step.failure?.message ?? t("route.stepFlow.theTransactionRevertedOnArc");
+    throw new StepFlowError(classifyTxError(new Error(t("route.stepFlow.executionReverted", { message })), "submit"), null);
   }
   hooks.onPhase?.(result.step.status === "settled" ? "settled" : "submitted", stepId);
   return result;

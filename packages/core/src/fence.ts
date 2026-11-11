@@ -25,6 +25,7 @@ import { findToken } from "./assets.js";
 import { STEP_KINDS, type Signer, type StepKind } from "./intent.js";
 import { CCTP_DESTINATIONS, type ArcEnvironment } from "./networks.js";
 
+import { tx, phrase } from "./i18n/index.js";
 export const FENCE_SCHEMA = "lykia.fence/v1" as const;
 
 export const FENCE_LIMITS = Object.freeze({
@@ -144,89 +145,89 @@ const TOP_KEYS = new Set(["schema", "label", "mode", "environments", "kinds", "v
 export function validateFence(input: unknown): FenceValidation {
   const issues: FenceIssue[] = [];
   const add = (path: string, message: string) => issues.push({ path, message });
-  if (!isRecord(input)) return { ok: false, issues: [{ path: "", message: "A Fence is a JSON object." }] };
-  for (const key of Object.keys(input)) if (!TOP_KEYS.has(key)) add(key, "Unknown field.");
-  if (input.schema !== FENCE_SCHEMA) add("schema", `Must be "${FENCE_SCHEMA}".`);
-  if (input.label !== undefined && (typeof input.label !== "string" || input.label.length > FENCE_LIMITS.labelLength)) add("label", `At most ${FENCE_LIMITS.labelLength} characters.`);
-  if (input.mode !== undefined && !FENCE_MODES.includes(input.mode as FenceMode)) add("mode", `One of ${FENCE_MODES.join(", ")}.`);
+  if (!isRecord(input)) return { ok: false, issues: [{ path: "", message: tx("A Fence is a JSON object.") }] };
+  for (const key of Object.keys(input)) if (!TOP_KEYS.has(key)) add(key, tx("Unknown field."));
+  if (input.schema !== FENCE_SCHEMA) add("schema", tx("Must be \"{FENCE_SCHEMA}\".", { FENCE_SCHEMA }));
+  if (input.label !== undefined && (typeof input.label !== "string" || input.label.length > FENCE_LIMITS.labelLength)) add("label", tx("At most {labelLength} characters.", { labelLength: FENCE_LIMITS.labelLength }));
+  if (input.mode !== undefined && !FENCE_MODES.includes(input.mode as FenceMode)) add("mode", tx("One of {value}.", { value: FENCE_MODES.join(", ") }));
 
   const list = (path: string, value: unknown, check: (entry: unknown) => boolean, what: string) => {
     if (value === undefined) return;
-    if (!Array.isArray(value)) return add(path, "Must be a list.");
-    if (value.length > FENCE_LIMITS.listEntries) add(path, `At most ${FENCE_LIMITS.listEntries} entries.`);
+    if (!Array.isArray(value)) return add(path, tx("Must be a list."));
+    if (value.length > FENCE_LIMITS.listEntries) add(path, tx("At most {listEntries} entries.", { listEntries: FENCE_LIMITS.listEntries }));
     value.forEach((entry, index) => {
-      if (!check(entry)) add(`${path}.${index}`, `Not ${what}.`);
+      if (!check(entry)) add(`${path}.${index}`, tx("Not {what}.", { what }));
     });
   };
   const section = (key: string, keys: readonly string[]): Record<string, unknown> | null => {
     const value = input[key];
     if (value === undefined) return null;
     if (!isRecord(value)) {
-      add(key, "Must be an object.");
+      add(key, tx("Must be an object."));
       return null;
     }
-    for (const k of Object.keys(value)) if (!keys.includes(k)) add(`${key}.${k}`, "Unknown field.");
+    for (const k of Object.keys(value)) if (!keys.includes(k)) add(`${key}.${k}`, tx("Unknown field."));
     return value;
   };
   const usd = (path: string, value: unknown) => {
-    if (value !== undefined && (typeof value !== "string" || !USD_PATTERN.test(value))) add(path, 'A USD amount as a string, e.g. "250" or "99.50".');
+    if (value !== undefined && (typeof value !== "string" || !USD_PATTERN.test(value))) add(path, tx("A USD amount as a string, e.g. \"250\" or \"99.50\"."));
   };
 
-  list("environments", input.environments, (e) => e === "mainnet" || e === "testnet", "mainnet or testnet");
+  list("environments", input.environments, (e) => e === "mainnet" || e === "testnet", tx("mainnet or testnet"));
   const kinds = section("kinds", ["allow"]);
-  if (kinds) list("kinds.allow", kinds.allow, (k) => STEP_KINDS.includes(k as StepKind), "a step kind");
+  if (kinds) list("kinds.allow", kinds.allow, (k) => STEP_KINDS.includes(k as StepKind), tx("a step kind"));
   const venues = section("venues", ["allow", "deny"]);
   if (venues) {
-    list("venues.allow", venues.allow, (v) => typeof v === "string" && /^[a-z0-9-]{2,48}$/u.test(v), "a venue id");
-    list("venues.deny", venues.deny, (v) => typeof v === "string" && /^[a-z0-9-]{2,48}$/u.test(v), "a venue id");
+    list("venues.allow", venues.allow, (v) => typeof v === "string" && /^[a-z0-9-]{2,48}$/u.test(v), tx("a venue id"));
+    list("venues.deny", venues.deny, (v) => typeof v === "string" && /^[a-z0-9-]{2,48}$/u.test(v), tx("a venue id"));
   }
   const tokens = section("tokens", ["allow", "unlisted"]);
   if (tokens) {
-    list("tokens.allow", tokens.allow, (t) => typeof t === "string" && findToken("mainnet", t) !== null, "a registry token symbol");
-    if (tokens.unlisted !== undefined && tokens.unlisted !== "deny" && tokens.unlisted !== "allow") add("tokens.unlisted", "deny or allow.");
+    list("tokens.allow", tokens.allow, (t) => typeof t === "string" && findToken("mainnet", t) !== null, tx("a registry token symbol"));
+    if (tokens.unlisted !== undefined && tokens.unlisted !== "deny" && tokens.unlisted !== "allow") add("tokens.unlisted", tx("deny or allow."));
   }
   const recipients = section("recipients", ["mode", "allow", "deny"]);
   if (recipients) {
-    if (recipients.mode !== undefined && !RECIPIENT_MODES.includes(recipients.mode as RecipientMode)) add("recipients.mode", `One of ${RECIPIENT_MODES.join(", ")}.`);
-    list("recipients.allow", recipients.allow, isAddress, "an address");
-    list("recipients.deny", recipients.deny, isAddress, "an address");
+    if (recipients.mode !== undefined && !RECIPIENT_MODES.includes(recipients.mode as RecipientMode)) add("recipients.mode", tx("One of {value}.", { value: RECIPIENT_MODES.join(", ") }));
+    list("recipients.allow", recipients.allow, isAddress, tx("an address"));
+    list("recipients.deny", recipients.deny, isAddress, tx("an address"));
   }
   const bridges = section("bridges", ["destinations"]);
-  if (bridges) list("bridges.destinations", bridges.destinations, (d) => CCTP_DESTINATIONS.some((c) => c.key === d), "a CCTP destination key");
+  if (bridges) list("bridges.destinations", bridges.destinations, (d) => CCTP_DESTINATIONS.some((c) => c.key === d), tx("a CCTP destination key"));
   const caps = section("caps", ["perStepUsd", "perIntentUsd", "dailyUsd", "weeklyUsd"]);
   if (caps) for (const key of ["perStepUsd", "perIntentUsd", "dailyUsd", "weeklyUsd"]) usd(`caps.${key}`, caps[key]);
   const limits = section("limits", ["maxSteps", "maxSlippageBps"]);
   if (limits) {
-    if (limits.maxSteps !== undefined && !(Number.isInteger(limits.maxSteps) && (limits.maxSteps as number) >= 1 && (limits.maxSteps as number) <= FENCE_LIMITS.maxSteps)) add("limits.maxSteps", `1 to ${FENCE_LIMITS.maxSteps}.`);
-    if (limits.maxSlippageBps !== undefined && !(Number.isInteger(limits.maxSlippageBps) && (limits.maxSlippageBps as number) >= 0 && (limits.maxSlippageBps as number) <= FENCE_LIMITS.maxSlippageBps)) add("limits.maxSlippageBps", `0 to ${FENCE_LIMITS.maxSlippageBps}.`);
+    if (limits.maxSteps !== undefined && !(Number.isInteger(limits.maxSteps) && (limits.maxSteps as number) >= 1 && (limits.maxSteps as number) <= FENCE_LIMITS.maxSteps)) add("limits.maxSteps", tx("1 to {maxSteps}.", { maxSteps: FENCE_LIMITS.maxSteps }));
+    if (limits.maxSlippageBps !== undefined && !(Number.isInteger(limits.maxSlippageBps) && (limits.maxSlippageBps as number) >= 0 && (limits.maxSlippageBps as number) <= FENCE_LIMITS.maxSlippageBps)) add("limits.maxSlippageBps", tx("0 to {maxSlippageBps}.", { maxSlippageBps: FENCE_LIMITS.maxSlippageBps }));
   }
   const lending = section("lending", ["minHealthFactor"]);
   if (lending && lending.minHealthFactor !== undefined) {
-    if (typeof lending.minHealthFactor !== "string" || !RATIO_PATTERN.test(lending.minHealthFactor) || ratioBps(lending.minHealthFactor) < 10_000n) add("lending.minHealthFactor", 'A ratio of at least "1.0", e.g. "1.5".');
+    if (typeof lending.minHealthFactor !== "string" || !RATIO_PATTERN.test(lending.minHealthFactor) || ratioBps(lending.minHealthFactor) < 10_000n) add("lending.minHealthFactor", tx("A ratio of at least \"1.0\", e.g. \"1.5\"."));
   }
   const fx = section("fx", ["maxDeviationBps"]);
-  if (fx && fx.maxDeviationBps !== undefined && !(Number.isInteger(fx.maxDeviationBps) && (fx.maxDeviationBps as number) >= 0 && (fx.maxDeviationBps as number) <= 1_000)) add("fx.maxDeviationBps", "0 to 1000.");
+  if (fx && fx.maxDeviationBps !== undefined && !(Number.isInteger(fx.maxDeviationBps) && (fx.maxDeviationBps as number) >= 0 && (fx.maxDeviationBps as number) <= 1_000)) add("fx.maxDeviationBps", tx("0 to 1000."));
   const scent = section("scent", ["require"]);
-  if (scent && scent.require !== undefined && !SCENT_REQUIREMENTS.includes(scent.require as ScentRequirement)) add("scent.require", `One of ${SCENT_REQUIREMENTS.join(", ")}.`);
+  if (scent && scent.require !== undefined && !SCENT_REQUIREMENTS.includes(scent.require as ScentRequirement)) add("scent.require", tx("One of {value}.", { value: SCENT_REQUIREMENTS.join(", ") }));
   const confirm = section("confirm", ["aboveUsd", "when"]);
   if (confirm) {
     usd("confirm.aboveUsd", confirm.aboveUsd);
-    list("confirm.when", confirm.when, (w) => CONFIRM_TRIGGERS.includes(w as ConfirmTrigger), "a confirm trigger");
+    list("confirm.when", confirm.when, (w) => CONFIRM_TRIGGERS.includes(w as ConfirmTrigger), tx("a confirm trigger"));
   }
   const schedule = section("schedule", ["timezone", "windows"]);
   if (schedule) {
-    if (!isSupportedTimeZone(schedule.timezone)) add("schedule.timezone", "An IANA time zone, e.g. Europe/Istanbul.");
-    if (!Array.isArray(schedule.windows) || schedule.windows.length === 0 || schedule.windows.length > FENCE_LIMITS.windows) add("schedule.windows", `1 to ${FENCE_LIMITS.windows} windows.`);
+    if (!isSupportedTimeZone(schedule.timezone)) add("schedule.timezone", tx("An IANA time zone, e.g. Europe/Istanbul."));
+    if (!Array.isArray(schedule.windows) || schedule.windows.length === 0 || schedule.windows.length > FENCE_LIMITS.windows) add("schedule.windows", tx("1 to {windows} windows.", { windows: FENCE_LIMITS.windows }));
     else
       schedule.windows.forEach((w, i) => {
-        if (!isRecord(w)) return add(`schedule.windows.${i}`, "Must be an object.");
-        if (!Array.isArray(w.days) || w.days.length === 0 || !w.days.every((d) => WEEKDAYS.includes(d as Weekday))) add(`schedule.windows.${i}.days`, "Weekdays like mon, tue.");
+        if (!isRecord(w)) return add(`schedule.windows.${i}`, tx("Must be an object."));
+        if (!Array.isArray(w.days) || w.days.length === 0 || !w.days.every((d) => WEEKDAYS.includes(d as Weekday))) add(tx("schedule.windows.{i}.days", { i }), tx("Weekdays like mon, tue."));
         const from = typeof w.from === "string" ? timeMinutes(w.from) : null;
         const to = typeof w.to === "string" ? timeMinutes(w.to) : null;
-        if (from === null || to === null || from >= to || from === 1440) add(`schedule.windows.${i}`, '"from" before "to", as HH:MM.');
+        if (from === null || to === null || from >= to || from === 1440) add(`schedule.windows.${i}`, tx("\"from\" before \"to\", as HH:MM."));
       });
   }
-  list("signers", input.signers, (s) => s === "wallet" || s === "agent", "wallet or agent");
+  list("signers", input.signers, (s) => s === "wallet" || s === "agent", tx("wallet or agent"));
 
   if (issues.length > 0) return { ok: false, issues };
   return { ok: true, fence: input as unknown as Fence };
@@ -257,36 +258,36 @@ export function loosenedRules(previous: Fence, next: Fence): string[] {
   const b = normalizeFence(next);
   const out: string[] = [];
   const looserCap = (label: string, x?: string, y?: string) => {
-    if (x !== undefined && (y === undefined || usdMicros(y) > usdMicros(x))) out.push(`${label} raised${y ? ` to $${y}` : " (removed)"}`);
+    if (x !== undefined && (y === undefined || usdMicros(y) > usdMicros(x))) out.push(`${label} raised${y ? tx(" to ${y}", { y }) : " (removed)"}`);
   };
-  if (a.mode === "whistle" && b.mode !== "whistle") out.push("Whistle released");
-  if (a.mode === "dry-run" && b.mode === "live") out.push("Dry-run turned off");
-  looserCap("Per-step cap", a.caps?.perStepUsd, b.caps?.perStepUsd);
-  looserCap("Per-intent cap", a.caps?.perIntentUsd, b.caps?.perIntentUsd);
-  looserCap("Daily cap", a.caps?.dailyUsd, b.caps?.dailyUsd);
-  looserCap("Weekly cap", a.caps?.weeklyUsd, b.caps?.weeklyUsd);
-  if ((a.limits?.maxSlippageBps ?? 0) < (b.limits?.maxSlippageBps ?? Infinity) && a.limits?.maxSlippageBps !== undefined) out.push("Slippage limit raised");
-  if (a.lending?.minHealthFactor && (!b.lending?.minHealthFactor || ratioBps(b.lending.minHealthFactor) < ratioBps(a.lending.minHealthFactor))) out.push("Minimum health factor lowered");
-  if (a.fx?.maxDeviationBps !== undefined && (b.fx?.maxDeviationBps === undefined || b.fx.maxDeviationBps > a.fx.maxDeviationBps)) out.push("FX band widened");
+  if (a.mode === "whistle" && b.mode !== "whistle") out.push(tx("Whistle released"));
+  if (a.mode === "dry-run" && b.mode === "live") out.push(tx("Dry-run turned off"));
+  looserCap(tx("Per-step cap"), a.caps?.perStepUsd, b.caps?.perStepUsd);
+  looserCap(tx("Per-intent cap"), a.caps?.perIntentUsd, b.caps?.perIntentUsd);
+  looserCap(tx("Daily cap"), a.caps?.dailyUsd, b.caps?.dailyUsd);
+  looserCap(tx("Weekly cap"), a.caps?.weeklyUsd, b.caps?.weeklyUsd);
+  if ((a.limits?.maxSlippageBps ?? 0) < (b.limits?.maxSlippageBps ?? Infinity) && a.limits?.maxSlippageBps !== undefined) out.push(tx("Slippage limit raised"));
+  if (a.lending?.minHealthFactor && (!b.lending?.minHealthFactor || ratioBps(b.lending.minHealthFactor) < ratioBps(a.lending.minHealthFactor))) out.push(tx("Minimum health factor lowered"));
+  if (a.fx?.maxDeviationBps !== undefined && (b.fx?.maxDeviationBps === undefined || b.fx.maxDeviationBps > a.fx.maxDeviationBps)) out.push(tx("FX band widened"));
   const order: RecipientMode[] = ["own", "allowlist", "any"];
-  if (order.indexOf(b.recipients?.mode ?? "own") > order.indexOf(a.recipients?.mode ?? "own")) out.push(`Recipients opened to ${b.recipients?.mode}`);
+  if (order.indexOf(b.recipients?.mode ?? "own") > order.indexOf(a.recipients?.mode ?? "own")) out.push(tx("Recipients opened to {mode}", { mode: b.recipients?.mode }));
   const added = (label: string, x?: readonly string[], y?: readonly string[]) => {
     if (x === undefined) return;
-    if (y === undefined) return out.push(`${label} list removed`);
+    if (y === undefined) return out.push(tx("{label} list removed", { label }));
     const more = y.filter((v) => !x.map((s) => s.toLowerCase()).includes(v.toLowerCase()));
     if (more.length > 0) out.push(`${label} added: ${more.join(", ")}`);
   };
-  added("Venues", a.venues?.allow, b.venues?.allow);
-  added("Tokens", a.tokens?.allow, b.tokens?.allow);
-  added("Recipients", a.recipients?.allow, b.recipients?.allow);
-  added("Step kinds", a.kinds?.allow, b.kinds?.allow);
-  added("Bridge destinations", a.bridges?.destinations, b.bridges?.destinations);
-  if ((a.venues?.deny ?? []).some((v) => !(b.venues?.deny ?? []).includes(v))) out.push("Venue taken off the deny list");
-  if (a.tokens?.unlisted === "deny" && b.tokens?.unlisted === "allow") out.push("Unlisted tokens allowed");
+  added(tx("Venues"), a.venues?.allow, b.venues?.allow);
+  added(tx("Tokens"), a.tokens?.allow, b.tokens?.allow);
+  added(tx("Recipients"), a.recipients?.allow, b.recipients?.allow);
+  added(tx("Step kinds"), a.kinds?.allow, b.kinds?.allow);
+  added(tx("Bridge destinations"), a.bridges?.destinations, b.bridges?.destinations);
+  if ((a.venues?.deny ?? []).some((v) => !(b.venues?.deny ?? []).includes(v))) out.push(tx("Venue taken off the deny list"));
+  if (a.tokens?.unlisted === "deny" && b.tokens?.unlisted === "allow") out.push(tx("Unlisted tokens allowed"));
   const scentOrder: ScentRequirement[] = ["verified", "no-red-flags", "off"];
-  if (scentOrder.indexOf(b.scent?.require ?? "no-red-flags") > scentOrder.indexOf(a.scent?.require ?? "no-red-flags")) out.push(`Scent requirement relaxed to ${b.scent?.require}`);
-  if (a.schedule && !b.schedule) out.push("Schedule removed");
-  if (!(a.signers ?? []).includes("agent") && (b.signers ?? []).includes("agent")) out.push("Agents admitted");
+  if (scentOrder.indexOf(b.scent?.require ?? "no-red-flags") > scentOrder.indexOf(a.scent?.require ?? "no-red-flags")) out.push(tx("Scent requirement relaxed to {require}", { require: b.scent?.require }));
+  if (a.schedule && !b.schedule) out.push(tx("Schedule removed"));
+  if (!(a.signers ?? []).includes("agent") && (b.signers ?? []).includes("agent")) out.push(tx("Agents admitted"));
   return out;
 }
 
@@ -299,7 +300,7 @@ function frozen<T>(value: T): T {
 /** The default, the Balanced preset's base: careful, agents welcome, strangers not. */
 export const DEFAULT_FENCE: Fence = frozen({
   schema: FENCE_SCHEMA,
-  label: "Balanced",
+  label: phrase("Balanced"),
   mode: "live",
   tokens: { unlisted: "deny" },
   recipients: { mode: "own" },
@@ -316,13 +317,13 @@ export type FenceTemplateKey = "lamb" | "shepherd" | "treasury" | "caravan";
 
 export const FENCE_TEMPLATES: Readonly<Record<FenceTemplateKey, Fence>> = frozen({
   /** Lamb: watch and learn. Plans everything, signs nothing. */
-  lamb: frozen({ schema: FENCE_SCHEMA, label: "Lamb", mode: "dry-run", tokens: { unlisted: "deny" }, recipients: { mode: "own" }, scent: { require: "verified" }, signers: ["wallet"] } satisfies Fence),
+  lamb: frozen({ schema: FENCE_SCHEMA, label: phrase("Lamb"), mode: "dry-run", tokens: { unlisted: "deny" }, recipients: { mode: "own" }, scent: { require: "verified" }, signers: ["wallet"] } satisfies Fence),
   /** The default (the Balanced preset's base). The key "shepherd" stays for API compatibility. */
   shepherd: DEFAULT_FENCE,
   /** Treasury: a business treasury. Stablecoins only, named payees, office hours, tight FX band. */
   treasury: frozen({
     schema: FENCE_SCHEMA,
-    label: "Treasury",
+    label: phrase("Treasury"),
     mode: "live",
     kinds: { allow: ["approve", "transfer", "fx", "deposit", "withdraw", "supply", "bridge", "gateway-deposit", "attest"] },
     tokens: { allow: ["USDC", "EURC"], unlisted: "deny" },
@@ -338,7 +339,7 @@ export const FENCE_TEMPLATES: Readonly<Record<FenceTemplateKey, Fence>> = frozen
   /** Caravan: an autonomous agent paying for services. Small caps, no lending, no bridges. */
   caravan: frozen({
     schema: FENCE_SCHEMA,
-    label: "Caravan",
+    label: phrase("Caravan"),
     mode: "live",
     kinds: { allow: ["approve", "transfer", "swap", "fx", "deposit", "withdraw", "attest"] },
     tokens: { allow: ["USDC", "EURC"], unlisted: "deny" },

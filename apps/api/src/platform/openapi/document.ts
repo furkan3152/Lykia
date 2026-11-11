@@ -6,6 +6,7 @@
  * Lykia-Session, x402), the Idempotency-Key and Lykia-Version headers, and
  * the rate-limit response headers.
  */
+import { LOCALES } from "@lykia/core";
 import { API_VERSIONS, LATEST_API_VERSION, SCOPE_DESCRIPTIONS } from "@lykia/core/api/platform";
 import type { AppContext } from "../../context.js";
 import { openApi as x402Document } from "../../x402/manifest.js";
@@ -85,7 +86,7 @@ const ERROR_RESPONSES = {
 
 function operation(route: DocumentedRoute): JsonSchema {
   const status = String(route.status ?? 200);
-  const parameters: JsonSchema[] = [...pathParams(route), ...queryParams(route), { $ref: "#/components/parameters/LykiaVersion" }];
+  const parameters: JsonSchema[] = [...pathParams(route), ...queryParams(route), { $ref: "#/components/parameters/LykiaVersion" }, { $ref: "#/components/parameters/AcceptLanguage" }];
   if (route.idempotent) parameters.push({ $ref: "#/components/parameters/IdempotencyKey" });
   if (route.x402) parameters.push({ name: "X-PAYMENT", in: "header", required: false, description: "Base64 JSON x402 payment payload (EIP-3009 authorization in USDC on Arc).", schema: { type: "string" } });
   const op: JsonSchema = {
@@ -167,6 +168,7 @@ export function buildOpenApi(ctx: AppContext, origin: string): JsonSchema {
       },
       parameters: {
         IdempotencyKey: { name: "Idempotency-Key", in: "header", required: false, description: "8 to 128 characters. Retries with the same key and body replay the first answer (Idempotent-Replayed: true); a different body is 409.", schema: { type: "string", pattern: "^[A-Za-z0-9_.:-]{8,128}$" } },
+        AcceptLanguage: { name: "Accept-Language", in: "header", required: false, description: `The language owner-facing sentences come back in: answers, questions and their options, preflight findings, Fence reasons, plan step summaries, insights and error messages (error codes stay English constants). One of ${LOCALES.join(", ")} (a close tag such as pt or zh-Hans matches); anything else is English. A \`locale\` field in the body of chat and plan routes wins over the header. The answer carries Content-Language.`, schema: { type: "string", example: "tr" } },
         LykiaVersion: { name: "Lykia-Version", in: "header", required: false, description: `API version date. Defaults to the key's pinned version, else ${LATEST_API_VERSION}.`, schema: { type: "string", enum: [...API_VERSIONS] } },
       },
       headers: {

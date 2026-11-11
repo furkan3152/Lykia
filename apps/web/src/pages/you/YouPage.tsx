@@ -20,14 +20,15 @@ import { Button, Card, Field, Input, LykoFace, Medallion, PageHead, Select, Spri
 import { useLook } from "../../mosaic/look";
 import { bay, BAY_H, BAY_W } from "../../mosaic/scenes";
 import { COATS, COLLAR_COLOURS, LYKO_SIT, LYKO_TROT, type CoatVariant } from "../../mosaic/sprites";
+import { currentLocale, LOCALE_NAMES, t as msg } from "../../i18n";
 
 const WIDGET_NAMES: Record<Widget, { en: string; }> = {
-  flock: { en: "Portfolio", },
-  insights: { en: "Insights", },
-  outruns: { en: "Recent plans", },
-  pack: { en: "Agents", },
-  pulse: { en: "Arc pulse", },
-  standing: { en: "Standing orders", },
+  flock: { en: msg("you.portfolio"), },
+  insights: { en: msg("you.insights"), },
+  outruns: { en: msg("you.recentPlans"), },
+  pack: { en: msg("you.agents"), },
+  pulse: { en: msg("you.arcPulse"), },
+  standing: { en: msg("you.standingOrders"), },
 };
 
 export default function YouPage() {
@@ -59,13 +60,13 @@ export default function YouPage() {
       try {
         await apiPut("/v1/profile", p);
         setStored(p, "synced");
-        toast.success("Profile synced", { from: "LYKO" });
+        toast.success(msg("you.profileSynced"), { from: "LYKO" });
         return;
       } catch (e) {
         setStored(p, availabilityOf(e) === "soon" ? "soon" : "local");
       }
     }
-    toast.success("Saved on this device", { from: "LYKO" });
+    toast.success(msg("you.savedOnThisDevice"), { from: "LYKO" });
   };
 
   const venueIds = (venues.data?.venues ?? []).filter((v) => v.live).map((v) => v.id);
@@ -77,41 +78,41 @@ export default function YouPage() {
 
   return (
     <div>
-      <PageHead kicker={"SETTINGS"} title={<>Make it <em>yours.</em></>} sub={"Currency, risk, protocols, the assistant's voice and Lyko's look. Kept on this device, synced to your account when you are signed in."} mood="happy">
+      <PageHead kicker={msg("you.settings")} title={<>{msg("you.makeIt")} <em>{msg("you.yours")}</em></>} sub={msg("you.currencyRiskProtocolsTheAssistantS")} mood="happy">
         <div className="flex justify-center gap-2 flex-wrap" style={{ marginTop: 16 }}>
-          <Tag tone={synced === "synced" ? "ok" : synced === "soon" ? "ochre" : "ghost"}>{synced === "synced" ? "SYNCED" : synced === "soon" ? "SYNC COMING SOON · SAVED HERE" : "SAVED ON THIS DEVICE"}</Tag>
-          {!siwe.signedIn ? <Button size="sm" tone="sea" onClick={() => void siwe.signIn()}>{"SIGN IN TO SYNC"}</Button> : null}
+          <Tag tone={synced === "synced" ? "ok" : synced === "soon" ? "ochre" : "ghost"}>{synced === "synced" ? "SYNCED" : synced === "soon" ? msg("you.syncComingSoonSavedHere") : msg("you.savedOnThisDevice2")}</Tag>
+          {!siwe.signedIn ? <Button size="sm" tone="sea" onClick={() => void siwe.signIn()}>{msg("you.signInToSync")}</Button> : null}
         </div>
       </PageHead>
 
       <section className="m-wrap" style={{ marginTop: 28 }}>
-        <Card title={"Lyko's look"} kicker={"COLLAR · COAT · TAG TEXT · LIVE PREVIEW"}>
+        <Card title={msg("you.lykoSLook")} kicker={msg("you.collarCoatTagTextLivePreview")}>
           <div className="m-grid-2 m-grid-2--r" style={{ alignItems: "center" }}>
             <div style={{ display: "grid", gap: 12 }}>
-              <Field label={"Collar"}>
+              <Field label={msg("you.collar")}>
                 <div className="flex gap-2 flex-wrap">
                   {COLLAR_COLOURS.map((c) => (
                     <button key={c} type="button" aria-label={c} aria-pressed={p.look.collar === c} onClick={() => set("look", { ...p.look, collar: c })} style={{ width: 34, height: 34, border: 0, cursor: "pointer", background: c, boxShadow: p.look.collar === c ? "0 0 0 3px var(--cream), 0 0 0 6px var(--navy)" : "inset 0 0 0 2px rgba(0,0,0,.2)" }} />
                   ))}
                 </div>
               </Field>
-              <Field label={"Coat"}>
-                <Toggle light label="Coat" value={p.look.coat} onChange={(coat: CoatVariant) => set("look", { ...p.look, coat })} options={[{ value: "cream", label: "CREAM" }, { value: "fawn", label: "FAWN" }, { value: "white", label: "WHITE" }, { value: "sable", label: "SABLE" }]} />
+              <Field label={msg("you.coat")}>
+                <Toggle light label={msg("you.coat")} value={p.look.coat} onChange={(coat: CoatVariant) => set("look", { ...p.look, coat })} options={[{ value: "cream", label: "CREAM" }, { value: "fawn", label: "FAWN" }, { value: "white", label: "WHITE" }, { value: "sable", label: "SABLE" }]} />
               </Field>
-              <Field label={"Name tag"} hint={"Shown on the medallion ring (12 letters)."}>
+              <Field label={msg("you.nameTag")} hint={msg("you.shownOnTheMedallionRing12")}>
                 <Input maxLength={12} value={p.look.tag} onChange={(e) => set("look", { ...p.look, tag: e.target.value.toUpperCase() })} />
               </Field>
               <div className="flex gap-2">
-                <Button size="sm" tone="ghost" onClick={() => set("look", DEFAULT_PROFILE.look)}>{"DEFAULT"}</Button>
-                <Button size="sm" onClick={() => void save()}>{"APPLY EVERYWHERE"}</Button>
+                <Button size="sm" tone="ghost" onClick={() => set("look", DEFAULT_PROFILE.look)}>{msg("you.default")}</Button>
+                <Button size="sm" onClick={() => void save()}>{msg("you.applyEverywhere")}</Button>
               </div>
             </div>
             <div className="m-center" style={{ display: "grid", gap: 12, justifyItems: "center" }}>
               <div className="flex gap-4 items-end">
-                <Sprite rows={LYKO_SIT} palette={{ ...lookPreviewBase(), ...lookPal }} scale={4} label="Lyko preview, sitting" />
-                <Sprite rows={LYKO_TROT} palette={{ ...lookPreviewBase(), ...lookPal }} scale={3} label="Lyko preview, trotting" />
+                <Sprite rows={LYKO_SIT} palette={{ ...lookPreviewBase(), ...lookPal }} scale={4} label={msg("you.lykoPreviewSitting")} />
+                <Sprite rows={LYKO_TROT} palette={{ ...lookPreviewBase(), ...lookPal }} scale={3} label={msg("you.lykoPreviewTrotting")} />
               </div>
-              <p className="m-kick">{"PREVIEW BEFORE YOU APPLY"} · {p.look.tag || "LYKO"}</p>
+              <p className="m-kick">{msg("you.previewBeforeYouApply")} · {p.look.tag || "LYKO"}</p>
             </div>
           </div>
         </Card>
@@ -119,42 +120,42 @@ export default function YouPage() {
 
       <section className="m-wrap" style={{ marginTop: 24 }}>
         <div className="m-grid-3">
-          <Card title={"Language & display"} kicker="LANGUAGE · CURRENCY · NETWORK · THEME">
+          <Card title={msg("you.languageDisplay")} kicker={msg("you.languageCurrencyNetworkTheme")}>
             <div style={{ display: "grid", gap: 10 }}>
-              <Field label={"Lyko replies in"} hint={"Lyko always replies in English and understands any language you write in."}><span className="m-small">{"ENGLISH"}</span></Field>
-              <Field label={"Display currency"} hint={p.currency === "TRY" ? (tryRate ? `1 TRY ≈ $${tryRate.usd.toFixed(4)} · ${rateLabel(tryRate)}` : "No TRY rate right now; amounts show in USD.") : undefined}><Toggle light label="Currency" value={p.currency} onChange={(v) => set("currency", v)} options={[{ value: "USD", label: "USD" }, { value: "EUR", label: "EUR" }, { value: "TRY", label: "TRY" }]} /></Field>
-              <Field label={"Default network"}><Toggle light label="Network" value={p.network} onChange={(v) => set("network", v)} options={[{ value: "mainnet", label: "MAINNET" }, { value: "testnet", label: "TESTNET" }]} /></Field>
-              <Field label={"Theme"}><Toggle light label="Theme" value={p.theme} onChange={(v) => set("theme", v)} options={[{ value: "day", label: "DAY" }, { value: "night", label: "NIGHT" }]} /></Field>
+              <Field label={msg("you.lykoRepliesIn")} hint={msg("you.lykoRepliesInYourLanguage")}><span className="m-small" lang={currentLocale()}>{LOCALE_NAMES[currentLocale()]}</span></Field>
+              <Field label={msg("you.displayCurrency")} hint={p.currency === "TRY" ? (tryRate ? msg("you.n1Try", { value: tryRate.usd.toFixed(4), rateLabel: rateLabel(tryRate) }) : msg("you.noTryRateRightNowAmounts")) : undefined}><Toggle light label={msg("you.currency")} value={p.currency} onChange={(v) => set("currency", v)} options={[{ value: "USD", label: "USD" }, { value: "EUR", label: "EUR" }, { value: "TRY", label: "TRY" }]} /></Field>
+              <Field label={msg("you.defaultNetwork")}><Toggle light label={msg("you.network")} value={p.network} onChange={(v) => set("network", v)} options={[{ value: "mainnet", label: "MAINNET" }, { value: "testnet", label: "TESTNET" }]} /></Field>
+              <Field label={msg("you.theme")}><Toggle light label={msg("you.theme")} value={p.theme} onChange={(v) => set("theme", v)} options={[{ value: "day", label: "DAY" }, { value: "night", label: "NIGHT" }]} /></Field>
             </div>
           </Card>
-          <Card title={"Risk & confirmations"} kicker="APPETITE · SLIPPAGE · CONFIRM">
+          <Card title={msg("you.riskConfirmations")} kicker={msg("you.appetiteSlippageConfirm")}>
             <div style={{ display: "grid", gap: 10 }}>
-              <Field label={"Risk appetite"}><Toggle light label="Risk" value={p.risk} onChange={(v) => set("risk", v)} options={[{ value: "low", label: "LOW" }, { value: "medium", label: "MEDIUM" }, { value: "high", label: "HIGH" }]} /></Field>
-              <Field label={"Default slippage (bps)"}><Input inputMode="numeric" value={String(p.slippageBps)} onChange={(e) => set("slippageBps", Math.max(0, Math.min(1000, Number(e.target.value.replace(/\D/gu, "")) || 0)))} /></Field>
-              <Field label={"Confirmation style"}>
+              <Field label={msg("you.riskAppetite")}><Toggle light label={msg("you.risk")} value={p.risk} onChange={(v) => set("risk", v)} options={[{ value: "low", label: "LOW" }, { value: "medium", label: "MEDIUM" }, { value: "high", label: "HIGH" }]} /></Field>
+              <Field label={msg("you.defaultSlippageBps")}><Input inputMode="numeric" value={String(p.slippageBps)} onChange={(e) => set("slippageBps", Math.max(0, Math.min(1000, Number(e.target.value.replace(/\D/gu, "")) || 0)))} /></Field>
+              <Field label={msg("you.confirmationStyle")}>
                 <Select value={p.confirm} onChange={(e) => set("confirm", e.target.value as Profile["confirm"])}>
-                  <option value="every-step">{"Every step"}</option>
-                  <option value="above-cap">{"Above my confirm cap"}</option>
-                  <option value="never">{"Whatever the Fence says"}</option>
+                  <option value="every-step">{msg("you.everyStep")}</option>
+                  <option value="above-cap">{msg("you.aboveMyConfirmCap")}</option>
+                  <option value="never">{msg("you.whateverTheFenceSays")}</option>
                 </Select>
               </Field>
-              <label className="flex gap-2 items-center m-small"><input type="checkbox" checked={p.explainLikeNew} onChange={(e) => set("explainLikeNew", e.target.checked)} />{"Explain like I'm new"}</label>
+              <label className="flex gap-2 items-center m-small"><input type="checkbox" checked={p.explainLikeNew} onChange={(e) => set("explainLikeNew", e.target.checked)} />{msg("you.explainLikeIMNew")}</label>
             </div>
           </Card>
-          <Card title={"Lyko's voice"} kicker="PERSONA · VERBOSITY">
+          <Card title={msg("you.lykoSVoice")} kicker={msg("you.personaVerbosity")}>
             <div style={{ display: "grid", gap: 10 }}>
-              <Field label={"Tone"}>
+              <Field label={msg("you.tone")}>
                 <Select value={p.tone} onChange={(e) => set("tone", e.target.value as Profile["tone"])}>
-                  <option value="friendly">{"Friendly"}</option>
-                  <option value="concise">{"Concise"}</option>
-                  <option value="formal">{"Formal"}</option>
-                  <option value="playful">{"Playful"}</option>
+                  <option value="friendly">{msg("you.friendly")}</option>
+                  <option value="concise">{msg("you.concise")}</option>
+                  <option value="formal">{msg("you.formal")}</option>
+                  <option value="playful">{msg("you.playful")}</option>
                 </Select>
               </Field>
-              <Field label={"Verbosity"}><Toggle light label="Verbosity" value={p.verbosity} onChange={(v) => set("verbosity", v)} options={[{ value: "short", label: "SHORT" }, { value: "normal", label: "NORMAL" }, { value: "detailed", label: "DETAILED" }]} /></Field>
+              <Field label={msg("you.verbosity")}><Toggle light label={msg("you.verbosity")} value={p.verbosity} onChange={(v) => set("verbosity", v)} options={[{ value: "short", label: "SHORT" }, { value: "normal", label: "NORMAL" }, { value: "detailed", label: "DETAILED" }]} /></Field>
               <div className="m-note" style={{ display: "flex", gap: 10, alignItems: "center" }}>
                 <LykoFace mood={p.tone === "playful" ? "happy" : p.tone === "formal" ? "watching" : "proud"} scale={1.5} />
-                <span className="m-small">{{ friendly: "Hi! I counted your flock; all good.", concise: "Flock OK. 2 suggestions.", formal: "Your holdings were reviewed; two recommendations follow.", playful: "Woof! No wolves, plenty of grass!" }[p.tone]}</span>
+                <span className="m-small">{{ friendly: msg("you.hiICountedYourFlockAll"), concise: msg("you.flockOk2Suggestions"), formal: msg("you.yourHoldingsWereReviewedTwoRecommendatio"), playful: msg("you.woofNoWolvesPlentyOfGrass") }[p.tone]}</span>
               </div>
             </div>
           </Card>
@@ -163,8 +164,8 @@ export default function YouPage() {
 
       <section className="m-wrap" style={{ marginTop: 24 }}>
         <div className="m-grid-2">
-          <Card title={"Venues"} kicker={"FAVOURITES ★ · BLOCKED ⦸"}>
-            {venueIds.length === 0 ? <p className="m-small m-muted m-center">{venues.isLoading ? "…" : "Could not read the venue list."}</p> : (
+          <Card title={msg("you.venues")} kicker={msg("you.favouritesBlocked")}>
+            {venueIds.length === 0 ? <p className="m-small m-muted m-center">{venues.isLoading ? "…" : msg("you.couldNotReadTheVenueList")}</p> : (
               <div className="flex gap-2 flex-wrap">
                 {venueIds.map((id) => {
                   const fav = p.favoriteVenues.includes(id);
@@ -173,18 +174,18 @@ export default function YouPage() {
                     <span key={id} className="m-chip" style={{ display: "inline-flex", gap: 6, alignItems: "center", boxShadow: fav ? "inset 0 0 0 2px var(--ok)" : blocked ? "inset 0 0 0 2px var(--bad)" : undefined }}>
                       {id}
                       <button type="button" aria-label={`favourite ${id}`} className="m-small" style={{ border: 0, background: "none", cursor: "pointer", color: fav ? "var(--ok)" : "var(--ink-3)" }} onClick={() => toggleIn("favoriteVenues", id)}>★</button>
-                      <button type="button" aria-label={`block ${id}`} className="m-small" style={{ border: 0, background: "none", cursor: "pointer", color: blocked ? "var(--bad)" : "var(--ink-3)" }} onClick={() => toggleIn("blockedVenues", id)}>⦸</button>
+                      <button type="button" aria-label={msg("you.blockVenue", { venue: id })} className="m-small" style={{ border: 0, background: "none", cursor: "pointer", color: blocked ? "var(--bad)" : "var(--ink-3)" }} onClick={() => toggleIn("blockedVenues", id)}>⦸</button>
                     </span>
                   );
                 })}
               </div>
             )}
           </Card>
-          <Card title={"Quiet hours & notifications"} kicker="QUIET HOURS · WEBHOOK · TELEGRAM">
+          <Card title={msg("you.quietHoursNotifications")} kicker={msg("you.quietHoursWebhookTelegram")}>
             <div style={{ display: "grid", gap: 10 }}>
-              <label className="flex gap-2 items-center m-small"><input type="checkbox" checked={p.quietHours.on} onChange={(e) => set("quietHours", { ...p.quietHours, on: e.target.checked })} />{"During quiet hours Lyko only speaks up for emergencies"}</label>
+              <label className="flex gap-2 items-center m-small"><input type="checkbox" checked={p.quietHours.on} onChange={(e) => set("quietHours", { ...p.quietHours, on: e.target.checked })} />{msg("you.duringQuietHoursLykoOnlySpeaks")}</label>
               {p.quietHours.on ? <div className="flex gap-2"><Input value={p.quietHours.from} onChange={(e) => set("quietHours", { ...p.quietHours, from: e.target.value })} /><Input value={p.quietHours.to} onChange={(e) => set("quietHours", { ...p.quietHours, to: e.target.value })} /></div> : null}
-              <Field label="Webhook"><Input placeholder="https://…" value={p.notify.webhook} onChange={(e) => set("notify", { ...p.notify, webhook: e.target.value })} /></Field>
+              <Field label={msg("you.webhook")}><Input placeholder="https://…" value={p.notify.webhook} onChange={(e) => set("notify", { ...p.notify, webhook: e.target.value })} /></Field>
               <Field label="Telegram"><Input placeholder="@handle" value={p.notify.telegram} onChange={(e) => set("notify", { ...p.notify, telegram: e.target.value })} /></Field>
             </div>
           </Card>
@@ -192,14 +193,14 @@ export default function YouPage() {
       </section>
 
       <section className="m-wrap" style={{ marginTop: 24 }}>
-        <Card title={"Dashboard order"} kicker={"DRAG TO REORDER"}>
+        <Card title={msg("you.dashboardOrder")} kicker={msg("you.dragToReorder")}>
           <ol style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
             {p.widgets.map((w, i) => (
               <li key={w} draggable onDragStart={() => setDrag(w)} onDragOver={(e) => e.preventDefault()} onDrop={() => { if (drag) set("widgets", moveWidget(p.widgets, drag, i)); setDrag(null); }} className="m-frame m-frame--thin" style={{ padding: "10px 12px", cursor: "grab", display: "flex", justifyContent: "space-between", opacity: drag === w ? 0.5 : 1 }}>
                 <span><b className="num" style={{ color: "var(--terra)" }}>{i + 1}</b> {WIDGET_NAMES[w].en}</span>
                 <span className="flex gap-1">
-                  <button type="button" aria-label="Move up" className="m-small" style={{ border: 0, background: "none", cursor: "pointer" }} onClick={() => set("widgets", moveWidget(p.widgets, w, i - 1))}>▲</button>
-                  <button type="button" aria-label="Move down" className="m-small" style={{ border: 0, background: "none", cursor: "pointer" }} onClick={() => set("widgets", moveWidget(p.widgets, w, i + 1))}>▼</button>
+                  <button type="button" aria-label={msg("you.moveUp")} className="m-small" style={{ border: 0, background: "none", cursor: "pointer" }} onClick={() => set("widgets", moveWidget(p.widgets, w, i - 1))}>▲</button>
+                  <button type="button" aria-label={msg("you.moveDown")} className="m-small" style={{ border: 0, background: "none", cursor: "pointer" }} onClick={() => set("widgets", moveWidget(p.widgets, w, i + 1))}>▼</button>
                 </span>
               </li>
             ))}
@@ -214,14 +215,14 @@ export default function YouPage() {
           height={BAY_H}
           tile={4}
           dataKey={`${p.theme}-${lit}-${p.look.collar}-${p.look.coat}`}
-          label="Preview of your bay"
+          label={msg("you.previewOfYourBay")}
           night={p.theme === "night"}
           labels={[{ x: 50, y: 4, text: p.look.tag || "LYKO" }]}
         />
         <div className="flex justify-center items-center gap-3" style={{ marginTop: 20 }}>
           <Medallion size={96} />
-          <Button size="lg" onClick={() => void save()}>{"SAVE"}</Button>
-          <Button size="lg" tone="ghost" onClick={() => setP(stored)}>{"REVERT"}</Button>
+          <Button size="lg" onClick={() => void save()}>{msg("you.save")}</Button>
+          <Button size="lg" tone="ghost" onClick={() => setP(stored)}>{msg("you.revert")}</Button>
         </div>
       </section>
     </div>

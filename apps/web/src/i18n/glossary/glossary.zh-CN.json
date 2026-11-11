@@ -1,0 +1,211 @@
+{
+  "language": "zh-CN",
+  "register": "neutral 你, plain and direct",
+  "keep": [
+    "Lykia",
+    "Lyko",
+    "Ask Lyko",
+    "The Fold",
+    "The Forge",
+    "the Fence",
+    "Leash",
+    "Whistle",
+    "Stile",
+    "Autopilot",
+    "Herding",
+    "Flock",
+    "Trails",
+    "Pack",
+    "the League",
+    "Harbour",
+    "Ledger",
+    "Letoon",
+    "Scent",
+    "Tag",
+    "Outrun",
+    "Lykaion",
+    "USDC",
+    "EURC",
+    "cirBTC",
+    "USYC",
+    "Morpho",
+    "Aave V4",
+    "CCTP",
+    "Gateway",
+    "Arc",
+    "Base",
+    "Circle"
+  ],
+  "strict": [
+    "liquidation",
+    "health factor",
+    "slippage",
+    "Lyko on watch",
+    "stress test",
+    "your spending rules",
+    "your holdings",
+    "your history",
+    "Review and sign",
+    "How this works",
+    "net worth",
+    "daily limit"
+  ],
+  "terms": {
+    "wallet": {
+      "use": "钱包",
+      "stem": "钱包"
+    },
+    "sign": {
+      "use": "签名",
+      "stem": "签"
+    },
+    "plan": {
+      "use": "计划",
+      "stem": "计划"
+    },
+    "liquidation": {
+      "use": "清算",
+      "stem": "清算"
+    },
+    "health factor": {
+      "use": "健康因子",
+      "stem": "健康"
+    },
+    "slippage": {
+      "use": "滑点",
+      "stem": "滑点"
+    },
+    "gas": {
+      "use": "Gas",
+      "stem": "Gas"
+    },
+    "network fee": {
+      "use": "网络费",
+      "stem": "网络费"
+    },
+    "fee": {
+      "use": "费用",
+      "stem": "费"
+    },
+    "vault": {
+      "use": "金库",
+      "stem": "金库"
+    },
+    "yield": {
+      "use": "收益",
+      "stem": "收益"
+    },
+    "collateral": {
+      "use": "抵押品",
+      "stem": "抵押"
+    },
+    "borrow": {
+      "use": "借入",
+      "stem": "借"
+    },
+    "repay": {
+      "use": "偿还",
+      "stem": "还"
+    },
+    "withdraw": {
+      "use": "取出",
+      "stem": "取"
+    },
+    "deposit": {
+      "use": "存入",
+      "stem": "存"
+    },
+    "bridge": {
+      "use": "跨链",
+      "stem": "跨链"
+    },
+    "convert": {
+      "use": "兑换",
+      "stem": "兑换"
+    },
+    "send": {
+      "use": "发送",
+      "stem": "发送"
+    },
+    "idle": {
+      "use": "闲置",
+      "stem": "闲置"
+    },
+    "net worth": {
+      "use": "净资产",
+      "stem": "净资产"
+    },
+    "daily limit": {
+      "use": "每日限额",
+      "stem": "每日限额"
+    },
+    "beta limit": {
+      "use": "测试版限额",
+      "stem": "测试版限额"
+    },
+    "route": {
+      "use": "路由",
+      "stem": "路由"
+    },
+    "position": {
+      "use": "仓位",
+      "stem": "仓位"
+    },
+    "agent": {
+      "use": "代理",
+      "stem": "代理"
+    },
+    "watch": {
+      "use": "监控",
+      "stem": "监控"
+    },
+    "payee": {
+      "use": "收款人",
+      "stem": "收款"
+    },
+    "invoice": {
+      "use": "发票",
+      "stem": "发票"
+    },
+    "Lyko on watch": {
+      "use": "值守中的 Lyko",
+      "stem": "值守中的 Lyko"
+    },
+    "stress test": {
+      "use": "压力测试",
+      "stem": "压力测试"
+    },
+    "dry run": {
+      "use": "模拟运行",
+      "stem": "模拟"
+    },
+    "sample": {
+      "use": "示例",
+      "stem": "示例"
+    },
+    "How this works": {
+      "use": "运作方式",
+      "stem": "运作方式"
+    },
+    "Review and sign": {
+      "use": "审核并签名",
+      "stem": "审核并签"
+    },
+    "allowance": {
+      "use": "授权",
+      "stem": "授权"
+    },
+    "your spending rules": {
+      "use": "你的支出规则",
+      "stem": "支出规则"
+    },
+    "your holdings": {
+      "use": "你的资产",
+      "stem": "资产"
+    },
+    "your history": {
+      "use": "你的历史记录",
+      "stem": "历史"
+    }
+  }
+}

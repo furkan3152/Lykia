@@ -1,4 +1,5 @@
 import { coverageLine } from "@lykia/core";
+import { formatUsd, t } from "../../i18n";
 
 /** GET /v1/ecosystem, as the web reads it. */
 export interface EcosystemProtocolView {
@@ -29,7 +30,7 @@ export interface EcosystemView {
   readonly sources: { readonly tvl: string; readonly tvlAt: string | null };
 }
 
-export const POSITIONING = "Built on Arc Network and Circle's products: the protocols on Arc mapped, the ones with an executable adapter routable on Lykia, and every agent inside its Fence.";
+export const POSITIONING = t("ecosystem.model.builtOnArcNetworkAndCircle");
 
 /** The coverage line, computed from the API's registry counts. */
 export function coverageSummary(totals: EcosystemView["totals"] | undefined): string | null {
@@ -41,17 +42,15 @@ export const ARC_ECOSYSTEM_DIRECTORY = "https://www.arc.io/ecosystem";
 
 export function usdShort(value: number | null): string {
   if (value === null) return "n/a";
-  if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
-  if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
-  if (value >= 1e3) return `$${(value / 1e3).toFixed(0)}K`;
-  return `$${Math.round(value)}`;
+  if (value >= 1e3) return formatUsd(value, { compact: true, min: 0, max: value >= 1e6 ? 1 : 0 });
+  return formatUsd(Math.round(value), { min: 0, max: 0 });
 }
 
 /** What each status means, in the words every page uses. */
 export const COVERAGE_MEANING: Readonly<Record<EcosystemProtocolView["lykia"], string>> = {
-  routes: "Lykia has an executable adapter: it plans, checks and signs through it.",
-  reads: "Contracts verified on Arc: prices and positions show in your portfolio, but Lykia does not execute through it yet.",
-  lists: "Mapped in the registry from the Arc ecosystem; nothing verified on chain yet, so Lykia neither reads nor routes it.",
+  routes: t("ecosystem.model.lykiaHasAnExecutableAdapterIt"),
+  reads: t("ecosystem.model.contractsVerifiedOnArcPricesAnd"),
+  lists: t("ecosystem.model.mappedInTheRegistryFromThe"),
 };
 
 export const LYKIA_ROLE: Readonly<Record<EcosystemProtocolView["lykia"], { readonly label: string; readonly tone: "ok" | "sea" | "ghost" }>> = {
@@ -64,7 +63,7 @@ export const LYKIA_ROLE: Readonly<Record<EcosystemProtocolView["lykia"], { reado
 export function circleState(state: string): { readonly label: string; readonly tone: "ok" | "sea" | "ochre" | "ghost" } {
   if (state === "live") return { label: "LIVE", tone: "ok" };
   if (state === "configured") return { label: "CONNECTED", tone: "ok" };
-  if (state === "needs-key") return { label: "READY · NEEDS KEY", tone: "ochre" };
-  if (state === "console-only") return { label: "CIRCLE CONSOLE", tone: "sea" };
-  return { label: "NOT NEEDED ON ARC", tone: "ghost" };
+  if (state === "needs-key") return { label: t("ecosystem.model.readyNeedsKey"), tone: "ochre" };
+  if (state === "console-only") return { label: t("ecosystem.model.circleConsole"), tone: "sea" };
+  return { label: t("ecosystem.model.notNeededOnArc"), tone: "ghost" };
 }

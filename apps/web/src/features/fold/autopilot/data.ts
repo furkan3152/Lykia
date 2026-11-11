@@ -9,6 +9,7 @@ import { useLykiaWallet } from "../../wallet/useLykiaWallet";
 import { useWallet } from "../../wallet/store";
 import type { FoldOwner } from "../data";
 import { sampleAutopilot } from "./model";
+import { t } from "../../../i18n";
 
 export function useAutopilot(o: FoldOwner) {
   const q = useQuery({
@@ -35,10 +36,10 @@ export function useStopAutopilot(environment: FoldOwner["environment"]) {
       r = await apiPost<StopAutopilotResponse>("/v1/autopilot/stop", { environment, ...(reason ? { reason } : {}) });
       await qc.invalidateQueries({ queryKey: ["autopilot"] });
       await qc.invalidateQueries({ queryKey: ["leashes"] });
-      toast.success("Autopilot stopped", { description: r.transaction ? "Lyko signs nothing more. Sign revokeSession to end its session on chain too." : r.note, from: "LYKO" });
+      toast.success(t("fold.autopilot.data.autopilotStopped"), { description: r.transaction ? t("fold.autopilot.data.lykoSignsNothingMoreSignRevokesession") : r.note, from: "LYKO" });
     } catch (e) {
       setBusy(false);
-      toast.error("Not stopped: try again", { description: `${describeError(e)} The Whistle also stops it.`, from: "LYKO" });
+      toast.error(t("fold.autopilot.data.notStoppedTryAgain"), { description: t("fold.autopilot.data.theWhistleAlsoStopsIt", { describeError: describeError(e) }), from: "LYKO" });
       return null;
     }
     try {
@@ -46,11 +47,11 @@ export function useStopAutopilot(environment: FoldOwner["environment"]) {
         if (!wallet.connected) openModal();
         else {
           const [hash] = await wallet.send([{ to: r.transaction.to, data: r.transaction.data, value: r.transaction.value, chainId: r.transaction.chainId }]);
-          toast.success("Session ended on chain", { description: hash, from: "LYKO" });
+          toast.success(t("fold.autopilot.data.sessionEndedOnChain"), { description: hash, from: "LYKO" });
         }
       }
     } catch (e) {
-      toast.warning("Signing is off; the session is still on chain", { description: `${describeError(e)} Revoke it later from the leash card.`, from: "LYKO" });
+      toast.warning(t("fold.autopilot.data.signingIsOffTheSessionIs"), { description: t("fold.autopilot.data.revokeItLaterFromTheLeash", { describeError: describeError(e) }), from: "LYKO" });
     } finally {
       setBusy(false);
     }
@@ -76,10 +77,10 @@ export function useSignSession() {
       const last = hashes[hashes.length - 1] ?? null;
       if (last) await apiPost(`/v1/leashes/${encodeURIComponent(leashId)}/session`, { txHash: last }).catch(() => undefined);
       await qc.invalidateQueries({ queryKey: ["autopilot"] });
-      toast.success("Signed once", { description: "Autopilot goes on as soon as Arc includes it.", from: "LYKO" });
+      toast.success(t("fold.autopilot.data.signedOnce"), { description: t("fold.autopilot.data.autopilotGoesOnAsSoonAs"), from: "LYKO" });
       return last;
     } catch (e) {
-      toast.error("Not signed", { description: `${describeError(e)} Autopilot waits for this signature and signs nothing until then.`, from: "LYKO" });
+      toast.error(t("fold.autopilot.data.notSigned"), { description: t("fold.autopilot.data.autopilotWaitsForThisSignatureAnd", { describeError: describeError(e) }), from: "LYKO" });
       return null;
     } finally {
       setBusy(false);

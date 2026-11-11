@@ -19,6 +19,7 @@ import { cx } from "../../mosaic/cx";
 import { Mark, PixelArt } from "../../mosaic/PixelArt";
 import { useChatActions, useSample } from "./actions";
 import { RunningCard } from "./controlCards";
+import { PixelIcon } from "../../city/PixelIcon";
 import { planTitle, ruleName, type HerdItem } from "./cardModel";
 import { HashChip, RichLine } from "./Markdown";
 import { memoryBadges } from "./memoryRefs";
@@ -34,20 +35,23 @@ import { preflightView } from "../route/preflightModel";
 import { planGist, plainStep } from "../route/plain";
 import { runFix } from "../route/preflightActions";
 import type { PositionState } from "@lykia/core";
+import { formatUsd, intlLocale, formatPercent, t } from "../../i18n";
 
 
-const fmt = (v: string | number, max = 4) => Number(v).toLocaleString("en-US", { maximumFractionDigits: max });
-const usd = (v: string) => `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmt = (v: string | number, max = 4) => Number(v).toLocaleString(intlLocale(), { maximumFractionDigits: max });
+const usd = (v: string) => formatUsd(Number(v));
 
-export function CardShell({ kind, tone, kick, title, icon, children, className, from }: { readonly kind: string; readonly tone: "sea" | "ochre" | "terra" | "olive" | "navy"; readonly kick: string; readonly title: React.ReactNode; readonly icon?: React.ReactNode; readonly children: React.ReactNode; readonly className?: string; readonly from?: BlockSource | undefined }) {
+/** A card: its title, at most one small label (only when the title does not already say it) and an optional badge. */
+export function CardShell({ kind, tone, kick, title, icon, badge, children, className, from }: { readonly kind: string; readonly tone: "sea" | "ochre" | "terra" | "olive" | "navy"; readonly kick?: string | null | undefined; readonly title: React.ReactNode; readonly icon?: React.ReactNode; readonly badge?: React.ReactNode; readonly children: React.ReactNode; readonly className?: string; readonly from?: BlockSource | undefined }) {
   return (
     <section className={cx("m-card2", className)} data-kind={kind} data-tone={tone}>
       <header className="m-card2__head">
         {icon ? <span className="m-card2__icon" aria-hidden="true">{icon}</span> : null}
         <span className="m-card2__titles">
-          <span className="m-card2__kick">{kick}</span>
+          {kick ? <span className="m-card2__kick">{kick}</span> : null}
           <span className="m-card2__title">{title}</span>
         </span>
+        {badge ? <span className="m-card2__badge">{badge}</span> : null}
       </header>
       <div className="m-card2__body">
         {children}
@@ -63,8 +67,8 @@ export function SourceStamp({ from, compact = false }: { readonly from: BlockSou
   return (
     <p className={cx("m-source", compact && "m-source--compact")} data-stale={from.stale ? true : undefined} data-sample={sample || undefined} title={sourceLine(from)}>
       <span className="m-source__tile" aria-hidden="true" />
-      <span className="m-source__k">{from.stale ? "STALE" : sample ? "SAMPLE" : "SOURCE"}</span>
-      <span className="m-source__v">{sample ? "not read from Arc" : sourceLine(from)}</span>
+      {from.stale || sample ? <span className="m-source__k">{from.stale ? t("ask.cards.staleBadge") : t("ask.cards.sampleBadge")}</span> : null}
+      <span className="m-source__v">{sample ? t("ask.cards.notReadFromArc") : sourceLine(from)}</span>
     </p>
   );
 }
@@ -76,7 +80,7 @@ const DROP = ["...k...", "..kkk..", ".kkkkk.", "kkkkkkk", "kkwkkkk", "kkwkkkk", 
 function Qr({ text }: { readonly text: string }) {
   const { path, size } = useMemo(() => qrSvgPath(qrMatrix(text)), [text]);
   return (
-    <svg viewBox={`0 0 ${size} ${size}`} width={132} height={132} role="img" aria-label="QR code of the wallet address" shapeRendering="crispEdges" className="m-qr">
+    <svg viewBox={`0 0 ${size} ${size}`} width={132} height={132} role="img" aria-label={t("ask.cards.qrCodeOfTheWalletAddress")} shapeRendering="crispEdges" className="m-qr">
       <path d={path} fill="#13233a" />
     </svg>
   );
@@ -84,7 +88,6 @@ function Qr({ text }: { readonly text: string }) {
 
 function GasCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "gas" }> }) {
   const { prefill, environment } = useChatActions();
-  const sample = useSample();
   const [qr, setQr] = useState(false);
   const balance = Number(block.balance);
   const floor = Math.max(Number(block.floor), 1e-9);
@@ -94,14 +97,14 @@ function GasCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "gas"
   const SEGMENTS = 12;
   const lit = Math.max(balance > 0 ? 1 : 0, Math.min(SEGMENTS, Math.round((balance / (floor * 2)) * SEGMENTS)));
   return (
-    <CardShell kind="gas" tone={low ? "terra" : "olive"} kick={sample ? (low ? "SAMPLE · GAS BELOW THE FLOOR" : "SAMPLE · GAS ABOVE THE FLOOR") : low ? "GAS · BELOW YOUR FLOOR" : "GAS · ABOVE YOUR FLOOR"} title={low ? "Fuel is low" : "Fuel is fine"} icon={<PixelArt art={DROP} palette={{ k: low ? "#b9472e" : "#3f7f45", w: "#fff6de" }} size={20} />} from={block.from}>
-      <div className="m-gauge" role="meter" aria-valuemin={0} aria-valuemax={floor * 2} aria-valuenow={balance} aria-label={`Gas: ${fmt(balance, 6)} USDC of a ${fmt(floor)} USDC floor`}>
+    <CardShell kind="gas" tone={low ? "terra" : "olive"} kick={null} title={low ? t("ask.cards.fuelIsLow") : t("ask.cards.fuelIsFine")} icon={<PixelArt art={DROP} palette={{ k: low ? "#b9472e" : "#3f7f45", w: "#fff6de" }} size={20} />} from={block.from}>
+      <div className="m-gauge" role="meter" aria-valuemin={0} aria-valuemax={floor * 2} aria-valuenow={balance} aria-label={t("ask.cards.gasUsdcOfAUsdcFloor", { fmt: fmt(balance, 6), fmt2: fmt(floor) })}>
         <div className="m-gauge__stones">
           {Array.from({ length: SEGMENTS }, (_, i) => (
             <i key={i} data-lit={i < lit || undefined} data-low={low || undefined} style={{ "--i": i } as React.CSSProperties} />
           ))}
           <span className="m-gauge__floor" style={{ left: "50%" }}>
-            <b>floor</b>
+            <b>{t("ask.cards.floor")}</b>
           </span>
         </div>
         <div className="m-gauge__scale" aria-hidden="true">
@@ -112,26 +115,26 @@ function GasCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "gas"
       </div>
       <dl className="m-facts">
         <div>
-          <dt>Balance</dt>
+          <dt>{t("ask.cards.balance")}</dt>
           <dd>
             <b className="m-fig">{fmt(balance, 6)}<small>USDC</small></b>
           </dd>
         </div>
         <div>
-          <dt>Your floor</dt>
+          <dt>{t("ask.cards.yourFloor")}</dt>
           <dd>
             <b className="m-fig">{fmt(floor, 6)}<small>USDC</small></b>
           </dd>
         </div>
         <div data-tone={low ? "bad" : "ok"}>
-          <dt>{low ? "Short by" : "Headroom"}</dt>
+          <dt>{low ? t("ask.cards.shortBy") : t("ask.cards.headroom")}</dt>
           <dd>
             <b className="m-fig">{low ? fmt(short, 6) : fmt(balance - floor, 6)}<small>USDC</small></b>
           </dd>
         </div>
         {block.gasPriceGwei ? (
           <div>
-            <dt>Gas price</dt>
+            <dt>{t("ask.cards.gasPrice")}</dt>
             <dd>
               <b className="m-fig">{block.gasPriceGwei}<small>gwei</small></b>
             </dd>
@@ -140,23 +143,23 @@ function GasCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "gas"
       </dl>
       {block.address ? (
         <div className="m-topup">
-          <span className="m-topup__k">{low ? "Top up this wallet" : "This wallet"}</span>
+          <span className="m-topup__k">{low ? t("ask.cards.topUpThisWallet") : t("ask.cards.thisWallet")}</span>
           <HashChip value={block.address} kind="address" environment={environment} />
           <button type="button" className="m-mini" aria-expanded={qr} onClick={() => setQr((q) => !q)}>
-            <Mark name="qr" size={11} /> {qr ? "Hide QR" : "Show QR"}
+            <Mark name="qr" size={11} /> {qr ? t("ask.cards.hideQr") : t("ask.cards.showQr")}
           </button>
           {qr ? <Qr text={block.address} /> : null}
         </div>
       ) : (
-        <p className="m-card2__note">Sample wallet: connect yours to see where to top up.</p>
+        <p className="m-card2__note">{t("ask.cards.sampleWalletConnectYoursToSee")}</p>
       )}
       <div className="m-card2__acts">
         {prefill ? (
-          <button type="button" className="m-mini m-mini--solid" onClick={() => prefill(`Alert me when my gas drops below ${block.floor} USDC`)}>
-            <Mark name="bell" size={11} /> Set a gas alert
+          <button type="button" className="m-mini m-mini--solid" onClick={() => prefill(t("ask.cards.alertMeWhenMyGasDrops", { floor: block.floor }))}>
+            <Mark name="bell" size={11} /> {t("ask.cards.setAGasAlert")}
           </button>
         ) : null}
-        <Link to="/app/you" className="m-mini">Change the floor</Link>
+        <Link to="/app/you" className="m-mini">{t("ask.cards.changeTheFloor")}</Link>
       </div>
     </CardShell>
   );
@@ -183,7 +186,7 @@ function FenceGateCard({ block }: { readonly block: Extract<AnswerBlock, { kind:
   const deny = block.decision === "deny";
   const first = block.rules[0]!;
   return (
-    <CardShell kind="fence" tone={deny ? "terra" : "ochre"} kick={deny ? "THE FENCE · GATE SHUT" : "THE FENCE · CONFIRM FIRST"} title={deny ? `Stopped by ${ruleName(first.rule).toLowerCase()}` : "Your confirmation is needed"} icon={<PixelArt art={GATE} palette={{ k: "#13233a", b: deny ? "#b9472e" : "#b7831f" }} size={22} />}>
+    <CardShell kind="fence" tone={deny ? "terra" : "ochre"} kick={null} title={deny ? t("ask.cards.stoppedBy", { value: ruleName(first.rule).toLowerCase() }) : t("ask.cards.yourConfirmationIsNeeded")} icon={<PixelArt art={GATE} palette={{ k: "#13233a", b: deny ? "#b9472e" : "#b7831f" }} size={22} />}>
       <div className="m-gate" data-shut={deny || undefined}>
         <span className="m-gate__post" aria-hidden="true" />
         <ul className="m-gate__rules">
@@ -208,14 +211,14 @@ function FenceGateCard({ block }: { readonly block: Extract<AnswerBlock, { kind:
           ))}
         </dl>
       ) : null}
-      <p className="m-card2__note">{deny ? "Nothing was signed. The Fence never bends for a plan; only you can change a rule, with your signature." : "Nothing moves until you confirm it in your wallet."}</p>
+      <p className="m-card2__note">{deny ? t("ask.cards.nothingWasSignedTheFenceNever") : t("ask.cards.nothingMovesUntilYouConfirmIt")}</p>
       <div className="m-card2__acts">
         {prefill ? (
-          <button type="button" className="m-mini m-mini--solid" onClick={() => prefill(`Change my Fence rule "${ruleName(first.rule)}" so that `)}>
-            Ask to change the rule
+          <button type="button" className="m-mini m-mini--solid" onClick={() => prefill(t("ask.cards.changeMyFenceRuleSoThat", { ruleName: ruleName(first.rule) }))}>
+            {t("ask.cards.askToChangeTheRule")}
           </button>
         ) : null}
-        <Link to="/app/fold/fence" className="m-mini">See your Fence</Link>
+        <Link to="/app/fold/fence" className="m-mini">{t("ask.cards.seeYourFence")}</Link>
       </div>
     </CardShell>
   );
@@ -226,7 +229,6 @@ function FenceGateCard({ block }: { readonly block: Extract<AnswerBlock, { kind:
 const PASTURE_COLOURS = ["#1e8fa3", "#5f8a3a", "#d9a441", "#b9472e", "#7a5aa8", "#2f4a72", "#c77d2e", "#8aa6b8"];
 
 function PastureCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "balance" }> }) {
-  const sample = useSample();
   const priced = block.holdings.filter((h) => h.usd !== null && Number(h.usd) > 0);
   const total = priced.reduce((n, h) => n + Number(h.usd), 0);
   // A pasture of 24 x 4 stones, each holding's share laid in its colour, the rest grass.
@@ -238,15 +240,15 @@ function PastureCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "
   });
   while (cells.length < CELLS) cells.push("");
   return (
-    <CardShell kind="balance" tone="olive" kick={sample ? "SAMPLE ADDRESS · WHAT IT HOLDS" : "THE FLOCK · WHAT YOU HOLD"} from={block.from} title={
+    <CardShell kind="balance" tone="olive" kick={null} from={block.from} title={
         <span className="m-fig m-fig--xl">
           <span className="m-fig__cur">$</span>
-          {Number(block.totalUsd ?? total).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          {block.totalUsd === null ? <small>{`+ ${block.unpriced ?? "SOME"} UNPRICED`}</small> : null}
+          {Number(block.totalUsd ?? total).toLocaleString(intlLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          {block.totalUsd === null ? <small>{block.unpriced ? t("ask.cards.plusUnpriced", { n: block.unpriced }) : t("ask.cards.plusSomeUnpriced")}</small> : null}
         </span>
       }>
       {priced.length > 0 ? (
-        <div className="m-pasture" role="img" aria-label={`Holdings by value: ${priced.map((h) => `${h.symbol} ${usd(h.usd!)}`).join(", ")}`}>
+        <div className="m-pasture" role="img" aria-label={t("ask.cards.holdingsByValue", { list: priced.map((h) => `${h.symbol} ${usd(h.usd!)}`).join(", ") })}>
           {cells.map((c, i) => (
             <i key={i} style={{ ...(c ? { background: c } : {}), "--i": i } as React.CSSProperties} data-grass={!c || undefined} />
           ))}
@@ -264,9 +266,9 @@ function PastureCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "
           </li>
         ))}
       </ul>
-      {block.holdings.length === 0 ? <p className="m-card2__note">Nothing here yet on this network.</p> : null}
+      {block.holdings.length === 0 ? <p className="m-card2__note">{t("ask.cards.nothingHereYetOnThisNetwork")}</p> : null}
       <div className="m-card2__acts">
-        <Link to="/app/fold" className="m-mini">Open the Fold</Link>
+        <Link to="/app/fold" className="m-mini">{t("ask.cards.openTheFold")}</Link>
       </div>
     </CardShell>
   );
@@ -286,8 +288,8 @@ function RateTile({ block }: { readonly block: Extract<AnswerBlock, { kind: "rat
   const bandW = band !== null ? at(band) - 50 : 0;
   const inside = band === null || Math.abs(devBps) <= band;
   return (
-    <CardShell kind="rate" tone={block.from?.stale ? "ochre" : "sea"} from={block.from} kick={block.reference !== null ? "RATE · YOUR QUOTE" : "RATE · REFERENCE"} title={<span className="m-rate"><span className="m-rate__one">1 {block.base} =</span> <span className="m-fig m-fig--xl">{fmt(rate, 4)}<small>{block.quote}</small></span></span>}>
-      <div className="m-fxband" aria-label={band !== null ? `Within ${(band / 100).toFixed(2)}% of the reference: ${inside ? "yes" : "no"}` : "Reference rate"}>
+    <CardShell kind="rate" tone={block.from?.stale ? "ochre" : "sea"} from={block.from} kick={block.reference !== null ? t("ask.cards.yourQuote") : t("ask.cards.referenceRate")} title={<span className="m-rate"><span className="m-rate__one">1 {block.base} =</span> <span className="m-fig m-fig--xl">{fmt(rate, 4)}<small>{block.quote}</small></span></span>}>
+      <div className="m-fxband" aria-label={band !== null ? t(inside ? "ask.cards.withinBandYes" : "ask.cards.withinBandNo", { band: formatPercent(band / 100) }) : t("ask.cards.referenceRate2")}>
         <div className="m-fxband__bar">
           {band !== null ? <span className="m-fxband__ok" style={{ left: `${50 - bandW}%`, width: `${bandW * 2}%` }} /> : null}
           <span className="m-fxband__ref" style={{ left: "50%" }} />
@@ -295,14 +297,14 @@ function RateTile({ block }: { readonly block: Extract<AnswerBlock, { kind: "rat
         </div>
         <div className="m-fxband__scale" aria-hidden="true">
           <span>{`−${(span / 100).toFixed(2)}%`}</span>
-          <span>reference {fmt(ref, 4)}</span>
+          <span>{t("ask.cards.reference")} {fmt(ref, 4)}</span>
           <span>{`+${(span / 100).toFixed(2)}%`}</span>
         </div>
       </div>
       <dl className="m-facts m-facts--tight">
         {block.reference !== null ? (
           <div data-tone={inside ? "ok" : "bad"}>
-            <dt>From reference</dt>
+            <dt>{t("ask.cards.fromReference")}</dt>
             <dd>
               <b className="m-fig">{devBps >= 0 ? "+" : "−"}{Math.abs(devBps / 100).toFixed(2)}<small>%</small></b>
             </dd>
@@ -310,7 +312,7 @@ function RateTile({ block }: { readonly block: Extract<AnswerBlock, { kind: "rat
         ) : null}
         {band !== null ? (
           <div>
-            <dt>Your FX band</dt>
+            <dt>{t("ask.cards.yourFxBand")}</dt>
             <dd>
               <b className="m-fig">±{(band / 100).toFixed(2)}<small>%</small></b>
             </dd>
@@ -318,7 +320,7 @@ function RateTile({ block }: { readonly block: Extract<AnswerBlock, { kind: "rat
         ) : null}
         {block.source ? (
           <div>
-            <dt>Source</dt>
+            <dt>{t("ask.cards.source")}</dt>
             <dd className="m-facts__src">{block.source.replace(/chainlink:/giu, "Chainlink ")}</dd>
           </div>
         ) : null}
@@ -339,7 +341,7 @@ export function HerdedCard({ items }: { readonly items: readonly HerdItem[] }) {
   const saved = items.filter((i) => i.saved).length;
   const show = items.every((i) => i.kind === "alert" || i.kind === "watch") ? "watches" : items.every((i) => i.kind === "order") ? "orders" : "automations";
   return (
-    <CardShell kind="herded" tone="olive" kick={saved === items.length ? "HERDED · IN YOUR FOLD" : saved > 0 ? "HERDED · SOME NEED YOU" : "DRAFTED · ONE STEP LEFT"} title={saved === items.length ? `${items.length === 1 ? "It's" : "They're"} in the Fold` : "Ready for your signature"}>
+    <CardShell kind="herded" tone="olive" kick={null} title={saved === items.length ? t("ask.cards.inTheFold", { n: items.length }) : t("ask.cards.readyForYourSignature")}>
       <div className="m-herding" aria-hidden="true">
         {items.slice(0, 5).map((_, i) => (
           <span key={i} className="m-herding__sheep" style={{ "--i": i } as React.CSSProperties}>
@@ -353,14 +355,14 @@ export function HerdedCard({ items }: { readonly items: readonly HerdItem[] }) {
           <li key={`${it.label}${i}`}>
             <span className="m-herdlist__k">{KIND_WORD[it.kind]}</span>
             <b>{it.label}</b>
-            {it.next ? <span className="m-herdlist__next">Next: {it.next}</span> : null}
-            <span className="m-herdlist__state" data-saved={it.saved || undefined}>{it.saved ? "Saved" : "Not saved yet"}</span>
-            <Link to={it.href} className="m-mini">{it.saved ? "Manage" : "Review and save"}</Link>
+            {it.next ? <span className="m-herdlist__next">{t("ask.cards.next")} {it.next}</span> : null}
+            <span className="m-herdlist__state" data-saved={it.saved || undefined}>{it.saved ? t("ask.cards.saved") : t("ask.cards.notSavedYet")}</span>
+            <Link to={it.href} className="m-mini">{it.saved ? t("ask.cards.manage") : t("ask.cards.reviewAndSave")}</Link>
           </li>
         ))}
       </ul>
       <div className="m-card2__acts">
-        <Link to={`/app/fold/herding?show=${show}`} className="m-mini m-mini--solid">Open Herding</Link>
+        <Link to={`/app/fold/herding?show=${show}`} className="m-mini m-mini--solid">{t("ask.cards.openHerding")}</Link>
       </div>
     </CardShell>
   );
@@ -386,13 +388,13 @@ const SEAL = [
 function SettledSeal({ block }: { readonly block: Extract<AnswerBlock, { kind: "settled" }> }) {
   const { environment } = useChatActions();
   return (
-    <CardShell kind="settled" tone="olive" kick="SETTLED · ON ARC" title={block.summary} className="m-card2--seal">
+    <CardShell kind="settled" tone="olive" kick={null} title={block.summary} className="m-card2--seal">
       <div className="m-sealrow">
         <span className="m-stamp" aria-hidden="true">
           <PixelArt art={SEAL} palette={{ k: "#2c5a31", o: "#3f7f45", y: "#cfe3b8" }} size={64} grout />
         </span>
         <div className="m-sealrow__txt">
-          <span className="m-card2__note">Final on the receipt. Arc settles in under a second.</span>
+          <span className="m-card2__note">{t("ask.cards.finalOnTheReceiptArcSettles")}</span>
           <HashChip value={block.tx} kind="tx" environment={environment} />
         </div>
       </div>
@@ -403,7 +405,7 @@ function SettledSeal({ block }: { readonly block: Extract<AnswerBlock, { kind: "
 /* ---------------------------------------------------------------- plan */
 
 
-const STAGE_WORD: Readonly<Record<string, string>> = { done: "done", active: "sign now", settling: "settling", paused: "paused", next: "next", stopped: "stopped" };
+const STAGE_WORD: Readonly<Record<string, string>> = { done: "done", active: t("ask.cards.signNow"), settling: "settling", paused: "paused", next: "next", stopped: "stopped" };
 
 /**
  * One plan, live from its intent: what happens (one plain line per step),
@@ -422,7 +424,7 @@ function StagedPlan({ p, part, live, waiting }: { readonly p: AgentProposal; rea
   const [watching, setWatching] = useState<"idle" | "busy" | "set" | "failed">("idle");
   const watchable = plan?.done && graph && watchPosition ? watchForPlan(graph) : null;
   const rows = plan
-    ? plan.stages.map((st) => ({ key: st.stepIds.join(","), n: st.n, text: st.summary, state: st.state as string, note: st.state === "done" && st.received ? `Received ${st.received}` : st.state === "paused" ? st.reason : st.replanned }))
+    ? plan.stages.map((st) => ({ key: st.stepIds.join(","), n: st.n, text: st.summary, state: st.state as string, note: st.state === "done" && st.received ? t("ask.cards.received", { received: st.received }) : st.state === "paused" ? st.reason : st.replanned }))
     : p.steps.map((text, i) => ({ key: `${i}`, n: i + 1, text, state: p.intentId ? (i === 0 ? "active" : "next") : "preview", note: null as string | null }));
   const total = rows.length;
   const started = Boolean(plan?.stages.some((st) => st.state === "done" || st.state === "settling" || st.state === "paused"));
@@ -432,7 +434,7 @@ function StagedPlan({ p, part, live, waiting }: { readonly p: AgentProposal; rea
   const gist = graph && open && !started ? planGist(graph) : null;
   const warning = !waiting && open && !started && pf.needsOwner;
   const signable = Boolean(p.intentId && open && !pf.gate.blocked && !waiting);
-  const label = plan?.paused ? "Retry this step" : plan && plan.total > 1 && plan.current ? `Review and sign step ${plan.current.n}` : "Review and sign";
+  const label = plan?.paused ? t("ask.cards.retryThisStep") : plan && plan.total > 1 && plan.current ? t("ask.cards.reviewAndSignStep", { n: plan.current.n }) : t("ask.cards.reviewAndSign");
   return (
     <div className="m-stageplan">
       {part ? <span className="m-card2__kick">{part}</span> : null}
@@ -442,7 +444,7 @@ function StagedPlan({ p, part, live, waiting }: { readonly p: AgentProposal; rea
           <li key={r.key} data-state={r.state} style={{ "--i": i } as React.CSSProperties}>
             <span className="m-waypoints__n" aria-hidden="true">{r.state === "done" ? <Mark name="check" size={10} /> : r.n}</span>
             <span>
-              {total > 1 ? <span className="m-stages__of">{`Step ${r.n} of ${total}`} · {STAGE_WORD[r.state] ?? "preview"}</span> : null}
+              {total > 1 ? <span className="m-stages__of">{t("ask.cards.stepOf", { n: r.n, total })} · {STAGE_WORD[r.state] ?? "preview"}</span> : null}
               <RichLine text={plainStep(r.text)} environment={environment} />
               {r.note ? <small className="m-stages__note" data-tone={r.state === "paused" ? "bad" : undefined}>{r.note}</small> : null}
             </span>
@@ -453,38 +455,42 @@ function StagedPlan({ p, part, live, waiting }: { readonly p: AgentProposal; rea
         <dl className="m-gist">
           {gist.get ? (
             <div>
-              <dt>{"You get"}</dt>
+              <dt>{t("ask.cards.youGet")}</dt>
               <dd>{gist.get}</dd>
             </div>
           ) : null}
           <div>
-            <dt>{"It costs"}</dt>
+            <dt>{t("ask.cards.itCosts")}</dt>
             <dd>{gist.cost}</dd>
           </div>
           <div>
-            <dt>{"It takes"}</dt>
+            <dt>{t("ask.cards.itTakes")}</dt>
             <dd>{gist.time}</dd>
           </div>
         </dl>
       ) : null}
       {warning ? <PreflightLine findings={p.preflight} onFix={(fix) => void runFix(fix, ask ? { ask } : {})} /> : null}
-      {waiting ? <p className="m-stageplan__wait">{"Answer Lyko's question first; the plan follows your answer."}</p> : null}
+      {waiting ? <p className="m-stageplan__wait">{t("ask.cards.answerLykoSQuestionFirstThe")}</p> : null}
       <div className="m-card2__acts m-plan__acts">
         {signable ? (
           openReview ? (
-            <button type="button" className="m-btn m-plan__go" onClick={() => openReview(p)}>
-              {label}
-            </button>
+            <div className="m-plan__hero">
+              <button type="button" className="m-btn m-btn--hero m-plan__go" onClick={() => openReview(p)}>
+                <PixelIcon name="key" size={16} />
+                {label}
+              </button>
+              <small className="m-plan__heroline">{t("ask.cards.opensYourWalletToSignNothing")}</small>
+            </div>
           ) : (
             // Outside Ask Lyko the old review route opens the modal over Ask Lyko.
-            <Link to={`/app/outrun/${encodeURIComponent(p.intentId!)}`} className="m-btn m-plan__go">
+            <Link to={`/app/outrun/${encodeURIComponent(p.intentId!)}`} className="m-btn m-btn--hero m-plan__go">
               {label}
             </Link>
           )
         ) : null}
         {plan?.paused && p.intentId && stopPlan ? (
           <button type="button" className="m-mini" onClick={() => void stopPlan(p.intentId!)}>
-            Stop here
+            {t("ask.cards.stopHere")}
           </button>
         ) : null}
         {watchable && p.intentId ? (
@@ -497,12 +503,12 @@ function StagedPlan({ p, part, live, waiting }: { readonly p: AgentProposal; rea
               void watchPosition!(p.intentId!).then(() => setWatching("set"), () => setWatching("failed"));
             }}
           >
-            {watching === "set" ? "Lyko on watch has it" : watching === "failed" ? "Could not set the watch" : "Watch this position"}
+            {watching === "set" ? t("ask.cards.lykoOnWatchHasIt") : watching === "failed" ? t("ask.cards.couldNotSetTheWatch") : t("ask.cards.watchThisPosition")}
           </button>
         ) : null}
         {openRoute ? (
-          <button type="button" className="m-linkbtn" onClick={() => openRoute(p)}>
-            {"Open the route"}
+          <button type="button" className="m-linkbtn" data-action="open-route" onClick={() => openRoute(p)}>
+            {t("ask.cards.openTheRoute")}
           </button>
         ) : null}
       </div>
@@ -521,7 +527,7 @@ export function PlanCard({ proposals, compact = false, live = true, waiting = fa
   const decision = proposals.some((p) => p.decision === "deny") ? "deny" : proposals.some((p) => p.decision === "confirm") ? "confirm" : "allow";
   const badges = proposals.flatMap((p) => memoryBadges(p));
   const fromWatch = proposals.find((p) => p.from?.agent === "watch");
-  const title = proposals.length === 1 ? planTitle(first.title) : `${proposals.length} plans, one after another`;
+  const title = proposals.length === 1 ? planTitle(first.title) : t("ask.cards.plansOneAfterAnother", { length: proposals.length });
   const shown = compact ? proposals.slice(0, 1) : proposals;
   const checks = proposals.flatMap((p) => p.preflight ?? []);
   const blocked = checks.some((f) => f.severity === "block");
@@ -529,18 +535,15 @@ export function PlanCard({ proposals, compact = false, live = true, waiting = fa
   // At most one warning line: preflight's when it has one, else the plan's own first warning.
   const warningLine = !compact && !waiting && !blocked && !warned ? (proposals.flatMap((p) => p.warnings)[0] ?? null) : null;
   return (
-    <CardShell kind="route" tone={decision === "deny" || blocked ? "terra" : decision === "confirm" || warned ? "ochre" : "sea"} kick={waiting ? "PLAN · WAITING FOR YOUR ANSWER" : blocked && !first.intentId ? "PLAN · CAN'T SIGN YET" : first.intentId ? "PLAN · STEP BY STEP" : "PLAN · DRY RUN"} title={title}>
-      <div className="m-plan__seal">
-        <Seal decision={decision} />
-      </div>
+    <CardShell kind="route" tone={decision === "deny" || blocked ? "terra" : decision === "confirm" || warned ? "ochre" : "sea"} kick={waiting ? t("ask.cards.waitingForYourAnswer") : blocked && !first.intentId ? t("ask.cards.canTSignYet") : first.intentId ? null : t("ask.cards.dryRun")} title={title} badge={<Seal decision={decision} stamp={false} />}>
       {fromWatch || badges.length > 0 ? (
         <div className="flex gap-1 flex-wrap">
-          {fromWatch ? <Tag tone="ochre">From Lyko on watch</Tag> : null}
-          {[...new Set(badges)].map((b) => <Tag key={b} tone="sea">FROM MEMORY · {b}</Tag>)}
+          {fromWatch ? <Tag tone="ochre">{t("ask.cards.fromLykoOnWatch")}</Tag> : null}
+          {[...new Set(badges)].map((b) => <Tag key={b} tone="sea">{t("ask.cards.fromMemory")} {b}</Tag>)}
         </div>
       ) : null}
       {fromWatch?.rationale ? <p className="m-card2__note">{fromWatch.rationale}</p> : null}
-      {shown.map((p, i) => <StagedPlan key={`${p.intentId ?? p.title}${i}`} p={p} part={shown.length > 1 ? `Plan ${i + 1} of ${shown.length} · ${planTitle(p.title)}` : null} live={live} waiting={waiting} />)}
+      {shown.map((p, i) => <StagedPlan key={`${p.intentId ?? p.title}${i}`} p={p} part={shown.length > 1 ? t("ask.cards.planOf", { value: i + 1, length: shown.length, planTitle: planTitle(p.title) }) : null} live={live} waiting={waiting} />)}
       {warningLine ? <p className="m-plan__warn">{warningLine}</p> : null}
     </CardShell>
   );
@@ -553,24 +556,30 @@ export function ProposalCard({ p, compact = false }: { readonly p: AgentProposal
 
 /* ------------------------------------------------------------- clarify */
 
+/**
+ * Lyko's question: it waits for the owner, so it speaks in Lyko's voice (his
+ * face, a speech tessera, "Lyko asks") and its options are answer tiles,
+ * not notes. "Or type your own answer" points at the composer below.
+ */
 export function ChoiceCard({ question, options, label = (o) => o, onChoose }: { readonly question: string; readonly options: readonly string[]; readonly label?: (o: string) => string; readonly onChoose: (o: string) => void }) {
   return (
     <div className="m-choose" role="group" aria-label={question}>
-      <span className="m-choose__q">
-        <Mark name="bang" size={10} /> {question}
-      </span>
-      {options.length > 0 ? (
-        <div className="m-choose__opts">
-          {options.map((o, i) => (
-            <button key={o} type="button" className="m-choose__opt" style={{ "--i": i } as React.CSSProperties} onClick={() => onChoose(o)}>
-              {label(o)}
-              <Mark name="arrow" size={10} />
-            </button>
-          ))}
-        </div>
-      ) : (
-        <span className="m-choose__hint">Answer in the box below.</span>
-      )}
+      <span className="m-choose__who" aria-hidden="true"><LykoFace mood="alert" scale={1.6} /></span>
+      <div className="m-choose__bubble">
+        <span className="m-choose__k">{t("ask.cards.lykoAsks")}</span>
+        <p className="m-choose__q">{question}</p>
+        {options.length > 0 ? (
+          <div className="m-choose__opts">
+            {options.map((o, i) => (
+              <button key={o} type="button" className="m-choose__opt" style={{ "--i": i } as React.CSSProperties} onClick={() => onChoose(o)}>
+                <span>{label(o)}</span>
+                <Mark name="arrow" size={10} />
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <p className="m-choose__own"><span aria-hidden="true">↓</span> {options.length > 0 ? t("ask.cards.orTypeYourOwnAnswerBelow") : t("ask.cards.typeYourAnswerBelow")}</p>
+      </div>
     </div>
   );
 }
@@ -583,12 +592,12 @@ export function TroubleCard({ message }: { readonly message: string }) {
     <section className="m-trouble" role="status">
       <LykoFace mood="resting" scale={2} />
       <div>
-        <b>The trail went quiet.</b>
+        <b>{t("ask.cards.theTrailWentQuiet")}</b>
         <p>{message}</p>
-        <p className="m-trouble__calm">Nothing was signed or sent. Your funds did not move.</p>
+        <p className="m-trouble__calm">{t("ask.cards.nothingWasSignedOrSentYour")}</p>
         {retry ? (
           <button type="button" className="m-mini m-mini--solid" onClick={retry}>
-            <Mark name="retry" size={11} /> Try again
+            <Mark name="retry" size={11} /> {t("ask.cards.tryAgain")}
           </button>
         ) : null}
       </div>
@@ -603,11 +612,10 @@ const LANTERN = ["...kk...", "..kyyk..", ".kyyyyk.", ".kyooyk.", ".kyooyk.", ".k
 
 /** Lyko on watch's sourced answer, and totals the code derived: each figure a tessera with its own source stamp. */
 function FactsCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "facts" }> }) {
-  const sample = useSample();
   // The Fold's sample flock stamps its rows "sample": the card says so in its heading too.
   const fixture = block.rows.some((r) => r.from.source === "sample");
   return (
-    <CardShell kind="facts" tone="navy" kick={fixture ? "SAMPLE FLOCK · NOT READ FROM ARC" : sample ? "SAMPLE ADDRESS · READ, WITH SOURCES" : "READ, WITH SOURCES"} title={block.title} icon={<PixelArt art={LANTERN} palette={{ k: "#13233a", y: "#f0c75e", o: "#d9792b" }} size={20} />}>
+    <CardShell kind="facts" tone="navy" kick={fixture ? t("ask.cards.sampleFlock") : null} title={block.title} icon={<PixelArt art={LANTERN} palette={{ k: "#13233a", y: "#f0c75e", o: "#d9792b" }} size={20} />}>
       <ul className="m-factrows">
         {block.rows.map((r, i) => (
           <li key={`${r.label}${i}`} style={{ "--i": i } as React.CSSProperties} data-unavailable={r.value === "unavailable" || undefined} data-stale={r.from.stale ? true : undefined}>
@@ -625,7 +633,7 @@ function FactsCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "fa
 
 /* --------------------------------------------------------------- order */
 
-const KIND_TITLE: Readonly<Record<Extract<AnswerBlock, { kind: "order" }>["input"]["kind"], string>> = { limit: "Limit order", "stop-loss": "Stop-loss", "take-profit": "Take-profit", dca: "DCA", twap: "TWAP" };
+const KIND_TITLE: Readonly<Record<Extract<AnswerBlock, { kind: "order" }>["input"]["kind"], string>> = { limit: t("ask.cards.limitOrder"), "stop-loss": "Stop-loss", "take-profit": "Take-profit", dca: "DCA", twap: "TWAP" };
 
 /** An order drafted in the chat: its terms and the Fence's verdict, signed through the same review modal as a plan. */
 function OrderCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "order" }> }) {
@@ -634,30 +642,30 @@ function OrderCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "or
   const deny = block.decision === "deny";
   const pe = block.perExecution;
   const rows = [
-    ...(block.approval ? [{ key: "approve", n: 1, text: block.approval, note: "an exact allowance; funds stay in your wallet" }] : []),
-    { key: "sign", n: block.approval ? 2 : 1, text: `Sign the order once (EIP-712, no gas)`, note: block.executions > 1 ? `${block.executions} executions, keepers run each when it is due` : "a keeper runs it when Chainlink says the price is there" },
+    ...(block.approval ? [{ key: "approve", n: 1, text: block.approval, note: t("ask.cards.anExactAllowanceFundsStayIn") }] : []),
+    { key: "sign", n: block.approval ? 2 : 1, text: t("ask.cards.signTheOrderOnceEip712"), note: block.executions > 1 ? t("ask.cards.executionsKeepersRunEachWhenIt", { executions: block.executions }) : t("ask.cards.aKeeperRunsItWhenChainlink") },
   ];
   return (
-    <CardShell kind="order" tone={deny ? "terra" : block.decision === "confirm" ? "ochre" : "sea"} kick={armed ? "ORDER · ARMED ON ARC" : deny ? "ORDER · YOUR FENCE SAID NO" : "ORDER · READY TO SIGN"} title={block.summary.toLowerCase().startsWith(KIND_TITLE[block.input.kind].toLowerCase()) ? block.summary : `${KIND_TITLE[block.input.kind]}: ${block.summary}`}>
+    <CardShell kind="order" tone={deny ? "terra" : block.decision === "confirm" ? "ochre" : "sea"} kick={armed ? t("ask.cards.armedOnArc") : null} title={block.summary.toLowerCase().startsWith(KIND_TITLE[block.input.kind].toLowerCase()) ? block.summary : `${KIND_TITLE[block.input.kind]}: ${block.summary}`}>
       <div className="m-plan__seal">
         <Seal decision={block.decision} />
       </div>
       <dl className="m-facts m-facts--tight">
         <div>
-          <dt>Each execution sells</dt>
+          <dt>{t("ask.cards.eachExecutionSells")}</dt>
           <dd><b className="m-fig">{fmt(block.input.amount, 6)}<small>{pe.symbolIn}</small></b></dd>
         </div>
         <div>
-          <dt>Gets at least</dt>
+          <dt>{t("ask.cards.getsAtLeast")}</dt>
           <dd><b className="m-fig">{fmt(pe.minOut, 6)}<small>{pe.symbolOut}</small></b></dd>
         </div>
         <div>
-          <dt>Lykia fee</dt>
+          <dt>{t("ask.cards.lykiaFee")}</dt>
           <dd><b className="m-fig">{fmt(pe.fee, 6)}<small>{pe.symbolIn}</small></b></dd>
         </div>
         {block.input.triggerPrice ? (
           <div>
-            <dt>Trigger</dt>
+            <dt>{t("ask.cards.trigger")}</dt>
             <dd><b className="m-fig">{fmt(block.input.triggerPrice, 4)}<small>USD</small></b></dd>
           </div>
         ) : null}
@@ -678,14 +686,14 @@ function OrderCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "or
           {block.reasons.slice(0, 3).map((r) => <li key={r}>{r}</li>)}
         </ul>
       ) : null}
-      <p className="m-card2__note">{deny ? "Nothing can be signed: a rule in your Fence says no. Ask for less, or change the rule." : "Checked against your Fence and the beta cap now, and again when the signed order is stored."}</p>
+      <p className="m-card2__note">{deny ? t("ask.cards.nothingCanBeSignedARule") : t("ask.cards.checkedAgainstYourFenceAndThe")}</p>
       <div className="m-card2__acts">
         {!deny && !armed ? (
           <button type="button" className="m-mini m-mini--solid" onClick={() => setOpen(true)}>
-            Review and sign
+            {t("ask.cards.reviewAndSign")}
           </button>
         ) : null}
-        <Link to="/app/fold/herding?show=orders" className="m-mini">{armed ? "See it in Herding" : "Herding"}</Link>
+        <Link to="/app/fold/herding?show=orders" className="m-mini">{armed ? t("ask.cards.seeItInHerding") : "Herding"}</Link>
       </div>
       {open ? <OrderReviewModal block={block} open={open} onClose={() => setOpen(false)} onArmed={() => setArmed(true)} /> : null}
     </CardShell>
@@ -695,16 +703,16 @@ function OrderCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "or
 /* ----------------------------------------------------------- positions */
 
 function PositionsCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "positions" }> }) {
-  const money = (v: number) => `${v < 0 ? "−" : ""}$${Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: Math.abs(v) >= 1000 ? 0 : 2 })}`;
+  const money = (v: number) => `${v < 0 ? "−" : ""}${formatUsd(Math.abs(v), { min: 0, max: Math.abs(v) >= 1000 ? 0 : 2 })}`;
   const sample = useSample();
   // Dust and unpriced lines are one quiet line, never rows of their own.
-  const folded = block.hidden ? `${block.hidden} small or unpriced line${block.hidden === 1 ? "" : "s"} hidden` : block.unpriced ? `${block.unpriced} unpriced, not counted` : null;
-  const note = [block.weightedApyPercent !== null ? `Earning ${block.weightedApyPercent}% blended` : null, block.yearlyYieldUsd ? `${usd(block.yearlyYieldUsd)} a year net` : null, block.lowestHealth !== null ? `lowest health ${Number(block.lowestHealth).toFixed(2)}` : null, folded, block.unavailable.length > 0 ? `not read: ${block.unavailable.join(", ")}` : null].filter(Boolean).join(" · ");
+  const folded = block.hidden ? t("ask.cards.linesHidden", { n: block.hidden }) : block.unpriced ? t("ask.cards.unpricedNotCounted", { unpriced: block.unpriced }) : null;
+  const note = [block.weightedApyPercent !== null ? t("ask.cards.earningBlended", { weightedApyPercent: block.weightedApyPercent }) : null, block.yearlyYieldUsd ? t("ask.cards.aYearNet", { usd: usd(block.yearlyYieldUsd) }) : null, block.lowestHealth !== null ? t("ask.cards.lowestHealth", { value: Number(block.lowestHealth).toFixed(2) }) : null, folded, block.unavailable.length > 0 ? t("ask.cards.notRead", { value: block.unavailable.join(", ") }) : null].filter(Boolean).join(" · ");
   const net = block.netUsd ?? block.pricedNetUsd ?? null;
   return (
-    <CardShell kind="positions" tone="olive" kick={sample ? "SAMPLE ADDRESS · WHERE ITS MONEY IS" : "THE FLOCK · WHERE YOUR MONEY IS"} from={block.from} title={
+    <CardShell kind="positions" tone="olive" kick={null} from={block.from} title={
         <span className="m-fig m-fig--xl">
-          {net === null ? "partly unpriced" : <><span className="m-fig__cur">$</span>{Number(net).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{block.netUsd === null ? <small className="m-fig__tag">{"PRICED"}</small> : null}</>}
+          {net === null ? t("ask.cards.partlyUnpriced") : <><span className="m-fig__cur">$</span>{Number(net).toLocaleString(intlLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{block.netUsd === null ? <small className="m-fig__tag">{t("ask.cards.priced")}</small> : null}</>}
         </span>
       }>
       <ul className="m-poslist">
@@ -723,10 +731,10 @@ function PositionsCard({ block }: { readonly block: Extract<AnswerBlock, { kind:
           );
         })}
       </ul>
-      {block.rows.length === 0 ? <p className="m-card2__note">Nothing deployed on this network yet.</p> : null}
-      <p className="m-card2__note">{note || "Read from the chain and Circle's APIs."}</p>
+      {block.rows.length === 0 ? <p className="m-card2__note">{t("ask.cards.nothingDeployedOnThisNetworkYet")}</p> : null}
+      <p className="m-card2__note">{note || t("ask.cards.readFromTheChainAndCircle")}</p>
       <div className="m-card2__acts">
-        <Link to="/app/fold/flock" className="m-mini">Open the position map</Link>
+        <Link to="/app/fold/flock" className="m-mini">{t("ask.cards.openThePositionMap")}</Link>
       </div>
     </CardShell>
   );
@@ -737,7 +745,7 @@ function PositionsCard({ block }: { readonly block: Extract<AnswerBlock, { kind:
 
 function CapabilitiesCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "capabilities" }> }) {
   return (
-    <CardShell kind="capabilities" tone="sea" kick="FROM LYKO'S CAPABILITY MAP" title={block.title}>
+    <CardShell kind="capabilities" tone="sea" kick={null} title={block.title}>
       <div className="m-capmap">
         {block.sections.map((sec) => (
           <div key={sec.label} className="m-capmap__sec">
@@ -763,8 +771,8 @@ function StopAutopilotButton() {
   const { stop, busy } = useStopAutopilot(environment);
   const [done, setDone] = useState(false);
   return (
-    <button type="button" className="m-mini m-mini--stop" disabled={busy || done} onClick={() => void stop("Stopped from Ask Lyko.").then((r) => setDone(r !== null))}>
-      {done ? "STOPPED" : busy ? "STOPPING…" : "STOP AUTOPILOT"}
+    <button type="button" className="m-mini m-mini--stop" disabled={busy || done} onClick={() => void stop(t("ask.cards.stoppedFromAskLyko")).then((r) => setDone(r !== null))}>
+      {done ? "STOPPED" : busy ? "STOPPING…" : t("ask.cards.stopAutopilot")}
     </button>
   );
 }
@@ -772,11 +780,11 @@ function StopAutopilotButton() {
 function OfferCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "offer" }> }) {
   const stopAutopilot = block.feature === "autopilot" && block.cta === "Stop Autopilot";
   return (
-    <CardShell kind="offer" tone={stopAutopilot ? "terra" : "olive"} kick={stopAutopilot ? "ONE TAP" : "LYKO SUGGESTS"} title={block.title}>
+    <CardShell kind="offer" tone={stopAutopilot ? "terra" : "olive"} kick={stopAutopilot ? t("ask.cards.oneTap") : t("ask.cards.lykoSuggests")} title={block.title}>
       <p className="m-card2__note m-offer__line">{block.line}</p>
       <div className="m-card2__acts">
         {stopAutopilot ? <StopAutopilotButton /> : null}
-        <Link to={block.href} className="m-mini">{stopAutopilot ? "Open Autopilot" : block.cta}</Link>
+        <Link to={block.href} className="m-mini">{stopAutopilot ? t("ask.cards.openAutopilot") : block.cta}</Link>
       </div>
     </CardShell>
   );
@@ -785,17 +793,17 @@ function OfferCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "of
 function StressCard({ block }: { readonly block: Extract<AnswerBlock, { kind: "stress" }> }) {
   const before = Number(block.beforeUsd);
   const after = Number(block.afterUsd);
-  const money = (v: number) => `$${Math.round(v).toLocaleString("en-US")}`;
+  const money = (v: number) => formatUsd(Math.round(v), { min: 0, max: 0 });
   return (
-    <CardShell kind="stress" tone={block.closest && Number(block.closest.health) < 1 ? "terra" : "navy"} kick="STRESS TEST · NOTHING MOVES" title={block.scenario}>
+    <CardShell kind="stress" tone={block.closest && Number(block.closest.health) < 1 ? "terra" : "navy"} kick={t("ask.cards.stressTest")} title={block.scenario}>
       <p className="m-card2__note">{block.sentence}</p>
       <dl className="m-stress">
-        <div><dt>{"Worth now"}</dt><dd className="num">{money(before)}</dd></div>
-        <div><dt>{"Worth after"}</dt><dd className="num" data-tone={after < before ? "bad" : undefined}>{money(after)}</dd></div>
-        <div><dt>{"Closest liquidation"}</dt><dd className="num">{block.closest ? `${Number(block.closest.roomPercent).toFixed(0)}% away · ${block.closest.venue}` : "none"}</dd></div>
+        <div><dt>{t("ask.cards.worthNow")}</dt><dd className="num">{money(before)}</dd></div>
+        <div><dt>{t("ask.cards.worthAfter")}</dt><dd className="num" data-tone={after < before ? "bad" : undefined}>{money(after)}</dd></div>
+        <div><dt>{t("ask.cards.closestLiquidation")}</dt><dd className="num">{block.closest ? t("ask.cards.away", { value: Number(block.closest.roomPercent).toFixed(0), venue: block.closest.venue }) : "none"}</dd></div>
       </dl>
       <div className="m-card2__acts">
-        <Link to="/app/fold/flock" className="m-mini">Open the Stress test</Link>
+        <Link to="/app/fold/flock" className="m-mini">{t("ask.cards.openTheStressTest")}</Link>
       </div>
     </CardShell>
   );

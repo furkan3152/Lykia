@@ -6,6 +6,7 @@
  *
  * Pure: ranking helpers only, no I/O.
  */
+import { tx } from "./i18n/index.js";
 
 /** How much can go wrong at a venue, from its size, curation and oracle. */
 export type RiskTier = "low" | "medium" | "high";
@@ -87,7 +88,7 @@ function formatTvl(tvl: string | null | undefined): string {
 export function comparedLine(options: readonly VenueOption[]): string {
   const ranked = [...options].sort((a, b) => apyNumber(b) - apyNumber(a) || a.label.localeCompare(b.label));
   const parts = ranked.map((o) => `${o.label} ${formatApy(o.apy)}${o.executable ? "" : " (not executable)"}`);
-  return `Compared ${options.length} venue${options.length === 1 ? "" : "s"}: ${parts.join(", ")}.`;
+  return tx("Compared {n, plural, one {# venue} other {# venues}}: {parts}.", { n: options.length, parts: parts.join(", ") });
 }
 
 export function chooseYield(options: readonly VenueOption[], maxRisk: RiskTier = "medium"): RouteChoice | null {

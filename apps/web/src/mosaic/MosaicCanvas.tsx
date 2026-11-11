@@ -81,5 +81,6 @@ export function MosaicCanvas({ build, width, height, tile = 6, gap = 1, jitter =
     };
   }, [width, height, tile, gap, jitter, fps, assemble, assembleKey, dataKey, inView, visible, reduced, look]);
 
-  return <canvas ref={ref} role="img" aria-label={label} className={className} style={{ aspectRatio: `${width} / ${height}`, width: "100%", display: "block", imageRendering: "pixelated", ...style }} />;
+  // A whole scene (not a small sprite) is lit for dusk at night (night.css).
+  return <canvas ref={ref} role="img" aria-label={label} data-scene={width >= 60 ? "" : undefined} className={className} style={{ aspectRatio: `${width} / ${height}`, width: "100%", display: "block", imageRendering: "pixelated", ...style }} />;
 }

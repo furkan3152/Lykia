@@ -15,6 +15,7 @@ import { useLeague } from "../../features/league/useLeague";
 import { SceneFrame } from "../../features/scenes/SceneFrame";
 import { usePulse } from "../../lib/pulseStore";
 import { EmptyState, PageHead, Skeleton, Stat } from "../../mosaic";
+import { intlLocale, t as msg } from "../../i18n";
 
 export default function LeaguePage() {
   const league = useLeague();
@@ -27,30 +28,30 @@ export default function LeaguePage() {
   const dataKey = `${cities.map((c) => c.league.state).join(",")}|${lit}`;
   return (
     <div>
-      <PageHead kicker="THE FORGE · LEAGUE" title={<>The League · <em>Lykia's cities.</em></>} sub="The Lycian League was a union of coastal cities that struck one shared coinage. The League hosts cities: each one is a real project built in The Forge, with its own brand, modules and Fence caps, running on the same engine. Official cities are being launched. Lykia never holds users' keys in any of them." mood="proud" />
+      <PageHead kicker={msg("league.theForgeLeague")} title={<>{msg("league.theLeague")} <em>{msg("league.lykiaSCities")}</em></>} sub={msg("league.theLycianLeagueWasAUnion")} mood="proud" />
 
-      <section className="m-wrap" style={{ marginTop: 26 }} aria-label="The coast of the League">
-        <SceneFrame build={(t) => coast(cities.map((c) => ({ state: c.league.state })), t)} width={COAST_W} height={COAST_H} dataKey={dataKey} assembleKey={cities.length} labels={labels} label={`The Lycian coast with ${cities.length} harbours, one per city. ${live} lighthouses are lit: those cities are live.`} />
+      <section className="m-wrap" style={{ marginTop: 26 }} aria-label={msg("league.theCoastOfTheLeague")}>
+        <SceneFrame build={(t) => coast(cities.map((c) => ({ state: c.league.state })), t)} width={COAST_W} height={COAST_H} dataKey={dataKey} assembleKey={cities.length} labels={labels} label={msg("league.theLycianCoastWithHarboursOne", { length: cities.length, live })} />
         {/* The counts appear once there is a city to count; an empty League shows the anvil instead. */}
         {cities.length > 0 ? (
           <div className="m-grid-3 lg-stats">
-            <Stat label="CITIES" value={String(cities.length)} hint="listed in the League" />
-            <Stat label="LIT HARBOURS" value={String(live)} hint="cities live on Arc" />
-            <Stat label="REQUESTS · 7 DAYS" value={requests.toLocaleString("en-US")} hint="through the cities' own keys" />
+            <Stat label={msg("league.cities")} value={String(cities.length)} hint={msg("league.listedInTheLeague")} />
+            <Stat label={msg("league.litHarbours")} value={String(live)} hint={msg("league.citiesLiveOnArc")} />
+            <Stat label={msg("league.requests7Days")} value={requests.toLocaleString(intlLocale())} hint={msg("league.throughTheCitiesOwnKeys")} />
           </div>
         ) : null}
       </section>
 
       <section className="m-wrap" style={{ marginTop: 32 }} aria-labelledby="lg-coins">
         <div className="m-center">
-          <span className="m-kick">{"THE COINAGE"}</span>
-          <h2 id="lg-coins" className="m-h2" style={{ marginTop: 8 }}>{"One face for the League, one emblem per city"}</h2>
-          {cities.length > 0 ? <p className="m-small m-muted" style={{ marginTop: 6 }}>{"Every coin carries Lyko on the shared face. Turn one over (hover or tap) to see the city's emblem. Gold is live, silver is coming, bronze is paused."}</p> : null}
+          <span className="m-kick">{msg("league.theCoinage")}</span>
+          <h2 id="lg-coins" className="m-h2" style={{ marginTop: 8 }}>{msg("league.oneFaceForTheLeagueOne")}</h2>
+          {cities.length > 0 ? <p className="m-small m-muted" style={{ marginTop: 6 }}>{msg("league.everyCoinCarriesLykoOnThe")}</p> : null}
         </div>
         {league.isLoading ? (
           <div className="lg-grid" style={{ marginTop: 22 }}>{[0, 1, 2].map((i) => <Skeleton key={i} h={420} />)}</div>
         ) : league.isError ? (
-          <EmptyState mood="alert" title="The League did not answer">{"The API could not be reached. The cities are still there; try again in a moment."}</EmptyState>
+          <EmptyState mood="alert" title={msg("league.theLeagueDidNotAnswer")}>{msg("league.theApiCouldNotBeReached")}</EmptyState>
         ) : cities.length === 0 ? (
           <StrikeTheFirst />
         ) : (
@@ -64,16 +65,16 @@ export default function LeaguePage() {
       <section className="m-wrap" style={{ marginTop: 40 }} aria-labelledby="lg-found">
         <div className="m-frame m-card lg-found">
           <div>
-            <span className="m-kick">{"FOUND A CITY"}</span>
-            <h2 id="lg-found" className="m-h2" style={{ marginTop: 6, fontSize: 26 }}>{"Strike your own coin in The Forge"}</h2>
-            <p className="m-small" style={{ marginTop: 6 }}>{"Create a project, give it your brand, modules and Fence caps, prove your site, then ask for a League listing. The Lykia team reviews every community city before it appears here."}</p>
+            <span className="m-kick">{msg("league.foundACity")}</span>
+            <h2 id="lg-found" className="m-h2" style={{ marginTop: 6, fontSize: 26 }}>{msg("league.strikeYourOwnCoinInThe")}</h2>
+            <p className="m-small" style={{ marginTop: 6 }}>{msg("league.leaguePage.howToList")}</p>
           </div>
           <div className="lg-found__acts">
-            <Link to="/forge/strike" className="m-btn">{"STRIKE A CITY"}</Link>
-            <Link to="/forge/cities" className="m-btn m-btn--ghost">{"YOUR CITIES"}</Link>
+            <Link to="/forge/strike" className="m-btn">{msg("league.strikeACity")}</Link>
+            <Link to="/forge/cities" className="m-btn m-btn--ghost">{msg("league.yourCities")}</Link>
           </div>
         </div>
-        <p className="m-small m-muted m-center" style={{ marginTop: 12 }}>{`States: ${Object.values(STATE_LABEL).join(", ").toLowerCase()}. Usage counts are real requests made with each city's own keys.`}</p>
+        <p className="m-small m-muted m-center" style={{ marginTop: 12 }}>{msg("league.statesUsageCountsAreRealRequests", { value: Object.values(STATE_LABEL).join(", ").toLowerCase() })}</p>
       </section>
       )}
     </div>
@@ -95,20 +96,20 @@ function StrikeTheFirst() {
   return (
     <div className="lg-first m-frame" style={{ marginTop: 22 }}>
       <div className="lg-first__forge">
-        <ForgeStrike strikeKey={strike} label="The Forge's anvil striking a blank coin" />
+        <ForgeStrike strikeKey={strike} label={msg("league.theForgeSAnvilStrikingA")} />
         <div className="lg-first__shelf" aria-hidden="true">
           {[0, 1, 2, 3, 4].map((i) => <span key={i} className="lg-blank" style={{ ["--i" as string]: i }} />)}
         </div>
       </div>
       <div className="lg-first__copy">
-        <span className="m-kick">{"THE ANVIL IS HOT · THE SHELF IS BLANK"}</span>
-        <h3 className="m-h2">{"No city is listed yet"}</h3>
-        <p>{"The League hosts cities; official cities are being launched. Nothing here is live until it is listed, so every coin on the shelf is still blank."}</p>
+        <span className="m-kick">{msg("league.theAnvilIsHotTheShelf")}</span>
+        <h3 className="m-h2">{msg("league.noCityIsListedYet")}</h3>
+        <p>{msg("league.theLeagueHostsCitiesOfficialCities")}</p>
         <div className="lg-first__acts">
-          <Link to="/forge/strike" className="m-btn m-btn--lg">{"STRIKE THE FIRST CITY"}</Link>
-          <Link to="/forge/cities" className="m-btn m-btn--ghost">{"YOUR CITIES"}</Link>
+          <Link to="/forge/strike" className="m-btn m-btn--lg">{msg("league.strikeTheFirstCity")}</Link>
+          <Link to="/forge/cities" className="m-btn m-btn--ghost">{msg("league.yourCities")}</Link>
         </div>
-        <p className="m-small m-muted">{"Create a project in The Forge with your brand, modules and Fence caps, then ask for a listing. The Lykia team reviews every community city before it appears here."}</p>
+        <p className="m-small m-muted">{msg("league.leaguePage.howToListShort")}</p>
       </div>
     </div>
   );
@@ -135,11 +136,11 @@ function CoinCarousel({ children }: { readonly children: React.ReactNode[] }) {
   };
   return (
     <>
-      <div ref={ref} className="lg-grid lg-carousel" style={{ marginTop: 22 }} onScroll={onScroll} aria-roledescription="carousel" aria-label="Cities of the League">
+      <div ref={ref} className="lg-grid lg-carousel" style={{ marginTop: 22 }} onScroll={onScroll} aria-roledescription={msg("league.carousel")} aria-label={msg("league.citiesOfTheLeague")}>
         {children}
       </div>
-      <div className="lg-dots" aria-label="Choose a city">
-        {children.map((_, i) => <button key={i} type="button" aria-label={`City ${i + 1} of ${children.length}`} aria-current={i === index ? "true" : undefined} onClick={() => go(i)} />)}
+      <div className="lg-dots" aria-label={msg("league.chooseACity")}>
+        {children.map((_, i) => <button key={i} type="button" aria-label={msg("league.cityOf", { value: i + 1, length: children.length })} aria-current={i === index ? "true" : undefined} onClick={() => go(i)} />)}
       </div>
     </>
   );

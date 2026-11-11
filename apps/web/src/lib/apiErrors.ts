@@ -3,6 +3,7 @@
  * `{ error: { code, message, details?, requestId } }`; transport problems get
  * client codes so callers branch on `code`, never on message text.
  */
+import { t } from "../i18n";
 
 export type ClientErrorCode = "NETWORK_ERROR" | "TIMEOUT" | "ABORTED" | "INVALID_RESPONSE" | "HTTP_ERROR";
 
@@ -51,15 +52,15 @@ export function parseRetryAfter(header: string | null | undefined, now: number =
 }
 
 const GENERIC_MESSAGES: Readonly<Record<number, string>> = {
-  400: "The request was not accepted.",
-  401: "Sign in to continue.",
-  403: "This action is not allowed.",
-  404: "Not found.",
-  429: "Too many requests. Wait a moment and try again.",
-  500: "The Lykia API had a problem. Try again shortly.",
-  502: "An upstream service did not answer. Try again shortly.",
-  503: "The Lykia API is temporarily unavailable. Try again shortly.",
-  504: "An upstream service timed out. Try again shortly.",
+  400: t("lib.apiErrors.theRequestWasNotAccepted"),
+  401: t("lib.apiErrors.signInToContinue"),
+  403: t("lib.apiErrors.thisActionIsNotAllowed"),
+  404: t("lib.apiErrors.notFound"),
+  429: t("lib.apiErrors.tooManyRequestsWaitAMoment"),
+  500: t("lib.apiErrors.theLykiaApiHadAProblem"),
+  502: t("lib.apiErrors.anUpstreamServiceDidNotAnswer"),
+  503: t("lib.apiErrors.theLykiaApiIsTemporarilyUnavailable"),
+  504: t("lib.apiErrors.anUpstreamServiceTimedOutTry"),
 };
 
 /** Builds an ApiError from a non-2xx response body (parsed JSON or text). */
@@ -76,7 +77,7 @@ export function errorFromResponse(status: number, body: unknown, retryAfter: str
       retryAfterMs,
     });
   }
-  const fallback = GENERIC_MESSAGES[status] ?? (status >= 500 ? GENERIC_MESSAGES[500]! : `The request failed (HTTP ${status}).`);
+  const fallback = GENERIC_MESSAGES[status] ?? (status >= 500 ? GENERIC_MESSAGES[500]! : t("lib.apiErrors.theRequestFailedHttp", { status }));
   return new ApiError({ code: "HTTP_ERROR", message: fallback, status, retryAfterMs });
 }
 
@@ -86,5 +87,5 @@ export function describeError(error: unknown): string {
   // viem / wagmi errors carry a one-line `shortMessage` ("User rejected the request.").
   if (typeof error === "object" && error !== null && typeof (error as { shortMessage?: unknown }).shortMessage === "string") return (error as { shortMessage: string }).shortMessage;
   if (error instanceof Error && error.message) return error.message;
-  return "Something went wrong.";
+  return t("lib.apiErrors.somethingWentWrong");
 }

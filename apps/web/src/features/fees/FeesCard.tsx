@@ -7,6 +7,7 @@ import { DEFAULT_FEE_BPS, FEE_POLICY_TEXT, feePercent } from "@lykia/core";
 
 import { apiGet } from "../../lib/api";
 import { Card, Tag } from "../../mosaic";
+import { t } from "../../i18n";
 
 interface FeesView {
   readonly bps: number;
@@ -20,7 +21,7 @@ export function FeesCard({ compact = false }: { readonly compact?: boolean }) {
   const q = useQuery({ queryKey: ["fees"], queryFn: ({ signal }) => apiGet<FeesView>("/v1/fees", { signal }), staleTime: 300_000 });
   const percent = q.data?.percent ?? feePercent(DEFAULT_FEE_BPS);
   return (
-    <Card title={"Fees"} kicker={`${percent} PER STEP · PAID ON CHAIN`}>
+    <Card title={t("fees.feesCard.fees")} kicker={t("fees.feesCard.perStepPaidOnChain", { percent })}>
       <p className="m-small">{q.data?.policy ?? FEE_POLICY_TEXT}</p>
       {!compact ? (
         <>
@@ -29,11 +30,11 @@ export function FeesCard({ compact = false }: { readonly compact?: boolean }) {
               <Tag key={k} tone="ghost">{`${k.toUpperCase()} · ${percent}`}</Tag>
             ))}
             {(q.data?.exempt ?? ["repay", "withdraw", "approve", "revoke"]).map((k) => (
-              <Tag key={k} tone="ok">{`${k.toUpperCase()} · FREE`}</Tag>
+              <Tag key={k} tone="ok">{t("fees.feesCard.free", { k: k.toUpperCase() })}</Tag>
             ))}
           </div>
           <p className="m-small m-muted" style={{ marginTop: 8 }}>
-            {"The fee is a token transfer inside the same Arc transaction as the step, so it shows in every plan before you sign and on the explorer afterwards. A transaction without it does not match the plan and is refused."}
+            {t("fees.feesCard.theFeeIsATokenTransfer")}
           </p>
         </>
       ) : null}

@@ -11,6 +11,9 @@
  * Small bare counts ("2 steps", "3 venues") are not money and pass.
  */
 import type { AnswerBlock } from "@lykia/core/api/agents";
+import type { Locale } from "@lykia/core";
+import { currentLocale } from "../i18n/context.js";
+import { numberPattern, readNumber } from "../language/numbers.js";
 import { normalizeNumber, type Ground } from "./grounding.js";
 
 export interface GuardResult {
@@ -20,14 +23,25 @@ export interface GuardResult {
 }
 
 const SYMBOLS = "USDC|EURC|cirBTC|BTC|WETH|ETH|USYC|JPYC|USD|EUR|USDT|bps";
+/** Hedges before a figure ("about $5"), in every interface language. */
+const HEDGES = "about|around|roughly|approximately|nearly|almost|some|~|yakla\u015f\u0131k|a\u015fa\u011f\u0131 yukar\u0131|alrededor de|aproximadamente|cerca de|unos|unas|environ|pr\u00e8s de|\u7ea6|\u5927\u7ea6";
+const FIGURES = new Map<Locale, RegExp>();
 /**
- * A figure: an optional currency sign, the number (thousands separators, decimals), an optional k/m suffix, then
- * an optional percent sign or token symbol. Hex, addresses and words around it are left alone.
+ * A figure: an optional currency sign or leading percent ("%4,5" in Turkish), the number (thousands separators and
+ * decimals as the language writes them), an optional k/m suffix, then an optional percent sign, currency sign or token
+ * symbol. Hex, addresses and words around it are left alone.
  */
-const FIGURE = new RegExp(`(?<![\\p{L}\\p{N}_.\\-/#])((?:about|around|roughly|approximately|nearly|almost|some|~)\\s+)?([$€]\\s?)?(\\d{1,3}(?:,\\d{3})+|\\d+)(\\.\\d+)?(?:\\s?(k|m|bn)\\b)?(\\s?%|\\s?(?:${SYMBOLS})\\b)?(?![\\p{L}\\p{N}_]|\\.\\d)`, "giu");
+function figureRe(locale: Locale): RegExp {
+  let re = FIGURES.get(locale);
+  if (!re) {
+    re = new RegExp(`(?<![\\p{L}\\p{N}_.,\\-/#])((?:${HEDGES})\\s+)?((?:US)?[$\u20ac]\\s?|%\\s?)?(${numberPattern(locale)})(?:\\s?(k|m|bn)\\b)?(\\s?%|[\\s\u00a0\u202f]?[$\u20ac]|\\s?(?:${SYMBOLS})\\b)?(?![\\p{L}\\p{N}_]|[.,]\\d)`, "giu");
+    FIGURES.set(locale, re);
+  }
+  return re;
+}
 
 /** The values a block puts on screen: every number in it, as evidence. */
-export function blockNumbers(blocks: readonly AnswerBlock[]): Set<string> {
+export function blockNumbers(blocks: readonly AnswerBlock[], locale: Locale = currentLocale()): Set<string> {
   const out = new Set<string>();
   const visit = (v: unknown, depth: number) => {
     if (depth > 8 || v === null || v === undefined) return;
@@ -35,12 +49,15 @@ export function blockNumbers(blocks: readonly AnswerBlock[]): Set<string> {
     else if (typeof v === "string") {
       const n = /^-?\d+(?:\.\d+)?$/u.test(v.trim()) ? normalizeNumber(v.trim().replace(/^-/u, "")) : null;
       if (n !== null) out.add(n);
-      for (const m of v.matchAll(/\d[\d,]*(?:\.\d+)?(?:\s?(k|m|bn)\b)?/giu)) {
-        const x = normalizeNumber(m[0].replace(/\s?(?:k|m|bn)$/iu, ""));
-        if (x !== null) out.add(x);
-        // "$124.6M" on a card stands for 124,600,000: both readings are evidence.
-        const scaled = m[1] ? normalizeNumber(m[0].replace(/\s?(?:k|m|bn)$/iu, ""), m[1]) : null;
-        if (scaled !== null) out.add(scaled);
+      // Cards are written in the interface language; English digits are read too.
+      for (const l of locale === "en" ? (["en"] as const) : (["en", locale] as const)) {
+        for (const m of v.matchAll(new RegExp(`(${numberPattern(l)})(?:\\s?(k|m|bn)\\b)?`, "giu"))) {
+          const x = normalizeNumber(m[1]!, null, l);
+          if (x !== null) out.add(x);
+          // "$124.6M" on a card stands for 124,600,000: both readings are evidence.
+          const scaled = m[2] ? normalizeNumber(m[1]!, m[2], l) : null;
+          if (scaled !== null) out.add(scaled);
+        }
       }
     } else if (Array.isArray(v)) for (const x of v) visit(x, depth + 1);
     else if (typeof v === "object") for (const x of Object.values(v as Record<string, unknown>)) visit(x, depth + 1);
@@ -80,18 +97,21 @@ interface Found {
   readonly sourced: boolean;
 }
 
-function scan(text: string, evidence: readonly number[]): Found[] {
+function scan(text: string, evidence: readonly number[], locale: Locale = currentLocale()): Found[] {
   const out: Found[] = [];
   // Code spans, addresses, clock times and dates are data, not figures.
   const protectedSpans: [number, number][] = [];
   for (const m of text.matchAll(/`[^`]*`|0x[0-9a-fA-F]{6,}|\b\d{1,2}:\d{2}\b|\b\d{4}-\d{2}-\d{2}\b/gu)) protectedSpans.push([m.index!, m.index! + m[0].length]);
-  for (const m of text.matchAll(FIGURE)) {
+  for (const m of text.matchAll(figureRe(locale))) {
     const offset = m.index!;
     if (protectedSpans.some(([a, b]) => offset >= a && offset < b)) continue;
-    const [whole, , sign, int, frac, suffix, unitRaw] = m as unknown as [string, string | undefined, string | undefined, string, string | undefined, string | undefined, string | undefined];
-    const unit = unitRaw ? unitRaw.trim() : null;
-    const decimals = frac ? frac.length - 1 : 0;
-    const base = Number(`${int.replace(/,/gu, "")}${frac ?? ""}`);
+    const [whole, , lead, digits, suffix, unitRaw] = m as unknown as [string, string | undefined, string | undefined, string, string | undefined, string | undefined];
+    const sign = lead && lead.trim() !== "%" ? lead : unitRaw && /[$\u20ac]/u.test(unitRaw) ? unitRaw : undefined;
+    const read = readNumber(digits, locale);
+    if (!read) continue;
+    const unit = unitRaw ? unitRaw.trim() : lead?.trim() === "%" ? "%" : null;
+    const decimals = read.decimals;
+    const base = read.value;
     const scale = suffix ? ({ k: 1e3, m: 1e6, bn: 1e9 } as const)[suffix.toLowerCase() as "k" | "m" | "bn"] : 1;
     const value = base * scale;
     if (!moneyish({ sign: Boolean(sign), unit, decimals, value, suffix: Boolean(suffix) })) continue;
@@ -132,7 +152,8 @@ export function evidenceOf(ground: Ground | undefined, blocks: readonly AnswerBl
 
 /** Splits a paragraph into sentences without breaking decimals ("1.38") or abbreviations inside a figure. */
 export function sentencesOf(line: string): string[] {
-  return line.split(/(?<=[.!?])\s+(?=[\p{Lu}\p{N}$€*"“([])/u).filter((s) => s.length > 0);
+  // Latin scripts end a sentence with a mark and a space before a capital ("¿" and "¡" open Spanish ones); Chinese ends it with 。！？ and no space.
+  return line.split(/(?<=[.!?])\s+(?=[\p{Lu}\p{N}$€*"“([¿¡«])|(?<=[。！？])\s*(?=\S)/u).filter((s) => s.length > 0);
 }
 
 /**

@@ -10,6 +10,7 @@ import { PixelArt } from "../../mosaic/PixelArt";
 import { INTENT_ART, INTENT_PAL } from "../../mosaic/pixelArtData";
 import type { ChatMessage } from "./model";
 import { ASK_STARTERS, DO_STARTERS, followUps, nextStep, type Starter } from "./starters";
+import { t } from "../../i18n";
 
 export function IntentIcon({ icon, size = 24 }: { readonly icon: Starter["icon"]; readonly size?: number }) {
   return <PixelArt art={INTENT_ART[icon]} palette={INTENT_PAL} size={size} grout />;
@@ -28,8 +29,8 @@ function SentenceWithSlots({ text }: { readonly text: string }) {
 export function StarterGrid({ onPick }: { readonly onPick: (s: Starter) => void }) {
   return (
     <div className="m-startgrid">
-      <div className="m-startgrid__group" role="group" aria-label="Do something">
-        <p className="m-startgrid__label"><span className="m-kick">{"DO SOMETHING"}</span><span>{"You fill the blanks"}</span></p>
+      <div className="m-startgrid__group" role="group" aria-label={t("ask.starters.doSomething")}>
+        <p className="m-startgrid__label"><span className="m-kick">{t("ask.starters.doSomething2")}</span></p>
         <div className="m-startgrid__row m-startgrid__row--do">
           {DO_STARTERS.map((s, i) => (
             <button key={s.id} type="button" className="m-start" data-icon={s.icon} style={{ "--i": i } as React.CSSProperties} onClick={() => onPick(s)}>
@@ -42,15 +43,14 @@ export function StarterGrid({ onPick }: { readonly onPick: (s: Starter) => void 
           ))}
         </div>
       </div>
-      <div className="m-startgrid__group" role="group" aria-label="Ask a question">
-        <p className="m-startgrid__label"><span className="m-kick">{"OR ASK"}</span><span>{"One tap sends it"}</span></p>
+      <div className="m-startgrid__group" role="group" aria-label={t("ask.starters.askAQuestion")}>
+        <p className="m-startgrid__label"><span className="m-kick">{t("ask.starters.orAsk")}</span></p>
         <div className="m-startgrid__row m-startgrid__row--ask">
           {ASK_STARTERS.map((s, i) => (
             <button key={s.id} type="button" className="m-start m-start--ask" data-icon={s.icon} style={{ "--i": i + 4 } as React.CSSProperties} onClick={() => onPick(s)}>
               <span className="m-start__stone"><IntentIcon icon={s.icon} size={22} /></span>
               <span className="m-start__body">
                 <b>{s.label}</b>
-                <small>{s.line}</small>
               </span>
             </button>
           ))}
@@ -67,7 +67,7 @@ export function StarterGrid({ onPick }: { readonly onPick: (s: Starter) => void 
 export function StarterChips({ items, onPick }: { readonly items: readonly Starter[]; readonly onPick: (s: Starter) => void }) {
   if (items.length === 0) return null;
   return (
-    <div className="m-dockchips" role="group" aria-label="Suggestions">
+    <div className="m-dockchips" role="group" aria-label={t("ask.starters.suggestions")}>
       {items.map((s, i) => (
         <button key={s.id} type="button" className="m-dockchip" data-icon={s.icon} data-kind={s.kind} style={{ "--i": i } as React.CSSProperties} onClick={() => onPick(s)}>
           <span className="m-dockchip__stone"><IntentIcon icon={s.icon} size={20} /></span>
@@ -90,7 +90,7 @@ export function NextStepBar({ m, onPick, chips = true }: { readonly m: ChatMessa
   const more = !chips ? [] : followUps(m);
   if (step.kind !== "fold" && more.length === 0) return null;
   return (
-    <div className="m-nextbar" role="group" aria-label="What next">
+    <div className="m-nextbar" role="group" aria-label={t("ask.starters.whatNext")}>
       {step.kind === "fold" ? (
         <Link to={step.href} className="m-btn m-btn--navy m-nextbar__go">
           {step.label.toUpperCase()}
@@ -98,7 +98,7 @@ export function NextStepBar({ m, onPick, chips = true }: { readonly m: ChatMessa
       ) : null}
       {more.length > 0 ? (
         <div className={cx("m-nextbar__more", step.kind !== "none" && "m-nextbar__more--after")}>
-          <span className="m-kick">{"NEXT, YOU COULD"}</span>
+          <span className="m-kick">{t("ask.starters.nextYouCould")}</span>
           <div className="m-nextbar__chips">
             {more.map((s) => (
               <button key={s.id} type="button" className="m-chip m-nextbar__chip" onClick={() => onPick(s)}>

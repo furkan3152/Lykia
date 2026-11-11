@@ -16,6 +16,7 @@
  * unsigned blowWhistle() so every on-chain session stops too (only homeward
  * calls pass there).
  */
+import { tx as say } from "@lykia/core";
 import { encodeFunctionData, type Hex } from "viem";
 import type { Address, ArcEnvironment, UnsignedTransaction } from "@lykia/core";
 import type { WhistleItem, WhistleItemKind, WhistleResponse } from "@lykia/core/api/fold";
@@ -71,8 +72,8 @@ function view(owner: Address, record: WhistleRecord | null, tx: { account: Addre
     note: paused === 0
       ? "Nothing is held by the Whistle."
       : tx.transaction
-        ? `${paused} thing${paused === 1 ? " is" : "s are"} stopped on Lykia's side. Send the blowWhistle transaction too, so every on-chain session stops (homeward calls still pass).`
-        : `${paused} thing${paused === 1 ? " is" : "s are"} stopped on Lykia's side. You have no LykiaAccount yet, so there is no on-chain session to stop.`,
+        ? say("{paused, plural, one {# thing is} other {# things are}} stopped on Lykia's side. Send the blowWhistle transaction too, so every on-chain session stops (homeward calls still pass).", { paused })
+        : say("{paused, plural, one {# thing is} other {# things are}} stopped on Lykia's side. You have no LykiaAccount yet, so there is no on-chain session to stop.", { paused }),
   };
 }
 

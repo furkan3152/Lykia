@@ -21,6 +21,7 @@ import { typedCollection } from "../platform/typed.js";
 import { auditSafe, ownerChain } from "../security/audit.js";
 import { services } from "../services.js";
 
+import { tx } from "@lykia/core";
 const PROPOSAL_TTL_MS = 30 * 86_400_000;
 const HANDLED_TTL_MS = 7 * 86_400_000;
 const MAX_OPEN_PROPOSALS = 50;
@@ -97,15 +98,15 @@ export async function createProposal(ctx: AppContext, input: CreateProposalInput
     intentId: planned?.intentId ?? null,
     decision: planned?.decision ?? (input.transactions || input.fencePatch ? "confirm" : "unknown"),
     reasons: planned?.reasons ?? [],
-    steps: planned?.steps ?? (input.transactions ?? []).map((t) => t.label ?? "Sign one transaction"),
+    steps: planned?.steps ?? (input.transactions ?? []).map((t) => t.label ?? tx("Sign one transaction")),
     status: refused ? "stopped" : "proposed",
-    outcome: refused ? `Refused by the Fence: ${(planned?.reasons ?? []).join(" ") || "a rule said no."}` : null,
+    outcome: refused ? tx("Refused by the Fence: {value}", { value: (planned?.reasons ?? []).join(" ") || tx("a rule said no.") }) : null,
     createdAt: now,
     updatedAt: now,
-    history: [{ status: "proposed", at: now, note: null }, ...(refused ? [{ status: "stopped" as const, at: now, note: "Refused by the Fence." }] : [])],
+    history: [{ status: "proposed", at: now, note: null }, ...(refused ? [{ status: "stopped" as const, at: now, note: tx("Refused by the Fence.") }] : [])],
   };
   await proposals(ctx).put(proposal.id, proposal, { ttlMs: PROPOSAL_TTL_MS });
-  await writeFeed(ctx, proposal, refused ? "Refused by the Fence." : null);
+  await writeFeed(ctx, proposal, refused ? tx("Refused by the Fence.") : null);
   if (input.source.kind === "insight" && input.source.ref) await markHandled(ctx, owner, input.source.ref, input.insightFingerprint ?? input.title);
   return proposal;
 }
@@ -142,9 +143,9 @@ export async function listProposals(ctx: AppContext, owner: Address, options: { 
         const intent = await services(ctx).intents.get(p.intentId).then((r) => r.intent).catch(() => null);
         if (!intent) return p;
         const status = deriveIntentStatus(intent);
-        if (status === "settled") return moveTo(ctx, p, "done", "Every step settled on Arc.");
-        if (status === "failed" || status === "stopped" || status === "denied") return moveTo(ctx, p, "stopped", `The plan ${status}.`);
-        if (status === "running" && p.status === "proposed") return moveTo(ctx, p, "approved", "Signing started.");
+        if (status === "settled") return moveTo(ctx, p, "done", tx("Every step settled on Arc."));
+        if (status === "failed" || status === "stopped" || status === "denied") return moveTo(ctx, p, "stopped", tx("The plan {status}.", { status }));
+        if (status === "running" && p.status === "proposed") return moveTo(ctx, p, "approved", tx("Signing started."));
         return p;
       }),
     );

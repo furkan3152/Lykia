@@ -6,6 +6,7 @@
  */
 import { lykiaContracts } from "@lykia/core";
 import type { DeploymentRecord } from "@lykia/core/api/platform";
+import { t } from "../../i18n";
 
 export type DeployedMap = lykiaContracts.DeployedAddresses;
 
@@ -41,8 +42,8 @@ export function allDeployed(plan: lykiaContracts.DeployPlan, deployed: DeployedM
 
 /** Contract creation needs an EOA: a smart account's creations are made by its own code, not the user's wallet. */
 export function creationBlocker(kind: "browser" | "passkey" | null): string | null {
-  if (kind === null) return "Connect a browser wallet to deploy.";
-  if (kind === "passkey") return "Contracts must be created by a regular wallet (EOA) so explorers show your wallet as the creator. A passkey account is a smart contract, so its creations would show the account instead. Connect a browser wallet (MetaMask, Rabby, OKX…) for deployment.";
+  if (kind === null) return t("deploy.model.connectABrowserWalletToDeploy");
+  if (kind === "passkey") return t("deploy.model.contractsMustBeCreatedByA");
   return null;
 }
 

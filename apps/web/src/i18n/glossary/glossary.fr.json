@@ -1,0 +1,211 @@
+{
+  "language": "fr",
+  "register": "vous, as French fintech apps write; sentences the owner sends to Lyko use tu",
+  "keep": [
+    "Lykia",
+    "Lyko",
+    "Ask Lyko",
+    "The Fold",
+    "The Forge",
+    "the Fence",
+    "Leash",
+    "Whistle",
+    "Stile",
+    "Autopilot",
+    "Herding",
+    "Flock",
+    "Trails",
+    "Pack",
+    "the League",
+    "Harbour",
+    "Ledger",
+    "Letoon",
+    "Scent",
+    "Tag",
+    "Outrun",
+    "Lykaion",
+    "USDC",
+    "EURC",
+    "cirBTC",
+    "USYC",
+    "Morpho",
+    "Aave V4",
+    "CCTP",
+    "Gateway",
+    "Arc",
+    "Base",
+    "Circle"
+  ],
+  "strict": [
+    "liquidation",
+    "health factor",
+    "slippage",
+    "Lyko on watch",
+    "stress test",
+    "your spending rules",
+    "your holdings",
+    "your history",
+    "Review and sign",
+    "How this works",
+    "net worth",
+    "daily limit"
+  ],
+  "terms": {
+    "wallet": {
+      "use": "portefeuille",
+      "stem": "portefeuille"
+    },
+    "sign": {
+      "use": "signer",
+      "stem": "sign"
+    },
+    "plan": {
+      "use": "plan",
+      "stem": "plan"
+    },
+    "liquidation": {
+      "use": "liquidation",
+      "stem": "liquidation"
+    },
+    "health factor": {
+      "use": "facteur de santé",
+      "stem": "facteur de santé"
+    },
+    "slippage": {
+      "use": "slippage",
+      "stem": "slippage"
+    },
+    "gas": {
+      "use": "gas",
+      "stem": "gas"
+    },
+    "network fee": {
+      "use": "frais de réseau",
+      "stem": "frais de réseau"
+    },
+    "fee": {
+      "use": "frais",
+      "stem": "frais"
+    },
+    "vault": {
+      "use": "coffre",
+      "stem": "coffre"
+    },
+    "yield": {
+      "use": "rendement",
+      "stem": "rendement"
+    },
+    "collateral": {
+      "use": "collatéral",
+      "stem": "collatéral"
+    },
+    "borrow": {
+      "use": "emprunter",
+      "stem": "emprunt"
+    },
+    "repay": {
+      "use": "rembourser",
+      "stem": "rembours"
+    },
+    "withdraw": {
+      "use": "retirer",
+      "stem": "retir"
+    },
+    "deposit": {
+      "use": "déposer",
+      "stem": "dépos"
+    },
+    "bridge": {
+      "use": "bridger",
+      "stem": "bridge"
+    },
+    "convert": {
+      "use": "convertir",
+      "stem": "convert"
+    },
+    "send": {
+      "use": "envoyer",
+      "stem": "envo"
+    },
+    "idle": {
+      "use": "inactif",
+      "stem": "inacti"
+    },
+    "net worth": {
+      "use": "valeur nette",
+      "stem": "valeur nette"
+    },
+    "daily limit": {
+      "use": "limite journalière",
+      "stem": "journali"
+    },
+    "beta limit": {
+      "use": "limite bêta",
+      "stem": "bêta"
+    },
+    "route": {
+      "use": "route",
+      "stem": "route"
+    },
+    "position": {
+      "use": "position",
+      "stem": "position"
+    },
+    "agent": {
+      "use": "agent",
+      "stem": "agent"
+    },
+    "watch": {
+      "use": "surveillance",
+      "stem": "surveill"
+    },
+    "payee": {
+      "use": "bénéficiaire",
+      "stem": "bénéficiaire"
+    },
+    "invoice": {
+      "use": "facture",
+      "stem": "facture"
+    },
+    "Lyko on watch": {
+      "use": "Lyko de garde",
+      "stem": "Lyko de garde"
+    },
+    "stress test": {
+      "use": "test de résistance",
+      "stem": "test de résistance"
+    },
+    "dry run": {
+      "use": "simulation",
+      "stem": "simulation"
+    },
+    "sample": {
+      "use": "exemple",
+      "stem": "exemple"
+    },
+    "How this works": {
+      "use": "Comment ça marche",
+      "stem": "Comment ça marche"
+    },
+    "Review and sign": {
+      "use": "Vérifier et signer",
+      "stem": "vérifier et signer"
+    },
+    "allowance": {
+      "use": "autorisation",
+      "stem": "autorisation"
+    },
+    "your spending rules": {
+      "use": "vos règles de dépense",
+      "stem": "règles de dépense"
+    },
+    "your holdings": {
+      "use": "vos avoirs",
+      "stem": "avoirs"
+    },
+    "your history": {
+      "use": "votre historique",
+      "stem": "historique"
+    }
+  }
+}

@@ -15,9 +15,11 @@
  *
  * Pure TypeScript, no I/O.
  */
+import { coreIntlTag, localized } from "./i18n/index.js";
 import { formatUsdMicros, usdMicros } from "./fence.js";
 import type { RiskTier } from "./routes.js";
 
+import { tx, phrase } from "./i18n/index.js";
 export const FOLD_PREFERENCES_SCHEMA = "lykia.fold-preferences/v1" as const;
 
 /** The Fold's tabs, in their default order. Keyboard 1 to 5 follows the visible order. */
@@ -57,31 +59,31 @@ export const FOLD_INSIGHT_KINDS = [
 export type FoldInsightKind = (typeof FOLD_INSIGHT_KINDS)[number];
 
 /** A short human name for each insight kind (preferences and filters). */
-export const FOLD_INSIGHT_NAMES: Readonly<Record<FoldInsightKind, string>> = {
-  "idle-usdc": "Idle USDC",
-  "health-factor": "Health factor",
-  "fx-drift": "Currency mix drift",
-  runway: "Runway for scheduled payments",
-  "approval-hygiene": "Old token approvals",
-  "scent-warning": "Tokens with red flags",
-  "gas-floor": "Gas running low",
-  "beta-headroom": "Near the daily cap",
-  "order-near-trigger": "Orders close to their trigger",
-  "agent-budget": "Agents near their budget",
-  unsettled: "Steps still settling",
-  "yield-change": "A better low-risk rate",
-  "lp-out-of-range": "Liquidity out of range",
-  "order-expiring": "Orders about to expire",
-  "watch-task": "Watch tasks from Ask Lyko",
-  "near-threshold": "Close to a limit",
-  "unclaimed": "Something to claim",
-  "expiring": "Something about to expire",
-  "idle-position": "Money sitting idle",
-  stranded: "Tokens stuck without gas",
-  dust: "Dust left in the wallet",
-  obligations: "Payments due this week not covered",
-  "bridge-stuck": "Bridges taking too long",
-};
+export const FOLD_INSIGHT_NAMES: Readonly<Record<FoldInsightKind, string>> = localized({
+  "idle-usdc": phrase("Idle USDC"),
+  "health-factor": phrase("Health factor"),
+  "fx-drift": phrase("Currency mix drift"),
+  runway: phrase("Runway for scheduled payments"),
+  "approval-hygiene": phrase("Old token approvals"),
+  "scent-warning": phrase("Tokens with red flags"),
+  "gas-floor": phrase("Gas running low"),
+  "beta-headroom": phrase("Near the daily cap"),
+  "order-near-trigger": phrase("Orders close to their trigger"),
+  "agent-budget": phrase("Agents near their budget"),
+  unsettled: phrase("Steps still settling"),
+  "yield-change": phrase("A better low-risk rate"),
+  "lp-out-of-range": phrase("Liquidity out of range"),
+  "order-expiring": phrase("Orders about to expire"),
+  "watch-task": phrase("Watch tasks from Ask Lyko"),
+  "near-threshold": phrase("Close to a limit"),
+  "unclaimed": phrase("Something to claim"),
+  "expiring": phrase("Something about to expire"),
+  "idle-position": phrase("Money sitting idle"),
+  stranded: phrase("Tokens stuck without gas"),
+  dust: phrase("Dust left in the wallet"),
+  obligations: phrase("Payments due this week not covered"),
+  "bridge-stuck": phrase("Bridges taking too long"),
+});
 
 export type FoldRisk = "careful" | "balanced" | "bold";
 export const FOLD_RISKS: readonly FoldRisk[] = ["careful", "balanced", "bold"];
@@ -151,36 +153,36 @@ export function mergeFoldPreferences(base: FoldPreferences, patch: unknown): unk
 export function validateFoldPreferences(raw: unknown): { ok: true; preferences: FoldPreferences } | { ok: false; issues: FoldPreferenceIssue[] } {
   const issues: FoldPreferenceIssue[] = [];
   const add = (path: string, message: string) => issues.push({ path, message });
-  if (!isRecord(raw)) return { ok: false, issues: [{ path: "", message: "Preferences are an object." }] };
+  if (!isRecord(raw)) return { ok: false, issues: [{ path: "", message: tx("Preferences are an object.") }] };
   const input = withoutRetired(raw);
   const known = new Set(Object.keys(DEFAULT_FOLD_PREFERENCES));
-  for (const key of Object.keys(input)) if (!known.has(key)) add(key, "Unknown field.");
-  if (input.schema !== FOLD_PREFERENCES_SCHEMA) add("schema", `Must be "${FOLD_PREFERENCES_SCHEMA}".`);
-  if (!FOLD_RISKS.includes(input.risk as FoldRisk)) add("risk", "careful, balanced or bold.");
-  if (typeof input.liquidityFloorUsd !== "string" || !DECIMAL.test(input.liquidityFloorUsd)) add("liquidityFloorUsd", 'A USD amount, e.g. "500".');
-  if (typeof input.gasFloorUsdc !== "string" || !DECIMAL.test(input.gasFloorUsdc) || Number(input.gasFloorUsdc) > 1000) add("gasFloorUsdc", 'A USDC amount up to 1000, e.g. "0.5".');
+  for (const key of Object.keys(input)) if (!known.has(key)) add(key, tx("Unknown field."));
+  if (input.schema !== FOLD_PREFERENCES_SCHEMA) add("schema", tx("Must be \"{FOLD_PREFERENCES_SCHEMA}\".", { FOLD_PREFERENCES_SCHEMA }));
+  if (!FOLD_RISKS.includes(input.risk as FoldRisk)) add("risk", tx("careful, balanced or bold."));
+  if (typeof input.liquidityFloorUsd !== "string" || !DECIMAL.test(input.liquidityFloorUsd)) add("liquidityFloorUsd", tx("A USD amount, e.g. \"500\"."));
+  if (typeof input.gasFloorUsdc !== "string" || !DECIMAL.test(input.gasFloorUsdc) || Number(input.gasFloorUsdc) > 1000) add("gasFloorUsdc", tx("A USDC amount up to 1000, e.g. \"0.5\"."));
   const mix = input.targetMix;
-  if (!isRecord(mix)) add("targetMix", "An object with usdcPct, eurcPct, earningPct and bandPct.");
+  if (!isRecord(mix)) add("targetMix", tx("An object with usdcPct, eurcPct, earningPct and bandPct."));
   else {
     const pct = (k: string, max = 100) => Number.isInteger(mix[k]) && (mix[k] as number) >= 0 && (mix[k] as number) <= max;
-    for (const k of ["usdcPct", "eurcPct", "earningPct"]) if (!pct(k)) add(`targetMix.${k}`, "A whole percent, 0 to 100.");
-    if (!(pct("bandPct", 50) && (mix.bandPct as number) >= 1)) add("targetMix.bandPct", "A whole percent, 1 to 50.");
-    if (pct("usdcPct") && pct("eurcPct") && pct("earningPct") && (mix.usdcPct as number) + (mix.eurcPct as number) + (mix.earningPct as number) !== 100) add("targetMix", "USDC, EURC and earning shares add up to 100.");
+    for (const k of ["usdcPct", "eurcPct", "earningPct"]) if (!pct(k)) add(`targetMix.${k}`, tx("A whole percent, 0 to 100."));
+    if (!(pct("bandPct", 50) && (mix.bandPct as number) >= 1)) add("targetMix.bandPct", tx("A whole percent, 1 to 50."));
+    if (pct("usdcPct") && pct("eurcPct") && pct("earningPct") && (mix.usdcPct as number) + (mix.eurcPct as number) + (mix.earningPct as number) !== 100) add("targetMix", tx("USDC, EURC and earning shares add up to 100."));
   }
   const ins = input.insights;
-  if (!isRecord(ins)) add("insights", "An object with hidden, notify and cadence.");
+  if (!isRecord(ins)) add("insights", tx("An object with hidden, notify and cadence."));
   else {
-    if (!uniqueFrom(ins.hidden, FOLD_INSIGHT_KINDS)) add("insights.hidden", "Unique insight kinds.");
-    if (!["inbox", "webhook", "telegram"].includes(ins.notify as string)) add("insights.notify", "inbox, webhook or telegram.");
-    if (!["live", "daily", "weekly"].includes(ins.cadence as string)) add("insights.cadence", "live, daily or weekly.");
+    if (!uniqueFrom(ins.hidden, FOLD_INSIGHT_KINDS)) add("insights.hidden", tx("Unique insight kinds."));
+    if (!["inbox", "webhook", "telegram"].includes(ins.notify as string)) add("insights.notify", tx("inbox, webhook or telegram."));
+    if (!["live", "daily", "weekly"].includes(ins.cadence as string)) add("insights.cadence", tx("live, daily or weekly."));
   }
   const layout = input.layout;
-  if (!isRecord(layout)) add("layout", "An object with tabs and cards.");
+  if (!isRecord(layout)) add("layout", tx("An object with tabs and cards."));
   else {
-    if (!uniqueFrom(layout.tabs, FOLD_TABS) || layout.tabs.length === 0) add("layout.tabs", "At least one unique tab.");
-    if (!uniqueFrom(layout.cards, FOLD_CARDS)) add("layout.cards", "Unique cards.");
+    if (!uniqueFrom(layout.tabs, FOLD_TABS) || layout.tabs.length === 0) add("layout.tabs", tx("At least one unique tab."));
+    if (!uniqueFrom(layout.cards, FOLD_CARDS)) add("layout.cards", tx("Unique cards."));
   }
-  if (!(input.updatedAt === null || typeof input.updatedAt === "string")) add("updatedAt", "null or a timestamp.");
+  if (!(input.updatedAt === null || typeof input.updatedAt === "string")) add("updatedAt", tx("null or a timestamp."));
   if (issues.length > 0) return { ok: false, issues };
   return { ok: true, preferences: input as unknown as FoldPreferences };
 }
@@ -194,7 +196,7 @@ export function foldRiskOf(tier: RiskTier): FoldRisk {
   return tier === "low" ? "careful" : tier === "high" ? "bold" : "balanced";
 }
 
-const money = (v: string) => Number(v).toLocaleString("en-US", { maximumFractionDigits: 2 });
+const money = (v: string) => Number(v).toLocaleString(coreIntlTag(), { maximumFractionDigits: 2 });
 
 export interface FoldPreferenceEffect {
   readonly key: "risk" | "liquidityFloorUsd" | "targetMix" | "gasFloorUsdc" | "insights" | "layout";
@@ -205,12 +207,12 @@ export interface FoldPreferenceEffect {
 export function foldPreferenceEffects(p: FoldPreferences): FoldPreferenceEffect[] {
   const shown = FOLD_INSIGHT_KINDS.length - p.insights.hidden.length;
   return [
-    { key: "risk", text: p.risk === "careful" ? "Lyko suggests only the lowest-risk venues, requires verified tokens and keeps slippage at 0.3% or less." : p.risk === "bold" ? "Lyko may suggest higher-yield venues and allows up to 3% slippage; your Fence still has the last word." : "Lyko suggests established venues and keeps slippage at 1% or less." },
-    { key: "liquidityFloorUsd", text: `Lyko will flag idle USDC above ${money(p.liquidityFloorUsd)} and never suggests moving the first ${money(p.liquidityFloorUsd)} out of your wallet.` },
-    { key: "targetMix", text: `Lyko will flag drift when USDC, EURC or earning moves more than ${p.targetMix.bandPct} points from ${p.targetMix.usdcPct} / ${p.targetMix.eurcPct} / ${p.targetMix.earningPct}.` },
-    { key: "gasFloorUsdc", text: `Lyko will warn when gas drops below ${money(p.gasFloorUsdc)} USDC.` },
-    { key: "insights", text: `${shown} of ${FOLD_INSIGHT_KINDS.length} insights on; news goes to your ${p.insights.notify}${p.insights.cadence === "live" ? " as it happens" : p.insights.cadence === "daily" ? " once a day" : " once a week"}.` },
-    { key: "layout", text: `The Fold shows ${p.layout.tabs.length} tab${p.layout.tabs.length === 1 ? "" : "s"} and ${p.layout.cards.length} bar card${p.layout.cards.length === 1 ? "" : "s"}, in your order.` },
+    { key: "risk", text: p.risk === "careful" ? tx("Lyko suggests only the lowest-risk venues, requires verified tokens and keeps slippage at 0.3% or less.") : p.risk === "bold" ? tx("Lyko may suggest higher-yield venues and allows up to 3% slippage; your Fence still has the last word.") : tx("Lyko suggests established venues and keeps slippage at 1% or less.") },
+    { key: "liquidityFloorUsd", text: tx("Lyko will flag idle USDC above {amount} and never suggests moving the first {amount} out of your wallet.", { amount: money(p.liquidityFloorUsd) }) },
+    { key: "targetMix", text: tx("Lyko will flag drift when USDC, EURC or earning moves more than {bandPct} points from {usdcPct} / {eurcPct} / {earningPct}.", { bandPct: p.targetMix.bandPct, usdcPct: p.targetMix.usdcPct, eurcPct: p.targetMix.eurcPct, earningPct: p.targetMix.earningPct }) },
+    { key: "gasFloorUsdc", text: tx("Lyko will warn when gas drops below {amount} USDC.", { amount: money(p.gasFloorUsdc) }) },
+    { key: "insights", text: tx("{shown} of {length} insights on; news goes to your {notify}{value}.", { shown, length: FOLD_INSIGHT_KINDS.length, notify: p.insights.notify, value: p.insights.cadence === "live" ? tx(" as it happens") : p.insights.cadence === "daily" ? tx(" once a day") : tx(" once a week") }) },
+    { key: "layout", text: tx("The Fold shows {length, plural, one {# tab} other {# tabs}} and {length2, plural, one {# bar card} other {# bar cards}}, in your order.", { length: p.layout.tabs.length, length2: p.layout.cards.length }) },
   ];
 }
 
@@ -335,23 +337,23 @@ function hundredths(n: number): number {
 export function describeShock(result: ShockResult, shocks: FoldShocks, minHealth = 1.2): string {
   const parts: string[] = [];
   const moved = (["EURC", "cirBTC"] as const).filter((k) => shocks[k] !== 0).map((k) => `${k} ${shocks[k] > 0 ? "+" : ""}${shocks[k]}%`);
-  if (shocks.ratesBps !== 0) moved.push(`rates ${shocks.ratesBps > 0 ? "+" : ""}${(shocks.ratesBps / 100).toFixed(2)} pts`);
+  if (shocks.ratesBps !== 0) moved.push(tx("rates {value}{value2} pts", { value: shocks.ratesBps > 0 ? "+" : "", value2: (shocks.ratesBps / 100).toFixed(2) }));
   const delta = result.after - result.before;
-  const usd = (n: number) => `$${Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
-  parts.push(`${moved.length > 0 ? `With ${moved.join(", ")}` : "With no shock"}, the Flock goes from ${usd(result.before)} to ${usd(result.after)} (${delta < 0 ? "−" : "+"}${usd(delta)}).`);
-  if (result.worstHealth === null) parts.push("Nothing is borrowed, so nothing can be liquidated.");
-  else if (result.worstHealth < 1) parts.push(`The lowest health factor would be ${result.worstHealth.toFixed(2)} (an estimate): below 1, so a position could be liquidated.`);
-  else if (result.worstHealth < minHealth) parts.push(`The lowest health factor would be ${result.worstHealth.toFixed(2)} (an estimate), under your Fence floor of ${minHealth}.`);
-  else parts.push(`The lowest health factor would be ${result.worstHealth.toFixed(2)} (an estimate), above your floor of ${minHealth}.`);
-  if (shocks.ratesBps !== 0 && result.yearlyYieldDelta !== 0) parts.push(`Yearly yield would change by ${result.yearlyYieldDelta < 0 ? "−" : "+"}${usd(result.yearlyYieldDelta)}.`);
-  if (result.unpriced > 0) parts.push(`${result.unpriced} unpriced holding(s) are left out.`);
+  const usd = (n: number) => `$${Math.abs(n).toLocaleString(coreIntlTag(), { maximumFractionDigits: 2 })}`;
+  parts.push(tx("{value}, the Flock goes from {amount} to {amount2} ({value2}{amount3}).", { value: moved.length > 0 ? tx("With {value}", { value: moved.join(", ") }) : tx("With no shock"), amount: usd(result.before), amount2: usd(result.after), value2: delta < 0 ? "−" : "+", amount3: usd(delta) }));
+  if (result.worstHealth === null) parts.push(tx("Nothing is borrowed, so nothing can be liquidated."));
+  else if (result.worstHealth < 1) parts.push(tx("The lowest health factor would be {value} (an estimate): below 1, so a position could be liquidated.", { value: result.worstHealth.toFixed(2) }));
+  else if (result.worstHealth < minHealth) parts.push(tx("The lowest health factor would be {value} (an estimate), under your Fence floor of {minHealth}.", { value: result.worstHealth.toFixed(2), minHealth }));
+  else parts.push(tx("The lowest health factor would be {value} (an estimate), above your floor of {minHealth}.", { value: result.worstHealth.toFixed(2), minHealth }));
+  if (shocks.ratesBps !== 0 && result.yearlyYieldDelta !== 0) parts.push(tx("Yearly yield would change by {value}{amount}.", { value: result.yearlyYieldDelta < 0 ? "−" : "+", amount: usd(result.yearlyYieldDelta) }));
+  if (result.unpriced > 0) parts.push(tx("{unpriced} unpriced holding(s) are left out.", { unpriced: result.unpriced }));
   return parts.join(" ");
 }
 
 /* --------------------------------------------------------- allocation */
 
 export type AllocationBucket = "wallet" | "earning" | "borrowing" | "gateway" | "orders" | "other";
-export const ALLOCATION_LABELS: Readonly<Record<AllocationBucket, string>> = { wallet: "Wallet", earning: "Earning", borrowing: "Borrowed", gateway: "Gateway", orders: "In orders", other: "Other" };
+export const ALLOCATION_LABELS: Readonly<Record<AllocationBucket, string>> = localized({ wallet: phrase("Wallet"), earning: phrase("Earning"), borrowing: phrase("Borrowed"), gateway: "Gateway", orders: phrase("In orders"), other: phrase("Other") });
 
 /** The venue-type bucket of a holding. */
 export function allocationBucketOf(h: Pick<ShockHolding, "where" | "kind">): AllocationBucket {

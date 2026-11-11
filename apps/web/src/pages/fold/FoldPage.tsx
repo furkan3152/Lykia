@@ -48,6 +48,7 @@ import { Button, LykoFace, toast } from "../../mosaic";
 import { Sheet } from "../../city/Sheet";
 import { askAboutPosition } from "../../features/fold/model";
 import { useQueryClient } from "@tanstack/react-query";
+import { t as msg } from "../../i18n";
 
 const PHONE = "(max-width: 899px)";
 
@@ -174,7 +175,7 @@ export default function FoldPage() {
 
   const needWallet = () => {
     if (!owner.address) {
-      toast.info("Connect a wallet first", { description: "The sample flock is for looking around.", from: "LYKO" });
+      toast.info(msg("fold.connectAWalletFirst"), { description: msg("fold.theSampleFlockIsForLooking"), from: "LYKO" });
       return true;
     }
     if (!owner.signedIn) {
@@ -195,18 +196,18 @@ export default function FoldPage() {
     try {
       const p = await draft.mutateAsync(input);
       setOpenDraft(p);
-      if (p.status === "stopped") toast.warning("The Fence said no", { description: p.reasons[0] ?? p.outcome ?? undefined, from: "LYKO" });
+      if (p.status === "stopped") toast.warning(msg("fold.theFenceSaidNo"), { description: p.reasons[0] ?? p.outcome ?? undefined, from: "LYKO" });
     } catch (e) {
-      toast.error("Lyko could not draft that", { description: describeError(e), from: "LYKO" });
+      toast.error(msg("fold.lykoCouldNotDraftThat"), { description: describeError(e), from: "LYKO" });
     }
   };
 
   const onInsight = (i: FoldInsight) => void draftFrom({ source: { kind: "insight", ref: i.id } });
   const onPosition = (p: Position, a: PositionAction) => {
     // "ask" moves Lykia cannot draft in one step open Ask Lyko with the question; "draft" plans through the proposal system.
-    if (a.mode === "ask") return openInAsk(a.sentence, `Position ${p.label} (${p.venueName}): ${p.doing}. Value ${p.valueUsd ?? "unpriced"} USD, read at block ${p.block ?? "n/a"}.`);
+    if (a.mode === "ask") return openInAsk(a.sentence, /* i18n-ignore: context for Lyko */ `Position ${p.label} (${p.venueName}): ${p.doing}. Value ${p.valueUsd ?? "unpriced"} USD, read at block ${p.block ?? "n/a"}.`);
     if (owner.sample) {
-      toast.info("This is the sample flock", { description: "Connect a wallet and Lyko drafts this for yours.", from: "LYKO" });
+      toast.info(msg("fold.thisIsTheSampleFlock"), { description: msg("fold.connectAWalletAndLykoDrafts"), from: "LYKO" });
       return;
     }
     void draftFrom({ source: { kind: "holding", ref: p.id.slice(0, 120) }, sentence: a.sentence, title: `${a.label}: ${a.sentence}`.slice(0, 160) });
@@ -224,9 +225,9 @@ export default function FoldPage() {
   const stopP = async (p: FoldProposal) => {
     setBusyId(p.id);
     try {
-      await moveP(p.id, "stop", "Stopped by the owner.");
+      await moveP(p.id, "stop", msg("fold.stoppedByTheOwner"));
     } catch (e) {
-      toast.error("Not stopped", { description: describeError(e), from: "LYKO" });
+      toast.error(msg("fold.notStopped"), { description: describeError(e), from: "LYKO" });
     } finally {
       setBusyId(null);
     }
@@ -234,7 +235,7 @@ export default function FoldPage() {
   // WHISTLE · STOP ALL: one server call stops everything for the owner; the sheet lists what stopped, each with Resume.
   const whistleAll = () => {
     if (owner.sample) {
-      toast.info("This is the sample flock", { description: "Sign in with your wallet and the Whistle stops your automations, agents, leashes and Autopilot at once.", from: "LYKO" });
+      toast.info(msg("fold.thisIsTheSampleFlock"), { description: msg("fold.signInWithYourWalletAnd"), from: "LYKO" });
       return;
     }
     if (!owner.signedIn) {
@@ -249,10 +250,10 @@ export default function FoldPage() {
     setBusyId(item.id);
     try {
       const after = await wh.resume.mutateAsync(item);
-      toast.success("Running again", { description: item.label, from: "LYKO" });
+      toast.success(msg("fold.runningAgain"), { description: item.label, from: "LYKO" });
       if (!after.items.some((i) => i.state === "paused") && fence.mode === "whistle") runCommand("release");
     } catch (e) {
-      toast.error("Not resumed", { description: describeError(e), from: "LYKO" });
+      toast.error(msg("fold.notResumed"), { description: describeError(e), from: "LYKO" });
     } finally {
       setBusyId(null);
     }
@@ -268,7 +269,7 @@ export default function FoldPage() {
     if (!c) return;
     if (c.sign === "order-cancel") return cancelOrderRow(i);
     if (owner.sample) {
-      toast.info("This is the sample flock", { description: "Connect a wallet and sign in, and these controls act on your own.", from: "LYKO" });
+      toast.info(msg("fold.thisIsTheSampleFlock"), { description: msg("fold.connectAWalletAndSignIn"), from: "LYKO" });
       return;
     }
     if (needWallet()) return;
@@ -277,14 +278,14 @@ export default function FoldPage() {
       const options = c.query ? { query: c.query } : {};
       const r = c.method === "delete" ? await apiDelete<unknown>(c.path, options) : c.method === "get" ? await apiGet<unknown>(c.path, options) : await apiPost<{ transaction?: UnsignedTransaction | null }>(c.path, c.body ?? {}, options);
       for (const k of ["fold-instructions", "fold-summary", "fold-insights", "pack", "leashes", "autopilot", "fold-positions"]) void qc.invalidateQueries({ queryKey: [k] });
-      toast.success(c.action === "pause" ? "Paused" : c.action === "resume" ? "Running again" : c.action === "stop" ? (c.label === "Revoke" ? "Key stopped" : "Stopped") : "Cancelled", { description: i.name, from: "LYKO" });
+      toast.success(c.action === "pause" ? msg("fold.paused") : c.action === "resume" ? msg("fold.runningAgain") : c.action === "stop" ? (c.label === "Revoke" ? msg("fold.keyStopped") : msg("fold.stopped")) : msg("fold.cancelled"), { description: i.name, from: "LYKO" });
       const tx = (r as { transaction?: UnsignedTransaction | null } | null)?.transaction;
       if (c.sign === "revoke-session" && tx) {
         if (!wallet.connected) openModal();
         else await wallet.send([{ to: tx.to, data: tx.data, value: tx.value, chainId: tx.chainId }]);
       }
     } catch (e) {
-      toast.error("No change", { description: describeError(e), from: "LYKO" });
+      toast.error(msg("fold.noChange"), { description: describeError(e), from: "LYKO" });
     } finally {
       setBusyId(null);
     }
@@ -292,7 +293,7 @@ export default function FoldPage() {
   const cancelOrderRow = (i: FoldInstruction) => {
     if (!i.cancel) return;
     if (owner.sample) {
-      toast.info("This is the sample flock", { description: "Connect a wallet to cancel your own orders.", from: "LYKO" });
+      toast.info(msg("fold.thisIsTheSampleFlock"), { description: msg("fold.connectAWalletToCancelYour"), from: "LYKO" });
       return;
     }
     if (needWallet()) return;
@@ -304,9 +305,9 @@ export default function FoldPage() {
     try {
       await apiPost(`/v1/pack/${encodeURIComponent(a.id)}/revoke`, {});
       for (const k of ["pack", "leashes", "fold-instructions", "fold-summary"]) void qc.invalidateQueries({ queryKey: [k] });
-      toast.success(`${a.name} is off its leash for good`, { description: "Its budget returns to you.", from: "LYKO" });
+      toast.success(msg("fold.isOffItsLeashForGood", { name: a.name }), { description: msg("fold.itsBudgetReturnsToYou"), from: "LYKO" });
     } catch (e) {
-      toast.error("Not revoked", { description: describeError(e), from: "LYKO" });
+      toast.error(msg("fold.notRevoked"), { description: describeError(e), from: "LYKO" });
     } finally {
       setBusyId(null);
     }
@@ -317,9 +318,9 @@ export default function FoldPage() {
     try {
       await apiPost(`/v1/pack/${encodeURIComponent(a.id)}/${a.status === "paused" ? "resume" : "pause"}`, {});
       await qc.invalidateQueries({ queryKey: ["pack"] });
-      toast.success(a.status === "paused" ? `${a.name} is back at work` : `${a.name} lies down`, { from: "LYKO" });
+      toast.success(a.status === "paused" ? msg("fold.isBackAtWork", { name: a.name }) : msg("fold.liesDown", { name: a.name }), { from: "LYKO" });
     } catch (e) {
-      toast.error("No change", { description: describeError(e), from: "LYKO" });
+      toast.error(msg("fold.noChange"), { description: describeError(e), from: "LYKO" });
     } finally {
       setBusyId(null);
     }
@@ -332,18 +333,18 @@ export default function FoldPage() {
 
   return (
     <div className="fd">
-      <h1 className="sr-only">{"The Fold: everything you own and everything in motion"}</h1>
+      <h1 className="sr-only">{msg("fold.theFoldEverythingYouOwnAnd")}</h1>
       <div className="m-wrap m-wrap--wide fd__grid">
         <div className="fd__main">
           {owner.sample ? (
             <div className="fd-samplebar" role="note">
               <LykoFace mood="happy" scale={1} />
-              <span>{"A sample flock, so you can look around. Connect a wallet and Lyko watches yours."}</span>
+              <span>{msg("fold.aSampleFlockSoYouCan")}</span>
             </div>
           ) : null}
           {phone && effectiveTab === "lyko" ? null : <FoldBar total={total} unpriced={mapNet !== null ? positions.summary.unpriced > 0 : snapshot?.totalUsd === null} holdings={snapshot?.holdings ?? []} headroom={room} counts={counts} cards={preferences.layout.cards} sample={owner.sample} whistle={whistle} onAsk={focusLyko} onWhistle={whistleAll} loading={!snapshot && live.isLoading} />}
 
-          <nav className="fd-tabs" role="tablist" aria-label="The Fold">
+          <nav className="fd-tabs" role="tablist" aria-label={msg("fold.theFold")}>
             {tabs.map((t, i) => (
               <button key={t} type="button" role="tab" aria-selected={effectiveTab === t} className="fd-tab" onClick={() => go(t)}>
                 <span className="fd-tab__l">{FOLD_TAB_META[t].label}</span>
@@ -363,23 +364,20 @@ export default function FoldPage() {
           {meta ? (
             <div className="fd-tabhead">
               <div className="fd-tabhead__row">
-                <h2>
-                  {meta.label} <span>{`· ${meta.sub}`}</span>
-                </h2>
+                <h2 className="sr-only">{`${meta.label} · ${meta.sub}`}</h2>
                 <HowItWorks area={effectiveTab as HelpArea} />
               </div>
-              <p>{meta.line}</p>
             </div>
           ) : null}
 
-          <div className="fd-panel" role="tabpanel" aria-label={meta ? `${meta.label} · ${meta.sub}` : "Lyko on watch"}>
-            {effectiveTab === "flock" ? <FlockTab snapshot={snapshot} map={positions} minHealth={minHealth} signedIn={owner.signedIn} onSignIn={() => void siwe.signIn()} onAction={onPosition} onAskAbout={onAskAbout} onAsk={(t) => openInAsk(t, "A Stress test question from the Fold.")} busy={draft.isPending} openWhatIf={whatifOpen} /> : null}
+          <div className="fd-panel" role="tabpanel" aria-label={meta ? `${meta.label} · ${meta.sub}` : msg("fold.lykoOnWatch")}>
+            {effectiveTab === "flock" ? <FlockTab snapshot={snapshot} map={positions} minHealth={minHealth} signedIn={owner.signedIn} onSignIn={() => void siwe.signIn()} onAction={onPosition} onAskAbout={onAskAbout} onAsk={(t) => openInAsk(t, msg("fold.aStressTestQuestionFromThe"))} busy={draft.isPending} openWhatIf={whatifOpen} /> : null}
             {effectiveTab === "trails" ? <TrailsTab now={mountedAt} items={trailItems} totals={trailTotals} onAskWhy={(question, context) => { carry(context); void useAsk.getState().send(question, { environment: owner.environment, ...(owner.address ? { owner: owner.address as `0x${string}` } : {}), origin: "fold" }); if (phone) setWatchSheet(true); }} explain={explain.data} explainLoading={explain.isLoading} sample={owner.sample} signedIn={owner.signedIn} onSignIn={() => void siwe.signIn()} /> : null}
-            {newcomer && (effectiveTab === "herding" || effectiveTab === "pack" || effectiveTab === "fence") ? <NewcomerCard tab={effectiveTab} onAsk={(text) => openInAsk(text, `Started from the Fold's ${effectiveTab} tab.`)} /> : null}
-            {effectiveTab === "herding" && !newcomer ? <HerdingTab instructions={instructionList} waiting={waiting} sample={owner.sample} signedIn={owner.signedIn} initialFilter={show} onSignIn={() => void siwe.signIn()} onOpen={setOpenDraft} onStop={(p) => void stopP(p)} onControl={(i) => void runControl(i)} onChange={(i) => openInAsk(i.editSentence, `Running item ${i.id}: ${i.name} (${i.trigger}; ${i.status}; next ${i.nextRunLabel}).`)} onAsk={() => openInAsk("", "Something new from Herding.")} busyId={busyId} /> : null}
+            {newcomer && (effectiveTab === "herding" || effectiveTab === "pack" || effectiveTab === "fence") ? <NewcomerCard tab={effectiveTab} onAsk={(text) => openInAsk(text, msg("fold.startedFromTheFoldSTab", { effectiveTab }))} /> : null}
+            {effectiveTab === "herding" && !newcomer ? <HerdingTab instructions={instructionList} waiting={waiting} sample={owner.sample} signedIn={owner.signedIn} initialFilter={show} onSignIn={() => void siwe.signIn()} onOpen={setOpenDraft} onStop={(p) => void stopP(p)} onControl={(i) => void runControl(i)} onChange={(i) => openInAsk(i.editSentence, msg("fold.runningItemNext", { id: i.id, name: i.name, trigger: i.trigger, status: i.status, nextRunLabel: i.nextRunLabel }))} onAsk={() => openInAsk("", msg("fold.somethingNewFromHerding"))} busyId={busyId} /> : null}
             {effectiveTab === "pack" && !newcomer ? <AutopilotSection owner={owner} onAsk={openInAsk} /> : null}
             {effectiveTab === "pack" && !newcomer ? <LeashSection owner={owner} agents={pack.data?.agents} busyId={busyId} onPauseAgent={(a) => void whistleAgent(a)} onRevokeAgent={(a) => void revokeAgent(a)} onAsk={openInAsk} /> : null}
-            {effectiveTab === "fence" ? <FenceTab newcomer={newcomer} fence={fence} owner={owner} view={fenceView.data} headroom={room} beta={betaCap} verdicts={trailItems ?? []} onSuggest={onFenceSuggest} onAsk={() => openInAsk("Change my Fence: ", "A Fence edit from the Fold.")} onWhistle={whistleAll} busy={draft.isPending} /> : null}
+            {effectiveTab === "fence" ? <FenceTab newcomer={newcomer} fence={fence} owner={owner} view={fenceView.data} headroom={room} beta={betaCap} verdicts={trailItems ?? []} onSuggest={onFenceSuggest} onAsk={() => openInAsk(msg("fold.changeMyFence"), msg("fold.aFenceEditFromTheFold"))} onWhistle={whistleAll} busy={draft.isPending} /> : null}
             {effectiveTab === "lyko" ? panel("tab") : null}
           </div>
         </div>
@@ -390,14 +388,14 @@ export default function FoldPage() {
         <div className="fd-askbar">
           <button type="button" className="fd-askbar__btn" onClick={() => setWatchSheet(true)} aria-haspopup="dialog">
             <LykoFace mood={badge > 0 ? "alert" : "happy"} scale={1.4} />
-            <span className="fd-askbar__t"><b>{"Lyko on watch"}</b><small>{badge > 0 ? `noticed ${badge} thing${badge === 1 ? "" : "s"} · tap to act` : "ask about anything here"}</small></span>
+            <span className="fd-askbar__t"><b>{msg("fold.lykoOnWatch")}</b><small>{badge > 0 ? msg("fold.noticedThings", { n: badge }) : msg("fold.askAboutAnythingHere")}</small></span>
             {badge > 0 ? <span className="fd-badge">{badge}</span> : null}
           </button>
         </div>
       ) : null}
 
       {phone ? (
-        <Sheet open={watchSheet && effectiveTab !== "lyko"} onClose={() => setWatchSheet(false)} title="Lyko on watch" className="fd-watchsheet">
+        <Sheet open={watchSheet && effectiveTab !== "lyko"} onClose={() => setWatchSheet(false)} title={msg("fold.lykoOnWatch")} className="fd-watchsheet">
           {panel("tab")}
         </Sheet>
       ) : null}
@@ -406,8 +404,8 @@ export default function FoldPage() {
       {cancelling ? <CancelOrderModal key={cancelling.hash} order={cancelling} open onClose={() => setCancelling(null)} /> : null}
       {owner.address && !owner.signedIn && !owner.sample ? (
         <div className="fd-signin m-wrap m-wrap--wide">
-          <span className="m-small">{"Reading this address in public. Sign in as its owner to see instructions, trails and drafts, and to act."}</span>
-          <Button size="sm" onClick={() => void siwe.signIn()} disabled={siwe.busy || !owner.own}>{owner.own ? "SIGN IN" : "NOT YOUR WALLET"}</Button>
+          <span className="m-small">{msg("fold.readingThisAddressInPublicSign")}</span>
+          <Button size="sm" onClick={() => void siwe.signIn()} disabled={siwe.busy || !owner.own}>{owner.own ? msg("fold.signIn") : msg("fold.notYourWallet")}</Button>
         </div>
       ) : null}
     </div>

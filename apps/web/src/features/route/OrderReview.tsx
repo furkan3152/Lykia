@@ -17,6 +17,7 @@ import { ReviewDialog } from "./ReviewModal";
 import { cancelReviewView, orderReviewView, signableOrder, type OrderDraft, type OrderStepState } from "./orderReview";
 import { classifyTxError, type TxFailure } from "./txErrors";
 import type { ReviewPhase } from "./useReviewFlow";
+import { t } from "../../i18n";
 
 type OrderBlock = Extract<AnswerBlock, { kind: "order" }>;
 
@@ -37,7 +38,7 @@ export function OrderReviewModal({ block, open, onClose, onArmed }: { readonly b
     queryFn: () => apiPost<OrderDraft>("/v1/orders/draft", { owner: wallet.address, environment: block.environment, ...block.input }, { timeoutMs: 20_000 }),
   });
   const draft = drafted.data ?? null;
-  const draftFailure: TxFailure | null = drafted.isError ? { kind: "fence", title: "The order could not be prepared", detail: describeError(drafted.error), retry: "none", retryLabel: null, sent: false, raw: String(drafted.error) } : null;
+  const draftFailure: TxFailure | null = drafted.isError ? { kind: "fence", title: t("route.orderReview.theOrderCouldNotBePrepared"), detail: describeError(drafted.error), retry: "none", retryLabel: null, sent: false, raw: String(drafted.error) } : null;
   const shownPhase: ReviewPhase = drafted.isFetching && !draft ? "quoting" : draftFailure ? "failed" : phase;
 
   const view = useMemo(() => orderReviewView(block, draft, states), [block, draft, states]);
@@ -57,7 +58,7 @@ export function OrderReviewModal({ block, open, onClose, onArmed }: { readonly b
       await apiPost("/v1/orders", { environment: block.environment, kind: block.input.kind, summary: draft.summary, order: draft.order, signature });
       setStates({ approval: "settled", sign: "settled" });
       setPhase("settled");
-      toast.success("Order armed", { description: draft.summary, from: "LYKO" });
+      toast.success(t("route.orderReview.orderArmed"), { description: draft.summary, from: "LYKO" });
       await qc.invalidateQueries({ queryKey: ["fold-instructions"] });
       onArmed?.();
     } catch (e) {
@@ -111,7 +112,7 @@ export function CancelOrderModal({ order, open, onClose }: { readonly order: { r
       setLastTx(hash ?? null);
       setState("settled");
       setPhase("settled");
-      toast.success("Order cancelled", { description: order.name, from: "LYKO" });
+      toast.success(t("route.orderReview.orderCancelled"), { description: order.name, from: "LYKO" });
       await qc.invalidateQueries({ queryKey: ["fold-instructions"] });
     } catch (e) {
       setFailure(classifyTxError(e, "sign"));

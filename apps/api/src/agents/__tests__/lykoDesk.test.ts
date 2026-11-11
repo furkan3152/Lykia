@@ -107,7 +107,7 @@ describe("Ask Lyko: right, acting, never nonsense", () => {
   it("what Lyko on watch says about the sample flock never enters a thread Ask reads", async () => {
     setLlmClient(ctx, null);
     const fold = await chat({ message: "What is my Fold worth?", origin: "fold" });
-    assert.match(fold.reply, /^\*\*Sample flock, not your wallet\.\*\*/u);
+    assert.doesNotMatch(fold.reply, /^\*\*Sample flock/u, "the app shows the sample notice; the answer does not repeat it");
     assert.ok(JSON.stringify(blocksOf(fold)).includes('"source":"sample"'), "the Fold shows its fixture");
     const seen: LlmRequest[] = [];
     setLlmClient(ctx, { model: "test-model", turn: async (request) => (seen.push(request), reply([say("Nothing to add.")], "end_turn")) });
@@ -119,20 +119,20 @@ describe("Ask Lyko: right, acting, never nonsense", () => {
 
   /* ------------------------------------------------ 2. whose wallet */
 
-  it("with no wallet, an answer about money says so in its first line and on a card, and never says your wallet", async () => {
+  it("with no wallet, an answer about money carries the sample card, never a lead sentence, and never says your wallet", async () => {
     setLlmClient(ctx, null);
     const a = await chat({ message: "What is my balance?" });
-    assert.match(a.reply, /^\*\*Sample address, not your wallet\.\*\*/u);
+    assert.doesNotMatch(a.reply, /^\*\*Sample address/u);
     const card = blocksOf(a).find((b) => b.kind === "sample");
     assert.ok(card && card.kind === "sample" && /Connect/u.test(card.cta) && isSampleOwner(card.address));
-    assert.doesNotMatch(a.reply.replace(/^\*\*[^*]+\*\*/u, ""), /\byour wallet\b|\bYou hold\b|\byour money\b/iu);
+    assert.doesNotMatch(a.reply, /\byour wallet\b|\bYou hold\b|\byour money\b/iu);
     // A model that says "your wallet" anyway is corrected in code.
     setLlmClient(ctx, scripted([reply([say("187.28 USDC sits in your wallet and your floor is 500.\n\n**Next:** tell me what to do with your money.")], "end_turn")]));
     const m = await chat({ message: "Tell me a story about my 187.28 USDC and my 500 floor" });
     setLlmClient(ctx, null);
-    assert.match(m.reply, /^\*\*Sample address, not your wallet\.\*\*/u);
+    assert.doesNotMatch(m.reply, /^\*\*Sample address/u);
     // Claims of ownership go; "your floor" (the rules) and "tell me what to do with your money" (a request) stay.
-    assert.doesNotMatch(m.reply.replace(/^\*\*[^*]+\*\*/u, ""), /\bin your wallet\b|\byour wallet (?:holds|has)\b|\byour money is\b|\bYou hold\b/u, m.reply);
+    assert.doesNotMatch(m.reply, /\bin your wallet\b|\byour wallet (?:holds|has)\b|\byour money is\b|\bYou hold\b/u, m.reply);
     assert.match(m.reply, /the sample wallet/u);
   });
 

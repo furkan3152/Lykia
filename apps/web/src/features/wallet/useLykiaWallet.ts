@@ -11,6 +11,7 @@ import { useUiStore } from "../../app/state/uiStore";
 import { chainFor } from "../../app/wallet/chains";
 import { sendSequentially } from "./sequence";
 import { useWallet } from "./store";
+import { t as msg } from "../../i18n";
 
 export interface WalletTx {
   /** Absent: a contract creation from the wallet (browser wallets only). */
@@ -61,8 +62,8 @@ export function useLykiaWallet(): LykiaWallet {
 
   if (passkey) {
     const sendPasskey = (txs: readonly WalletTx[]) => {
-      if (txs.some((t) => t.chainId !== chainFor(passkey.environment).id)) throw new Error(`This passkey wallet is on Arc ${passkey.environment}; switch the network toggle to match the plan.`);
-      if (txs.some((t) => !t.to)) throw new Error("A passkey account cannot create a contract from its own address; use a browser wallet for this step.");
+      if (txs.some((t) => t.chainId !== chainFor(passkey.environment).id)) throw new Error(msg("wallet.useLykiaWallet.thisPasskeyWalletIsOnArc", { environment: passkey.environment }));
+      if (txs.some((t) => !t.to)) throw new Error(msg("wallet.useLykiaWallet.aPasskeyAccountCannotCreateA"));
       return passkey.sendCalls(txs.map((t) => ({ to: t.to!, data: t.data, value: BigInt(t.value) })));
     };
     return {
@@ -71,7 +72,7 @@ export function useLykiaWallet(): LykiaWallet {
       chainId: chainFor(passkey.environment).id,
       connected: true,
       wrongChain: false,
-      label: passkey.username ? `Passkey · ${passkey.username}` : "Passkey wallet",
+      label: passkey.username ? `Passkey · ${passkey.username}` : msg("wallet.useLykiaWallet.passkeyWallet"),
       async send(txs) {
         return [(await sendPasskey(txs)).transactionHash];
       },
@@ -82,7 +83,7 @@ export function useLykiaWallet(): LykiaWallet {
       signTypedData: (td) => passkey.signTypedData(td),
       switchToArc: async () => undefined,
       ensureChain: async (target) => {
-        if (target !== chainFor(passkey.environment).id) throw new Error(`This passkey wallet is on Arc ${passkey.environment}; switch the network toggle to match the plan.`);
+        if (target !== chainFor(passkey.environment).id) throw new Error(msg("wallet.useLykiaWallet.thisPasskeyWalletIsOnArc", { environment: passkey.environment }));
       },
       disconnect: disconnectPasskey,
     };

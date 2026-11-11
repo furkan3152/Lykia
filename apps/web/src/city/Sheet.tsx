@@ -4,6 +4,7 @@
  * Escape, the scrim and the grab handle close it; focus moves into it.
  */
 import { useEffect, useRef } from "react";
+import { t } from "../i18n";
 
 export function Sheet({ open, onClose, title, children, className }: { readonly open: boolean; readonly onClose: () => void; readonly title: string; readonly children: React.ReactNode; readonly className?: string }) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -23,10 +24,10 @@ export function Sheet({ open, onClose, title, children, className }: { readonly 
   return (
     <div className="ct-scrim" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div ref={ref} className={`ct-sheet m-frame${className ? ` ${className}` : ""}`} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}>
-        <button type="button" className="ct-sheet__grab" aria-label="Close" onClick={onClose} />
+        <button type="button" className="ct-sheet__grab" aria-label={t("city.sheet.close")} onClick={onClose} />
         <header className="ct-sheet__head">
           <h2>{title}</h2>
-          <button type="button" className="ct-sheet__x" aria-label="Close" onClick={onClose}>{"×"}</button>
+          <button type="button" className="ct-sheet__x" aria-label={t("city.sheet.close")} onClick={onClose}>{"×"}</button>
         </header>
         <div className="ct-sheet__body">{children}</div>
       </div>

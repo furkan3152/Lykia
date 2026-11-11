@@ -29,6 +29,12 @@ export interface LykiaOptions {
   readonly headers?: Readonly<Record<string, string>>;
   /** Pin the API version (`Lykia-Version`, e.g. "2026-11-01"); defaults to the key's pinned version. */
   readonly apiVersion?: string;
+  /**
+   * The language owner-facing sentences come back in (`Accept-Language`): answers, questions and options, preflight
+   * findings, Fence reasons, step summaries and error messages. One of en, tr, es, pt-BR, zh-CN, fr; English by default.
+   * Error codes stay English constants.
+   */
+  readonly locale?: "en" | "tr" | "es" | "pt-BR" | "zh-CN" | "fr";
 }
 
 export interface RequestOptions {
@@ -94,7 +100,7 @@ export class LykiaTransport {
     this.fetchImpl = options.fetch ?? ((input, init) => fetch(input, init));
     this.retries = options.retries ?? 2;
     this.timeoutMs = options.timeoutMs ?? 30_000;
-    this.baseHeaders = { ...(options.apiVersion ? { "Lykia-Version": options.apiVersion } : {}), ...(options.headers ?? {}) };
+    this.baseHeaders = { ...(options.apiVersion ? { "Lykia-Version": options.apiVersion } : {}), ...(options.locale ? { "Accept-Language": options.locale } : {}), ...(options.headers ?? {}) };
   }
 
   /** Use a session token from now on (after sign-in). */

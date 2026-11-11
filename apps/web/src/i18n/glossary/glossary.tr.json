@@ -1,0 +1,211 @@
+{
+  "language": "tr",
+  "register": "sen (informal), the way Turkish fintech apps address the user",
+  "keep": [
+    "Lykia",
+    "Lyko",
+    "Ask Lyko",
+    "The Fold",
+    "The Forge",
+    "the Fence",
+    "Leash",
+    "Whistle",
+    "Stile",
+    "Autopilot",
+    "Herding",
+    "Flock",
+    "Trails",
+    "Pack",
+    "the League",
+    "Harbour",
+    "Ledger",
+    "Letoon",
+    "Scent",
+    "Tag",
+    "Outrun",
+    "Lykaion",
+    "USDC",
+    "EURC",
+    "cirBTC",
+    "USYC",
+    "Morpho",
+    "Aave V4",
+    "CCTP",
+    "Gateway",
+    "Arc",
+    "Base",
+    "Circle"
+  ],
+  "strict": [
+    "liquidation",
+    "health factor",
+    "slippage",
+    "Lyko on watch",
+    "stress test",
+    "your spending rules",
+    "your holdings",
+    "your history",
+    "Review and sign",
+    "How this works",
+    "net worth",
+    "daily limit"
+  ],
+  "terms": {
+    "wallet": {
+      "use": "cüzdan",
+      "stem": "cüzdan"
+    },
+    "sign": {
+      "use": "imzala",
+      "stem": "imza"
+    },
+    "plan": {
+      "use": "plan",
+      "stem": "plan"
+    },
+    "liquidation": {
+      "use": "likidasyon",
+      "stem": "likidasyon"
+    },
+    "health factor": {
+      "use": "sağlık faktörü",
+      "stem": "sağlık faktör"
+    },
+    "slippage": {
+      "use": "kayma",
+      "stem": "kayma"
+    },
+    "gas": {
+      "use": "gas",
+      "stem": "gas"
+    },
+    "network fee": {
+      "use": "ağ ücreti",
+      "stem": "ağ ücret"
+    },
+    "fee": {
+      "use": "ücret",
+      "stem": "ücret"
+    },
+    "vault": {
+      "use": "vault",
+      "stem": "vault"
+    },
+    "yield": {
+      "use": "getiri",
+      "stem": "getiri"
+    },
+    "collateral": {
+      "use": "teminat",
+      "stem": "teminat"
+    },
+    "borrow": {
+      "use": "borç al",
+      "stem": "borç"
+    },
+    "repay": {
+      "use": "geri öde",
+      "stem": "geri öde"
+    },
+    "withdraw": {
+      "use": "çek",
+      "stem": "çek"
+    },
+    "deposit": {
+      "use": "yatır",
+      "stem": "yatır"
+    },
+    "bridge": {
+      "use": "köprüle",
+      "stem": "köprü"
+    },
+    "convert": {
+      "use": "dönüştür",
+      "stem": "dönüştür"
+    },
+    "send": {
+      "use": "gönder",
+      "stem": "gönder"
+    },
+    "idle": {
+      "use": "atıl",
+      "stem": "atıl"
+    },
+    "net worth": {
+      "use": "net varlık",
+      "stem": "net varlık"
+    },
+    "daily limit": {
+      "use": "günlük limit",
+      "stem": "günlük limit"
+    },
+    "beta limit": {
+      "use": "beta limiti",
+      "stem": "beta limit"
+    },
+    "route": {
+      "use": "rota",
+      "stem": "rota"
+    },
+    "position": {
+      "use": "pozisyon",
+      "stem": "pozisyon"
+    },
+    "agent": {
+      "use": "ajan",
+      "stem": "ajan"
+    },
+    "watch": {
+      "use": "takip",
+      "stem": "takip"
+    },
+    "payee": {
+      "use": "alıcı",
+      "stem": "alıcı"
+    },
+    "invoice": {
+      "use": "fatura",
+      "stem": "fatura"
+    },
+    "Lyko on watch": {
+      "use": "Nöbetteki Lyko",
+      "stem": "Nöbetteki Lyko"
+    },
+    "stress test": {
+      "use": "stres testi",
+      "stem": "stres test"
+    },
+    "dry run": {
+      "use": "deneme",
+      "stem": "deneme"
+    },
+    "sample": {
+      "use": "örnek",
+      "stem": "örnek"
+    },
+    "How this works": {
+      "use": "Nasıl çalışır",
+      "stem": "Nasıl çalışır"
+    },
+    "Review and sign": {
+      "use": "İncele ve imzala",
+      "stem": "incele ve imzala"
+    },
+    "allowance": {
+      "use": "harcama izni",
+      "stem": "harcama izn"
+    },
+    "your spending rules": {
+      "use": "harcama kuralların",
+      "stem": "harcama kural"
+    },
+    "your holdings": {
+      "use": "varlıkların",
+      "stem": "varlık"
+    },
+    "your history": {
+      "use": "geçmişin",
+      "stem": "geçmiş"
+    }
+  }
+}

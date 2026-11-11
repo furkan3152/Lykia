@@ -11,6 +11,8 @@ import { AREAS, areaOf, navTileText } from "./nav";
 import { NavTileBody } from "./NavTile";
 import { useFoldBadge } from "../features/fold/badge";
 import { YouMenu } from "./YouMenu";
+import { LanguagePicker } from "./LanguagePicker";
+import { t } from "../i18n";
 
 const WalletButton = React.lazy(() => import("./WalletButton"));
 
@@ -26,11 +28,11 @@ export function Header({ kind, routeId }: { readonly kind: RouteKind; readonly r
   return (
     <header className="m-header">
       <div className="m-wrap--wide m-wrap m-header__in">
-        <Link to="/" className="m-logo" aria-label="Lykia home">
+        <Link to="/" className="m-logo" aria-label={t("shell.header.lykiaHome")}>
           <Medallion size={38} />
           LYKIA
         </Link>
-        <nav className="m-nav" aria-label="Main">
+        <nav className="m-nav" aria-label={t("shell.header.main")}>
           {AREAS.map((area) => {
             const text = navTileText(area, area.id === "fold" ? badge : 0);
             return (
@@ -41,16 +43,17 @@ export function Header({ kind, routeId }: { readonly kind: RouteKind; readonly r
           })}
         </nav>
         <div className="m-header__act">
-          {/* One compact cluster: search, the network (when it matters) and the menu. */}
+          {/* One compact cluster: search, the network (when it matters), the language and the menu. */}
           <div className="m-cluster">
-            <button type="button" className="m-askbtn m-askbtn--icon" onClick={() => openPalette()} aria-label="Search pages, run a command or ask (Ctrl K)" title="Search · ⌘K">
+            <button type="button" className="m-askbtn m-askbtn--icon" onClick={() => openPalette()} aria-label={t("shell.header.searchPagesRunACommandOr")} title={t("shell.header.searchK")}>
               <Mark name="search" size={14} />
             </button>
             {showNetwork ? (
               <span className="m-netwrap">
-                <Toggle label="Network" value={mode} onChange={(m) => setMode(m)} options={[{ value: "mainnet", label: "MAINNET" }, { value: "testnet", label: "TESTNET" }]} />
+                <Toggle label={t("shell.header.network")} value={mode} onChange={(m) => setMode(m)} options={[{ value: "mainnet", label: "MAINNET" }, { value: "testnet", label: "TESTNET" }]} />
               </span>
             ) : null}
+            <LanguagePicker />
             <YouMenu />
           </div>
           {kind === "app" ? (
@@ -59,7 +62,7 @@ export function Header({ kind, routeId }: { readonly kind: RouteKind; readonly r
             </React.Suspense>
           ) : (
             <Link to="/app" className="m-btn m-btn--sm">
-              {"OPEN"}
+              {t("shell.header.open")}
             </Link>
           )}
         </div>

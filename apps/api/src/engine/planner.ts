@@ -66,6 +66,8 @@ import { morphoPositions } from "./venues/morphoBlue.js";
 import { practiceVenues } from "./venues/practice.js";
 import { YieldService } from "./venues/yields.js";
 
+import { tx } from "@lykia/core";
+import { formatList } from "../i18n/format.js";
 const DEFAULT_SLIPPAGE_BPS = 50;
 const DEFAULT_MIN_HEALTH = "1.5";
 /** The core tokens every plan reads first; `planTokens` adds every other registry token of the environment. */
@@ -205,12 +207,12 @@ class Book {
     const available = this.spendable(symbol);
     const kept = this.l.reserved.get(symbol) ?? 0n;
     if (units > 0n && units > available && this.l.dryRun) {
-      this.l.warnings.push(`Dry run: ${label} needs ${fromBaseUnits(units, decimals)} ${symbol}; ${fromBaseUnits(available, decimals)} is spendable${kept > 0n ? ` after keeping ${fromBaseUnits(kept, decimals)} liquid` : ""}. Fund the wallet before signing.`);
+      this.l.warnings.push(tx("Dry run: {label} needs {value} {symbol}; {value2} is spendable{value3}. Fund the wallet before signing.", { label, value: fromBaseUnits(units, decimals), symbol, value2: fromBaseUnits(available, decimals), value3: kept > 0n ? tx(" after keeping {value} liquid", { value: fromBaseUnits(kept, decimals) }) : "" }));
       this.l.balances.set(symbol, kept);
       return;
     }
-    if (units <= 0n) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `Nothing to ${label}: the spendable ${symbol} balance is 0${kept > 0n ? ` (${fromBaseUnits(kept, decimals)} kept liquid)` : ""}.`);
-    if (units > available) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `${label} needs ${fromBaseUnits(units, decimals)} ${symbol}; ${this.l.account.slice(0, 6)}…${this.l.account.slice(-4)} has ${fromBaseUnits(available, decimals)} spendable${kept > 0n ? ` (${fromBaseUnits(kept, decimals)} kept liquid)` : ""}.`);
+    if (units <= 0n) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, tx("Nothing to {label}: the spendable {symbol} balance is 0{value}.", { label, symbol, value: kept > 0n ? tx(" ({value} kept liquid)", { value: fromBaseUnits(kept, decimals) }) : "" }));
+    if (units > available) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, tx("{label} needs {value} {symbol}; {value2}…{value3} has {value4} spendable{value5}.", { label, value: fromBaseUnits(units, decimals), symbol, value2: this.l.account.slice(0, 6), value3: this.l.account.slice(-4), value4: fromBaseUnits(available, decimals), value5: kept > 0n ? tx(" ({value} kept liquid)", { value: fromBaseUnits(kept, decimals) }) : "" }));
     this.l.balances.set(symbol, (this.l.balances.get(symbol) ?? 0n) - units);
   }
 
@@ -222,8 +224,8 @@ class Book {
   /** What the previous step produced, in `symbol`; refuses when it produced something else. */
   previous(symbol: string): bigint {
     const last = this.l.last;
-    if (!last) throw new LykiaHttpError("INVALID_ACTIONS", 400, `"It" refers to the previous step's output, but no step before produced ${symbol}.`);
-    if (last.symbol !== symbol) throw new LykiaHttpError("INVALID_ACTIONS", 400, `The previous step produced ${last.symbol}, not ${symbol}.`);
+    if (!last) throw new LykiaHttpError("INVALID_ACTIONS", 400, tx("\"It\" refers to the previous step's output, but no step before produced {symbol}.", { symbol }));
+    if (last.symbol !== symbol) throw new LykiaHttpError("INVALID_ACTIONS", 400, tx("The previous step produced {symbol}, not {symbol2}.", { symbol: last.symbol, symbol2: symbol }));
     return last.units;
   }
 
@@ -304,7 +306,7 @@ export class Planner {
       const token = getToken(action.token)!;
       const units = "exact" in action.amount ? toBaseUnitsBig(action.amount.exact, token.decimals) : "percent" in action.amount ? portionOf(start.get(token.symbol) ?? 0n, action.amount.percent * 100) : start.get(token.symbol) ?? 0n;
       ledger.reserved.set(token.symbol, (ledger.reserved.get(token.symbol) ?? 0n) + units);
-      ledger.warnings.push(`Keeping ${book.display(token.symbol, units)} liquid${action.reason ? ` (${action.reason})` : ""}; shares and "the rest" are taken from what is left.`);
+      ledger.warnings.push(tx("Keeping {value} liquid{value2}; shares and \"the rest\" are taken from what is left.", { value: book.display(token.symbol, units), value2: action.reason ? ` (${action.reason})` : "" }));
     }
 
     const actions: PlanAction[] = [];
@@ -313,7 +315,7 @@ export class Planner {
       if (action.verb === "rebalance") actions.push(...this.expandRebalance(action, book));
       else actions.push(action);
     }
-    if (actions.length === 0) throw new LykiaHttpError("NO_ROUTE", 422, "Nothing to do: the flock is already where you want it.");
+    if (actions.length === 0) throw new LykiaHttpError("NO_ROUTE", 422, tx("Nothing to do: the flock is already where you want it."));
 
     const drafts: Draft[] = [];
     const origin: { action: PlanAction; first: boolean; drafts: number }[] = [];
@@ -395,10 +397,10 @@ export class Planner {
   async replanStep(input: Omit<PlanInput, "actions" | "source" | "dryRun">, action: PlanAction, units: bigint): Promise<{ readonly step: IntentStep; readonly plan: StepPlan; readonly fact: FenceFacts["steps"][number]; readonly warnings: readonly string[] }> {
     const symbol = amountSymbol(action);
     const token = symbol ? getToken(symbol) : undefined;
-    if (!token) throw new LykiaHttpError("NO_ROUTE", 422, "This step cannot be rebuilt: its amount has no token.");
+    if (!token) throw new LykiaHttpError("NO_ROUTE", 422, tx("This step cannot be rebuilt: its amount has no token."));
     // The action keeps its own amount ("it"); what "it" is now comes from the receipt, so fees and amounts mean what they meant.
     const result = await this.plan({ ...input, actions: [action], source: "replan", carry: { symbol: token.symbol, units } });
-    if (result.graph.steps.length !== 1) throw new LykiaHttpError("NO_ROUTE", 422, "This step became more than one step when rebuilt; plan it again.");
+    if (result.graph.steps.length !== 1) throw new LykiaHttpError("NO_ROUTE", 422, tx("This step became more than one step when rebuilt; plan it again."));
     return { step: result.graph.steps[0]!, plan: result.plans.s1!, fact: result.facts.steps[0]!, warnings: result.graph.warnings };
   }
 
@@ -414,10 +416,10 @@ export class Planner {
       return { symbol: token.symbol, units: book.spendable(token.symbol), decimals: token.decimals, usd: book.l.prices[token.symbol]?.usd ?? null };
     });
     const plan = planAllocation(holdings, action.targets.map((t) => ({ token: getToken(t.token)!.symbol, weightBps: t.weightBps })), action.toleranceBps ?? 100);
-    if (plan.unpriced.length > 0) throw new LykiaHttpError("UNPRICED", 422, `Cannot rebalance without a price for ${plan.unpriced.join(", ")}.`);
+    if (plan.unpriced.length > 0) throw new LykiaHttpError("UNPRICED", 422, tx("Cannot rebalance without a price for {value}.", { value: plan.unpriced.join(", ") }));
     const now = plan.current.map((c) => `${c.symbol} ${(c.weightBps / 100).toFixed(1)}%`).join(", ");
     const want = action.targets.map((t) => `${getToken(t.token)!.symbol} ${(t.weightBps / 100).toFixed(1)}%`).join(", ");
-    book.l.warnings.push(plan.balanced ? `Already balanced (${now}); target ${want}.` : `Rebalance: now ${now}; target ${want}.`);
+    book.l.warnings.push(plan.balanced ? tx("Already balanced ({now}); target {want}.", { now, want }) : tx("Rebalance: now {now}; target {want}.", { now, want }));
     return allocationActions(plan, (s) => getToken(s)!.decimals);
   }
 
@@ -439,7 +441,7 @@ export class Planner {
         return [{
           adapter: "transfer",
           fx: false,
-          summary: `Send ${display} to ${action.to}${action.memo ? ` (${action.memo})` : ""}`,
+          summary: tx("Send {display} to {to}{value}", { display, to: action.to, value: action.memo ? ` (${action.memo})` : "" }),
           params: { token: amount.token, amount: units.toString(), to: action.to, display, decimals: String(token.decimals), ...(action.memo ? { note: action.memo } : {}), ...feeParams(fee) },
           inputs: [gross],
           outputs: [],
@@ -451,10 +453,10 @@ export class Planner {
       }
       case "bridge": {
         const dest = findCctpDestination(action.destination);
-        if (!dest) throw noRoute(`${action.destination} is not a CCTP destination.`);
-        if (dest.vm !== "evm") throw noRoute(`${dest.name} needs a token account as the mint recipient; Lykia bridges to EVM chains for now.`);
+        if (!dest) throw noRoute(tx("{destination} is not a CCTP destination.", { destination: action.destination }));
+        if (dest.vm !== "evm") throw noRoute(tx("{name} needs a token account as the mint recipient; Lykia bridges to EVM chains for now.", { name: dest.name }));
         const recipient = (action.recipient as Address | undefined) ?? book.l.owner;
-        if (!/^0x[0-9a-fA-F]{40}$/u.test(recipient)) throw new LykiaHttpError("INVALID_ACTIONS", 400, "recipient must be an EVM address.");
+        if (!/^0x[0-9a-fA-F]{40}$/u.test(recipient)) throw new LykiaHttpError("INVALID_ACTIONS", 400, tx("recipient must be an EVM address."));
         const gross = book.resolve(action.amount, "USDC", 6);
         book.spend("USDC", gross, "bridge");
         const fee = book.fee("USDC", gross, "input", "bridge");
@@ -463,8 +465,8 @@ export class Planner {
         // Circle's Forwarding Service mints on the destination (no gas needed there); maxFee then covers its fee.
         const forwarded = dest.forwarding ? await forwardedRouteFee(this.deps.fetch, env, dest.domain, units) : null;
         const feeBps = forwarded ? null : await cctpFeeBps(this.deps.fetch, env, dest.domain);
-        if (!forwarded) warnings.push(`Circle's forwarding fee could not be read, so the mint on ${dest.name} is not forwarded: after attestation, call receiveMessage on ${dest.name} (GET /v1/intents/:id/steps/:sid/attestation).`);
-        if (!forwarded && feeBps === null) warnings.push("The CCTP fee could not be read; the burn allows no fee (standard transfer).");
+        if (!forwarded) warnings.push(tx("Circle's forwarding fee could not be read, so the mint on {name} is not forwarded: after attestation, call receiveMessage on {name} (GET /v1/intents/:id/steps/:sid/attestation).", { name: dest.name }));
+        if (!forwarded && feeBps === null) warnings.push(tx("The CCTP fee could not be read; the burn allows no fee (standard transfer)."));
         const maxFee = forwarded ? forwarded.maxFee : feeBps ? (units * BigInt(Math.ceil(feeBps * 100)) + 999_999n) / 1_000_000n : 0n;
         const amount = book.amount("USDC", units);
         const display = book.display("USDC", units);
@@ -477,44 +479,44 @@ export class Planner {
           solverQuotes && named !== "across" ? quoteRelay(this.deps.fetch, env, quoteInput) : Promise.resolve(null),
           solverQuotes && named !== "relay" ? quoteAcross(this.deps.fetch, env, quoteInput) : Promise.resolve(null),
         ]);
-        if (named === "relay" && !relay) throw noRoute(`Relay did not quote ${display} to ${dest.name}.`);
-        if (named === "across" && !across) throw noRoute(`Across did not quote ${display} to ${dest.name}.`);
+        if (named === "relay" && !relay) throw noRoute(tx("Relay did not quote {display} to {name}.", { display, name: dest.name }));
+        if (named === "across" && !across) throw noRoute(tx("Across did not quote {display} to {name}.", { display, name: dest.name }));
         const cctpOk = maxFee < units;
         const cctpOut = cctpOk ? units - maxFee : 0n;
-        const cctpOption = { venue: "cctp", label: `CCTP to ${dest.name}`, amountOut: cctpOut.toString(), netAmountOut: cctpOut.toString(), risk: "low" as const, executable: cctpOk, notes: [forwarded ? "Burn and mint; Circle forwards the mint." : "Burn and mint after Circle's attestation."] };
+        const cctpOption = { venue: "cctp", label: tx("CCTP to {name}", { name: dest.name }), amountOut: cctpOut.toString(), netAmountOut: cctpOut.toString(), risk: "low" as const, executable: cctpOk, notes: [forwarded ? tx("Burn and mint; Circle forwards the mint.") : tx("Burn and mint after Circle's attestation.")] };
         const solvers = [
-          relay ? { venue: "relay", name: "Relay", adapter: "bridge-relay" as const, amountOut: relay.amountOut, feeUnits: relay.feeUnits, seconds: relay.timeEstimateSeconds, who: "a Relay solver", refund: "Relay refunds the USDC on Arc" } : null,
-          across ? { venue: "across", name: "Across", adapter: "bridge-across" as const, amountOut: across.amountOut, feeUnits: across.feeUnits, seconds: across.timeEstimateSeconds, who: "an Across relayer", refund: "Across refunds the USDC on Arc after the fill deadline" } : null,
+          relay ? { venue: "relay", name: tx("Relay"), adapter: "bridge-relay" as const, amountOut: relay.amountOut, feeUnits: relay.feeUnits, seconds: relay.timeEstimateSeconds, who: tx("a Relay solver"), refund: tx("Relay refunds the USDC on Arc") } : null,
+          across ? { venue: "across", name: "Across", adapter: "bridge-across" as const, amountOut: across.amountOut, feeUnits: across.feeUnits, seconds: across.timeEstimateSeconds, who: tx("an Across relayer"), refund: tx("Across refunds the USDC on Arc after the fill deadline") } : null,
         ].filter((x): x is NonNullable<typeof x> => x !== null);
-        const optionOf = (x: (typeof solvers)[number]) => ({ venue: x.venue, label: `${x.name} to ${dest.name}`, amountOut: x.amountOut.toString(), netAmountOut: x.amountOut.toString(), risk: "medium" as const, executable: true, notes: [`Cross-chain: ${x.who} delivers on the destination chain; unfilled deposits are refunded on Arc.`, `${x.name}'s fee ${book.display("USDC", x.feeUnits)}.`] });
+        const optionOf = (x: (typeof solvers)[number]) => ({ venue: x.venue, label: `${x.name} to ${dest.name}`, amountOut: x.amountOut.toString(), netAmountOut: x.amountOut.toString(), risk: "medium" as const, executable: true, notes: [tx("Cross-chain: {who} delivers on the destination chain; unfilled deposits are refunded on Arc.", { who: x.who }), tx("{name}'s fee {value}.", { name: x.name, value: book.display("USDC", x.feeUnits) })] });
         // The best solver delivers the most; on a tie the earlier one (Relay) keeps it.
         const best = named === "relay" || named === "across" ? solvers.find((x) => x.venue === named) ?? null : solvers.reduce<(typeof solvers)[number] | null>((a, b) => (a === null || b.amountOut > a.amountOut ? b : a), null);
         const useSolver = best !== null && (named === best.venue || !cctpOk || best.amountOut > cctpOut);
-        if (!useSolver && !cctpOk) throw noRoute(`Bridging ${display} costs at least ${book.display("USDC", maxFee)} in CCTP fees; send more.`);
+        if (!useSolver && !cctpOk) throw noRoute(tx("Bridging {display} costs at least {value} in CCTP fees; send more.", { display, value: book.display("USDC", maxFee) }));
         if (useSolver && best) {
           const minOut = (best.amountOut * BigInt(10_000 - DEFAULT_SLIPPAGE_BPS)) / 10_000n;
           const others = solvers.filter((x) => x !== best);
-          const beaten = [cctpOk ? `CCTP's ${book.display("USDC", cctpOut)}` : "CCTP (fee above the amount)", ...others.map((x) => `${x.name}'s ${book.display("USDC", x.amountOut)}`)].join(" and ");
-          const reason = named === best.venue ? `You named ${best.name}; it delivers ${book.display("USDC", best.amountOut)} on ${dest.name}.` : `${best.name} delivers ${book.display("USDC", best.amountOut)} on ${dest.name}, more than ${beaten}.`;
+          const beaten = formatList([cctpOk ? tx("{name}'s {value}", { name: "CCTP", value: book.display("USDC", cctpOut) }) : tx("CCTP (fee above the amount)"), ...others.map((x) => tx("{name}'s {value}", { name: x.name, value: book.display("USDC", x.amountOut) }))]);
+          const reason = named === best.venue ? tx("You named {name}; it delivers {value} on {name2}.", { name: best.name, value: book.display("USDC", best.amountOut), name2: dest.name }) : tx("{name} delivers {value} on {name2}, more than {beaten}.", { name: best.name, value: book.display("USDC", best.amountOut), name2: dest.name, beaten });
           return [{
             adapter: best.adapter,
             fx: false,
-            summary: `Bridge ${display} to ${dest.name} over ${best.name} (cross-chain: delivered on ${dest.name}, min ${fromBaseUnits(minOut, 6)} USDC)`,
+            summary: tx("Bridge {display} to {name} over {name2} (cross-chain: delivered on {name}, min {value} USDC)", { display, name: dest.name, name2: best.name, value: fromBaseUnits(minOut, 6) }),
             params: { token: amount.token, amount: units.toString(), recipient, chainId: String(chainId), minOut: minOut.toString(), destinationName: dest.name, destination: dest.key, display, decimals: "6", ...feeParams(fee) },
             inputs: [book.amount("USDC", gross)],
             outputs: [{ ...book.amount("USDC", best.amountOut, minOut), symbol: `USDC@${dest.key}` }],
             fee,
             fact: { usd: book.amount("USDC", gross).usd, tokens: [book.fact("USDC", false)], recipient, destination: dest.key, ...feeFact(fee) },
             settlement: { kind: "receipt" },
-            warnings: [`Cross-chain: ${best.who} delivers on ${dest.name}${best.seconds !== null ? ` in about ${best.seconds} s` : ""}; if it does not fill, ${best.refund}.`],
+            warnings: [tx("Cross-chain: {who} delivers on {name}{value}; if it does not fill, {refund}.", { who: best.who, name: dest.name, value: best.seconds !== null ? tx(" in about {seconds} s", { seconds: best.seconds }) : "", refund: best.refund })],
             route: { chosen: optionOf(best), alternatives: [cctpOption, ...others.map(optionOf)], reason },
           }];
         }
-        const route = solvers.length > 0 ? { chosen: cctpOption, alternatives: solvers.map(optionOf), reason: `CCTP delivers ${book.display("USDC", cctpOut)} on ${dest.name}, at least as much as ${solvers.map((x) => `${x.name}'s ${book.display("USDC", x.amountOut)}`).join(" and ")}; CCTP stays the default for USDC.` } : undefined;
+        const route = solvers.length > 0 ? { chosen: cctpOption, alternatives: solvers.map(optionOf), reason: tx("CCTP delivers {value} on {name}, at least as much as {value2}; CCTP stays the default for USDC.", { value: book.display("USDC", cctpOut), name: dest.name, value2: solvers.map((x) => `${x.name}'s ${book.display("USDC", x.amountOut)}`).join(" and ") }) } : undefined;
         return [{
           adapter: "bridge",
           fx: false,
-          summary: `Bridge ${display} to ${dest.name} over CCTP${forwarded ? " (Circle forwards the mint)" : ""}`,
+          summary: tx("Bridge {display} to {name} over CCTP{value}", { display, name: dest.name, value: forwarded ? tx(" (Circle forwards the mint)") : "" }),
           params: { token: amount.token, amount: units.toString(), domain: String(dest.domain), recipient, maxFee: maxFee.toString(), destinationName: dest.name, destination: dest.key, display, decimals: "6", ...(forwarded ? { forward: "1" } : {}), ...feeParams(fee) },
           inputs: [book.amount("USDC", gross)],
           outputs: [{ ...book.amount("USDC", units - maxFee), symbol: `USDC@${dest.key}` }],
@@ -527,7 +529,7 @@ export class Planner {
       }
       case "unify": {
         const gross = book.resolve(action.amount, "USDC", 6);
-        book.spend("USDC", gross, "deposit into Gateway");
+        book.spend("USDC", gross, tx("deposit into Gateway"));
         const fee = book.fee("USDC", gross, "input", "gateway-deposit");
         const units = gross - feeUnits(fee);
         const amount = book.amount("USDC", units);
@@ -535,7 +537,7 @@ export class Planner {
         return [{
           adapter: "gateway",
           fx: false,
-          summary: `Deposit ${display} into Circle Gateway (one balance on every Gateway chain)`,
+          summary: tx("Deposit {display} into Circle Gateway (one balance on every Gateway chain)", { display }),
           params: { token: amount.token, amount: units.toString(), display, decimals: "6", ...feeParams(fee) },
           inputs: [book.amount("USDC", gross)],
           outputs: [{ ...amount, symbol: "USDC@gateway" }],
@@ -551,7 +553,7 @@ export class Planner {
         const token = getToken(action.token)!;
         if (token.symbol !== "cirBTC") return [await this.draftEarn(token.symbol, action.amount, book, action.venue ?? "aave-v4", "high")];
         const spoke = aaveSpokes(env).find((s) => s.key === "main");
-        if (!spoke) throw noRoute(env === "testnet" ? "Supplying cirBTC alone has no testnet venue; borrow against it to post it on Lykia Practice Lending." : "Aave V4 is not on this environment.");
+        if (!spoke) throw noRoute(env === "testnet" ? tx("Supplying cirBTC alone has no testnet venue; borrow against it to post it on Lykia Practice Lending.") : tx("Aave V4 is not on this environment."));
         const gross = book.resolve(action.amount, token.symbol, token.decimals);
         book.spend(token.symbol, gross, "supply");
         const fee = book.fee(token.symbol, gross, "input", "supply");
@@ -561,14 +563,14 @@ export class Planner {
         return [{
           adapter: "aave-supply",
           fx: false,
-          summary: `Supply ${display} to ${spoke.label}`,
+          summary: tx("Supply {display} to {label}", { display, label: spoke.label }),
           params: { spoke: spoke.address, spokeName: spoke.label, reserveId: "2", token: amount.token, symbol: token.symbol, amount: units.toString(), display, decimals: String(token.decimals), ...feeParams(fee) },
           inputs: [book.amount(token.symbol, gross)],
           outputs: [{ ...amount, symbol: `${token.symbol}@aave-v4` }],
           fee,
           fact: { usd: book.amount(token.symbol, gross).usd, tokens: [book.fact(token.symbol, false)], ...feeFact(fee) },
           settlement: { kind: "receipt" },
-          warnings: ["Supplied cirBTC earns little on its own; enable it as collateral when you borrow."],
+          warnings: [tx("Supplied cirBTC earns little on its own; enable it as collateral when you borrow.")],
         }];
       }
       case "withdraw":
@@ -589,10 +591,10 @@ export class Planner {
   private async draftEarn(symbol: string, amountSpec: ActionAmount, book: Book, venue?: string, maxRisk?: RiskTier): Promise<Draft> {
     const { env } = book.l;
     const token = getToken(symbol)!;
-    if (token.symbol !== "USDC" && token.symbol !== "EURC") throw noRoute("Earn takes USDC or EURC on Arc.");
+    if (token.symbol !== "USDC" && token.symbol !== "EURC") throw noRoute(tx("Earn takes USDC or EURC on Arc."));
     const candidates = await this.router.earn(env, token.symbol);
     const choice = this.router.chooseEarn(candidates, maxRisk ?? book.l.prefs?.maxRisk ?? "medium", venue, book.l.prefs);
-    if (!choice) throw noRoute(env === "testnet" ? "No earn venue on Arc testnet yet: the Lykia practice vault is not deployed (Morpho and Aave are mainnet only)." : `No ${token.symbol} earn venue answered.`);
+    if (!choice) throw noRoute(env === "testnet" ? tx("No earn venue on Arc testnet yet: the Lykia practice vault is not deployed (Morpho and Aave are mainnet only).") : tx("No {symbol} earn venue answered.", { symbol: token.symbol }));
     const gross = book.resolve(amountSpec, token.symbol, token.decimals);
     book.spend(token.symbol, gross, "deposit");
     const fee = book.fee(token.symbol, gross, "input", "deposit");
@@ -604,7 +606,7 @@ export class Planner {
     return {
       adapter: c.adapter as AdapterId,
       fx: false,
-      summary: `Deposit ${display} into ${where}`,
+      summary: tx("Deposit {display} into {where}", { display, where }),
       params: { ...c.params, amount: units.toString(), display, ...feeParams(fee) },
       inputs: [book.amount(token.symbol, gross)],
       outputs: [{ ...amount, symbol: `${token.symbol}@${c.option.venue}` }],
@@ -659,13 +661,13 @@ export class Planner {
     }
     // Positions at routable adapter manifests (integrations/runtime.ts), read through their position function.
     for (const m of await this.router.adapterPositions(env, token.symbol, account)) held.push({ venue: m.venue, label: m.label, max: m.max, adapter: "manifest", params: m.params });
-    if (held.length === 0) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `No ${token.symbol} position to withdraw from on Arc ${env}.`);
+    if (held.length === 0) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, tx("No {symbol} position to withdraw from on Arc {env}.", { symbol: token.symbol, env }));
     const [venueId, name] = (action.venue ?? "").split(":");
     const named = action.venue ? held.find((h) => venueFamily(h.venue).includes(venueId!) && (!name || h.label.toLowerCase().replace(/\s+/gu, "").includes(name.toLowerCase().replace(/usdc|eurc/gu, "")))) : undefined;
     const pick = named ?? [...held].sort((a, b) => (b.max > a.max ? 1 : -1))[0]!;
     const all = "all" in action.amount;
     const units = all ? pick.max : "percent" in action.amount ? portionOf(pick.max, action.amount.percent * 100) : toBaseUnitsBig((action.amount as { exact: string }).exact, token.decimals);
-    if (units > pick.max) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `${pick.label} holds ${book.display(token.symbol, pick.max)} for you.`);
+    if (units > pick.max) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, tx("{label} holds {value} for you.", { label: pick.label, value: book.display(token.symbol, pick.max) }));
     let shares = "0";
     if (all && (pick.adapter === "vault-withdraw" || pick.adapter === "practice-vault-withdraw")) shares = (await client.readContract({ address: pick.params.vault as Address, abi: ERC4626_ABI, functionName: "balanceOf", args: [account] })).toString();
     book.receive(token.symbol, units);
@@ -675,54 +677,54 @@ export class Planner {
     return {
       adapter: pick.adapter,
       fx: false,
-      summary: `Withdraw ${display} from ${pick.label}`,
+      summary: tx("Withdraw {display} from {label}", { display, label: pick.label }),
       params: { ...pick.params, mode: all ? (pick.adapter === "aave-withdraw" ? "all" : "redeem") : "withdraw", amount: units.toString(), shares, display, decimals: String(token.decimals), symbol: token.symbol },
       inputs: [],
       outputs: [amount],
       fact: { usd: amount.usd, tokens: [book.fact(token.symbol, true)], recipient: account, ...(health !== undefined ? { healthFactorAfter: health } : {}) },
       settlement: { kind: "receipt" },
-      warnings: held.length > 1 && !named ? [`Withdrawing from ${pick.label}, your largest ${token.symbol} position; name a venue to pick another.`] : [],
+      warnings: held.length > 1 && !named ? [tx("Withdrawing from {label}, your largest {symbol} position; name a venue to pick another.", { label: pick.label, symbol: token.symbol })] : [],
     };
   }
 
   private async draftBorrow(action: Extract<PlanAction, { verb: "borrow" }>, book: Book): Promise<Draft> {
     const { env, account, fence } = book.l;
     const loan = getToken(action.token)!;
-    if (loan.symbol !== "USDC" && loan.symbol !== "EURC") throw noRoute("Lykia borrows USDC or EURC on Arc.");
+    if (loan.symbol !== "USDC" && loan.symbol !== "EURC") throw noRoute(tx("Lykia borrows USDC or EURC on Arc."));
     const coll = getToken(action.collateral?.token ?? "cirBTC")!;
-    if (coll.symbol !== "cirBTC") throw noRoute("cirBTC is the collateral Lykia posts on Arc for now.");
+    if (coll.symbol !== "cirBTC") throw noRoute(tx("cirBTC is the collateral Lykia posts on Arc for now."));
     const minHealth = action.minHealth ?? (fence.lending?.minHealthFactor && ratioBps(fence.lending.minHealthFactor) > ratioBps(DEFAULT_MIN_HEALTH) ? fence.lending.minHealthFactor : DEFAULT_MIN_HEALTH);
     const amountUnits = "exact" in action.amount ? toBaseUnitsBig(action.amount.exact, loan.decimals) : null;
-    if (amountUnits === null || amountUnits <= 0n) throw new LykiaHttpError("INVALID_ACTIONS", 400, "Say how much to borrow as an exact amount (e.g. 1000 USDC).");
+    if (amountUnits === null || amountUnits <= 0n) throw new LykiaHttpError("INVALID_ACTIONS", 400, tx("Say how much to borrow as an exact amount (e.g. 1000 USDC)."));
     const wallet = book.spendable(coll.symbol);
     const collateralUnits = action.collateral?.amount ? book.resolve(action.collateral.amount, coll.symbol, coll.decimals) : null;
     const minHealthWad = ratioBps(minHealth) * 10n ** 14n;
     const candidates = await this.router.borrow(env, { loan: loan.symbol, amount: amountUnits, collateral: coll.symbol, collateralUnits, walletCollateral: book.l.dryRun && wallet === 0n ? 10n ** 30n : wallet, minHealthWad, account });
-    if (candidates.length === 0) throw noRoute(env === "testnet" ? "No borrow venue on Arc testnet yet: Lykia Practice Lending is not deployed (Aave V4 and Morpho Blue are mainnet only)." : `No ${loan.symbol} market against ${coll.symbol} answered.`);
+    if (candidates.length === 0) throw noRoute(env === "testnet" ? tx("No borrow venue on Arc testnet yet: Lykia Practice Lending is not deployed (Aave V4 and Morpho Blue are mainnet only).") : tx("No {symbol} market against {symbol2} answered.", { symbol: loan.symbol, symbol2: coll.symbol }));
     const choice = this.router.chooseBorrow(candidates, minHealth, action.venue, book.l.prefs);
     if (!choice) {
-      const best = candidates.map((c) => `${c.option.label}: health ${c.healthFactor ?? "unknown"}`).join("; ");
-      throw new LykiaHttpError("NO_ROUTE", 422, `No venue keeps the health factor at ${minHealth} or above for this borrow (${best}). Post more ${coll.symbol} or borrow less.`, { alternatives: candidates.map((c) => c.option) });
+      const best = candidates.map((c) => `${c.option.label}: ${c.healthFactor === null || c.healthFactor === undefined ? tx("health unknown") : tx("health {value}", { value: c.healthFactor })}`).join("; ");
+      throw new LykiaHttpError("NO_ROUTE", 422, tx("No venue keeps the health factor at {minHealth} or above for this borrow ({best}). Post more {symbol} or borrow less.", { minHealth, best, symbol: coll.symbol }), { alternatives: candidates.map((c) => c.option) });
     }
     const c = choice.candidate;
-    if (c.collateralUnits > 0n) book.spend(coll.symbol, c.collateralUnits, "post collateral");
+    if (c.collateralUnits > 0n) book.spend(coll.symbol, c.collateralUnits, tx("post collateral"));
     // The fee comes out of the borrowed amount, right after the borrow, in the same transaction.
     const fee = book.fee(loan.symbol, amountUnits, "output", "borrow");
     book.receive(loan.symbol, amountUnits - feeUnits(fee));
     const debt = book.amount(loan.symbol, amountUnits);
     const display = book.display(loan.symbol, amountUnits);
-    const collText = c.collateralUnits > 0n ? `post ${book.display(coll.symbol, c.collateralUnits)} and ` : "";
+    const collText = c.collateralUnits > 0n ? tx("post {value} and ", { value: book.display(coll.symbol, c.collateralUnits) }) : "";
     return {
       adapter: c.adapter as AdapterId,
       fx: false,
-      summary: `On ${c.option.label}: ${collText}borrow ${display} (health factor ${c.healthFactor ?? "unknown"} after, floor ${minHealth})`,
+      summary: tx("On {label}: {collText}borrow {display} (health factor {value} after, floor {minHealth})", { label: c.option.label, collText, display, value: c.healthFactor ?? tx("unknown"), minHealth }),
       params: { ...c.params, amount: amountUnits.toString(), collateral: c.collateralUnits.toString(), display, minHealth, ...feeParams(fee, "after") },
       inputs: c.collateralUnits > 0n ? [book.amount(coll.symbol, c.collateralUnits)] : [],
       outputs: [book.amount(loan.symbol, amountUnits - feeUnits(fee))],
       fee,
       fact: { usd: debt.usd, tokens: [book.fact(loan.symbol, true), ...(c.collateralUnits > 0n ? [book.fact(coll.symbol, false)] : [])], healthFactorAfter: c.healthFactor, ...feeFact(fee) },
       settlement: { kind: "receipt" },
-      warnings: action.minHealth && fence.lending?.minHealthFactor && ratioBps(action.minHealth) < ratioBps(fence.lending.minHealthFactor) ? [`You asked for health ${action.minHealth}; the Fence floor is ${fence.lending.minHealthFactor} and still applies.`] : [],
+      warnings: action.minHealth && fence.lending?.minHealthFactor && ratioBps(action.minHealth) < ratioBps(fence.lending.minHealthFactor) ? [tx("You asked for health {minHealth}; the Fence floor is {minHealthFactor} and still applies.", { minHealth: action.minHealth, minHealthFactor: fence.lending.minHealthFactor })] : [],
       route: choice.route,
     };
   }
@@ -746,12 +748,12 @@ export class Planner {
     if (practice.lending && token.symbol === "USDC") {
       try {
         const debt = await this.deps.chains.client(env).readContract({ address: practice.lending, abi: PRACTICE_LENDING_ABI, functionName: "debtOf", args: [account] });
-        if (debt > 0n) debts.push({ venue: "lykia-practice", label: "Lykia Practice Lending", debt, adapter: "practice-repay", params: { pool: practice.lending } });
+        if (debt > 0n) debts.push({ venue: "lykia-practice", label: tx("Lykia Practice Lending"), debt, adapter: "practice-repay", params: { pool: practice.lending } });
       } catch {
         /* unreadable */
       }
     }
-    if (debts.length === 0) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `No ${token.symbol} debt to repay on Arc ${env}.`);
+    if (debts.length === 0) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, tx("No {symbol} debt to repay on Arc {env}.", { symbol: token.symbol, env }));
     const named = action.venue ? debts.find((d) => d.venue === action.venue!.split(":")[0]) : undefined;
     const pick = named ?? [...debts].sort((a, b) => (b.debt > a.debt ? 1 : -1))[0]!;
     const all = "all" in action.amount;
@@ -763,13 +765,13 @@ export class Planner {
     return {
       adapter: pick.adapter,
       fx: false,
-      summary: `Repay ${all ? "all " : ""}${display} on ${pick.label}`,
+      summary: all ? tx("Repay all {display} on {label}", { display, label: pick.label }) : tx("Repay {display} on {label}", { display, label: pick.label }),
       params: { ...pick.params, token: amount.token, symbol: token.symbol, amount: capped.toString(), mode: all ? "all" : "exact", display, decimals: String(token.decimals) },
       inputs: [amount],
       outputs: [],
       fact: { usd: amount.usd, tokens: [book.fact(token.symbol, false)] },
       settlement: { kind: "receipt" },
-      warnings: all ? ["Interest accrues every second: the approval leaves 0.1% headroom and the repay clears the debt exactly."] : [],
+      warnings: all ? [tx("Interest accrues every second: the approval leaves 0.1% headroom and the repay clears the debt exactly.")] : [],
     };
   }
 
@@ -779,12 +781,12 @@ export class Planner {
     const to = getToken(action.to)!;
     const isFx = (from.symbol === "USDC" && to.symbol === "EURC") || (from.symbol === "EURC" && to.symbol === "USDC");
     const gross = book.resolve(action.amount, from.symbol, from.decimals);
-    if (gross <= 0n && !book.l.dryRun) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, `Nothing to ${action.verb}: the spendable ${from.symbol} balance is 0.`);
+    if (gross <= 0n && !book.l.dryRun) throw new LykiaHttpError("INSUFFICIENT_BALANCE", 422, tx("Nothing to {verb}: the spendable {symbol} balance is 0.", { verb: action.verb, symbol: from.symbol }));
     // The fee leaves the input first; every venue is quoted on the same net amount, so the comparison is fair.
     const fee = book.fee(from.symbol, gross, "input", isFx ? "fx" : "swap");
     const units = gross - feeUnits(fee);
     const best = await this.router.bestSwap(env, from.symbol, to.symbol, units > 0n ? units : 10n ** BigInt(from.decimals), book.l.prefs);
-    if (!best) throw noRoute(env === "testnet" ? `No ${isFx ? "FX" : "swap"} venue on Arc testnet yet: the Lykia practice swap is not deployed (Uniswap is mainnet only).` : `No venue on Arc quotes ${from.symbol} -> ${to.symbol}.`);
+    if (!best) throw noRoute(env === "testnet" ? tx("No {value} venue on Arc testnet yet: the Lykia practice swap is not deployed (Uniswap is mainnet only).", { value: isFx ? "FX" : "swap" }) : tx("No venue on Arc quotes {symbol} -> {symbol2}.", { symbol: from.symbol, symbol2: to.symbol }));
     book.spend(from.symbol, gross, action.verb);
     // An explicit slippage is kept as asked (the Fence then judges it); the default never exceeds the Fence's ceiling.
     const fenceMax = book.l.fence.limits?.maxSlippageBps;
@@ -820,18 +822,18 @@ export class Planner {
         return [{
           adapter: "router-split",
           fx: isFx,
-          summary: `${isFx ? "Convert" : "Swap"} ${display} split across ${legs.map((l) => l.label).join(" and ")} through LykiaRouter (min ${fromBaseUnits(minOut, to.decimals)})`,
+          summary: tx("{value} {display} split across {value2} through LykiaRouter (min {value3})", { value: isFx ? tx("Convert") : tx("Swap"), display, value2: formatList(legs.map((l) => l.label)), value3: fromBaseUnits(minOut, to.decimals) }),
           params: { legs: JSON.stringify(legs), intentId: book.l.intentId, symbolIn: from.symbol, display, amountIn: units.toString(), minOut: minOut.toString(), decimals: String(from.decimals), ...feeParams(fee) },
           inputs: [input],
           outputs: [book.amount(to.symbol, out, minOut)],
           ...(fee ? { fee } : {}),
           fact: { usd: input.usd, tokens: [book.fact(from.symbol, false), book.fact(to.symbol, true)], slippageBps, ...(isFx ? { fxDeviationBps: eurUsd === null ? null : fxDeviation(from.symbol, units, out, eurUsd) } : {}), ...feeFact(fee) },
           settlement: { kind: "receipt" },
-          warnings: ["Both legs run in one LykiaRouter transaction: they settle together or not at all."],
+          warnings: [tx("Both legs run in one LykiaRouter transaction: they settle together or not at all.")],
           route: best.route,
         }];
       }
-      routerNote = `The split runs as separate steps: ${check.missing.join(" and ")} ${check.missing.length === 1 ? "is" : "are"} not allowlisted on LykiaRouter yet (owner console → Router venues).`;
+      routerNote = tx("The split runs as separate steps: {value} {value2} not allowlisted on LykiaRouter yet (owner console → Router venues).", { value: formatList(check.missing), value2: check.missing.length === 1 ? "is" : "are" });
     }
     let legsOut = 0n;
     for (const [index, leg] of best.legs.entries()) {
@@ -847,11 +849,11 @@ export class Planner {
       const display = `${fromBaseUnits(legIn, from.decimals)} ${from.symbol} -> ${fromBaseUnits(out, to.decimals)} ${to.symbol}`;
       const warnings: string[] = [];
       if (routerNote && index === 0) warnings.push(routerNote);
-      if (isFx && index === 0) warnings.push(this.deps.stablefxConfigured ? "StableFX RFQ credentials are set but its taker flow is not built yet; routed on-chain and checked against Chainlink EURC/USD." : "Routed on-chain and checked against Chainlink EURC/USD; StableFX RFQ needs Circle credentials.");
+      if (isFx && index === 0) warnings.push(this.deps.stablefxConfigured ? tx("StableFX RFQ credentials are set but its taker flow is not built yet; routed on-chain and checked against Chainlink EURC/USD.") : tx("Routed on-chain and checked against Chainlink EURC/USD; StableFX RFQ needs Circle credentials."));
       drafts.push({
         adapter: leg.candidate.adapter as AdapterId,
         fx: isFx,
-        summary: `${isFx ? "Convert" : "Swap"} ${display} on ${leg.candidate.option.label} (min ${fromBaseUnits(minOut, to.decimals)})`,
+        summary: tx("{value} {display} on {label} (min {value2})", { value: isFx ? tx("Convert") : tx("Swap"), display, label: leg.candidate.option.label, value2: fromBaseUnits(minOut, to.decimals) }),
         params: { ...leg.candidate.params, amountIn: legIn.toString(), minOut: minOut.toString(), display, ...(leg.candidate.adapter === "swap-zerox" ? { slippageBps: String(slippageBps) } : {}), ...feeParams(legFee) },
         inputs: [input],
         outputs: [book.amount(to.symbol, out, minOut)],

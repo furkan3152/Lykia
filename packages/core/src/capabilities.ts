@@ -12,7 +12,6 @@
  */
 import { tokensFor } from "./assets.js";
 import { CCTP_DESTINATIONS, type ArcEnvironment } from "./networks.js";
-import { ORDER_KINDS } from "./orders.js";
 import { LYKIA_TERMS, readStressQuestion, type LykiaTerm } from "./plain.js";
 import { capableProtocols, PROTOCOLS, registryCoverage, type ProtocolDescriptor } from "./protocols.js";
 import type { StepKind } from "./intent.js";
@@ -22,6 +21,7 @@ import { PREFLIGHT_CHECKS } from "./preflight/index.js";
 import { buildSelfKnowledge, selfKnowledgeSummary, type CanTarget, type SelfKnowledge } from "./selfKnowledge.js";
 import type { BetaCap } from "./plain.js";
 
+import { tx, phrase } from "./i18n/index.js";
 export const CAPABILITIES_SCHEMA = "lykia.capabilities/v1" as const;
 
 export interface CapabilityVenue {
@@ -106,29 +106,29 @@ export interface CapabilityInputs {
 
 /** The plan actions, their step kinds and how to say them. Venues are filled from the registry. */
 const ACTION_ROWS: readonly { readonly id: string; readonly label: string; readonly plain: string; readonly steps: readonly StepKind[]; readonly say: string }[] = [
-  { id: "send", label: "Send", plain: "Pay an address with a note written into the transaction.", steps: ["transfer"], say: "Pay 250 USDC to 0x… for invoice 42" },
-  { id: "convert", label: "Convert", plain: "Change USDC into EURC or back, checked against the reference rate.", steps: ["fx"], say: "Convert 200 USDC to EURC" },
-  { id: "swap", label: "Swap", plain: "Trade one token for another at the best on-chain price.", steps: ["swap"], say: "Swap 100 USDC to cirBTC" },
-  { id: "earn", label: "Earn", plain: "Put idle money in a vault or lending market; Lyko compares rates and risk.", steps: ["deposit", "supply"], say: "Put my idle USDC to work at low risk" },
-  { id: "withdraw", label: "Withdraw", plain: "Take money back out of a vault or lending market. Free of Lykia's fee.", steps: ["withdraw"], say: "Withdraw 500 USDC from my vault" },
-  { id: "borrow", label: "Borrow", plain: "Borrow against collateral, never under your Fence's loan safety floor.", steps: ["borrow"], say: "Borrow 200 USDC against my cirBTC" },
-  { id: "repay", label: "Repay", plain: "Pay back a loan. Free of Lykia's fee.", steps: ["repay"], say: "Repay 150 USDC on Aave" },
-  { id: "bridge", label: "Bridge", plain: "Move USDC to another chain; Lyko picks the route that delivers the most.", steps: ["bridge"], say: "Bridge 100 USDC to Base" },
-  { id: "unify", label: "Gateway balance", plain: "Put USDC into Circle Gateway: one balance you can spend on several chains.", steps: ["gateway-deposit"], say: "Deposit 300 USDC into Gateway" },
+  { id: "send", label: phrase("Send"), plain: phrase("Pay an address with a note written into the transaction."), steps: ["transfer"], say: phrase("Pay 250 USDC to 0x… for invoice 42") },
+  { id: "convert", label: phrase("Convert"), plain: phrase("Change USDC into EURC or back, checked against the reference rate."), steps: ["fx"], say: phrase("Convert 200 USDC to EURC") },
+  { id: "swap", label: phrase("Swap"), plain: phrase("Trade one token for another at the best on-chain price."), steps: ["swap"], say: phrase("Swap 100 USDC to cirBTC") },
+  { id: "earn", label: phrase("Earn"), plain: phrase("Put idle money in a vault or lending market; Lyko compares rates and risk."), steps: ["deposit", "supply"], say: phrase("Put my idle USDC to work at low risk") },
+  { id: "withdraw", label: phrase("Withdraw"), plain: phrase("Take money back out of a vault or lending market. Free of Lykia's fee."), steps: ["withdraw"], say: phrase("Withdraw 500 USDC from my vault") },
+  { id: "borrow", label: phrase("Borrow"), plain: phrase("Borrow against collateral, never under your Fence's loan safety floor."), steps: ["borrow"], say: phrase("Borrow 200 USDC against my cirBTC") },
+  { id: "repay", label: phrase("Repay"), plain: phrase("Pay back a loan. Free of Lykia's fee."), steps: ["repay"], say: phrase("Repay 150 USDC on Aave") },
+  { id: "bridge", label: phrase("Bridge"), plain: phrase("Move USDC to another chain; Lyko picks the route that delivers the most."), steps: ["bridge"], say: phrase("Bridge 100 USDC to Base") },
+  { id: "unify", label: phrase("Gateway balance"), plain: phrase("Put USDC into Circle Gateway: one balance you can spend on several chains."), steps: ["gateway-deposit"], say: phrase("Deposit 300 USDC into Gateway") },
 ];
 
 const FEATURES: readonly CapabilityFeature[] = [
-  { id: "fence-presets", name: "Fence presets", plain: `${LYKIA_TERMS.fence.word} · ${LYKIA_TERMS.fence.plain}: Careful, Balanced or Bold, with a preview of what changes.`, when: "You want different limits, fewer questions, or more caution.", say: "Make my Fence more careful", href: "/app/fold/fence" },
-  { id: "stress-test", name: "Stress test", plain: "What happens to your holdings and loans if a price drops or rates move.", when: "You ask \"what if\" about EURC, Bitcoin or rates.", say: "What if EURC drops 5%?", href: "/app/fold/flock" },
-  { id: "leash", name: "Leash", plain: `${LYKIA_TERMS.leash.word} · ${LYKIA_TERMS.leash.plain}: per step, per day and in total, until a date, only to payees you name. An agent is what holds a leash.`, when: "A bot or an outside agent needs money to spend on its own.", say: "Give my bot $20 a day for a week", href: "/app/fold/pack" },
-  { id: "watch", name: "Watch", plain: "A watch keeps an eye on a price, a position or a transfer and tells you in-app, by webhook or on Telegram. It never moves money.", when: "You say \"tell me if\" or \"keep an eye on\".", say: "Tell me if my health factor drops below 1.5", href: "/app/fold/herding?show=watches" },
-  { id: "staged-plans", name: "Step-by-step plans", plain: "A plan with several steps is signed one step at a time; each next step is rebuilt from what actually arrived.", when: "A request has several moves, like swap then deposit.", say: "Swap 500 USDC to EURC, then deposit it into Morpho", href: "/app" },
-  { id: "whistle", name: "Whistle", plain: `${LYKIA_TERMS.whistle.word} · ${LYKIA_TERMS.whistle.plain}: every agent and every new move stops at once. Money coming home still passes.`, when: "Something looks wrong and you want everything to stop.", say: "Blow the whistle", href: "/app/fold/fence" },
-  { id: "autopilot", name: "Autopilot", plain: "Lyko signs your own automations (auto-repay, DCA, sweeping idle USDC, recurring payments) inside a leash on your LykiaAccount, at most $100 a step and $300 a day in beta. Off until you turn it on; Stop ends it at once.", when: "You want repeats to run without signing each one.", say: "Turn on Autopilot", href: "/app/fold/pack" },
-  { id: "orders", name: "Orders", plain: `Limit, stop-loss, take-profit, DCA and TWAP orders, signed once and filled on chain within your limits (${ORDER_KINDS.join(", ")}).`, when: "You want to buy or sell when a price is reached, or spread a buy over time.", say: "Buy EURC when EUR/USD is below 1.09", href: "/app/fold/herding?show=orders" },
-  { id: "alerts", name: "Watch with a channel", plain: "A watch delivered by webhook or Telegram when a price crosses a level, a loan gets riskier, or money moves.", when: "You only want to be told, not to move anything.", say: "Tell me on Telegram if cirBTC falls below 60000", href: "/app/fold/herding?show=watches" },
-  { id: "automations", name: "Automations", plain: "A sentence Lyko plans again on a schedule or a trigger; you sign each run, or Autopilot signs it inside its limits.", when: "Something should happen every week or every month.", say: "Every Friday at 17:00, sweep USDC above 1000 into a vault", href: "/app/fold/herding?show=automations" },
-  { id: "payouts", name: "Payouts and invoices", plain: "Pay several people at once, or send an invoice someone pays with one link.", when: "You pay a team, contractors or customers.", say: "Pay 50 USDC each to 0x… and 0x… on the 1st of every month", href: "/app/fold/herding?show=payments" },
+  { id: "fence-presets", name: phrase("Fence presets"), plain: `${LYKIA_TERMS.fence.word} · ${LYKIA_TERMS.fence.plain}: ${phrase("Careful, Balanced or Bold, with a preview of what changes.")}`, when: phrase("You want different limits, fewer questions, or more caution."), say: phrase("Make my Fence more careful"), href: "/app/fold/fence" },
+  { id: "stress-test", name: phrase("Stress test"), plain: phrase("What happens to your holdings and loans if a price drops or rates move."), when: phrase("You ask \"what if\" about EURC, Bitcoin or rates."), say: phrase("What if EURC drops 5%?"), href: "/app/fold/flock" },
+  { id: "leash", name: "Leash", plain: `${LYKIA_TERMS.leash.word} · ${LYKIA_TERMS.leash.plain}: ${phrase("per step, per day and in total, until a date, only to payees you name. An agent is what holds a leash.")}`, when: phrase("A bot or an outside agent needs money to spend on its own."), say: phrase("Give my bot $20 a day for a week"), href: "/app/fold/pack" },
+  { id: "watch", name: phrase("Watch"), plain: phrase("A watch keeps an eye on a price, a position or a transfer and tells you in-app, by webhook or on Telegram. It never moves money."), when: phrase("You say \"tell me if\" or \"keep an eye on\"."), say: phrase("Tell me if my health factor drops below 1.5"), href: "/app/fold/herding?show=watches" },
+  { id: "staged-plans", name: phrase("Step-by-step plans"), plain: phrase("A plan with several steps is signed one step at a time; each next step is rebuilt from what actually arrived."), when: phrase("A request has several moves, like swap then deposit."), say: phrase("Swap 500 USDC to EURC, then deposit it into Morpho"), href: "/app" },
+  { id: "whistle", name: "Whistle", plain: `${LYKIA_TERMS.whistle.word} · ${LYKIA_TERMS.whistle.plain}: ${phrase("every agent and every new move stops at once. Money coming home still passes.")}`, when: phrase("Something looks wrong and you want everything to stop."), say: phrase("Blow the whistle"), href: "/app/fold/fence" },
+  { id: "autopilot", name: "Autopilot", plain: phrase("Lyko signs your own automations (auto-repay, DCA, sweeping idle USDC, recurring payments) inside a leash on your LykiaAccount, at most $100 a step and $300 a day in beta. Off until you turn it on; Stop ends it at once."), when: phrase("You want repeats to run without signing each one."), say: phrase("Turn on Autopilot"), href: "/app/fold/pack" },
+  { id: "orders", name: phrase("Orders"), plain: phrase("Limit, stop-loss, take-profit, DCA and TWAP orders, signed once and filled on chain within your limits."), when: phrase("You want to buy or sell when a price is reached, or spread a buy over time."), say: phrase("Buy EURC when EUR/USD is below 1.09"), href: "/app/fold/herding?show=orders" },
+  { id: "alerts", name: phrase("Watch with a channel"), plain: phrase("A watch delivered by webhook or Telegram when a price crosses a level, a loan gets riskier, or money moves."), when: phrase("You only want to be told, not to move anything."), say: phrase("Tell me on Telegram if cirBTC falls below 60000"), href: "/app/fold/herding?show=watches" },
+  { id: "automations", name: phrase("Automations"), plain: phrase("A sentence Lyko plans again on a schedule or a trigger; you sign each run, or Autopilot signs it inside its limits."), when: phrase("Something should happen every week or every month."), say: phrase("Every Friday at 17:00, sweep USDC above 1000 into a vault"), href: "/app/fold/herding?show=automations" },
+  { id: "payouts", name: phrase("Payouts and invoices"), plain: phrase("Pay several people at once, or send an invoice someone pays with one link."), when: phrase("You pay a team, contractors or customers."), say: phrase("Pay 50 USDC each to 0x… and 0x… on the 1st of every month"), href: "/app/fold/herding?show=payments" },
 ];
 
 function venueOf(p: ProtocolDescriptor): CapabilityVenue {
@@ -150,13 +150,13 @@ export function buildCapabilityMap(input: CapabilityInputs): CapabilityMap {
 
   const evm = CCTP_DESTINATIONS.filter((d) => d.vm === "evm" && d.chainIds[environment] !== null).map((d) => ({ key: d.key, name: d.name }));
   const bridges: BridgeRoute[] = [];
-  if (executable.has("cctp")) bridges.push({ id: "cctp", name: "CCTP", plain: "Circle burns USDC on Arc and mints it on the other chain. Lykia's default for USDC.", destinations: evm, when: "The default: native USDC on arrival, Circle forwards the mint." });
+  if (executable.has("cctp")) bridges.push({ id: "cctp", name: "CCTP", plain: tx("Circle burns USDC on Arc and mints it on the other chain. Lykia's default for USDC."), destinations: evm, when: tx("The default: native USDC on arrival, Circle forwards the mint.") });
   const solvers = (["across", "relay"] as const).filter((id) => executable.has(id) && environment === "mainnet");
   for (const id of solvers) {
-    const name = id === "across" ? "Across" : "Relay";
-    bridges.push({ id, name, plain: `${name} pays you on the other chain from its own funds and is repaid on Arc; an unfilled deposit is refunded on Arc.`, destinations: evm, when: "Quoted next to CCTP on every bridge; chosen only when it delivers more, or when you name it." });
+    const name = id === "across" ? "Across" : tx("Relay");
+    bridges.push({ id, name, plain: tx("{name} pays you on the other chain from its own funds and is repaid on Arc; an unfilled deposit is refunded on Arc.", { name }), destinations: evm, when: tx("Quoted next to CCTP on every bridge; chosen only when it delivers more, or when you name it.") });
   }
-  if (executable.has("gateway") && input.gatewayChains.length > 0) bridges.push({ id: "gateway", name: "Circle Gateway", plain: "Deposit once on Arc, then spend the same USDC balance on any Gateway chain.", destinations: input.gatewayChains.map((c) => ({ key: c.key, name: c.name })), when: "You keep a balance to spend on several chains, or a Leash pays out on them." });
+  if (executable.has("gateway") && input.gatewayChains.length > 0) bridges.push({ id: "gateway", name: "Circle Gateway", plain: tx("Deposit once on Arc, then spend the same USDC balance on any Gateway chain."), destinations: input.gatewayChains.map((c) => ({ key: c.key, name: c.name })), when: tx("You keep a balance to spend on several chains, or a Leash pays out on them.") });
 
   const can = (symbol: string): string[] => {
     const ids: string[] = [];
@@ -332,40 +332,40 @@ export function readAssist(text: string, map: CapabilityMap): AssistReading | nu
   if (/\b(tell me|let me know|alert me|notify me|warn me|keep an eye|watch)\b/u.test(t)) return null;
 
   // Proactive offers.
-  if (/\b(stop|turn off|switch off|pause|kill|disable|halt)\b.*\bautopilot\b|\bautopilot\b.*\b(off|stop)\b/u.test(t)) return { kind: "offer", feature: "autopilot", reason: "Stop Autopilot ends server signing at once; then sign revokeSession to end its session on chain.", options: ["Show my Autopilot", "Blow the whistle"] };
-  if (/\bautopilot\b|\b(sign|act) (for|on behalf of) me\b|\bwithout (asking|signing) (me )?(each|every) time\b/u.test(t) && !AMOUNT.test(t)) return { kind: "offer", feature: "autopilot", reason: "Autopilot lets Lyko sign your own automations inside limits you set, on your own account.", options: ["Turn on Autopilot", "What does Autopilot hold?"] };
-  if (/\b(stop everything|stop it all|stop all|freeze everything|panic|halt everything|something('s| is) wrong|kill switch)\b/u.test(t)) return { kind: "offer", feature: "whistle", reason: "The Whistle stops every agent and every new move at once.", options: ["Blow the whistle", "Show me what is running"] };
+  if (/\b(stop|turn off|switch off|pause|kill|disable|halt)\b.*\bautopilot\b|\bautopilot\b.*\b(off|stop)\b/u.test(t)) return { kind: "offer", feature: "autopilot", reason: tx("Stop Autopilot ends server signing at once; then sign revokeSession to end its session on chain."), options: [tx("Show my Autopilot"), tx("Blow the whistle")] };
+  if (/\bautopilot\b|\b(sign|act) (for|on behalf of) me\b|\bwithout (asking|signing) (me )?(each|every) time\b/u.test(t) && !AMOUNT.test(t)) return { kind: "offer", feature: "autopilot", reason: tx("Autopilot lets Lyko sign your own automations inside limits you set, on your own account."), options: [tx("Turn on Autopilot"), tx("What does Autopilot hold?")] };
+  if (/\b(stop everything|stop it all|stop all|freeze everything|panic|halt everything|something('s| is) wrong|kill switch)\b/u.test(t)) return { kind: "offer", feature: "whistle", reason: tx("The Whistle stops every agent and every new move at once."), options: [tx("Blow the whistle"), tx("Show me what is running")] };
   const newPackAgent = /\b(create|make|spin up|set up|new)\b.*\b(agent|bot)\b/u.test(t) && !/\b(needs?|wants?)\b/u.test(t);
   if (!newPackAgent && !AMOUNT.test(t) && (/\b(bot|agent|ai agent|script)\b.*\b(needs?|wants?|should have|to have|spend|budget|money|allowance|funds?|pay (its|for))\b/u.test(t) || /\b(give|fund|top up)\b.*\b(bot|agent)\b/u.test(t))) {
-    return { kind: "offer", feature: "leash", reason: "A Leash gives a bot its own spending limit it cannot go past, and you can stop it anytime.", options: ["Give my bot $20 a day for 7 days to pay invoices", "Give my bot $50 a day for 30 days to pay invoices", "What is a Leash?"] };
+    return { kind: "offer", feature: "leash", reason: tx("A Leash gives a bot its own spending limit it cannot go past, and you can stop it anytime."), options: [tx("Give my bot $20 a day for 7 days to pay invoices"), tx("Give my bot $50 a day for 30 days to pay invoices"), tx("What is a Leash?")] };
   }
   const stress = readStressQuestion(t);
   if (stress) return { kind: "offer", feature: "stress-test", reason: stress.lead, options: [] };
-  if (/\b(make|set|change|switch) my fence\b|\b(more|less) (careful|cautious|strict|bold)\b|\b(stricter|looser) (rules|limits)\b/u.test(t)) return { kind: "offer", feature: "fence-presets", reason: "Pick a preset and see what changes before anything is signed.", options: ["Careful", "Balanced", "Bold"] };
+  if (/\b(make|set|change|switch) my fence\b|\b(more|less) (careful|cautious|strict|bold)\b|\b(stricter|looser) (rules|limits)\b/u.test(t)) return { kind: "offer", feature: "fence-presets", reason: tx("Pick a preset and see what changes before anything is signed."), options: [tx("Careful"), tx("Balanced"), tx("Bold")] };
 
   // Ask, don't guess.
   if (/\b(bridge|move|send)\b/u.test(t) && /\b(bridge|another chain|other chain|cross-chain|off arc)\b/u.test(t) && !namesChain(t)) {
     const opts = destinations.slice(0, 4);
-    return { kind: "clarify", missing: "destination", question: `${/\d/u.test(t) ? text.trim().replace(/[.?!]+$/u, "") : "Bridge"} to which chain?`, options: opts.map((d) => `${text.trim().replace(/[.?!]+$/u, "")} to ${d}`) };
+    return { kind: "clarify", missing: "destination", question: tx("{value} to which chain?", { value: /\d/u.test(t) ? text.trim().replace(/[.?!]+$/u, "") : tx("Bridge") }), options: opts.map((d) => `${text.trim().replace(/[.?!]+$/u, "")} to ${d}`) };
   }
   if (/^(bridge|swap|convert|send|pay|deposit|withdraw|repay|borrow)\b/u.test(t) && !AMOUNT.test(t) && !/\b(my|all|everything|the rest|idle)\b/u.test(t)) {
     const verb = t.split(/\s+/u)[0]!;
     const base = text.trim().replace(/[.?!]+$/u, "");
     const rest = base.slice(verb.length).trim();
     const amounts = ["50", "100", "500"];
-    return { kind: "clarify", missing: "amount", question: `How much should I ${verb}?`, options: amounts.map((a) => `${verb.charAt(0).toUpperCase()}${verb.slice(1)} ${a} USDC${rest ? ` ${rest.replace(/^usdc\s*/iu, "")}` : ""}`.trim()) };
+    return { kind: "clarify", missing: "amount", question: tx("How much should I {verb}?", { verb }), options: amounts.map((a) => `${verb.charAt(0).toUpperCase()}${verb.slice(1)} ${a} USDC${rest ? ` ${rest.replace(/^usdc\s*/iu, "")}` : ""}`.trim()) };
   }
   return null;
 }
 
 const ROLE_WORDS: readonly [RegExp, PackRole, string][] = [
-  [/\bpayroll\b/u, "payroll", "Payroll"],
-  [/\b(treasur(y|er))\b/u, "treasurer", "Treasurer"],
-  [/\b(fx|hedg(e|er|ing)|currency)\b/u, "fx-hedger", "FX hedger"],
-  [/\b(yield|earn(ing)?|vault)\b/u, "yield-keeper", "Yield keeper"],
-  [/\b(bills?|invoices?)\b/u, "bill-payer", "Bill payer"],
-  [/\b(sentinel|guard|security)\b/u, "sentinel", "Sentinel"],
-  [/\b(research(er)?)\b/u, "researcher", "Researcher"],
+  [/\bpayroll\b/u, "payroll", phrase("Payroll")],
+  [/\b(treasur(y|er))\b/u, "treasurer", phrase("Treasurer")],
+  [/\b(fx|hedg(e|er|ing)|currency)\b/u, "fx-hedger", phrase("FX hedger")],
+  [/\b(yield|earn(ing)?|vault)\b/u, "yield-keeper", phrase("Yield keeper")],
+  [/\b(bills?|invoices?)\b/u, "bill-payer", phrase("Bill payer")],
+  [/\b(sentinel|guard|security)\b/u, "sentinel", phrase("Sentinel")],
+  [/\b(research(er)?)\b/u, "researcher", phrase("Researcher")],
 ];
 
 /** A USD figure written next to a period word ("$500 a day", "500 USDC daily", "daily budget of 500"). */
@@ -389,10 +389,10 @@ export function readCreate(t: string, original: string): CreateReading | null {
   if (/\b(create|make|spin up|set up|start|new|add|hire)\b.*\b(agent|bot)\b/u.test(t) && !/\b(needs?|wants?)\b/u.test(t) && !/\b(leash|autopilot)\b/u.test(t)) {
     const hit = ROLE_WORDS.find(([re]) => re.test(t));
     const role: PackRole = hit?.[1] ?? "custom";
-    const name = hit?.[2] ?? "Helper";
+    const name = hit?.[2] ?? tx("Helper");
     const dailyUsd = usdPer(t, "day") ?? (/\bbudget\b/u.test(t) ? (/\$?\s?(\d{1,9}(?:\.\d{1,2})?)\s*(?:usdc|usd|dollars?|\$)?/u.exec(t.replace(/^.*?\bbudget\b/u, ""))?.[1] ?? null) : null);
     const base = `Create a ${name.toLowerCase()} agent`;
-    return { kind: "create", feature: "agent", name, role, dailyUsd, options: dailyUsd ? [] : [`${base} with a $100 daily budget`, `${base} with a $250 daily budget`, `${base} with a $500 daily budget`] };
+    return { kind: "create", feature: "agent", name, role, dailyUsd, options: dailyUsd ? [] : [tx("{base} with a $100 daily budget", { base }), tx("{base} with a $250 daily budget", { base }), tx("{base} with a $500 daily budget", { base })] };
   }
   // Autopilot: "turn on Autopilot with $50 a step and $150 a day for 30 days".
   if (/\b(turn on|switch on|enable|start|set up)\b.*\bautopilot\b|\bautopilot\b.*\b(on|up)\b\s*$/u.test(t) && !/\b(off|stop|pause)\b/u.test(t)) {
@@ -401,7 +401,7 @@ export function readCreate(t: string, original: string): CreateReading | null {
     const daysHit = /\bfor\s+(\d{1,3})\s+days?\b|\bfor\s+a\s+(week|month)\b/u.exec(t);
     const days = daysHit ? (daysHit[1] ? Number(daysHit[1]) : daysHit[2] === "week" ? 7 : 30) : null;
     const ready = perStepUsd !== null && perDayUsd !== null && days !== null;
-    return { kind: "create", feature: "autopilot", perStepUsd, perDayUsd, days, options: ready ? [] : ["Turn on Autopilot with $25 a step and $75 a day for 30 days", "Turn on Autopilot with $50 a step and $150 a day for 30 days", "Turn on Autopilot with $100 a step and $300 a day for 30 days"] };
+    return { kind: "create", feature: "autopilot", perStepUsd, perDayUsd, days, options: ready ? [] : [tx("Turn on Autopilot with $25 a step and $75 a day for 30 days"), tx("Turn on Autopilot with $50 a step and $150 a day for 30 days"), tx("Turn on Autopilot with $100 a step and $300 a day for 30 days")] };
   }
   // An Autopilot task: "have Autopilot repay 50 USDC on Aave when health drops below 1.5".
   if (/\bautopilot\b/u.test(t) && /\b(add|task|have|let|make|tell)\b/u.test(t) && !/\b(off|stop|pause|turn on|switch on|enable)\b/u.test(t)) {
@@ -411,14 +411,14 @@ export function readCreate(t: string, original: string): CreateReading | null {
     if (/\brepay\b/u.test(t)) {
       const floor = /\b(?:health|hf)\b[^\d]{0,30}(\d(?:\.\d{1,2})?)/u.exec(t)?.[1] ?? null;
       const missing = !amountUsd ? "amount" : !floor ? "floor" : null;
-      return { kind: "create", feature: "autopilot-task", task: missing ? null : { kind: "repay", amountUsd: amountUsd!, floor: floor! }, missing, options: missing === "amount" ? ["Have Autopilot repay 25 USDC on Aave when health drops below 1.5", "Have Autopilot repay 50 USDC on Aave when health drops below 1.5"] : missing === "floor" ? [`Have Autopilot repay ${amountUsd} USDC on Aave when health drops below 1.5`, `Have Autopilot repay ${amountUsd} USDC on Aave when health drops below 1.3`] : [] };
+      return { kind: "create", feature: "autopilot-task", task: missing ? null : { kind: "repay", amountUsd: amountUsd!, floor: floor! }, missing, options: missing === "amount" ? [tx("Have Autopilot repay 25 USDC on Aave when health drops below 1.5"), tx("Have Autopilot repay 50 USDC on Aave when health drops below 1.5")] : missing === "floor" ? [tx("Have Autopilot repay {amountUsd} USDC on Aave when health drops below 1.5", { amountUsd }), tx("Have Autopilot repay {amountUsd} USDC on Aave when health drops below 1.3", { amountUsd })] : [] };
     }
     if (/\b(sweep|idle)\b/u.test(t)) {
       const keep = /\b(?:above|over|keep(?:ing)?)\s*\$?\s?(\d{1,9}(?:\.\d{1,2})?)/u.exec(t)?.[1] ?? null;
       const up = /\bup to\s*\$?\s?(\d{1,9}(?:\.\d{1,2})?)/u.exec(t)?.[1] ?? null;
       const vault = /\binto\s+(?:the\s+)?([a-z][a-z0-9 .'-]{1,40}?)(?:\s+vault)?(?:,|\.|$|\s+up to|\s+when|\s+every)/u.exec(t)?.[1]?.trim() ?? null;
       const missing = !keep ? "keep" : !up ? "amount" : !vault ? "vault" : null;
-      const say = (k: string, a: string) => `Have Autopilot sweep idle USDC above ${k} into the Galaxy vault, up to ${a} at a time`;
+      const say = (k: string, a: string) => tx("Have Autopilot sweep idle USDC above {k} into the Galaxy vault, up to {a} at a time", { k, a });
       return { kind: "create", feature: "autopilot-task", task: missing ? null : { kind: "sweep", keepUsd: keep!, amountUsd: up!, vault: vault!.replace(/\b\w/gu, (c) => c.toUpperCase()) }, missing, options: missing ? [say(keep ?? "500", up ?? "100"), say(keep ?? "1000", up ?? "100")] : [] };
     }
     if (/\b(pay|send)\b/u.test(t)) {
@@ -428,15 +428,15 @@ export function readCreate(t: string, original: string): CreateReading | null {
     }
     if (/\b(dca|buy|convert)\b/u.test(t)) {
       // DCA has one engine: LykiaOrders. Autopilot no longer takes new DCA tasks.
-      return { kind: "create", feature: "autopilot-task", task: null, missing: "dca", options: [4, 8].map((n) => `Buy EURC with ${amountUsd ?? "50"} USDC every ${every ?? "week"} for ${n} ${every ?? "week"}s`) };
+      return { kind: "create", feature: "autopilot-task", task: null, missing: "dca", options: [4, 8].map((n) => tx("Buy EURC with {value} USDC every {value2} for {n} {value2}s", { value: amountUsd ?? "50", value2: every ?? "week", n })) };
     }
-    return { kind: "create", feature: "autopilot-task", task: null, missing: "kind", options: ["Have Autopilot repay 50 USDC on Aave when health drops below 1.5", "Have Autopilot sweep idle USDC above 1000 into the Galaxy vault, up to 100 at a time", "Have Autopilot pay 25 USDC to 0x… every week"] };
+    return { kind: "create", feature: "autopilot-task", task: null, missing: "kind", options: [tx("Have Autopilot repay 50 USDC on Aave when health drops below 1.5"), tx("Have Autopilot sweep idle USDC above 1000 into the Galaxy vault, up to 100 at a time"), tx("Have Autopilot pay 25 USDC to 0x… every week")] };
   }
   return null;
 }
 
 /** The chains people bridge to most, first in a question's options. */
-const POPULAR = ["Base", "Arbitrum", "Ethereum", "OP Mainnet", "Polygon PoS", "Avalanche"];
+const POPULAR = ["Base", phrase("Arbitrum"), "Ethereum", phrase("OP Mainnet"), phrase("Polygon PoS"), phrase("Avalanche")];
 const popular = (name: string) => {
   const i = POPULAR.indexOf(name);
   return i < 0 ? POPULAR.length : i;

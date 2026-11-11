@@ -20,13 +20,14 @@ import { useLykiaWallet } from "../../features/wallet/useLykiaWallet";
 import { apiGet, apiPost, describeError } from "../../lib/api";
 import { qrMatrix, qrSvgPath } from "../../lib/qr";
 import { Button, Card, Field, Frame, Input, PageHead, Stat, Tag } from "../../mosaic";
+import { intlLocale, t } from "../../i18n";
 
 type PublicInvoice = InvoicePublicView & { readonly url: string };
 
 function Qr({ text }: { text: string }) {
   const { path, size } = useMemo(() => qrSvgPath(qrMatrix(text)), [text]);
   return (
-    <svg viewBox={`0 0 ${size} ${size}`} width={168} height={168} role="img" aria-label="QR code of this payment page" shapeRendering="crispEdges" style={{ background: "#fff", borderRadius: 6, maxWidth: "100%", height: "auto" }}>
+    <svg viewBox={`0 0 ${size} ${size}`} width={168} height={168} role="img" aria-label={t("pay.qrCodeOfThisPaymentPage")} shapeRendering="crispEdges" style={{ background: "#fff", borderRadius: 6, maxWidth: "100%", height: "auto" }}>
       <path d={path} fill="#111" />
     </svg>
   );
@@ -92,7 +93,7 @@ export default function PayPage() {
   if (!inv) {
     return (
       <div className="m-wrap pay-page" style={{ padding: "32px 0" }}>
-        <PageHead kicker="PAYMENT" title="Payment link not found" sub="Check the link with whoever sent it." />
+        <PageHead kicker={t("pay.payment")} title={t("pay.paymentLinkNotFound")} sub={t("pay.checkTheLinkWithWhoeverSent")} />
       </div>
     );
   }
@@ -100,15 +101,15 @@ export default function PayPage() {
 
   return (
     <div className="m-wrap pay-page" style={{ padding: "24px 0 48px" }}>
-      <PageHead kicker={inv.brand ? `PAY ${inv.brand.name.toUpperCase()}` : "PAYMENT"} title={`${due === "0" ? inv.amount : due} ${inv.token}`} sub={inv.reference ? `Reference ${inv.reference}` : `Invoice ${inv.id}`} medal={false}>
+      <PageHead kicker={inv.brand ? `PAY ${inv.brand.name.toUpperCase()}` : "PAYMENT"} title={`${due === "0" ? inv.amount : due} ${inv.token}`} sub={inv.reference ? t("pay.reference", { reference: inv.reference }) : t("pay.invoice", { id: inv.id })} medal={false}>
         <Tag tone={TONE[inv.status]}>{inv.status.replace("-", " ")}</Tag>
       </PageHead>
       <div className="pay-grid">
-        <Card title="Invoice" kicker={inv.environment === "mainnet" ? "ARC MAINNET" : "ARC TESTNET"}>
+        <Card title={t("pay.invoice2")} kicker={inv.environment === "mainnet" ? t("pay.arcMainnet") : t("pay.arcTestnet")}>
           <div className="pay-stats">
-            <Stat label="Total" value={`${inv.amount} ${inv.token}`} />
-            <Stat label="Paid" value={`${inv.paid} ${inv.token}`} />
-            <Stat label="Due" value={`${due} ${inv.token}`} hint={inv.dueDate ? `by ${new Date(inv.dueDate).toLocaleDateString("en-GB")}` : undefined} />
+            <Stat label={t("pay.total")} value={`${inv.amount} ${inv.token}`} />
+            <Stat label={t("pay.paid")} value={`${inv.paid} ${inv.token}`} />
+            <Stat label={t("pay.due")} value={`${due} ${inv.token}`} hint={inv.dueDate ? t("pay.dueBy", { date: new Date(inv.dueDate).toLocaleDateString(intlLocale()) }) : undefined} />
           </div>
           {inv.lineItems.length > 0 ? (
             <table className="m-table pay-lines">
@@ -123,27 +124,27 @@ export default function PayPage() {
             </table>
           ) : null}
           {inv.memo ? <p className="m-dim" style={{ marginTop: 12 }}>{inv.memo}</p> : null}
-          <p className="m-dim" style={{ marginTop: 12, overflowWrap: "anywhere" }}>{`Paid to ${shortAddress(inv.payee)}. The transfer carries the Arc memo "${inv.note}" so it reconciles by itself.`}</p>
+          <p className="m-dim" style={{ marginTop: 12, overflowWrap: "anywhere" }}>{t("pay.paidToTheTransferCarriesThe", { shortAddress: shortAddress(inv.payee), note: inv.note })}</p>
         </Card>
-        <Card title={closed ? (inv.status === "paid" ? "Paid in full" : "This invoice was voided") : "Pay"} kicker={closed ? "NOTHING TO PAY" : "SIGNED IN YOUR OWN WALLET"}>
+        <Card title={closed ? (inv.status === "paid" ? t("pay.paidInFull") : t("pay.thisInvoiceWasVoided")) : t("pay.pay")} kicker={closed ? t("pay.nothingToPay") : t("pay.signedInYourOwnWallet")}>
           {!closed ? (
             <div className="grid gap-3">
               {inv.allowPartial ? (
-                <Field label={`Amount (${inv.token})`} hint={`Up to ${due}. Leave empty to pay it all.`}>
+                <Field label={t("pay.amount", { token: inv.token })} hint={t("pay.upToLeaveEmptyToPay", { due })}>
                   <Input inputMode="decimal" placeholder={due} value={amount} onChange={(e) => setAmount(e.target.value)} />
                 </Field>
               ) : null}
-              <Button tone="terra" size="lg" onClick={() => void pay()} disabled={busy}>{wallet.address ? (busy ? "Planning…" : "Review payment") : "Connect a wallet to pay"}</Button>
-              <p className="m-dim">Lykia's 1% fee is shown before you sign and paid in the same transaction. Nothing moves until your wallet signs.</p>
+              <Button tone="terra" size="lg" onClick={() => void pay()} disabled={busy}>{wallet.address ? (busy ? "Planning…" : t("pay.reviewPayment")) : t("pay.connectAWalletToPay")}</Button>
+              <p className="m-dim">{t("pay.lykiaS1FeeIsShown")}</p>
               {error ? <p role="alert" className="m-note">{error}</p> : null}
             </div>
           ) : (
-            <p className="m-dim">{inv.status === "paid" ? "Thank you. The payment settled on Arc." : "Ask the sender for a new link."}</p>
+            <p className="m-dim">{inv.status === "paid" ? t("pay.thankYouThePaymentSettledOn") : t("pay.askTheSenderForANew")}</p>
           )}
-          {reported ? <p className="m-note" style={{ marginTop: 8, overflowWrap: "anywhere" }}>{`Payment recorded: ${shortHash(reported, 4, 4)}`}</p> : null}
+          {reported ? <p className="m-note" style={{ marginTop: 8, overflowWrap: "anywhere" }}>{t("pay.paymentRecorded", { shortHash: shortHash(reported, 4, 4) })}</p> : null}
           <div className="pay-qr">
             <Qr text={inv.url} />
-            <span className="m-dim">Scan to open this page on a phone.</span>
+            <span className="m-dim">{t("pay.scanToOpenThisPageOn")}</span>
           </div>
         </Card>
       </div>

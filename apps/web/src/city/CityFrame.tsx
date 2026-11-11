@@ -12,6 +12,7 @@ import { Coin } from "../features/league/Coin";
 import { cx } from "../mosaic";
 import { cityAccent } from "./model";
 import { PixelIcon, type PixelIconName } from "./PixelIcon";
+import { t as msg } from "../i18n";
 
 const WalletButton = React.lazy(() => import("../shell/WalletButton"));
 
@@ -28,12 +29,12 @@ export function CityFrame<T extends string>({ city, home, tab, tabs, onTab, acti
     <div className={cx("ct", `ct--${city.league.category}`, tabs && "ct--tabs", Boolean(action) && "ct--action")} style={style}>
       <header className="ct-top">
         <div className="ct-top__in">
-          <a href="#main" className="sr-only">{"Skip to content"}</a>
+          <a href="#main" className="sr-only">{msg("city.cityFrame.skipToContent")}</a>
           <div className="ct-brand">
             <Coin state={city.league.state} emblem={city.league.emblem} codename={null} name={city.project.name} size={40} interactive={false} />
             <div className="ct-brand__t">
               <b>{city.project.name}</b>
-              <a className="ct-mark" href={home} title="Lykia: the policy layer for money on Arc">{"a Lykia city"}{city.league.codename ? ` · ${city.league.codename}` : ""}</a>
+              <a className="ct-mark" href={home} title={msg("city.cityFrame.lykiaThePolicyLayerForMoney")}>{msg("city.cityFrame.aLykiaCity")}{city.league.codename ? ` · ${city.league.codename}` : ""}</a>
             </div>
           </div>
           {tabs && onTab ? (
@@ -53,9 +54,9 @@ export function CityFrame<T extends string>({ city, home, tab, tabs, onTab, acti
       </header>
       <main id="main" className="ct-main">{children}</main>
       <footer className="ct-foot">
-        <a href={home}>{"Built on Lykia"}</a>
-        <span>{" · Built on Arc Network · Lykia never holds your funds or keys · "}</span>
-        <a href={`${home}/league`}>{"The League"}</a>
+        <a href={home}>{msg("city.cityFrame.builtOnLykia")}</a>
+        <span>{msg("city.cityFrame.builtOnArcNetworkLykiaNever")}</span>
+        <a href={`${home}/league`}>{msg("city.cityFrame.theLeague")}</a>
       </footer>
       {action ? <div className="ct-action">{action}</div> : null}
       {tabs && onTab ? (

@@ -1,9 +1,10 @@
+// i18n-ignore-file: design kit for reviewing states during development; its fixtures stand in for API answers.
 /**
  * Preflight in the kits: sample plans whose findings are computed by core's
  * own checks (runPreflight, watchFindings) from sample balances, so the kit
  * shows exactly what the engine would say. Nothing here calls the API.
  */
-import { DEFAULT_FENCE, evaluateFence, runPreflight, watchFindings, type Finding, type IntentGraph, type IntentStep, type PreflightPlan, type PreflightState } from "@lykia/core";
+import { DEFAULT_FENCE, evaluateFence, runPreflight, tx, watchFindings, type Finding, type IntentGraph, type IntentStep, type PreflightPlan, type PreflightState } from "@lykia/core";
 import type { AgentProposal } from "@lykia/core/api/agents";
 import type { FoldInsight } from "@lykia/core/api/fold";
 
@@ -111,7 +112,7 @@ export function bridgePlan(): { graph: IntentGraph; proposal: AgentProposal; tex
     id: "s1",
     kind: "bridge",
     venue: "cctp",
-    summary: "Bridge 0.99 USDC to Base over CCTP (Circle forwards the mint)",
+    summary: tx("Bridge {display} to {destinationName} over CCTP{value}", { display: "0.99 USDC", destinationName: "Base", value: tx(" (Circle forwards the mint)") }),
     signer: "wallet",
     account: KIT_OWNER,
     dependsOn: [],
@@ -130,7 +131,7 @@ export function bridgePlan(): { graph: IntentGraph; proposal: AgentProposal; tex
   return {
     graph,
     proposal: { intentId: id, title: "bridge", steps: [bridge.summary], decision: fenceVerdict.decision, reasons: fenceVerdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message), warnings: [], preflight: findings, attribution: [{ agent: "Lyko", role: "orchestrator", part: "bridge" }], rationale: "Route search winner: As asked: cctp (net -0.21 USD over 90 days; beat 0 other options)." },
-    clarify: { question: "How would you like to proceed? Bridging everything leaves no USDC for Arc gas.", options: ["Bridge 1 USDC to Base", "Bridge idle USDC but keep a gas reserve on Arc", "Cancel this bridge"] },
+    clarify: { question: tx("How would you like to proceed? Bridging everything leaves no USDC for Arc gas."), options: [tx("Bridge {amount} {symbol} to {name}", { amount: "1", symbol: "USDC", name: "Base" }), tx("Bridge idle USDC but keep a gas reserve on Arc"), tx("Cancel this bridge")] },
     text: `${findings[0]?.say ?? ""}\n\n- ${bridge.summary}`,
   };
 }

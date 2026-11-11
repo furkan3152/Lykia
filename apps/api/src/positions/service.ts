@@ -27,6 +27,7 @@ import { readUsyc, readWallet } from "./wallet.js";
 import { readLeashes } from "./leashes.js";
 import { readPlans, readWatches } from "./tracked.js";
 
+import { tx } from "@lykia/core";
 /** How long one venue's read is reused for the same address. */
 export const POSITIONS_CACHE_MS = 20_000;
 
@@ -71,9 +72,9 @@ function reasonOf(error: unknown): string {
   if (error instanceof VenueUnavailable) return error.message;
   const short = (error as { shortMessage?: unknown })?.shortMessage;
   const text = typeof short === "string" ? short : error instanceof Error ? error.message : "";
-  if (/timeout|timed out|took too long/iu.test(text)) return "Arc's RPC did not answer in time.";
-  if (/fetch failed|ECONN|network/iu.test(text)) return "The network request failed.";
-  return text ? `The read failed: ${text.split("\n")[0]!.slice(0, 120)}` : "The read failed.";
+  if (/timeout|timed out|took too long/iu.test(text)) return tx("Arc's RPC did not answer in time.");
+  if (/fetch failed|ECONN|network/iu.test(text)) return tx("The network request failed.");
+  return text ? tx("The read failed: {value}", { value: text.split("\n")[0]!.slice(0, 120) }) : tx("The read failed.");
 }
 
 export interface ReadOptions {
@@ -129,9 +130,9 @@ export async function readContext(ctx: AppContext, environment: ArcEnvironment, 
 export async function readVenue(r: ReadContext, info: PositionVenueInfo, options: Pick<ReadOptions, "cached" | "readers">): Promise<VenueRead> {
   const started = Date.now();
   const base = { venue: info.id, venueName: info.name, venueKind: info.kind, readAt: r.readAt } as const;
-  if (info.personal && !r.personal) return { ...base, status: "private", reason: "Sign in as the owner to see this: it reads Lykia's own records.", positions: [], source: "history", method: "Owner-only.", block: null, ms: 0 };
+  if (info.personal && !r.personal) return { ...base, status: "private", reason: tx("Sign in as the owner to see this: it reads Lykia's own records."), positions: [], source: "history", method: "Owner-only.", block: null, ms: 0 };
   const reader = (options.readers ?? READERS)[info.id];
-  if (!reader) return { ...base, status: "unavailable", reason: "No reader for this venue yet.", positions: [], source: "chain", method: "", block: null, ms: 0 };
+  if (!reader) return { ...base, status: "unavailable", reason: tx("No reader for this venue yet."), positions: [], source: "chain", method: "", block: null, ms: 0 };
   const key = `${r.environment}:${info.id}:${r.owner.toLowerCase()}:${r.personal ? "owner" : "public"}`;
   if (options.cached !== false) {
     const hit = await cache(r.ctx).get(key).catch(() => null);
@@ -143,7 +144,7 @@ export async function readVenue(r: ReadContext, info: PositionVenueInfo, options
     const out = await Promise.race([
       reader(r, info),
       new Promise<ReaderOutput>((_, reject) => {
-        timer = setTimeout(() => reject(new VenueUnavailable(`${info.name} did not answer within ${Math.round(limit / 1000)} s.`)), limit);
+        timer = setTimeout(() => reject(new VenueUnavailable(tx("{name} did not answer within {value} s.", { name: info.name, value: Math.round(limit / 1000) }))), limit);
       }),
     ]);
     const read: VenueRead = { ...base, status: "ok", positions: out.positions, source: out.source, method: out.method, ...(out.coverage ? { coverage: out.coverage } : {}), block: out.block, ms: Date.now() - started };

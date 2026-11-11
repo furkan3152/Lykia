@@ -59,6 +59,13 @@ export function installTextures(root: HTMLElement = document.documentElement): v
     // A cream inlay of small stones for lit plates.
     "--tess-plate": paint(8, 8, 4, 0.8, (i, j) => ["#FBF5E6", "#F6EDD8", "#FFF8E9", "#F3E9D2"][Math.floor(hash(i + 11, j + 5) * 4)]!, 0.02, "#E2D3B2"),
     "--rule8":paint(4, 2, 4, 1, (i, j) => (j === 0 ? "#13233A" : i % 2 ? "#B9472E" : "#FBF5E6")),
+    // Night: the same stones at dusk. Card insides in lifted slate, keys in muted gold, edges in muted terra.
+    "--frame-dusk": frame("#A8553C", "#22324F", "#0B1430", "#1E2B42"),
+    "--frame-sea-dusk": frame("#2A8597", "#22324F", "#0B1430", "#1E2B42"),
+    "--meander-dusk": paint(8, 9, 4, 1, (i, j) => (j === 0 || j === 8 ? "#A8553C" : MEANDER[j]![i] === "X" ? "#B8913F" : "#1B273C")),
+    "--wave-dusk": paint(8, 9, 4, 1, (i, j) => (j === 0 || j === 8 ? "#2A8597" : WAVE[j]![i] === "X" ? "#B8913F" : "#1B273C")),
+    "--tess-plate-dusk": paint(8, 8, 4, 0.8, (i, j) => ["#1E2B42", "#1B283D", "#22304A", "#1A263A"][Math.floor(hash(i + 11, j + 5) * 4)]!, 0.02, "#0E1830"),
+    "--rule8-dusk": paint(4, 2, 4, 1, (i, j) => (j === 0 ? "#0B1430" : i % 2 ? "#A8553C" : "#22324F")),
   };
   for (const [k, v] of Object.entries(vars)) if (v) root.style.setProperty(k, v);
 }

@@ -6,6 +6,7 @@
  * parameters, so the planner can pick one, explain why, and keep the rest
  * as alternatives the UI can show.
  */
+import { tx } from "@lykia/core";
 import {
   chooseBorrow,
   chooseSwap,
@@ -294,12 +295,12 @@ export class VenueRouter {
     ]);
     for (const q of v3) {
       const n = await net(q.amountOut, q.gasEstimate > 0n ? q.gasEstimate : GAS_DEFAULTS.v3);
-      candidates.push({ option: { venue: "uniswap-v3", label: `Uniswap v3 ${q.fee / 10_000}% pool`, amountOut: q.amountOut.toString(), netAmountOut: n.toString(), risk: "low", executable: true, notes: [`Quote ${fmt(q.amountOut)} (QuoterV2).`] }, adapter: "swap", params: { ...base, fee: String(q.fee) }, amountOut: q.amountOut, netOut: n });
+      candidates.push({ option: { venue: "uniswap-v3", label: tx("Uniswap v3 {fee}% pool", { fee: q.fee / 10_000 }), amountOut: q.amountOut.toString(), netAmountOut: n.toString(), risk: "low", executable: true, notes: [`Quote ${fmt(q.amountOut)} (QuoterV2).`] }, adapter: "swap", params: { ...base, fee: String(q.fee) }, amountOut: q.amountOut, netOut: n });
     }
     for (const q of v4) {
       const n = await net(q.amountOut, q.gasEstimate > 0n ? q.gasEstimate : GAS_DEFAULTS.v4);
       candidates.push({
-        option: { venue: "uniswap-v4", label: `Uniswap v4 ${q.key.fee / 10_000}% pool`, amountOut: q.amountOut.toString(), netAmountOut: n.toString(), risk: "low", executable: true, notes: [`Quote ${fmt(q.amountOut)} (V4Quoter); pays through Permit2.`] },
+        option: { venue: "uniswap-v4", label: tx("Uniswap v4 {fee}% pool", { fee: q.key.fee / 10_000 }), amountOut: q.amountOut.toString(), netAmountOut: n.toString(), risk: "low", executable: true, notes: [`Quote ${fmt(q.amountOut)} (V4Quoter); pays through Permit2.`] },
         adapter: "swap-v4",
         params: { ...base, currency0: q.key.currency0, currency1: q.key.currency1, fee: String(q.key.fee), tickSpacing: String(q.key.tickSpacing), hooks: q.key.hooks, zeroForOne: String(q.zeroForOne) },
         amountOut: q.amountOut,
@@ -325,7 +326,7 @@ export class VenueRouter {
     }
     for (const q of unitflow) {
       const n = await net(q.amountOut, GAS_DEFAULTS.unitflow);
-      candidates.push({ option: { venue: "unitflow-finance-v3", label: `Unitflow V3 ${q.key / 10_000}% pool`, amountOut: q.amountOut.toString(), netAmountOut: n.toString(), risk: "medium", executable: true, notes: [`Quote ${fmt(q.amountOut)} (Unitflow Quoter).`, "Thin pools (about $4k): picked only when it nets more than every other venue."] }, adapter: "swap-unitflow", params: { ...base, fee: String(q.key), pool: q.pool }, amountOut: q.amountOut, netOut: n });
+      candidates.push({ option: { venue: "unitflow-finance-v3", label: tx("Unitflow V3 {fee}% pool", { fee: q.key / 10_000 }), amountOut: q.amountOut.toString(), netAmountOut: n.toString(), risk: "medium", executable: true, notes: [`Quote ${fmt(q.amountOut)} (Unitflow Quoter).`, "Thin pools (about $4k): picked only when it nets more than every other venue."] }, adapter: "swap-unitflow", params: { ...base, fee: String(q.key), pool: q.pool }, amountOut: q.amountOut, netOut: n });
     }
     // Aggregators with official APIs (Sushi always; 0x only with the owner's key). Their calldata is re-checked at build time.
     if (this.deps.fetch) {

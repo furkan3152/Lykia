@@ -1,3 +1,4 @@
+// i18n-ignore-file: code samples are code, the same in every language.
 /**
  * Code the developer portal shows: one generator per integration path,
  * fed by the playground's brand, modules and assistant name. Pure, so the

@@ -13,9 +13,10 @@ import { ARC_ECOSYSTEM_DIRECTORY, COVERAGE_MEANING, POSITIONING } from "../../fe
 import { useEcosystem } from "../../features/ecosystem/useEcosystem";
 import { API_BASE } from "../../lib/env";
 import { Card, MeanderBand } from "../../mosaic";
+import { t } from "../../i18n";
 
 const FILTERS = [
-  ["all", "EVERY PROTOCOL"],
+  ["all", t("ecosystem.everyProtocol")],
   ["routes", "ROUTABLE"],
   ["reads", "READ-ONLY"],
   ["lists", "MAPPED"],
@@ -37,6 +38,7 @@ export default function EcosystemPage() {
     return { ...q.data, protocols: keep };
   }, [q.data, filter]);
   const api = API_BASE;
+  // i18n-ignore: an embed snippet is code.
   const snippet = `<div data-lykia-ecosystem data-limit="6"></div>
 <script async src="${typeof window !== "undefined" ? window.location.origin : ""}/embed/routed-by-lykia.js"
         data-api="${api}"></script>`;
@@ -44,22 +46,22 @@ export default function EcosystemPage() {
   return (
     <div>
       <header className="m-head m-wrap">
-        <span className="m-kick">{"THE FORGE · HARBOUR · ECOSYSTEM"}</span>
+        <span className="m-kick">{t("ecosystem.theForgeHarbourEcosystem")}</span>
         <h1 className="m-title">
-          The protocols on Arc, mapped, <em>the routable ones one route away.</em>
+          {t("ecosystem.theProtocolsOnArcMapped")} <em>{t("ecosystem.theRoutableOnesOneRouteAway")}</em>
         </h1>
         <p className="m-sub">{POSITIONING}</p>
         <CoverageLine data={q.data} className="m-kick eco-coverage" />
         <p className="m-small" style={{ marginTop: 10 }}>
-          {"The full list of who builds on Arc lives in the official "}
-          <a href={ARC_ECOSYSTEM_DIRECTORY} target="_blank" rel="noreferrer noopener">{"Arc ecosystem directory"}</a>
-          {". The registry maps everything known on Arc: tokens, bridges, oracles, infrastructure and protocols without an adapter. Only the venues with an executable adapter are routable; each card says which it is and links to its Arc entry."}
+          {t("ecosystem.theFullListOfWhoBuilds")}
+          <a href={ARC_ECOSYSTEM_DIRECTORY} target="_blank" rel="noreferrer noopener">{t("ecosystem.arcEcosystemDirectory")}</a>
+          {t("ecosystem.theRegistryMapsEverythingKnownOn")}
         </p>
       </header>
 
       <section className="m-wrap">
         <EcosystemStats data={q.data} />
-        {q.isError ? <p className="m-note" style={{ marginTop: 12 }}>{"The API did not answer; this page fills in when it does. Try again in a minute."}</p> : null}
+        {q.isError ? <p className="m-note" style={{ marginTop: 12 }}>{t("ecosystem.theApiDidNotAnswerThis")}</p> : null}
       </section>
 
       <section className="m-wrap" style={{ marginTop: 32 }}>
@@ -70,16 +72,16 @@ export default function EcosystemPage() {
 
       <section className="m-wrap" style={{ marginTop: 32 }} aria-labelledby="eco-stalls">
         <div className="m-center">
-          <span className="m-kick">{"PROTOCOLS ON ARC"}</span>
-          <h2 id="eco-stalls" className="m-h2" style={{ marginTop: 8 }}>{"Routable, read-only or mapped"}</h2>
+          <span className="m-kick">{t("ecosystem.protocolsOnArc")}</span>
+          <h2 id="eco-stalls" className="m-h2" style={{ marginTop: 8 }}>{t("ecosystem.routableReadOnlyOrMapped")}</h2>
           <dl className="eco-legend m-small">
-            <div><dt>{"ROUTABLE"}</dt><dd>{COVERAGE_MEANING.routes}</dd></div>
-            <div><dt>{"READ-ONLY"}</dt><dd>{COVERAGE_MEANING.reads}</dd></div>
-            <div><dt>{"MAPPED"}</dt><dd>{COVERAGE_MEANING.lists}</dd></div>
+            <div><dt>{t("ecosystem.routable")}</dt><dd>{COVERAGE_MEANING.routes}</dd></div>
+            <div><dt>{t("ecosystem.readOnly")}</dt><dd>{COVERAGE_MEANING.reads}</dd></div>
+            <div><dt>{t("ecosystem.mapped")}</dt><dd>{COVERAGE_MEANING.lists}</dd></div>
           </dl>
-          <p className="m-small m-muted" style={{ marginTop: 8 }}>{"Each card links to the protocol's official Arc ecosystem entry where one exists. Circle's own rails (USDC transfers, Gateway) are on the quay above."}</p>
+          <p className="m-small m-muted" style={{ marginTop: 8 }}>{t("ecosystem.eachCardLinksToTheProtocol")}</p>
         </div>
-        <div className="eco-filters" role="group" aria-label="Filter protocols">
+        <div className="eco-filters" role="group" aria-label={t("ecosystem.filterProtocols")}>
           {FILTERS.map(([key, label]) => (
             <button key={key} type="button" className="m-chip" aria-pressed={filter === key} onClick={() => setFilter(key)}>
               {label}
@@ -87,16 +89,16 @@ export default function EcosystemPage() {
           ))}
         </div>
         <PartnerStalls data={data} />
-        <p className="m-kick m-center" style={{ marginTop: 14 }}>{q.data?.sources.tvlAt ? `TVL · ${q.data.sources.tvl} · ${q.data.sources.tvlAt.slice(0, 16).replace("T", " ")} UTC` : "TVL · DEFILLAMA"}</p>
+        <p className="m-kick m-center" style={{ marginTop: 14 }}>{q.data?.sources.tvlAt ? `TVL · ${q.data.sources.tvl} · ${q.data.sources.tvlAt.slice(0, 16).replace("T", " ")} UTC` : t("ecosystem.tvlDefillama")}</p>
       </section>
 
       <section className="m-wrap" style={{ marginTop: 48 }}>
         <div className="m-grid-2">
-          <Card title={"Your protocol here"} kicker={"INTEGRATE IN AN AFTERNOON"} footer={<Link to="/forge/reference#integrate" className="m-btn m-btn--sea">{"INTEGRATE YOUR PROTOCOL"}</Link>}>
-            <p className="m-small">{"Send the addresses and the evidence, add one typed adapter, and every Lykia user and agent can reach you, inside their Fence. Free developer keys for Arc builders."}</p>
+          <Card title={t("ecosystem.yourProtocolHere")} kicker={t("ecosystem.integrateInAnAfternoon")} footer={<Link to="/forge/reference#integrate" className="m-btn m-btn--sea">{t("ecosystem.integrateYourProtocol")}</Link>}>
+            <p className="m-small">{t("ecosystem.sendTheAddressesAndTheEvidence")}</p>
           </Card>
-          <Card title={"Routed by Lykia"} kicker={"EMBED THE DIRECTORY"}>
-            <p className="m-small">{"Show the Arc ecosystem, live, on your own site. The data is public and open to every origin."}</p>
+          <Card title={t("ecosystem.routedByLykia")} kicker={t("ecosystem.embedTheDirectory")}>
+            <p className="m-small">{t("ecosystem.showTheArcEcosystemLiveOn")}</p>
             <pre className="m-code eco-embed">{snippet}</pre>
           </Card>
         </div>

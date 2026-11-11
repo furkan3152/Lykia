@@ -28,7 +28,7 @@ The connect modal offers two ways in, with no WalletConnect or QR codes:
 - **Passkey wallet**: a Circle smart account on Arc owned by a device passkey (Face ID, Touch ID, Windows Hello). The SDK loads only when someone opens it. Plan steps go out as one user operation through Circle's bundler and are submitted to the API by user operation hash; sign-in uses the smart account's ERC-1271 signature.
 - **Browser wallet**: wallets announced through EIP-6963 (MetaMask, Rabby, OKX, Coinbase Wallet and others) with their own icons, falling back to `window.ethereum`. Switching to Arc adds the chain (USDC as the native currency) when the wallet does not know it.
 
-The interface is English only. Lyko always replies in English and understands requests written in any language.
+The interface comes in English, Turkish, Spanish, Brazilian Portuguese, Simplified Chinese and French (`src/i18n`: one typed catalogue per language, loaded on demand; a missing key fails the typecheck). Lyko answers in the chosen language and understands requests written in any language.
 
 ## Mosaic
 

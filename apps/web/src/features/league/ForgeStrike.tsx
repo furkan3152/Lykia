@@ -9,10 +9,11 @@ import { useEffect, useRef } from "react";
 import { useReducedMotion } from "../../motion/useReducedMotion";
 import { drawTesserae } from "../../mosaic/tessera";
 import { forgeStrike, FORGE_H, FORGE_W } from "./art";
+import { t } from "../../i18n";
 
 const TILE = 4;
 
-export function ForgeStrike({ strikeKey, label = "The Forge's anvil" }: { readonly strikeKey: unknown; readonly label?: string }) {
+export function ForgeStrike({ strikeKey, label = t("league.forgeStrike.theForgeSAnvil") }: { readonly strikeKey: unknown; readonly label?: string }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const reduced = useReducedMotion();
   const first = useRef(true);

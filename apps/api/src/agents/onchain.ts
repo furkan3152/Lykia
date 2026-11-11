@@ -21,6 +21,7 @@ import type { AppContext } from "../context.js";
 import { services } from "../services.js";
 
 
+import { tx } from "@lykia/core";
 const SPEC_COMPONENTS = [
   { name: "key", type: "address" },
   { name: "validUntil", type: "uint64" },
@@ -187,9 +188,9 @@ export async function buildSessionTx(ctx: AppContext, input: SessionTxInput, env
   };
   const left = ["USDC", "EURC"].filter((s) => (input.agent.fence.tokens?.allow ?? ["USDC", "EURC"]).includes(s) && !spec.tokens.some((t) => t.token.toLowerCase() === tokenAddress(getToken(s)!, environment)?.toLowerCase()));
   const note = [
-    sub ? "Signed by the parent agent's session key; the account refuses a sub-session outside its parent." : "Signed by the owner's wallet on their LykiaAccount.",
-    left.length > 0 ? `${left.join(", ")} left out: no reference price.` : "",
-    spec.calls.length === 0 ? "No contract call rules: the session can make agentTransfer payments only, until call rules are added." : input.calls ? "" : `${spec.calls.length} call rule(s) derived from the Fence's venues, each pinning its output argument to the account. Routers that hide the recipient inside bytes (Uniswap v4, Aerodrome) are not included.`,
+    sub ? tx("Signed by the parent agent's session key; the account refuses a sub-session outside its parent.") : tx("Signed by the owner's wallet on their LykiaAccount."),
+    left.length > 0 ? tx("{value} left out: no reference price.", { value: left.join(", ") }) : "",
+    spec.calls.length === 0 ? tx("No contract call rules: the session can make agentTransfer payments only, until call rules are added.") : input.calls ? "" : tx("{length} call rule(s) derived from the Fence's venues, each pinning its output argument to the account. Routers that hide the recipient inside bytes (Uniswap v4, Aerodrome) are not included.", { length: spec.calls.length }),
   ].filter(Boolean).join(" ");
   return { spec, transaction, note };
 }

@@ -10,6 +10,7 @@ import type { FindingFix } from "@lykia/core";
 import { navigate } from "../../app/routes/history";
 import { apiGet, apiPost, describeError } from "../../lib/api";
 import { toast } from "../../mosaic";
+import { t } from "../../i18n";
 
 export interface FixEffects {
   readonly ask?: (sentence: string) => void;
@@ -26,26 +27,26 @@ export async function runFix(fix: FindingFix, effects: FixEffects): Promise<void
       if (!fix.path) return;
       try {
         await (fix.method === "get" ? apiGet(fix.path) : apiPost(fix.path, fix.body ?? {}));
-        toast.success(`Paused: ${fix.label.replace(/^Pause\s*/u, "")}`, { description: "Resume it in Herding any time.", from: "LYKO" });
+        toast.success(`Paused: ${fix.label.replace(/^Pause\s*/u, "")}`, { description: t("route.preflightActions.resumeItInHerdingAnyTime"), from: "LYKO" });
       } catch (error) {
-        toast.error("Could not pause it", { description: describeError(error), from: "LYKO" });
+        toast.error(t("route.preflightActions.couldNotPauseIt"), { description: describeError(error), from: "LYKO" });
       }
       return;
     case "add-funds":
       if (fix.address) {
         try {
           await navigator.clipboard.writeText(fix.address);
-          toast.success("Address copied", { description: `Send USDC on Arc to ${fix.address}. Receiving needs no gas from this wallet.`, from: "LYKO" });
+          toast.success(t("route.preflightActions.addressCopied"), { description: t("route.preflightActions.sendUsdcOnArcToReceiving", { address: fix.address }), from: "LYKO" });
         } catch {
-          toast.info("Send USDC on Arc to this address", { description: fix.address, from: "LYKO" });
+          toast.info(t("route.preflightActions.sendUsdcOnArcToThis"), { description: fix.address, from: "LYKO" });
         }
       }
       return;
     case "switch-network":
-      if (effects.switchNetwork) await effects.switchNetwork().catch((error: unknown) => toast.error("The wallet did not switch", { description: describeError(error), from: "LYKO" }));
+      if (effects.switchNetwork) await effects.switchNetwork().catch((error: unknown) => toast.error(t("route.preflightActions.theWalletDidNotSwitch"), { description: describeError(error), from: "LYKO" }));
       return;
     case "wait":
-      toast.info(fix.label, { description: `${fix.detail ?? "It is on its way"}. Ask again once it has landed.`, from: "LYKO" });
+      toast.info(fix.label, { description: t("route.preflightActions.askAgainOnceItHasLanded", { value: fix.detail ?? t("route.preflightActions.itIsOnItsWay") }), from: "LYKO" });
       return;
     case "open":
     case "change-fence":

@@ -9,6 +9,7 @@ import { sampleAutopilot } from "./autopilot/model";
 import { sampleLeashes } from "./leash/model";
 import type { FlockHolding, FlockSnapshot } from "@lykia/core/api/flock";
 import type { FoldInsight, FoldInstruction, FoldProposal, FoldTrailEntry, RunningControl, RunningKind, RunningSigner, ThreadSummaryView, WhistleItem, WhistleItemKind } from "@lykia/core/api/fold";
+import { formatUsd, intlLocale, t as msg } from "../../i18n";
 
 /* ------------------------------------------------------------------ tabs */
 
@@ -23,15 +24,15 @@ export interface FoldTabMeta {
 }
 
 export const FOLD_TAB_META: Readonly<Record<FoldTab, FoldTabMeta>> = {
-  flock: { id: "flock", label: LYKIA_TERMS.flock.word, sub: LYKIA_TERMS.flock.plain, line: "Everything you own on Arc: what it is, what it is worth and what it is doing. Tap a row for details." },
-  trails: { id: "trails", label: LYKIA_TERMS.trails.word, sub: LYKIA_TERMS.trails.plain, line: "Everything that happened: payments, plans, refusals and fees, each with why." },
-  herding: { id: "herding", label: LYKIA_TERMS.herding.word, sub: LYKIA_TERMS.herding.plain, line: "Everything in motion, one row each, with what happens next and one control. Anything you start in Ask Lyko shows up here." },
-  pack: { id: "pack", label: LYKIA_TERMS.pack.word, sub: LYKIA_TERMS.pack.plain, line: "One card per agent: the leash it holds, its budget and Revoke. New agents start in Ask Lyko." },
-  fence: { id: "fence", label: LYKIA_TERMS.fence.word, sub: LYKIA_TERMS.fence.plain, line: "The limits every move must pass, how much room is left today, and how to change them." },
+  flock: { id: "flock", label: LYKIA_TERMS.flock.word, sub: LYKIA_TERMS.flock.plain, line: msg("fold.model.everythingYouOwnOnArcWhat") },
+  trails: { id: "trails", label: LYKIA_TERMS.trails.word, sub: LYKIA_TERMS.trails.plain, line: msg("fold.model.everythingThatHappenedPaymentsPlansRefus") },
+  herding: { id: "herding", label: LYKIA_TERMS.herding.word, sub: LYKIA_TERMS.herding.plain, line: msg("fold.model.everythingInMotionOneRowEach") },
+  pack: { id: "pack", label: LYKIA_TERMS.pack.word, sub: LYKIA_TERMS.pack.plain, line: msg("fold.model.oneCardPerAgentTheLeash") },
+  fence: { id: "fence", label: LYKIA_TERMS.fence.word, sub: LYKIA_TERMS.fence.plain, line: msg("fold.model.theLimitsEveryMoveMustPass") },
 };
 
 /** The phone-only tab for the docked assistant. */
-export const LYKO_TAB = { id: "lyko", label: "Lyko", sub: "your assistant" } as const;
+export const LYKO_TAB = { id: "lyko", label: "Lyko", sub: msg("fold.model.yourAssistant") } as const;
 export type PhoneTab = FoldTab | "lyko";
 
 /** The tab from the URL (/app/fold/:tab), falling back to the first visible tab. */
@@ -56,17 +57,14 @@ export function tabForKey(key: string, visible: readonly FoldTab[]): FoldTab | n
 /* -------------------------------------------------------------- numbers */
 
 export function usd(n: number | null | undefined, digits = 2): string {
-  if (n === null || n === undefined || !Number.isFinite(n)) return "unpriced";
-  const sign = n < 0 ? "−" : "";
-  return `${sign}$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
+  if (n === null || n === undefined || !Number.isFinite(n)) return msg("fold.unpriced");
+  return `${n < 0 ? "−" : ""}${formatUsd(Math.abs(n), { min: digits, max: digits })}`;
 }
 
 export function compactUsd(n: number): string {
   const a = Math.abs(n);
-  if (a >= 1_000_000) return `$${(n / 1_000_000).toFixed(a >= 10_000_000 ? 0 : 1)}M`;
-  if (a >= 10_000) return `$${(n / 1000).toFixed(0)}k`;
-  if (a >= 1000) return `$${(n / 1000).toFixed(1)}k`;
-  return `$${n.toFixed(0)}`;
+  if (a >= 1000) return formatUsd(n, { compact: true, min: 0, max: a >= 10_000 && a < 1_000_000 ? 0 : 1 });
+  return formatUsd(n, { min: 0, max: 0 });
 }
 
 export interface RollingChar {
@@ -114,7 +112,7 @@ export function headroom(spentDayUsd: string | number | null | undefined, fenceD
   const caps = [fenceCap, betaCap].filter((c): c is number => c !== null && c > 0);
   const cap = caps.length > 0 ? Math.min(...caps) : null;
   const share = cap ? Math.min(1, spent / cap) : 0;
-  return { spent, cap, capLabel: cap === null ? "No daily cap" : cap === betaCap && betaCap !== fenceCap ? "Beta daily cap" : "Fence daily cap", left: cap === null ? null : Math.max(0, cap - spent), share, tone: share >= 0.95 ? "bad" : share >= 0.8 ? "warn" : "ok", fenceCap, betaCap };
+  return { spent, cap, capLabel: cap === null ? msg("fold.model.noDailyCap") : cap === betaCap && betaCap !== fenceCap ? msg("fold.model.betaDailyCap") : msg("fold.model.fenceDailyCap"), left: cap === null ? null : Math.max(0, cap - spent), share, tone: share >= 0.95 ? "bad" : share >= 0.8 ? "warn" : "ok", fenceCap, betaCap };
 }
 
 /** "Room left today: $3,760 of $5,000 (your daily limit)". */
@@ -135,12 +133,12 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export function countsLine(c: FoldCounts): string {
   // Calm: only what is there. Zero counts are left out.
   const parts = [
-    c.rules > 0 ? plural(c.rules, "instruction runs on its own", "instructions run on their own") : null,
-    c.ordersWaiting > 0 ? plural(c.ordersWaiting, "order waits for its price", "orders wait for their price") : null,
-    c.agentsWorking > 0 ? plural(c.agentsWorking, "agent on a leash works for you", "agents on a leash work for you") : null,
-    c.proposalsWaiting ? plural(c.proposalsWaiting, "draft waits for your signature", "drafts wait for your signature") : null,
+    c.rules > 0 ? plural(c.rules, msg("fold.model.instructionRunsOnItsOwn"), msg("fold.model.instructionsRunOnTheirOwn")) : null,
+    c.ordersWaiting > 0 ? plural(c.ordersWaiting, msg("fold.model.orderWaitsForItsPrice"), msg("fold.model.ordersWaitForTheirPrice")) : null,
+    c.agentsWorking > 0 ? plural(c.agentsWorking, msg("fold.model.agentOnALeashWorksFor"), msg("fold.model.agentsOnALeashWorkFor")) : null,
+    c.proposalsWaiting ? plural(c.proposalsWaiting, msg("fold.model.draftWaitsForYourSignature"), msg("fold.model.draftsWaitForYourSignature")) : null,
   ].filter((x): x is string => x !== null);
-  return parts.length === 0 ? "Nothing runs on its own yet." : parts.join(" · ");
+  return parts.length === 0 ? msg("fold.model.nothingRunsOnItsOwnYet") : parts.join(" · ");
 }
 
 export interface AllocationSlice {
@@ -198,7 +196,7 @@ export interface PastureGroup {
   readonly w: number;
 }
 
-const VENUE_NAMES: Readonly<Record<string, string>> = { wallet: "Wallet", gateway: "Gateway", "morpho-vaults": "Morpho", "morpho-blue": "Morpho", "aave-v4": "Aave V4", usyc: "USYC", orders: "Orders" };
+const VENUE_NAMES: Readonly<Record<string, string>> = { wallet: msg("fold.model.wallet"), gateway: "Gateway", "morpho-vaults": "Morpho", "morpho-blue": "Morpho", "aave-v4": "Aave V4", usyc: "USYC", orders: msg("fold.model.orders") };
 export function venueName(where: string): string {
   return VENUE_NAMES[where] ?? where.replace(/-/gu, " ").replace(/\b\w/gu, (c) => c.toUpperCase());
 }
@@ -237,14 +235,14 @@ export function holdingAction(h: FlockHolding, floorUsd: number): { label: strin
   const amount = Number(h.amount);
   const value = h.usd === null ? null : Math.abs(Number(h.usd));
   const fmt = (n: number) => (n >= 100 ? String(Math.floor(n)) : n.toFixed(2).replace(/\.?0+$/u, ""));
-  if (h.kind === "debt") return { label: "Repay", sentence: `Repay ${fmt(Math.abs(amount) / 4)} ${h.symbol} on ${h.where}` };
-  if (h.kind === "vault" || h.kind === "supply") return { label: "Withdraw", sentence: `Withdraw ${fmt(Math.abs(value ?? amount) / 2)} USDC from ${venueName(h.where)}` };
+  if (h.kind === "debt") return { label: msg("fold.model.repay"), sentence: msg("fold.model.repayOn", { fmt: fmt(Math.abs(amount) / 4), symbol: h.symbol, where: h.where }) };
+  if (h.kind === "vault" || h.kind === "supply") return { label: msg("fold.model.withdraw"), sentence: msg("fold.model.withdrawUsdcFrom", { fmt: fmt(Math.abs(value ?? amount) / 2), venueName: venueName(h.where) }) };
   if (h.where === "wallet" && h.symbol === "USDC") {
     const idle = (value ?? amount) - floorUsd;
-    return idle >= 1 ? { label: "Put to work", sentence: `Put ${fmt(idle)} USDC to work` } : null;
+    return idle >= 1 ? { label: msg("fold.model.putToWork"), sentence: msg("fold.model.putUsdcToWork", { fmt: fmt(idle) }) } : null;
   }
-  if (h.where === "wallet" && h.symbol === "EURC") return { label: "Convert", sentence: `Convert ${fmt(amount / 2)} EURC to USDC` };
-  if (h.where === "wallet" && h.kind === "token" && h.symbol !== "USDC") return { label: "Reduce", sentence: `Convert ${fmt(amount / 2)} ${h.symbol} to USDC` };
+  if (h.where === "wallet" && h.symbol === "EURC") return { label: msg("fold.model.convert"), sentence: msg("fold.model.convertEurcToUsdc", { fmt: fmt(amount / 2) }) };
+  if (h.where === "wallet" && h.kind === "token" && h.symbol !== "USDC") return { label: msg("fold.model.reduce"), sentence: msg("fold.model.convertToUsdc", { fmt: fmt(amount / 2), symbol: h.symbol }) };
   return null;
 }
 
@@ -258,17 +256,17 @@ export function badgeCount(insights: readonly FoldInsight[], waiting = 0): numbe
 /** Lyko's first message, synthesised from the insights: a calm line, never a wall of alarms. */
 export function openingLine(insights: readonly FoldInsight[], sample: boolean): string {
   const open = insights.filter((i) => !i.handled);
-  if (open.length === 0) return sample ? "This is a sample flock. Connect a wallet and I will watch yours." : "All quiet in the valley. I will say something when anything changes.";
+  if (open.length === 0) return sample ? msg("fold.model.thisIsASampleFlockConnect") : msg("fold.model.allQuietInTheValleyI");
   const act = open.filter((i) => i.severity === "act").length;
-  const head = act > 0 ? `${act === 1 ? "One thing wants" : `${act} things want`} your attention` : `${open.length === 1 ? "One thing" : `${open.length} things`} worth a look`;
-  return `${head}. I can draft each one for you; nothing moves until you sign.`;
+  const head = act > 0 ? msg("fold.model.yourAttention", { value: act === 1 ? msg("fold.model.oneThingWants") : msg("fold.model.thingsWant", { act }) }) : msg("fold.model.worthALook", { n: open.length });
+  return msg("fold.model.iCanDraftEachOneFor", { head });
 }
 
 export const FOLLOW_UPS = [
-  { question: "yield", label: "Explain my yield" },
-  { question: "whatif", label: "Am I safe if EURC drops 5%?" },
-  { question: "week", label: "What runs this week?" },
-  { question: "approvals", label: "Tidy my approvals" },
+  { question: "yield", label: msg("fold.model.explainMyYield") },
+  { question: "whatif", label: msg("fold.model.amISafeIfEurcDrops") },
+  { question: "week", label: msg("fold.model.whatRunsThisWeek") },
+  { question: "approvals", label: msg("fold.model.tidyMyApprovals") },
 ] as const;
 
 /** Shared threads for the rail: the server's list first (it has the Fold's turns too), then local-only ones. */
@@ -289,15 +287,15 @@ export type HerdingFilter = "all" | RunningKind | "paused";
 
 /** The Running list's filters: one per noun, then Paused. */
 export const HERDING_FILTERS: readonly { readonly id: HerdingFilter; readonly label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "automation", label: "Automations" },
-  { id: "order", label: "Orders" },
-  { id: "watch", label: "Watches" },
-  { id: "leash", label: "Leashes" },
+  { id: "all", label: msg("fold.model.all") },
+  { id: "automation", label: msg("fold.model.automations") },
+  { id: "order", label: msg("fold.model.orders") },
+  { id: "watch", label: msg("fold.model.watches") },
+  { id: "leash", label: msg("fold.model.leashes") },
   { id: "autopilot", label: "Autopilot" },
-  { id: "plan", label: "Plans" },
-  { id: "payment", label: "Payments" },
-  { id: "paused", label: "Paused" },
+  { id: "plan", label: msg("fold.model.plans") },
+  { id: "payment", label: msg("fold.model.payments") },
+  { id: "paused", label: msg("fold.model.paused") },
 ];
 
 /** `?show=` values, old ones included (rounds, alerts, recurring, watch). */
@@ -337,25 +335,25 @@ export function filterInstructions(list: readonly FoldInstruction[], filter: Her
 }
 
 /** Who signs each run, in the owner's words. */
-export const SIGNER_LINE: Readonly<Record<RunningSigner, string>> = { you: "You sign each time", autopilot: "Autopilot signs", leash: "Its leash signs" };
+export const SIGNER_LINE: Readonly<Record<RunningSigner, string>> = { you: msg("fold.model.youSignEachTime"), autopilot: msg("fold.model.autopilotSigns"), leash: msg("fold.model.itsLeashSigns") };
 
 /** The one control a row offers: the server's, or (older answers) the same one built from the source. */
 export function controlOf(i: FoldInstruction): RunningControl | null {
   if (i.control !== undefined) return i.control;
-  if (i.stop) return { action: "stop", label: "Stop", method: "post", path: `/v1/intents/${encodeURIComponent(i.stop.intentId)}/stop` };
-  if (i.cancel) return { action: "cancel", label: "Cancel", method: "get", path: `/v1/orders/${i.cancel.hash}/cancel-tx`, sign: "order-cancel" };
+  if (i.stop) return { action: "stop", label: msg("fold.model.stop"), method: "post", path: `/v1/intents/${encodeURIComponent(i.stop.intentId)}/stop` };
+  if (i.cancel) return { action: "cancel", label: msg("fold.model.cancel"), method: "get", path: `/v1/orders/${i.cancel.hash}/cancel-tx`, sign: "order-cancel" };
   if (!i.controllable || (i.status !== "active" && i.status !== "paused")) return null;
   const route = controlRoute(i, i.status === "paused" ? "resume" : "pause");
-  return route ? { action: i.status === "paused" ? "resume" : "pause", label: i.status === "paused" ? "Resume" : "Pause", method: route.method, path: route.path } : null;
+  return route ? { action: i.status === "paused" ? "resume" : "pause", label: i.status === "paused" ? msg("fold.model.resume") : msg("fold.model.pause"), method: route.method, path: route.path } : null;
 }
 
 export type TrailFilter = "all" | "settled" | "plans" | "refused" | "orders";
 export const TRAIL_FILTERS: readonly { readonly id: TrailFilter; readonly label: string }[] = [
-  { id: "all", label: "Everything" },
-  { id: "settled", label: "Settled" },
-  { id: "plans", label: "Plans" },
-  { id: "refused", label: "Refused and failed" },
-  { id: "orders", label: "Orders and watches" },
+  { id: "all", label: msg("fold.model.everything") },
+  { id: "settled", label: msg("fold.model.settled") },
+  { id: "plans", label: msg("fold.model.plans") },
+  { id: "refused", label: msg("fold.model.refusedAndFailed") },
+  { id: "orders", label: msg("fold.model.ordersAndWatches") },
 ];
 
 export function filterTrails(list: readonly FoldTrailEntry[], filter: TrailFilter): FoldTrailEntry[] {
@@ -383,7 +381,7 @@ export function byDay(list: readonly FoldTrailEntry[], now: number): { day: stri
     const k = key(Date.parse(t.at));
     groups.set(k, [...(groups.get(k) ?? []), t]);
   }
-  return [...groups.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([k, items]) => ({ day: k === today ? "Today" : k === yesterday ? "Yesterday" : new Date(`${k}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }), items }));
+  return [...groups.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([k, items]) => ({ day: k === today ? msg("fold.model.today") : k === yesterday ? msg("fold.model.yesterday") : new Date(`${k}T12:00:00Z`).toLocaleDateString(intlLocale(), { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }), items }));
 }
 
 /** A proposal's place in its lifecycle, for the stepper. */
@@ -395,7 +393,7 @@ export function proposalStage(p: Pick<FoldProposal, "status">): 0 | 1 | 2 {
 export function agentMeter(a: Pick<PackAgentView, "budget">): { used: number; cap: number | null; share: number; label: string } {
   const cap = a.budget.caps.dailyUsd ? Number(a.budget.caps.dailyUsd) : a.budget.caps.weeklyUsd ? Number(a.budget.caps.weeklyUsd) : null;
   const used = Number(a.budget.caps.dailyUsd ? a.budget.spent.dayUsd : a.budget.spent.weekUsd) || 0;
-  return { used, cap, share: cap ? Math.min(1, used / cap) : 0, label: a.budget.caps.dailyUsd ? "today" : a.budget.caps.weeklyUsd ? "this week" : "no cap" };
+  return { used, cap, share: cap ? Math.min(1, used / cap) : 0, label: a.budget.caps.dailyUsd ? "today" : a.budget.caps.weeklyUsd ? msg("fold.model.thisWeek") : msg("fold.model.noCap") };
 }
 
 /* --------------------------------------------------------------- sample */
@@ -418,14 +416,14 @@ export function sampleInsights(now = 0): FoldInsight[] {
   const usdc = Number(snap.holdings.find((h) => h.where === "wallet" && h.symbol === "USDC")?.usd ?? 0);
   const floor = 500;
   const idle = usdc - floor;
-  const money = (n: number, d = 2) => `$${n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d })}`;
+  const money = (n: number, d = 2) => formatUsd(n, { min: d, max: d });
   const health = snap.health[0]?.healthFactor ?? "1.38";
   const debt = Math.abs(Number(snap.holdings.find((h) => h.kind === "debt")?.usd ?? 0));
   const mix = currentMix(snap.holdings);
   return [
-    { id: "idle-usdc", kind: "idle-usdc", severity: "act", title: `${money(idle, 0)} of USDC is resting above your floor`, explain: `Your wallet keeps ${money(floor, 0)} liquid for gas and payments. The rest earns nothing while it sits; a medium-risk lending market or vault on Arc can hold it and you can withdraw any time.`, figures: [{ label: "USDC in your wallet", value: money(usdc) }, { label: "Your liquidity floor", value: money(floor, 0) }, { label: "Idle above the floor", value: money(idle) }], draft: { label: "Put it to work", sentence: `Put ${Math.floor(idle)} USDC to work at medium risk` }, handled: false, from: SAMPLE_FROM(now) },
-    { id: "health-aave-v4", kind: "health-factor", severity: "watch", title: "Your Aave V4 loan is under your safety floor", explain: `Its health is ${health} and your floor is 1.5. At 1.00 part of your collateral can be sold to repay the loan. Repaying part of the debt raises it.`, figures: [{ label: "Loan health now", value: health }, { label: "Your safety floor", value: "1.5" }, { label: "Repaying a quarter", value: money(debt / 4, 0) }], draft: { label: "Repay a quarter", sentence: `Repay ${Math.round(debt / 4)} USDC on aave-v4` }, handled: false, from: SAMPLE_FROM(now) },
-    { id: "fx-drift", kind: "fx-drift", severity: "info", title: `EURC is ${Math.round(mix.eurcPct)}% of the Flock; your target is 10%`, explain: "Inside your band of 10 points, so nothing to do yet. Lyko keeps an eye on it.", figures: [{ label: "EURC share now", value: `${Math.round(mix.eurcPct)}%` }, { label: "Your target", value: "10% ± 10" }], draft: null, handled: false, from: SAMPLE_FROM(now) },
+    { id: "idle-usdc", kind: "idle-usdc", severity: "act", title: msg("fold.model.ofUsdcIsRestingAboveYour", { money: money(idle, 0) }), explain: msg("fold.model.yourWalletKeepsLiquidForGas", { money: money(floor, 0) }), figures: [{ label: msg("fold.model.usdcInYourWallet"), value: money(usdc) }, { label: msg("fold.model.yourLiquidityFloor"), value: money(floor, 0) }, { label: msg("fold.model.idleAboveTheFloor"), value: money(idle) }], draft: { label: msg("fold.model.putItToWork"), sentence: msg("fold.model.putUsdcToWorkAtMedium", { Math: Math.floor(idle) }) }, handled: false, from: SAMPLE_FROM(now) },
+    { id: "health-aave-v4", kind: "health-factor", severity: "watch", title: msg("fold.model.yourAaveV4LoanIsUnder"), explain: msg("fold.model.itsHealthIsAndYourFloor", { health }), figures: [{ label: msg("fold.model.loanHealthNow"), value: health }, { label: msg("fold.model.yourSafetyFloor"), value: "1.5" }, { label: msg("fold.model.repayingAQuarter"), value: money(debt / 4, 0) }], draft: { label: msg("fold.model.repayAQuarter"), sentence: msg("fold.model.repayUsdcOnAaveV4", { Math: Math.round(debt / 4) }) }, handled: false, from: SAMPLE_FROM(now) },
+    { id: "fx-drift", kind: "fx-drift", severity: "info", title: msg("fold.model.eurcIsOfTheFlockYour", { Math: Math.round(mix.eurcPct) }), explain: msg("fold.model.insideYourBandOf10Points"), figures: [{ label: msg("fold.model.eurcShareNow"), value: `${Math.round(mix.eurcPct)}%` }, { label: msg("fold.model.yourTarget"), value: "10% ± 10" }], draft: null, handled: false, from: SAMPLE_FROM(now) },
   ];
 }
 
@@ -439,35 +437,35 @@ export function sampleWaiting(now: number): FoldProposal[] {
 
 export function sampleInstructions(now: number): FoldInstruction[] {
   const base = { controllable: true, environment: "mainnet" as const };
-  const pause = (id: string): RunningControl => ({ action: "pause", label: "Pause", method: "post", path: `/v1/automations/${id}/pause` });
+  const pause = (id: string): RunningControl => ({ action: "pause", label: msg("fold.model.pause"), method: "post", path: `/v1/automations/${id}/pause` });
   const rows: FoldInstruction[] = [
-    { ...base, id: "so_sample_rent", source: "recurring", sourceLabel: "Recurring payment", kind: "automation", signs: "you", name: "Pay 1,200 USDC rent to @landlord on the 1st", status: "active", trigger: "monthly on day 1 at 09:00", nextRunAt: at(-60 * 24 * 9, now), nextRunLabel: "in 9 d", nextLine: "Pays the rent in 9 d; you sign it.", lastRunAt: at(60 * 24 * 21, now), lastResult: "Settled · 1 step", nextVerdict: { decision: "allow", reason: "Every rule passed last time." }, editSentence: "Change my rent payment: ", control: pause("so_sample_rent") },
-    { ...base, id: "atm_sample_sweep", source: "automation", sourceLabel: "Automation", kind: "automation", signs: "you", name: "Sweep USDC above $5,000 into the Galaxy vault", status: "active", trigger: "USDC balance above 5000", nextRunAt: null, nextRunLabel: "on balance", nextLine: "Plans a deposit when USDC passes $5,000; you sign what it plans.", lastRunAt: at(60 * 30, now), lastResult: "Planned (allow)", nextVerdict: { decision: "unknown", reason: "Planned and checked by the Fence when it fires." }, editSentence: "Change my sweep: ", control: pause("atm_sample_sweep") },
-    { ...base, id: "0xsample", source: "order", sourceLabel: "Order", kind: "order", signs: "you", name: "Buy EURC when EUR/USD ≤ 1.09", status: "waiting", trigger: "waiting for condition", nextRunAt: null, nextRunLabel: "on condition", nextLine: "Executes when EUR/USD reaches 1.09; a keeper runs it inside the terms you signed.", lastRunAt: null, lastResult: "Not filled yet", nextVerdict: { decision: "allow", reason: "One execution fits your Fence and the beta cap today; LykiaOrders enforces the price, size and deadline on chain." }, controllable: false, editSentence: "Change my EURC order: ", cancel: { hash: "0x00000000000000000000000000000000000000000000000000000000000000a1", environment: "mainnet" }, control: { action: "cancel", label: "Cancel", method: "get", path: "/v1/orders/0x00000000000000000000000000000000000000000000000000000000000000a1/cancel-tx", sign: "order-cancel" } },
-    { ...base, id: "out_sampleplan01", source: "plan", sourceLabel: "Plan", kind: "plan", signs: "you", name: "Swap 500 USDC to EURC, then deposit it into Morpho", status: "active", trigger: "1 of 2 steps settled", nextRunAt: null, nextRunLabel: "your signature", nextLine: "Waits for your signature: deposit the EURC into Morpho Galaxy EURC.", lastRunAt: at(25, now), lastResult: "Next: Deposit the EURC into Morpho Galaxy EURC", nextVerdict: { decision: "allow", reason: "Every rule passed when it was planned; each step is checked again before you sign." }, controllable: false, editSentence: "Change my plan: ", stop: { intentId: "out_sampleplan01" }, control: { action: "stop", label: "Stop", method: "post", path: "/v1/intents/out_sampleplan01/stop" } },
-    { ...base, id: "al_sample", source: "alert", sourceLabel: "Watch", kind: "watch", channels: ["in-app", "telegram"], name: "Health factor below 1.3 on Aave V4", status: "active", trigger: "health below", nextRunAt: null, nextRunLabel: "when it happens", nextLine: "Tells you in-app and on Telegram when it happens.", lastRunAt: null, lastResult: "Quiet so far", nextVerdict: { decision: "allow", reason: "A watch only tells you; it moves nothing." }, editSentence: "Change my health watch: ", control: pause("al_sample") },
+    { ...base, id: "so_sample_rent", source: "recurring", sourceLabel: msg("fold.model.recurringPayment"), kind: "automation", signs: "you", name: msg("fold.model.pay1200UsdcRentTo"), status: "active", trigger: msg("fold.model.monthlyOnDay1At09"), nextRunAt: at(-60 * 24 * 9, now), nextRunLabel: msg("fold.model.in9D"), nextLine: msg("fold.model.paysTheRentIn9D"), lastRunAt: at(60 * 24 * 21, now), lastResult: msg("fold.model.settled1Step"), nextVerdict: { decision: "allow", reason: msg("fold.model.everyRulePassedLastTime") }, editSentence: msg("fold.model.changeMyRentPayment"), control: pause("so_sample_rent") },
+    { ...base, id: "atm_sample_sweep", source: "automation", sourceLabel: msg("fold.model.automation"), kind: "automation", signs: "you", name: msg("fold.model.sweepUsdcAbove5000Into"), status: "active", trigger: msg("fold.model.usdcBalanceAbove5000"), nextRunAt: null, nextRunLabel: msg("fold.model.onBalance"), nextLine: msg("fold.model.plansADepositWhenUsdcPasses"), lastRunAt: at(60 * 30, now), lastResult: msg("fold.model.plannedAllow"), nextVerdict: { decision: "unknown", reason: msg("fold.model.plannedAndCheckedByTheFence") }, editSentence: msg("fold.model.changeMySweep"), control: pause("atm_sample_sweep") },
+    { ...base, id: "0xsample", source: "order", sourceLabel: msg("fold.model.order"), kind: "order", signs: "you", name: msg("fold.model.buyEurcWhenEurUsd1"), status: "waiting", trigger: msg("fold.model.waitingForCondition"), nextRunAt: null, nextRunLabel: msg("fold.model.onCondition"), nextLine: msg("fold.model.executesWhenEurUsdReaches1"), lastRunAt: null, lastResult: msg("fold.model.notFilledYet"), nextVerdict: { decision: "allow", reason: msg("fold.model.oneExecutionFitsYourFenceAnd") }, controllable: false, editSentence: msg("fold.model.changeMyEurcOrder"), cancel: { hash: "0x00000000000000000000000000000000000000000000000000000000000000a1", environment: "mainnet" }, control: { action: "cancel", label: msg("fold.model.cancel"), method: "get", path: "/v1/orders/0x00000000000000000000000000000000000000000000000000000000000000a1/cancel-tx", sign: "order-cancel" } },
+    { ...base, id: "out_sampleplan01", source: "plan", sourceLabel: msg("fold.model.plan"), kind: "plan", signs: "you", name: msg("fold.model.swap500UsdcToEurcThen"), status: "active", trigger: msg("fold.model.n1Of2StepsSettled"), nextRunAt: null, nextRunLabel: msg("fold.model.yourSignature"), nextLine: msg("fold.model.waitsForYourSignatureDepositThe"), lastRunAt: at(25, now), lastResult: msg("fold.model.nextDepositTheEurcIntoMorpho"), nextVerdict: { decision: "allow", reason: msg("fold.model.everyRulePassedWhenItWas") }, controllable: false, editSentence: msg("fold.model.changeMyPlan"), stop: { intentId: "out_sampleplan01" }, control: { action: "stop", label: msg("fold.model.stop"), method: "post", path: "/v1/intents/out_sampleplan01/stop" } },
+    { ...base, id: "al_sample", source: "alert", sourceLabel: msg("fold.model.watch"), kind: "watch", channels: ["in-app", "telegram"], name: msg("fold.model.healthFactorBelow13On"), status: "active", trigger: msg("fold.model.healthBelow"), nextRunAt: null, nextRunLabel: msg("fold.model.whenItHappens"), nextLine: msg("fold.model.tellsYouInAppAndOn"), lastRunAt: null, lastResult: msg("fold.model.quietSoFar"), nextVerdict: { decision: "allow", reason: msg("fold.model.aWatchOnlyTellsYouIt") }, editSentence: msg("fold.model.changeMyHealthWatch"), control: pause("al_sample") },
   ];
   for (const l of sampleLeashes(now)) {
-    rows.push({ ...base, id: l.id, source: "leash", sourceLabel: l.spendFrom === "gateway" ? "Leash · Stile" : "Leash", kind: "leash", name: `${l.agentName}: $${Number(l.budget.perDayUsd)} a day, $${Number(l.budget.totalUsd)} in all`, status: "active", trigger: l.spendFrom === "gateway" ? "spends from your Gateway balance through your LykiaStile" : "spends from your LykiaAccount on Arc", nextRunAt: l.expiresAt, nextRunLabel: `key stops in ${Math.round((Date.parse(l.expiresAt) - now) / 86_400_000)} d`, nextLine: `May spend $${l.usage.day.remainingUsd} more today, $${Number(l.budget.perStepUsd)} in one step.`, lastRunAt: l.recent[0]?.at ?? null, lastResult: l.recent[0]?.summary ?? null, nextVerdict: { decision: "allow", reason: "Every step is checked against the leash's Fence, its budget and the session's limits on chain." }, editSentence: `Change ${l.agentName}'s leash: `, control: { action: "stop", label: "Revoke", method: "post", path: `/v1/leashes/${l.id}/revoke`, sign: "revoke-session" } });
+    rows.push({ ...base, id: l.id, source: "leash", sourceLabel: l.spendFrom === "gateway" ? "Leash · Stile" : "Leash", kind: "leash", name: msg("fold.model.aDayInAll", { agentName: l.agentName, Number: Number(l.budget.perDayUsd), Number2: Number(l.budget.totalUsd) }), status: "active", trigger: l.spendFrom === "gateway" ? msg("fold.model.spendsFromYourGatewayBalanceThrough") : msg("fold.model.spendsFromYourLykiaaccountOnArc"), nextRunAt: l.expiresAt, nextRunLabel: msg("fold.model.keyStopsInD", { Math: Math.round((Date.parse(l.expiresAt) - now) / 86_400_000) }), nextLine: msg("fold.model.maySpendMoreTodayInOne", { remainingUsd: l.usage.day.remainingUsd, Number: Number(l.budget.perStepUsd) }), lastRunAt: l.recent[0]?.at ?? null, lastResult: l.recent[0]?.summary ?? null, nextVerdict: { decision: "allow", reason: msg("fold.model.everyStepIsCheckedAgainstThe") }, editSentence: msg("fold.model.changeSLeash", { agentName: l.agentName }), control: { action: "stop", label: msg("fold.model.revoke"), method: "post", path: `/v1/leashes/${l.id}/revoke`, sign: "revoke-session" } });
   }
   for (const a of samplePack()) {
-    rows.push({ ...base, id: a.id, source: "pack-agent", sourceLabel: "Leash", kind: "leash", name: `${a.name}: ${a.role.replace(/-/gu, " ")} agent, $${Number(a.budget.caps.dailyUsd ?? 0)} a day`, status: "active", trigger: "proposes; you sign", nextRunAt: null, nextRunLabel: "when you ask", nextLine: `May propose up to $${Number(a.budget.caps.dailyUsd ?? 0)} a day; you sign each plan.`, lastRunAt: null, lastResult: null, nextVerdict: { decision: "allow", reason: "Its own Fence sits inside yours; its budget is carved from yours." }, editSentence: `Change my agent ${a.name}: `, control: { action: "pause", label: "Pause", method: "post", path: `/v1/pack/${a.id}/pause` } });
+    rows.push({ ...base, id: a.id, source: "pack-agent", sourceLabel: "Leash", kind: "leash", name: msg("fold.model.agentADay", { name: a.name, value: a.role.replace(/-/gu, " "), Number: Number(a.budget.caps.dailyUsd ?? 0) }), status: "active", trigger: msg("fold.model.proposesYouSign"), nextRunAt: null, nextRunLabel: msg("fold.model.whenYouAsk"), nextLine: msg("fold.model.mayProposeUpToADay", { Number: Number(a.budget.caps.dailyUsd ?? 0) }), lastRunAt: null, lastResult: null, nextVerdict: { decision: "allow", reason: msg("fold.model.itsOwnFenceSitsInsideYours") }, editSentence: msg("fold.model.changeMyAgent", { name: a.name }), control: { action: "pause", label: msg("fold.model.pause"), method: "post", path: `/v1/pack/${a.id}/pause` } });
   }
   const ap = sampleAutopilot(now).autopilot!;
-  rows.push({ ...base, id: "autopilot:mainnet", source: "autopilot", sourceLabel: "Autopilot", kind: "autopilot", signs: "autopilot", name: `Autopilot on Arc mainnet: up to $${ap.limits.perStepUsd} a step, $${ap.limits.perDayUsd} a day`, status: "active", trigger: `${ap.tasks.length} tasks`, nextRunAt: null, nextRunLabel: "runs its tasks", nextLine: `Signs your own automations below, inside $${ap.limits.perDayUsd} a day.`, lastRunAt: ap.updatedAt, lastResult: null, nextVerdict: { decision: "allow", reason: "Each run is checked against your Fence and its leash before Lyko signs." }, editSentence: "Change my Autopilot: ", control: { action: "pause", label: "Pause", method: "post", path: "/v1/autopilot/pause", body: { environment: "mainnet" } } });
+  rows.push({ ...base, id: "autopilot:mainnet", source: "autopilot", sourceLabel: "Autopilot", kind: "autopilot", signs: "autopilot", name: msg("fold.model.autopilotOnArcMainnetUpTo", { perStepUsd: ap.limits.perStepUsd, perDayUsd: ap.limits.perDayUsd }), status: "active", trigger: `${ap.tasks.length} tasks`, nextRunAt: null, nextRunLabel: msg("fold.model.runsItsTasks"), nextLine: msg("fold.model.signsYourOwnAutomationsBelowInside", { perDayUsd: ap.limits.perDayUsd }), lastRunAt: ap.updatedAt, lastResult: null, nextVerdict: { decision: "allow", reason: msg("fold.model.eachRunIsCheckedAgainstYour") }, editSentence: msg("fold.model.changeMyAutopilot"), control: { action: "pause", label: msg("fold.model.pause"), method: "post", path: "/v1/autopilot/pause", body: { environment: "mainnet" } } });
   for (const t of ap.tasks) {
-    rows.push({ ...base, id: t.id, source: "autopilot-task", sourceLabel: "Automation", kind: "automation", signs: "autopilot", name: t.label, status: "active", trigger: t.when.kind === "schedule" ? `every ${t.when.every}` : "when its condition holds", nextRunAt: null, nextRunLabel: t.when.kind === "schedule" ? `every ${t.when.every}` : "on condition", nextLine: `${t.when.kind === "schedule" ? `Runs every ${t.when.every}` : "Runs when its condition holds"}; Autopilot signs up to $${t.amountUsd}.`, lastRunAt: t.lastRunAt, lastResult: t.lastResult ?? "Not run yet", nextVerdict: { decision: "allow", reason: `Autopilot signs at most $${t.amountUsd} a run, inside your Fence and its leash.` }, editSentence: `Change my automation "${t.label}": `, control: { action: "pause", label: "Pause", method: "post", path: `/v1/autopilot/tasks/${t.id}/pause`, body: { environment: "mainnet" } } });
+    rows.push({ ...base, id: t.id, source: "autopilot-task", sourceLabel: msg("fold.model.automation"), kind: "automation", signs: "autopilot", name: t.label, status: "active", trigger: t.when.kind === "schedule" ? msg("common.everyUnit", { unit: t.when.every }) : msg("fold.model.whenItsConditionHolds"), nextRunAt: null, nextRunLabel: t.when.kind === "schedule" ? msg("common.everyUnit", { unit: t.when.every }) : msg("fold.model.onCondition"), nextLine: msg("fold.model.autopilotSignsUpTo", { value: t.when.kind === "schedule" ? msg("fold.model.runsEvery", { every: t.when.every }) : msg("fold.model.runsWhenItsConditionHolds"), amountUsd: t.amountUsd }), lastRunAt: t.lastRunAt, lastResult: t.lastResult ?? msg("fold.model.notRunYet"), nextVerdict: { decision: "allow", reason: msg("fold.model.autopilotSignsAtMostARun", { amountUsd: t.amountUsd }) }, editSentence: msg("fold.model.changeMyAutomation", { label: t.label }), control: { action: "pause", label: msg("fold.model.pause"), method: "post", path: `/v1/autopilot/tasks/${t.id}/pause`, body: { environment: "mainnet" } } });
   }
-  rows.push({ ...base, id: "inv_sample_logo", source: "invoice", sourceLabel: "Payment link", kind: "payment", name: "Logo design, November: 120 USDC", status: "active", trigger: "open", nextRunAt: null, nextRunLabel: "when paid", nextLine: "Waits for the payer; Lykia records the payment from the chain.", lastRunAt: null, lastResult: "Not paid yet", nextVerdict: { decision: "allow", reason: "Money comes in; nothing leaves your wallet." }, editSentence: "Change my payment link \"Logo design\": ", control: { action: "cancel", label: "Cancel", method: "post", path: "/v1/invoices/inv_sample_logo/void" } });
+  rows.push({ ...base, id: "inv_sample_logo", source: "invoice", sourceLabel: msg("fold.model.paymentLink"), kind: "payment", name: msg("fold.model.logoDesignNovember120Usdc"), status: "active", trigger: "open", nextRunAt: null, nextRunLabel: msg("fold.model.whenPaid"), nextLine: msg("fold.model.waitsForThePayerLykiaRecords"), lastRunAt: null, lastResult: msg("fold.model.notPaidYet"), nextVerdict: { decision: "allow", reason: msg("fold.model.moneyComesInNothingLeavesYour") }, editSentence: msg("fold.model.changeMyPaymentLinkLogoDesign"), control: { action: "cancel", label: msg("fold.model.cancel"), method: "post", path: "/v1/invoices/inv_sample_logo/void" } });
   return rows;
 }
 
 export function sampleTrails(now: number): FoldTrailEntry[] {
   return [
-    { id: "t1", at: at(42, now), kind: "settled", title: "Deposit 4,200 USDC into Galaxy USDC", detail: "Put half my USDC to work · morpho-vaults", environment: "mainnet", memo: "lykia:1:int_sample:s1:7c2f9a01d4e5b6c8", verdict: { decision: "allow", digest: "sha256:7c2f9a01d4e5b6c8" }, transactions: ["0x9f1c…a2d4"], feeUsd: "42.00", link: null },
-    { id: "t2", at: at(60 * 20, now), kind: "settled", title: "Send 1,200 USDC to @landlord", detail: "Rent · one transaction with an Arc Memo", environment: "mainnet", memo: "lykia:1:int_rent:s1:1a2b3c4d5e6f7a8b", verdict: { decision: "allow", digest: "sha256:1a2b3c4d5e6f7a8b" }, transactions: ["0x41aa…09be"], feeUsd: "12.00", link: null },
-    { id: "t3", at: at(60 * 26, now), kind: "refused", title: "Send 9,000 USDC to a new address", detail: "The daily cap is $5,000 and the recipient is not on your allowlist.", environment: "mainnet", memo: null, verdict: { decision: "deny", digest: "sha256:ffee00112233aabb" }, transactions: [], feeUsd: null, link: null },
-    { id: "t4", at: at(60 * 50, now), kind: "order", title: "Buy EURC when EUR/USD ≤ 1.09", detail: "waiting · 0 of 1 executed", environment: "mainnet", memo: null, verdict: null, transactions: [], feeUsd: null, link: null },
+    { id: "t1", at: at(42, now), kind: "settled", title: msg("fold.model.deposit4200UsdcIntoGalaxy"), detail: msg("fold.model.putHalfMyUsdcToWork"), environment: "mainnet", memo: "lykia:1:int_sample:s1:7c2f9a01d4e5b6c8", verdict: { decision: "allow", digest: "sha256:7c2f9a01d4e5b6c8" }, transactions: ["0x9f1c…a2d4"], feeUsd: "42.00", link: null },
+    { id: "t2", at: at(60 * 20, now), kind: "settled", title: msg("fold.model.send1200UsdcToLandlord"), detail: msg("fold.model.rentOneTransactionWithAnArc"), environment: "mainnet", memo: "lykia:1:int_rent:s1:1a2b3c4d5e6f7a8b", verdict: { decision: "allow", digest: "sha256:1a2b3c4d5e6f7a8b" }, transactions: ["0x41aa…09be"], feeUsd: "12.00", link: null },
+    { id: "t3", at: at(60 * 26, now), kind: "refused", title: msg("fold.model.send9000UsdcToA"), detail: msg("fold.model.theDailyCapIs5000"), environment: "mainnet", memo: null, verdict: { decision: "deny", digest: "sha256:ffee00112233aabb" }, transactions: [], feeUsd: null, link: null },
+    { id: "t4", at: at(60 * 50, now), kind: "order", title: msg("fold.model.buyEurcWhenEurUsd1"), detail: msg("fold.model.waiting0Of1Executed"), environment: "mainnet", memo: null, verdict: null, transactions: [], feeUsd: null, link: null },
   ];
 }
 
@@ -475,7 +473,7 @@ export function samplePack(): PackAgentView[] {
   const agent = (id: string, name: string, role: PackAgentView["role"], daily: string, spent: string, tag?: string) =>
     ({ schema: "lykia.pack/v1", id, owner: SAMPLE_OWNER, environment: "mainnet", parentId: null, depth: 1, name, role, capabilities: ["read", "plan"], fence: {} as never, fenceHash: "sha256:00", ...(tag ? { agentId: tag } : {}), status: "active", createdAt: "2026-10-01T00:00:00.000Z", budget: { caps: { dailyUsd: daily }, allocated: {}, free: {}, spent: { dayUsd: spent, weekUsd: spent } }, children: [] }) as unknown as PackAgentView;
   // One agent without an outside leash; the sample leashes (leash/model.ts) are the agents that hold one.
-  return [agent("agt_payroll", "Payroll", "payroll", "500", "120", "1842")];
+  return [agent("agt_payroll", msg("fold.model.payroll"), "payroll", "500", "120", "1842")];
 }
 
 /**
@@ -497,25 +495,25 @@ export const SAMPLE_COUNTS: FoldCounts = countsOf(sampleInstructions(0), sampleW
 /** The Fence in human words, one rule per line, strongest first. */
 export function fenceInWords(f: Fence): { readonly rule: string; readonly text: string }[] {
   const out: { rule: string; text: string }[] = [];
-  const money = (v: string) => `$${Number(v).toLocaleString("en-US")}`;
-  if (f.mode === "whistle") out.push({ rule: "Whistle", text: "The Whistle is blown: nothing new may start. Moves that bring money home still pass." });
-  else if (f.mode === "dry-run") out.push({ rule: "Mode", text: "Dry run: Lyko plans and checks, but nothing can be signed." });
+  const money = (v: string) => formatUsd(Number(v), { min: 0 });
+  if (f.mode === "whistle") out.push({ rule: "Whistle", text: msg("fold.model.theWhistleIsBlownNothingNew") });
+  else if (f.mode === "dry-run") out.push({ rule: "Mode", text: msg("fold.model.dryRunLykoPlansAndChecks") });
   const c = f.caps ?? {};
-  if (c.perStepUsd) out.push({ rule: "Per step", text: `No single step moves more than ${money(c.perStepUsd)}.` });
-  if (c.perIntentUsd) out.push({ rule: "Per plan", text: `No plan moves more than ${money(c.perIntentUsd)} in total.` });
-  if (c.dailyUsd) out.push({ rule: "Per day", text: `At most ${money(c.dailyUsd)} leaves in a day (UTC).` });
-  if (c.weeklyUsd) out.push({ rule: "Per week", text: `At most ${money(c.weeklyUsd)} leaves in a week.` });
+  if (c.perStepUsd) out.push({ rule: "Per step", text: msg("fold.model.noSingleStepMovesMoreThan", { money: money(c.perStepUsd) }) });
+  if (c.perIntentUsd) out.push({ rule: "Per plan", text: msg("fold.model.noPlanMovesMoreThanIn", { money: money(c.perIntentUsd) }) });
+  if (c.dailyUsd) out.push({ rule: "Per day", text: msg("fold.model.atMostLeavesInADay", { money: money(c.dailyUsd) }) });
+  if (c.weeklyUsd) out.push({ rule: "Per week", text: msg("fold.model.atMostLeavesInAWeek", { money: money(c.weeklyUsd) }) });
   const r = f.recipients?.mode ?? "own";
-  out.push({ rule: "Recipients", text: r === "own" ? "Money only goes to your own addresses." : r === "allowlist" ? `Money only goes to ${f.recipients?.allow?.length ?? 0} address(es) on your allowlist.` : "Money may go to any address you name." });
-  if (f.venues?.allow?.length) out.push({ rule: "Venues", text: `Only these venues: ${f.venues.allow.join(", ")}.` });
-  if (f.venues?.deny?.length) out.push({ rule: "Never", text: `Never routed through ${f.venues.deny.join(", ")}.` });
-  if (f.limits?.maxSlippageBps !== undefined) out.push({ rule: "Slippage", text: `A swap may lose at most ${(f.limits.maxSlippageBps / 100).toFixed(2)}% to price moves.` });
-  if (f.lending?.minHealthFactor) out.push({ rule: "Health", text: `Borrowing never pushes a health factor under ${f.lending.minHealthFactor}.` });
-  if (f.fx?.maxDeviationBps !== undefined) out.push({ rule: "FX band", text: `A currency quote may be at most ${(f.fx.maxDeviationBps / 100).toFixed(2)}% off the reference rate.` });
-  if (f.scent?.require && f.scent.require !== "off") out.push({ rule: "Tokens", text: f.scent.require === "verified" ? "Only verified registry tokens." : "No token with red flags." });
-  if (f.tokens?.unlisted === "deny") out.push({ rule: "Unlisted", text: "Tokens outside the registry are refused." });
-  if (f.confirm?.aboveUsd) out.push({ rule: "Confirm", text: `Anything above ${money(f.confirm.aboveUsd)} asks you first.` });
-  if (f.schedule) out.push({ rule: "Hours", text: `Only inside your office hours (${f.schedule.timezone}).` });
+  out.push({ rule: "Recipients", text: r === "own" ? msg("fold.model.moneyOnlyGoesToYourOwn") : r === "allowlist" ? msg("fold.model.moneyOnlyGoesToAddressEs", { value: f.recipients?.allow?.length ?? 0 }) : msg("fold.model.moneyMayGoToAnyAddress") });
+  if (f.venues?.allow?.length) out.push({ rule: "Venues", text: msg("fold.model.onlyTheseVenues", { value: f.venues.allow.join(", ") }) });
+  if (f.venues?.deny?.length) out.push({ rule: "Never", text: msg("fold.model.neverRoutedThrough", { value: f.venues.deny.join(", ") }) });
+  if (f.limits?.maxSlippageBps !== undefined) out.push({ rule: "Slippage", text: msg("fold.model.aSwapMayLoseAtMost", { value: (f.limits.maxSlippageBps / 100).toFixed(2) }) });
+  if (f.lending?.minHealthFactor) out.push({ rule: "Health", text: msg("fold.model.borrowingNeverPushesAHealthFactor", { minHealthFactor: f.lending.minHealthFactor }) });
+  if (f.fx?.maxDeviationBps !== undefined) out.push({ rule: "FX band", text: msg("fold.model.aCurrencyQuoteMayBeAt", { value: (f.fx.maxDeviationBps / 100).toFixed(2) }) });
+  if (f.scent?.require && f.scent.require !== "off") out.push({ rule: "Tokens", text: f.scent.require === "verified" ? msg("fold.model.onlyVerifiedRegistryTokens") : msg("fold.model.noTokenWithRedFlags") });
+  if (f.tokens?.unlisted === "deny") out.push({ rule: "Unlisted", text: msg("fold.model.tokensOutsideTheRegistryAreRefused") });
+  if (f.confirm?.aboveUsd) out.push({ rule: "Confirm", text: msg("fold.model.anythingAboveAsksYouFirst", { money: money(f.confirm.aboveUsd) }) });
+  if (f.schedule) out.push({ rule: "Hours", text: msg("fold.model.onlyInsideYourOfficeHours", { timezone: f.schedule.timezone }) });
   return out;
 }
 
@@ -523,11 +521,11 @@ export function fenceInWords(f: Fence): { readonly rule: string; readonly text: 
 export function fenceSuggestions(f: Fence): { readonly label: string; readonly patch: Record<string, unknown> }[] {
   const out: { label: string; patch: Record<string, unknown> }[] = [];
   const daily = f.caps?.dailyUsd ? Number(f.caps.dailyUsd) : null;
-  if (daily === null || daily > 1000) out.push({ label: "Lower the daily cap to $1,000", patch: { caps: { ...f.caps, dailyUsd: "1000" } } });
-  if (f.scent?.require !== "verified") out.push({ label: "Only verified tokens", patch: { scent: { require: "verified" } } });
-  if (!f.confirm?.aboveUsd || Number(f.confirm.aboveUsd) > 500) out.push({ label: "Ask me above $500", patch: { confirm: { ...f.confirm, aboveUsd: "500" } } });
-  if ((f.limits?.maxSlippageBps ?? 1000) > 50) out.push({ label: "Slippage at most 0.5%", patch: { limits: { ...f.limits, maxSlippageBps: 50 } } });
-  if (!f.lending?.minHealthFactor || Number(f.lending.minHealthFactor) < 1.5) out.push({ label: "Health factor floor 1.5", patch: { lending: { minHealthFactor: "1.5" } } });
+  if (daily === null || daily > 1000) out.push({ label: msg("fold.model.lowerTheDailyCapTo1"), patch: { caps: { ...f.caps, dailyUsd: "1000" } } });
+  if (f.scent?.require !== "verified") out.push({ label: msg("fold.model.onlyVerifiedTokens"), patch: { scent: { require: "verified" } } });
+  if (!f.confirm?.aboveUsd || Number(f.confirm.aboveUsd) > 500) out.push({ label: msg("fold.model.askMeAbove500"), patch: { confirm: { ...f.confirm, aboveUsd: "500" } } });
+  if ((f.limits?.maxSlippageBps ?? 1000) > 50) out.push({ label: msg("fold.model.slippageAtMost05"), patch: { limits: { ...f.limits, maxSlippageBps: 50 } } });
+  if (!f.lending?.minHealthFactor || Number(f.lending.minHealthFactor) < 1.5) out.push({ label: msg("fold.model.healthFactorFloor15"), patch: { lending: { minHealthFactor: "1.5" } } });
   return out.slice(0, 4);
 }
 
@@ -554,13 +552,13 @@ export function controlRoute(i: Pick<FoldInstruction, "id" | "source">, action: 
 /* ---------------------------------------------------------------- whistle */
 
 export const WHISTLE_KIND_LABEL: Readonly<Record<WhistleItemKind, string>> = {
-  automation: "Automation",
-  standing: "Automation · you sign",
-  "agent-automation": "Automation · its leash signs",
-  agent: "Agent · leash on Lykia",
-  leash: "Leash · key off",
+  automation: msg("fold.model.automation"),
+  standing: msg("fold.model.automationYouSign"),
+  "agent-automation": msg("fold.model.automationItsLeashSigns"),
+  agent: msg("fold.model.agentLeashOnLykia"),
+  leash: msg("fold.model.leashKeyOff"),
   autopilot: "Autopilot",
-  alert: "Watch",
+  alert: msg("fold.model.watch"),
 };
 
 /** One line per kind, in the order the sheet lists them. */
@@ -578,9 +576,10 @@ export function whistleGroups(items: readonly WhistleItem[]): { kind: WhistleIte
  * block it was read at), so the answer is about this row and nothing else.
  */
 export function askAboutPosition(p: Position): { readonly question: string; readonly context: string } {
-  const next = p.actions[0] ? ` Its next action: ${p.actions[0].label.toLowerCase()} ("${p.actions[0].sentence}").` : "";
+  const next = p.actions[0] ? msg("fold.model.itsNextAction", { value: p.actions[0].label.toLowerCase(), sentence: p.actions[0].sentence }) : "";
   return {
-    question: `About my ${p.label} (${p.venueName}): what is it doing, and what should I do with it?`,
+    question: msg("fold.model.aboutMyWhatIsItDoing", { label: p.label, venueName: p.venueName }),
+    // i18n-ignore: context handed to Lyko with the question; tool data stays English.
     context: `Position ${p.label} at ${p.venueName}: ${p.doing}. State ${p.state}. Value ${p.valueUsd ?? "unpriced"} USD, read at block ${p.block ?? "n/a"}.${next}`.slice(0, 1000),
   };
 }
@@ -596,19 +595,20 @@ export interface TrailLink {
  * else its transaction on the explorer (full hashes only), else its plan.
  */
 export function trailLink(t: FoldTrailEntry): TrailLink | null {
-  if (t.kind === "running" || t.kind === "planned" || t.kind === "order" || t.kind === "alert" || t.kind === "proposal") return { label: "In Herding", href: "/app/fold/herding", external: false };
+  if (t.kind === "running" || t.kind === "planned" || t.kind === "order" || t.kind === "alert" || t.kind === "proposal") return { label: msg("fold.model.inHerding"), href: "/app/fold/herding", external: false };
   const tx = t.transactions.find((h) => /^0x[0-9a-fA-F]{64}$/.test(h));
-  if (tx) return { label: "Transaction", href: explorerTx(networkFor(t.environment), tx), external: true };
-  if (t.link && t.link.startsWith("/app/")) return { label: "The plan", href: t.link, external: false };
+  if (tx) return { label: msg("fold.model.transaction"), href: explorerTx(networkFor(t.environment), tx), external: true };
+  if (t.link && t.link.startsWith("/app/")) return { label: msg("fold.model.thePlan"), href: t.link, external: false };
   return null;
 }
 
 /** "Ask why" on a trail row: a question Lyko on watch answers from the trail, with the row as context. */
 export function askWhyTrail(t: FoldTrailEntry): { readonly question: string; readonly context: string } {
-  const what = t.kind === "refused" ? "was this refused" : t.kind === "failed" ? "did this fail" : t.kind === "settled" ? "did this happen, and what did it cost" : "is this here";
+  const what = t.kind === "refused" ? msg("fold.model.wasThisRefused") : t.kind === "failed" ? msg("fold.model.didThisFail") : t.kind === "settled" ? msg("fold.model.didThisHappenAndWhatDid") : msg("fold.model.isThisHere");
   return {
-    question: `Why ${what}: "${t.title}"?`,
-    context: `Trail entry (${t.kind}, ${t.at}, Arc ${t.environment}): ${t.title}. ${t.detail}${t.verdict ? ` Fence verdict: ${t.verdict.decision} (${t.verdict.digest.slice(0, 18)}).` : ""}${t.feeUsd ? ` Fee $${t.feeUsd}.` : ""}`.slice(0, 1000),
+    question: msg("fold.model.why", { what, title: t.title }),
+    // i18n-ignore: context handed to Lyko with the question; tool data stays English.
+    context: `Trail entry (${t.kind}, ${t.at}, Arc ${t.environment}): ${t.title}. ${t.detail}${t.verdict ? msg("fold.model.fenceVerdict", { decision: t.verdict.decision, value: t.verdict.digest.slice(0, 18) }) : ""}${t.feeUsd ? msg("fold.model.fee", { feeUsd: t.feeUsd }) : ""}`.slice(0, 1000),
   };
 }
 
@@ -628,12 +628,12 @@ export function withTrailFees<T extends { readonly lines: readonly { readonly la
 export type InsightAction = { readonly kind: "thread"; readonly label: string } | { readonly kind: "herding"; readonly label: string } | { readonly kind: "draft"; readonly label: string } | { readonly kind: "ask"; readonly label: string } | { readonly kind: "receive"; readonly label: string; readonly address: string } | { readonly kind: "link"; readonly label: string; readonly href: string };
 
 export function insightAction(insight: FoldInsight, canDraft: boolean): InsightAction {
-  if (insight.sent) return { kind: "thread", label: "Open the plan" };
+  if (insight.sent) return { kind: "thread", label: msg("fold.model.openThePlan") };
   // A fix that needs no transaction from this wallet (adding USDC to it, opening a page) is never a draft to sign.
   if (insight.draft?.receive) return { kind: "receive", label: insight.draft.label, address: insight.draft.receive };
   if (insight.draft?.href && !insight.draft.sentence) return { kind: "link", label: insight.draft.label, href: insight.draft.href };
-  if (insight.handled) return { kind: "herding", label: "Sign it in Herding" };
+  if (insight.handled) return { kind: "herding", label: msg("fold.model.signItInHerding") };
   if (insight.draft && canDraft) return { kind: "draft", label: insight.draft.label };
-  if (insight.draft) return { kind: "ask", label: `${insight.draft.label} in Ask` };
-  return { kind: "ask", label: "Ask Lyko" };
+  if (insight.draft) return { kind: "ask", label: msg("fold.model.inAsk", { label: insight.draft.label }) };
+  return { kind: "ask", label: msg("fold.model.askLyko") };
 }

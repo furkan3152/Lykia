@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { apiGet } from "../../lib/api";
 import { useSession } from "../../lib/session";
 import { Button, LykoFace, cx } from "../../mosaic";
-import { insertMention, matchContacts, mentionAt, MEMORY_PHRASES, type ContactRef } from "./memoryRefs";
+import { insertMention, matchContacts, mentionAt, memoryPhrases, type ContactRef } from "./memoryRefs";
 import { composerHint, nextBlank, sendWord } from "./starters";
+import { t as msg } from "../../i18n";
 
 export interface ComposerProps {
   readonly onSubmit: (text: string) => void;
@@ -87,7 +88,8 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
       else el.setSelectionRange(prefillText.length, prefillText.length);
     });
   }, [prefillNonce, prefillText]);
-  const hint = hints ? composerHint(text) : null;
+  // The hint line shows only while a blank ("[amount]") is still open.
+  const hint = hints && nextBlank(text) ? composerHint(text) : null;
   const send = () => {
     const line = text.trim();
     if (!line || busy) return;
@@ -100,13 +102,13 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
     <div className={cx("m-frame m-composer", morph && "vt-composer", className)}>
       <LykoFace mood={busy ? "herding" : text ? "alert" : "watching"} scale={1.8} />
       <div className="m-composer__body">
-        <span className="m-composer__meta">{meta ?? "ASK LYKO"}</span>
+        {meta ? <span className="m-composer__meta">{meta}</span> : null}
         <textarea
           ref={ref}
           rows={1}
           value={text}
-          aria-label="Ask Lyko"
-          placeholder={placeholder ?? ("Keep 5,000 USDC for payroll, put the rest in the best vault…")}
+          aria-label={msg("ask.composer.askLyko")}
+          placeholder={placeholder ?? (msg("ask.composer.keep5000UsdcForPayroll"))}
           onChange={(e) => {
             setText(e.target.value);
             setCaret(e.target.selectionStart ?? e.target.value.length);
@@ -136,7 +138,7 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
           }}
         />
         {matches.length > 0 ? (
-          <ul role="listbox" aria-label="Contacts" className="m-frame m-frame--thin" style={{ position: "absolute", zIndex: 30, marginTop: 4, listStyle: "none", padding: 6, minWidth: 260 }}>
+          <ul role="listbox" aria-label={msg("ask.composer.contacts")} className="m-frame m-frame--thin" style={{ position: "absolute", zIndex: 30, marginTop: 4, listStyle: "none", padding: 6, minWidth: 260 }}>
             {matches.map((c, i) => (
               <li key={c.name} role="option" aria-selected={i === pick}>
                 <button type="button" className="m-thread" aria-current={i === pick} onMouseDown={(e) => { e.preventDefault(); choose(c.name); }}>
@@ -152,21 +154,21 @@ export function Composer({ onSubmit, busy, onStop, autoFocus, placeholder, class
           </p>
         ) : null}
         {memoryChips && text.trim() === "" ? (
-          <div className="m-memchips" role="group" aria-label="From your history">
-            {MEMORY_PHRASES.en.map((phrase) => (
+          <div className="m-memchips" role="group" aria-label={msg("ask.composer.fromYourHistory")}>
+            {memoryPhrases().map((phrase) => (
               <button key={phrase} type="button" className="m-chip" onClick={() => { setText((t) => (t ? `${t} ${phrase}` : phrase)); ref.current?.focus(); }}>
                 ⟲ {phrase}
               </button>
             ))}
             <button type="button" className="m-chip" onClick={() => { const next = text ? `${text} @` : "@"; setText(next); setCaret(next.length); ref.current?.focus(); }}>
-              @ {"contact"}
+              @ {msg("ask.composer.contact")}
             </button>
           </div>
         ) : null}
       </div>
       {busy && onStop ? (
         <Button tone="navy" onClick={onStop}>
-          {"STOP"}
+          {msg("ask.composer.stop")}
         </Button>
       ) : text.trim() ? (
         <Button onClick={send} className="m-composer__send">

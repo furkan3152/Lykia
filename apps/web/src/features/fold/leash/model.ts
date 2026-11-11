@@ -9,13 +9,14 @@
  */
 import { LEASH_LIMITS, LEASH_TEMPLATES, STILE_BETA, budgetIssues, draftBudget, isAddress, leashDraftOf, stileBudgetIssues, usdMicros, type Address, type ArcEnvironment, type LeashDraft, type LeashSpendFrom, type LeashTemplateKey, type LeashWindow } from "@lykia/core";
 import type { CreateLeashRequest, LeashTrailItem, LeashView } from "@lykia/core/api/leash";
+import { formatUsd, t as msg } from "../../../i18n";
 
 export type LeashStep = "who" | "from" | "limits" | "review";
 export const LEASH_STEPS: readonly { readonly id: LeashStep; readonly label: string }[] = [
-  { id: "who", label: "Who" },
-  { id: "from", label: "Spend from" },
-  { id: "limits", label: "Limits" },
-  { id: "review", label: "Review" },
+  { id: "who", label: msg("fold.leash.model.who") },
+  { id: "from", label: msg("fold.leash.model.spendFrom") },
+  { id: "limits", label: msg("fold.leash.model.limits") },
+  { id: "review", label: msg("fold.leash.model.review") },
 ];
 
 /** What GET /v1/leashes/templates says about spending from a Gateway balance. */
@@ -34,9 +35,9 @@ export interface GatewayOption {
 
 /** The Gateway option for one environment; "coming soon" when the API does not offer it or did not answer. */
 export function gatewayOptionOf(offer: GatewayOffer | undefined, environment: ArcEnvironment): GatewayOption {
-  if (!offer) return { available: false, reason: "Coming soon.", destinations: [] };
+  if (!offer) return { available: false, reason: msg("fold.leash.model.comingSoon"), destinations: [] };
   const available = offer.available[environment] === true;
-  return { available, reason: available ? null : "Coming soon.", destinations: offer.destinations.map((d) => ({ key: d.key, name: d.name })) };
+  return { available, reason: available ? null : msg("fold.leash.model.comingSoon"), destinations: offer.destinations.map((d) => ({ key: d.key, name: d.name })) };
 }
 
 /** A chain's name from the offer, or the key with a capital. */
@@ -121,22 +122,22 @@ export function budgetOf(form: Pick<LeashForm, "perDayUsd" | "perStepUsd" | "day
 
 /** One-tap limits for the sheet: each fills per day, per step and days. */
 export const LIMIT_PRESETS: readonly { readonly label: string; readonly line: string; readonly perDayUsd: string; readonly perStepUsd: string; readonly days: string }[] = [
-  { label: "Try it out", line: "$5 a day for 3 days", perDayUsd: "5", perStepUsd: "5", days: "3" },
-  { label: "Small bot", line: "$20 a day for 7 days", perDayUsd: "20", perStepUsd: "10", days: "7" },
-  { label: "Working bot", line: "$100 a day for 30 days", perDayUsd: "100", perStepUsd: "50", days: "30" },
+  { label: msg("fold.leash.model.tryItOut"), line: msg("fold.leash.model.n5ADayFor3Days"), perDayUsd: "5", perStepUsd: "5", days: "3" },
+  { label: msg("fold.leash.model.smallBot"), line: msg("fold.leash.model.n20ADayFor7Days"), perDayUsd: "20", perStepUsd: "10", days: "7" },
+  { label: msg("fold.leash.model.workingBot"), line: msg("fold.leash.model.n100ADayFor30Days"), perDayUsd: "100", perStepUsd: "50", days: "30" },
 ];
 
-const usdWord = (v: string | number) => `$${Number(v).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+const usdWord = (v: string | number) => formatUsd(Number(v), { min: 0 });
 
 /** The review in one sentence: "This bot can spend up to $20 a day for 7 days, only to these 2 payees. You can stop it anytime." */
 export function leashSentence(form: LeashForm, payees: number): string {
   const days = Number(form.days);
-  const when = `for ${days} day${days === 1 ? "" : "s"}`;
-  const step = form.perStepUsd.trim() && form.perStepUsd.trim() !== form.perDayUsd.trim() ? `, at most ${usdWord(form.perStepUsd)} at a time` : "";
+  const when = msg("fold.leash.model.forDays", { n: days });
+  const step = form.perStepUsd.trim() && form.perStepUsd.trim() !== form.perDayUsd.trim() ? msg("fold.leash.model.atMostAtATime", { usdWord: usdWord(form.perStepUsd) }) : "";
   const t = LEASH_TEMPLATES[form.template];
-  const where = t.recipients === "allowlist" ? `only to ${payees === 1 ? "this payee" : `these ${payees} payees`}` : `only on ${form.venues.join(" and ") || "the venues you picked"}`;
-  const name = form.name.trim() || "This bot";
-  return `${name} can spend up to ${usdWord(form.perDayUsd || "0")} a day ${when}${step}, ${where}. You can stop it anytime.`;
+  const where = t.recipients === "allowlist" ? msg("fold.leash.model.onlyTo", { value: payees === 1 ? msg("fold.leash.model.thisPayee") : msg("fold.leash.model.thesePayees", { payees }) }) : msg("fold.leash.model.onlyOn", { value: form.venues.join(" and ") || msg("fold.leash.model.theVenuesYouPicked") });
+  const name = form.name.trim() || msg("fold.leash.model.thisBot");
+  return msg("fold.leash.model.leashSentence", { name, day: usdWord(form.perDayUsd || "0"), when, step, where });
 }
 
 export interface FormIssue {
@@ -148,31 +149,31 @@ export interface FormIssue {
 export function formIssues(form: LeashForm, step: LeashStep, owner: string | null): FormIssue[] {
   const out: FormIssue[] = [];
   if (step === "who" || step === "review") {
-    if (!form.name.trim()) out.push({ field: "name", message: "Give the agent a name." });
-    else if (form.name.trim().length > LEASH_LIMITS.nameLength) out.push({ field: "name", message: `At most ${LEASH_LIMITS.nameLength} characters.` });
+    if (!form.name.trim()) out.push({ field: "name", message: msg("fold.leash.model.giveTheAgentAName") });
+    else if (form.name.trim().length > LEASH_LIMITS.nameLength) out.push({ field: "name", message: msg("fold.leash.model.atMostCharacters", { nameLength: LEASH_LIMITS.nameLength }) });
     if (form.keyMode === "own") {
-      if (!isAddress(form.signer.trim())) out.push({ field: "signer", message: "The agent's own address, 0x followed by 40 hex characters." });
-      else if (owner && form.signer.trim().toLowerCase() === owner.toLowerCase()) out.push({ field: "signer", message: "Not your own wallet: the agent needs a key of its own." });
+      if (!isAddress(form.signer.trim())) out.push({ field: "signer", message: msg("fold.leash.model.theAgentSOwnAddress0x") });
+      else if (owner && form.signer.trim().toLowerCase() === owner.toLowerCase()) out.push({ field: "signer", message: msg("fold.leash.model.notYourOwnWalletTheAgent") });
     }
   }
   if ((step === "from" || step === "review") && form.spendFrom === "gateway") {
-    if (form.destinations.length === 0) out.push({ field: "destinations", message: "Pick at least one chain the agent may pay on." });
-    if (form.template !== "pay-invoices") out.push({ field: "template", message: "A Gateway leash pays named payees: Pay invoices." });
+    if (form.destinations.length === 0) out.push({ field: "destinations", message: msg("fold.leash.model.pickAtLeastOneChainThe") });
+    if (form.template !== "pay-invoices") out.push({ field: "template", message: msg("fold.leash.model.aGatewayLeashPaysNamedPayees") });
   }
   if (step === "limits" || step === "review") {
     const days = daysOf(form);
-    if (!Number.isInteger(days) || days < 1 || days > LEASH_LIMITS.maxDays) out.push({ field: "days", message: `1 to ${LEASH_LIMITS.maxDays} days.` });
+    if (!Number.isInteger(days) || days < 1 || days > LEASH_LIMITS.maxDays) out.push({ field: "days", message: msg("fold.leash.model.n1ToDays", { maxDays: LEASH_LIMITS.maxDays }) });
     else {
       for (const i of budgetIssues(budgetOf(form))) out.push({ field: i.path === "budget.perStepUsd" ? "perStepUsd" : "perDayUsd", message: i.message });
       if (form.spendFrom === "gateway") for (const i of stileBudgetIssues(budgetOf(form))) out.push({ field: i.path === "budget.perStepUsd" ? "perStepUsd" : "perDayUsd", message: i.message });
     }
     const payees = recipientsOf(form);
     if (LEASH_TEMPLATES[form.template].recipients === "allowlist") {
-      if (payees.length === 0) out.push({ field: "recipients", message: "Name at least one payee: this leash pays known recipients only." });
+      if (payees.length === 0) out.push({ field: "recipients", message: msg("fold.leash.model.nameAtLeastOnePayeeThis") });
     }
-    if (payees.some((p) => !isAddress(p))) out.push({ field: "recipients", message: "Each payee is an address, 0x followed by 40 hex characters." });
-    if (payees.length > LEASH_LIMITS.recipients) out.push({ field: "recipients", message: `At most ${LEASH_LIMITS.recipients} payees.` });
-    if (form.spendFrom === "arc" && LEASH_TEMPLATES[form.template].venues && form.venues.length === 0) out.push({ field: "venues", message: "Keep at least one venue." });
+    if (payees.some((p) => !isAddress(p))) out.push({ field: "recipients", message: msg("fold.leash.model.eachPayeeIsAnAddress0x") });
+    if (payees.length > LEASH_LIMITS.recipients) out.push({ field: "recipients", message: msg("fold.leash.model.atMostPayees", { recipients: LEASH_LIMITS.recipients }) });
+    if (form.spendFrom === "arc" && LEASH_TEMPLATES[form.template].venues && form.venues.length === 0) out.push({ field: "venues", message: msg("fold.leash.model.keepAtLeastOneVenue") });
   }
   return out;
 }
@@ -222,42 +223,42 @@ export function timeLeft(expiresAt: string, now: number): string {
   const ms = Date.parse(expiresAt) - now;
   if (!Number.isFinite(ms) || ms <= 0) return "expired";
   const h = Math.floor(ms / 3_600_000);
-  if (h >= 48) return `${Math.floor(h / 24)} d ${h % 24} h left`;
-  if (h >= 1) return `${h} h left`;
-  return `${Math.max(1, Math.floor(ms / 60_000))} min left`;
+  if (h >= 48) return msg("fold.leash.model.dHLeft", { Math: Math.floor(h / 24), value: h % 24 });
+  if (h >= 1) return msg("fold.leash.model.hLeft", { h });
+  return msg("fold.leash.model.minLeft", { Math: Math.max(1, Math.floor(ms / 60_000)) });
 }
 
 export function statusLabel(l: Pick<LeashView, "status" | "session">): string {
-  if (l.status === "pending") return l.session?.sessionId ? "live" : "waiting for your signature";
+  if (l.status === "pending") return l.session?.sessionId ? "live" : msg("fold.leash.model.waitingForYourSignature");
   if (l.status === "active") return "live";
   return l.status;
 }
 
 export function spendFromLabel(l: Pick<LeashView, "spendFrom">): string {
-  return l.spendFrom === "gateway" ? "Gateway balance" : "Arc wallet";
+  return l.spendFrom === "gateway" ? msg("fold.leash.model.gatewayBalance") : msg("fold.leash.model.arcWallet");
 }
 
 /** Where a Gateway leash may pay; null for an Arc leash. */
 export function destinationsLabel(l: Pick<LeashView, "spendFrom" | "stile">, offer?: Pick<GatewayOffer, "destinations">): string | null {
   if (l.spendFrom !== "gateway") return null;
   const keys = l.stile?.destinations ?? [];
-  return keys.length > 0 ? keys.map((k) => chainName(k, offer)).join(", ") : "no chain";
+  return keys.length > 0 ? keys.map((k) => chainName(k, offer)).join(", ") : msg("fold.leash.model.noChain");
 }
 
 export function venueLabel(l: Pick<LeashView, "venues" | "recipients" | "template">): string {
-  if (l.template === "pay-invoices") return l.recipients.length > 0 ? `${l.recipients.length} payee${l.recipients.length === 1 ? "" : "s"}` : "no payees";
-  return (l.venues ?? []).join(", ") || "any venue the Fence allows";
+  if (l.template === "pay-invoices") return l.recipients.length > 0 ? `${l.recipients.length} payee${l.recipients.length === 1 ? "" : "s"}` : msg("fold.leash.model.noPayees");
+  return (l.venues ?? []).join(", ") || msg("fold.leash.model.anyVenueTheFenceAllows");
 }
 
 export function actionLine(i: Pick<LeashTrailItem, "kind" | "summary" | "usd" | "chainProven">): string {
-  const what = i.kind === "denied" ? "Refused" : i.kind === "settled" ? "Done" : i.kind === "failed" ? "Failed" : i.kind === "planned" ? "Planned" : i.kind === "onchain" ? "On chain" : "Sent";
+  const what = i.kind === "denied" ? msg("fold.leash.model.refused") : i.kind === "settled" ? msg("fold.leash.model.done") : i.kind === "failed" ? msg("fold.leash.model.failed") : i.kind === "planned" ? msg("fold.leash.model.planned") : i.kind === "onchain" ? msg("fold.leash.model.onChain") : msg("fold.leash.model.sent");
   return `${what}: ${i.summary}${i.usd ? ` ($${i.usd})` : ""}`;
 }
 
 /** "$50", "$10.10": whole dollars without cents, anything else with two decimals. */
 export const usdText = (v: string | number) => {
   const n = Number(v);
-  return `$${n.toLocaleString("en-US", Number.isInteger(n) ? { maximumFractionDigits: 0 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return formatUsd(n, Number.isInteger(n) ? { min: 0, max: 0 } : { min: 2, max: 2 });
 };
 
 /** Money left per step right now: the smallest of the step cap and what is left today and in total. */
@@ -306,24 +307,24 @@ export function sampleLeashes(now: number): LeashView[] {
   return [
     sample(
       "lsh_sample000001",
-      { agentName: "Invoice bot", template: "pay-invoices", budget: { perStepUsd: "20", perDayUsd: "20", totalUsd: "140" }, expiresAt: new Date(now + 4 * day + 6 * 3_600_000).toISOString(), recipients: ["0x2222222222222222222222222222222222222222", "0x4444444444444444444444444444444444444444"] },
+      { agentName: msg("fold.leash.model.invoiceBot"), template: "pay-invoices", budget: { perStepUsd: "20", perDayUsd: "20", totalUsd: "140" }, expiresAt: new Date(now + 4 * day + 6 * 3_600_000).toISOString(), recipients: ["0x2222222222222222222222222222222222222222", "0x4444444444444444444444444444444444444444"] },
       { day: "17.17", total: "58.58" },
       [
-        { at: at(40 * 60_000), kind: "denied", summary: "Pay 9 USDC to Kite Hosting", usd: "9.09", chainProven: false, source: "lykia", reasons: [{ code: "leash.budget.day", message: "$9.09 is more than the $2.83 left today." }] },
-        { at: at(3 * 3_600_000), kind: "settled", summary: "Send 12 USDC to Kite Hosting (invoice 4411)", usd: "12.12", chainProven: true, source: "lykia" },
-        { at: at(9 * 3_600_000), kind: "settled", summary: "Send 5 USDC to Atlas Data (invoice 0192)", usd: "5.05", chainProven: true, source: "lykia" },
+        { at: at(40 * 60_000), kind: "denied", summary: msg("fold.leash.model.pay9UsdcToKiteHosting"), usd: "9.09", chainProven: false, source: "lykia", reasons: [{ code: "leash.budget.day", message: msg("fold.leash.model.n909IsMoreThanThe") }] },
+        { at: at(3 * 3_600_000), kind: "settled", summary: msg("fold.leash.model.send12UsdcToKiteHosting"), usd: "12.12", chainProven: true, source: "lykia" },
+        { at: at(9 * 3_600_000), kind: "settled", summary: msg("fold.leash.model.send5UsdcToAtlasData"), usd: "5.05", chainProven: true, source: "lykia" },
       ],
     ),
     sample(
       "lsh_sample000002",
-      { agentName: "FX scout", template: "trade-small", budget: { perStepUsd: "25", perDayUsd: "50", totalUsd: "350" }, expiresAt: new Date(now + 6 * day + 2 * 3_600_000).toISOString() },
+      { agentName: msg("fold.leash.model.fxScout"), template: "trade-small", budget: { perStepUsd: "25", perDayUsd: "50", totalUsd: "350" }, expiresAt: new Date(now + 6 * day + 2 * 3_600_000).toISOString() },
       { day: "10.10", total: "30.30" },
-      [{ at: at(2 * 3_600_000), kind: "settled", summary: "Swap 10 USDC to EURC on Uniswap v3", usd: "10.10", chainProven: true, source: "lykia" }],
+      [{ at: at(2 * 3_600_000), kind: "settled", summary: msg("fold.leash.model.swap10UsdcToEurcOn"), usd: "10.10", chainProven: true, source: "lykia" }],
     ),
     sample(
       "lsh_sample000003",
       {
-        agentName: "Payout runner",
+        agentName: msg("fold.leash.model.payoutRunner"),
         template: "pay-invoices",
         budget: { perStepUsd: "50", perDayUsd: "150", totalUsd: "1050" },
         expiresAt: new Date(now + 5 * day + 3 * 3_600_000).toISOString(),
@@ -334,8 +335,8 @@ export function sampleLeashes(now: number): LeashView[] {
       },
       { day: "40.40", total: "121.20" },
       [
-        { at: at(70 * 60_000), kind: "settled", summary: "Pay 25 USDC to 0x6666…6666 on Base from the Gateway balance", usd: "25.25", chainProven: true, source: "lykia" },
-        { at: at(5 * 3_600_000), kind: "settled", summary: "Pay 15 USDC to 0x8888…8888 on Arbitrum from the Gateway balance", usd: "15.15", chainProven: true, source: "lykia" },
+        { at: at(70 * 60_000), kind: "settled", summary: msg("fold.leash.model.pay25UsdcTo0x66666666"), usd: "25.25", chainProven: true, source: "lykia" },
+        { at: at(5 * 3_600_000), kind: "settled", summary: msg("fold.leash.model.pay15UsdcTo0x88888888"), usd: "15.15", chainProven: true, source: "lykia" },
       ],
     ),
   ];

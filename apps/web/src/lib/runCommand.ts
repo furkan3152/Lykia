@@ -15,6 +15,7 @@ import { useUiStore } from "../app/state/uiStore";
 import { apiPost } from "./api";
 import { useLykiaStore } from "./lykiaStore";
 import { sessionToken, useSession } from "./session";
+import { t } from "../i18n";
 
 /** The signed-in owner the server Whistle acts for; null signed out (the deck's Fence still turns to whistle mode). */
 function whistleOwner(): { owner: string; environment: string } | null {
@@ -28,29 +29,29 @@ export function runCommand(action: CommandAction): void {
   switch (action) {
     case "rescan":
       void queryClient.invalidateQueries({ queryKey: ["flock"] });
-      toast.info("Come bye: re-counting the flock", { from: "LYKO", id: "cmd" });
+      toast.info(t("lib.runCommand.comeByeReCountingTheFlock"), { from: "LYKO", id: "cmd" });
       break;
     case "resniff":
       void queryClient.invalidateQueries({ queryKey: ["scent"] });
-      toast.info("Away to me: re-sniffing every token", { from: "LYKO", id: "cmd" });
+      toast.info(t("lib.runCommand.awayToMeReSniffingEvery"), { from: "LYKO", id: "cmd" });
       break;
     case "advance":
-      toast.info("Walk up: preparing the next step; you still sign it", { from: "LYKO", id: "cmd" });
+      toast.info(t("lib.runCommand.walkUpPreparingTheNextStep"), { from: "LYKO", id: "cmd" });
       if (!window.location.pathname.startsWith("/app")) navigate("/app");
       break;
     case "whistle": {
       store.setWhistle(true);
       const who = whistleOwner();
       if (!who) {
-        toast.warning("Lie down: the whistle is blown", { description: `${LYKO_LINES.resting} Sign in so Lykia stops your automations, agents and leashes on its side too.`, from: "LYKO", id: "cmd" });
+        toast.warning(t("lib.runCommand.lieDownTheWhistleIsBlown"), { description: t("lib.runCommand.signInSoLykiaStopsYour", { resting: LYKO_LINES.resting }), from: "LYKO", id: "cmd" });
         break;
       }
       void apiPost<{ items: { state: string }[] }>("/v1/whistle", { ...who, reason: "Blown from the Fold." })
         .then((r) => {
           const n = r.items.filter((i) => i.state === "paused").length;
-          toast.warning("Lie down: the whistle is blown", { description: `${n} thing${n === 1 ? "" : "s"} stopped on Lykia's side. ${LYKO_LINES.resting}`, from: "LYKO", id: "cmd" });
+          toast.warning(t("lib.runCommand.lieDownTheWhistleIsBlown"), { description: `${t("lib.runCommand.thingsStoppedOnLykiasSide", { n })} ${LYKO_LINES.resting}`, from: "LYKO", id: "cmd" });
         })
-        .catch(() => toast.error("The Whistle did not reach Lykia", { description: "Your deck's Fence is in whistle mode; try again to stop things on the server.", from: "LYKO", id: "cmd" }))
+        .catch(() => toast.error(t("lib.runCommand.theWhistleDidNotReachLykia"), { description: t("lib.runCommand.yourDeckSFenceIsIn"), from: "LYKO", id: "cmd" }))
         .finally(() => {
           for (const k of ["whistle", "autopilot", "fold-instructions", "pack", "fold-summary"]) void queryClient.invalidateQueries({ queryKey: [k] });
         });
@@ -59,7 +60,7 @@ export function runCommand(action: CommandAction): void {
     case "release": {
       store.setWhistle(false);
       const who = whistleOwner();
-      toast.success("That'll do: whistle released", { description: "The Fence runs on its normal rules again, and what the Whistle stopped runs again.", from: "LYKO", id: "cmd" });
+      toast.success(t("lib.runCommand.thatLlDoWhistleReleased"), { description: t("lib.runCommand.theFenceRunsOnItsNormal"), from: "LYKO", id: "cmd" });
       if (who)
         void apiPost("/v1/whistle/resume", who)
           .catch(() => undefined)
@@ -71,7 +72,7 @@ export function runCommand(action: CommandAction): void {
     case "lookback": {
       const last = store.lastOutrun;
       if (last) navigate(`/app/outrun/${encodeURIComponent(last)}`);
-      else toast.info("Look back: no outrun yet", { from: "LYKO", id: "cmd" });
+      else toast.info(t("lib.runCommand.lookBackNoOutrunYet"), { from: "LYKO", id: "cmd" });
       break;
     }
   }

@@ -1,0 +1,211 @@
+{
+  "language": "es",
+  "register": "tú (informal), as Spanish fintech apps write",
+  "keep": [
+    "Lykia",
+    "Lyko",
+    "Ask Lyko",
+    "The Fold",
+    "The Forge",
+    "the Fence",
+    "Leash",
+    "Whistle",
+    "Stile",
+    "Autopilot",
+    "Herding",
+    "Flock",
+    "Trails",
+    "Pack",
+    "the League",
+    "Harbour",
+    "Ledger",
+    "Letoon",
+    "Scent",
+    "Tag",
+    "Outrun",
+    "Lykaion",
+    "USDC",
+    "EURC",
+    "cirBTC",
+    "USYC",
+    "Morpho",
+    "Aave V4",
+    "CCTP",
+    "Gateway",
+    "Arc",
+    "Base",
+    "Circle"
+  ],
+  "strict": [
+    "liquidation",
+    "health factor",
+    "slippage",
+    "Lyko on watch",
+    "stress test",
+    "your spending rules",
+    "your holdings",
+    "your history",
+    "Review and sign",
+    "How this works",
+    "net worth",
+    "daily limit"
+  ],
+  "terms": {
+    "wallet": {
+      "use": "billetera",
+      "stem": "billetera"
+    },
+    "sign": {
+      "use": "firmar",
+      "stem": "firm"
+    },
+    "plan": {
+      "use": "plan",
+      "stem": "plan"
+    },
+    "liquidation": {
+      "use": "liquidación",
+      "stem": "liquidación"
+    },
+    "health factor": {
+      "use": "factor de salud",
+      "stem": "factor de salud"
+    },
+    "slippage": {
+      "use": "deslizamiento",
+      "stem": "deslizamiento"
+    },
+    "gas": {
+      "use": "gas",
+      "stem": "gas"
+    },
+    "network fee": {
+      "use": "comisión de red",
+      "stem": "comisión de red"
+    },
+    "fee": {
+      "use": "comisión",
+      "stem": "comisi"
+    },
+    "vault": {
+      "use": "bóveda",
+      "stem": "bóveda"
+    },
+    "yield": {
+      "use": "rendimiento",
+      "stem": "rendimiento"
+    },
+    "collateral": {
+      "use": "colateral",
+      "stem": "colateral"
+    },
+    "borrow": {
+      "use": "pedir prestado",
+      "stem": "prest"
+    },
+    "repay": {
+      "use": "devolver",
+      "stem": "devol"
+    },
+    "withdraw": {
+      "use": "retirar",
+      "stem": "retir"
+    },
+    "deposit": {
+      "use": "depositar",
+      "stem": "deposit"
+    },
+    "bridge": {
+      "use": "puentear",
+      "stem": "puente"
+    },
+    "convert": {
+      "use": "convertir",
+      "stem": "convert"
+    },
+    "send": {
+      "use": "enviar",
+      "stem": "envi"
+    },
+    "idle": {
+      "use": "inactivo",
+      "stem": "inactiv"
+    },
+    "net worth": {
+      "use": "patrimonio neto",
+      "stem": "patrimonio neto"
+    },
+    "daily limit": {
+      "use": "límite diario",
+      "stem": "límite diario"
+    },
+    "beta limit": {
+      "use": "límite beta",
+      "stem": "límite beta"
+    },
+    "route": {
+      "use": "ruta",
+      "stem": "ruta"
+    },
+    "position": {
+      "use": "posición",
+      "stem": "posici"
+    },
+    "agent": {
+      "use": "agente",
+      "stem": "agente"
+    },
+    "watch": {
+      "use": "vigilancia",
+      "stem": "vigil"
+    },
+    "payee": {
+      "use": "destinatario",
+      "stem": "destinatario"
+    },
+    "invoice": {
+      "use": "factura",
+      "stem": "factura"
+    },
+    "Lyko on watch": {
+      "use": "Lyko de guardia",
+      "stem": "Lyko de guardia"
+    },
+    "stress test": {
+      "use": "prueba de estrés",
+      "stem": "prueba de estrés"
+    },
+    "dry run": {
+      "use": "simulación",
+      "stem": "simulaci"
+    },
+    "sample": {
+      "use": "ejemplo",
+      "stem": "ejemplo"
+    },
+    "How this works": {
+      "use": "Cómo funciona",
+      "stem": "Cómo funciona"
+    },
+    "Review and sign": {
+      "use": "Revisar y firmar",
+      "stem": "revisar y firmar"
+    },
+    "allowance": {
+      "use": "aprobación",
+      "stem": "aprobaci"
+    },
+    "your spending rules": {
+      "use": "tus reglas de gasto",
+      "stem": "reglas de gasto"
+    },
+    "your holdings": {
+      "use": "tus activos",
+      "stem": "activos"
+    },
+    "your history": {
+      "use": "tu historial",
+      "stem": "historial"
+    }
+  }
+}

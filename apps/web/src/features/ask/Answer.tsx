@@ -7,7 +7,6 @@
 import { Link } from "../../app/routes/Link";
 import { cx } from "../../mosaic/cx";
 import { SampleContext, useChatActions } from "./actions";
-import { SampleCard } from "./controlCards";
 import { herdFromDrafts } from "./cardModel";
 import { BlockCard, ChoiceCard, HerdedCard, PlanCard, TroubleCard } from "./cards";
 import { clarifyLabel } from "./clarify";
@@ -17,7 +16,8 @@ import { failureReasons, handoffLine, type ChatMessage } from "./model";
 import { useAsk } from "./store";
 import { ProgramCard } from "./ProgramCard";
 import { LykoAvatar, Trail } from "./Trail";
-import { avatarState, elapsedOf, trailSteps } from "./workTrail";
+import { avatarState, trailSteps } from "./workTrail";
+import { t } from "../../i18n";
 
 export function UserMessage({ text, morph = false, compact = false }: { readonly text: string; readonly morph?: boolean; readonly compact?: boolean }) {
   return (
@@ -42,11 +42,11 @@ export function AssistantMessage({ m, compact = false, onChoose }: AssistantMess
   const text = displayText(m.text);
   const reasons = m.streaming ? [] : failureReasons(m);
   const herded = (m.blocks ?? []).some((b) => b.kind === "herded");
-  // No wallet connected: the sample card comes first, before any figure, and the cards below stop saying "your".
-  const sample = (m.blocks ?? []).find((b) => b.kind === "sample");
   // Beside a plan, the plan card says what it costs and the review modal asks for the Fence's confirmation:
   // the separate "confirm first" gate and cost cards would only repeat it. A refusal keeps its gate card.
   const planned = m.proposals.length > 0 && !compact;
+  // No wallet connected: the cards below stop saying "your" (the one sample notice sits at the top of Ask).
+  const sample = (m.blocks ?? []).some((b) => b.kind === "sample");
   const cards = (m.blocks ?? []).filter((b) => b.kind !== "sample" && !(planned && ((b.kind === "fence" && b.decision !== "deny") || (b.kind === "facts" && b.title.startsWith("What this plan costs")))));
   // Lyko asked a question: it is the only thing to do until it is answered.
   const asking = Boolean(m.clarify && m.clarify.options.length > 0 && onChoose);
@@ -59,20 +59,19 @@ export function AssistantMessage({ m, compact = false, onChoose }: AssistantMess
       </div>
       <div className="m-answer">
         {m.instruction ? <span className="m-msg__handoff">{handoffLine(m.instruction)}</span> : null}
-        <Trail steps={steps} streaming={m.streaming} elapsedMs={elapsedOf(m)} notes={(m.notes ?? []).filter((n) => n.trim() !== m.text.trim())} compact={compact} />
-        {sample && sample.kind === "sample" ? <SampleCard block={sample} /> : null}
+        <Trail steps={steps} streaming={m.streaming} notes={(m.notes ?? []).filter((n) => n.trim() !== m.text.trim())} compact={compact} />
         {text ? (
           <div className={cx("m-bubble m-bubble--lyko", m.streaming && "m-caret")}>
             <Markdown text={text} environment={environment} lead />
           </div>
         ) : m.streaming ? (
           <div className="m-bubble m-bubble--lyko m-bubble--wait">
-            <span className="m-wait">{steps.length === 0 ? "Lyko is picking up the scent…" : "Lyko is working on it…"}</span>
+            <span className="m-wait">{steps.length === 0 ? t("ask.answer.lykoIsPickingUpTheScent") : t("ask.answer.lykoIsWorkingOnIt")}</span>
           </div>
         ) : null}
         {reasons.length > 0 ? (
           <div className="m-note m-note--bad" role="status">
-            <b>Why:</b>
+            <b>{t("ask.answer.why")}</b>
             <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
               {reasons.map((r) => (
                 <li key={r}>{r}</li>
@@ -81,7 +80,7 @@ export function AssistantMessage({ m, compact = false, onChoose }: AssistantMess
           </div>
         ) : null}
         {m.error ? <TroubleCard message={m.error} /> : null}
-        <SampleContext.Provider value={Boolean(sample)}>
+        <SampleContext.Provider value={sample}>
           {cards.map((b, i) => (
             <BlockCard key={`${b.kind}${i}`} block={b} />
           ))}
@@ -92,8 +91,8 @@ export function AssistantMessage({ m, compact = false, onChoose }: AssistantMess
         {compact && (m.program || m.proposals.length > 0) ? (
           // Lyko on watch does not sign: it hands the plan to Ask Lyko, in the same thread, and says so.
           <div className="m-handoff" role="status">
-            <p className="m-answer__more">{`Handed to Ask Lyko: ${m.proposals.length || 1} plan${m.proposals.length > 1 ? "s" : ""} drafted in this same thread, ready to review and sign.`}</p>
-            <Link to={threadId ? `/app/ask/${encodeURIComponent(threadId)}` : "/app"} className="m-btn m-btn--sm">{"REVIEW AND SIGN IN ASK ›"}</Link>
+            <p className="m-answer__more">{t("ask.answer.handedToAsk", { n: m.proposals.length || 1 })}</p>
+            <Link to={threadId ? `/app/ask/${encodeURIComponent(threadId)}` : "/app"} className="m-btn m-btn--sm">{t("ask.answer.reviewAndSignInAsk")}</Link>
           </div>
         ) : (
           m.proposals.length > 0 ? <PlanCard proposals={m.proposals} waiting={asking} /> : null

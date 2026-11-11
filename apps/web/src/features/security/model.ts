@@ -1,5 +1,6 @@
 /** Pure view helpers for the security layer (node-testable: no React, no wallet). */
 import type { FindingSeverity, SecurityDecision, SecurityFinding, SecurityReport } from "@lykia/core/security/index";
+import { t } from "../../i18n";
 
 export type Tone = "ok" | "bad" | "ochre" | "sea" | "ghost";
 
@@ -8,7 +9,7 @@ export function decisionTone(decision: SecurityDecision): Tone {
 }
 
 export function decisionLabel(decision: SecurityDecision): string {
-  return decision === "block" ? "BLOCKED" : decision === "warn" ? "CHECK FIRST" : "LOOKS RIGHT";
+  return decision === "block" ? "BLOCKED" : decision === "warn" ? t("security.model.checkFirst") : t("security.model.looksRight");
 }
 
 export function severityTone(severity: FindingSeverity): Tone {
@@ -41,7 +42,7 @@ export function balanceLines(report: Pick<SecurityReport, "summary">): string[] 
   return report.summary.balanceChanges.map((b) => {
     const d = (b.symbol ? DECIMALS[b.symbol] : undefined) ?? 18;
     const out = `-${units(b.out, d)} ${b.symbol ?? short(b.token)}`;
-    return b.in ? `${out} · +${units(b.in, d)} back` : out;
+    return b.in ? t("security.model.back", { out, units: units(b.in, d) }) : out;
   });
 }
 

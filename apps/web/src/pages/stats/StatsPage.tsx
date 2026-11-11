@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "../../app/routes/Link";
 import { apiGet } from "../../lib/api";
 import { Card, MeanderBand, Stat, Tag } from "../../mosaic";
+import { intlLocale, t } from "../../i18n";
 
 interface StatsView {
   readonly environment: "mainnet" | "testnet";
@@ -20,7 +21,7 @@ interface StatsView {
   readonly at: string;
 }
 
-const n = (v: number | null | undefined) => (v === null || v === undefined ? "n/a" : v.toLocaleString("en-US"));
+const n = (v: number | null | undefined) => (v === null || v === undefined ? "n/a" : v.toLocaleString(intlLocale()));
 
 export default function StatsPage() {
   const q = useQuery({ queryKey: ["stats", "mainnet"], queryFn: ({ signal }) => apiGet<StatsView>("/v1/stats", { query: { environment: "mainnet" }, signal, timeoutMs: 20_000 }), staleTime: 60_000, retry: 1 });
@@ -28,26 +29,26 @@ export default function StatsPage() {
   return (
     <div>
       <header className="m-head m-wrap">
-        <span className="m-kick">{"THE FORGE · LEDGER · STATS"}</span>
+        <span className="m-kick">{t("stats.theForgeLedgerStats")}</span>
         <h1 className="m-title">
-          Lykia, in <em>numbers.</em>
+          {t("stats.lykiaIn")} <em>{t("stats.numbers")}</em>
         </h1>
-        <p className="m-sub">{"Public, aggregate and sourced: on-chain counts on Arc mainnet, value routed, the platform and the ecosystem. No personal data."}</p>
+        <p className="m-sub">{t("stats.publicAggregateAndSourcedOnChain")}</p>
       </header>
 
       <section className="m-wrap" style={{ marginTop: 24 }}>
-        {q.isError ? <p className="m-note">{"The API did not answer; the numbers fill in when it does."}</p> : null}
+        {q.isError ? <p className="m-note">{t("stats.theApiDidNotAnswerThe")}</p> : null}
         <div className="m-grid-4">
-          <Stat label="ACCOUNTS CREATED" value={s ? n(s.onchain.accountsCreated) : "…"} hint="LykiaAccount factory" />
-          <Stat label="SETTLED STEPS" value={s ? n(s.onchain.memoSteps) : "…"} hint="each with an Arc Memo" />
-          <Stat label="VALUE ROUTED" value={s ? `$${Number(s.routed.usd).toLocaleString("en-US")}` : "…"} hint={s ? `${s.routed.intents} plans` : undefined} />
-          <Stat label="ROUTABLE VENUES" value={s ? n(s.ecosystem.routable) : "…"} hint={s ? `${s.ecosystem.protocols} protocols mapped on Arc` : undefined} />
+          <Stat label={t("stats.accountsCreated")} value={s ? n(s.onchain.accountsCreated) : "…"} hint={t("stats.lykiaaccountFactory")} />
+          <Stat label={t("stats.settledSteps")} value={s ? n(s.onchain.memoSteps) : "…"} hint={t("stats.eachWithAnArcMemo")} />
+          <Stat label={t("stats.valueRouted")} value={s ? `$${Number(s.routed.usd).toLocaleString(intlLocale())}` : "…"} hint={s ? `${s.routed.intents} plans` : undefined} />
+          <Stat label={t("stats.routableVenues")} value={s ? n(s.ecosystem.routable) : "…"} hint={s ? t("stats.protocolsMappedOnArc", { protocols: s.ecosystem.protocols }) : undefined} />
         </div>
         <div className="m-grid-4" style={{ marginTop: 12 }}>
-          <Stat label="DEVELOPER KEYS" value={s ? n(s.platform.developerKeys) : "…"} />
-          <Stat label="INTEGRATORS" value={s ? n(s.platform.integrators) : "…"} hint="projects embedding Lykia" />
-          <Stat label="AGENTS" value={s ? n(s.platform.agents) : "…"} hint="registered agents" />
-          <Stat label="VERDICTS INDEXED" value={s ? n(s.onchain.verdictsIndexed) : "…"} hint="Fence verdicts" />
+          <Stat label={t("stats.developerKeys")} value={s ? n(s.platform.developerKeys) : "…"} />
+          <Stat label={t("stats.integrators")} value={s ? n(s.platform.integrators) : "…"} hint={t("stats.projectsEmbeddingLykia")} />
+          <Stat label={t("stats.agents")} value={s ? n(s.platform.agents) : "…"} hint={t("stats.registeredAgents")} />
+          <Stat label={t("stats.verdictsIndexed")} value={s ? n(s.onchain.verdictsIndexed) : "…"} hint={t("stats.fenceVerdicts")} />
         </div>
       </section>
 
@@ -55,8 +56,8 @@ export default function StatsPage() {
 
       <section className="m-wrap" style={{ marginTop: 28 }}>
         <div className="m-grid-2">
-          <Card title={"Contracts on Arc"} kicker={"VERIFIED WITH ETH_GETCODE"}>
-            {s && s.onchain.contracts.length === 0 ? <p className="m-small m-muted">{"No deployments recorded on this API yet."}</p> : null}
+          <Card title={t("stats.contractsOnArc")} kicker={t("stats.verifiedWithEthGetcode")}>
+            {s && s.onchain.contracts.length === 0 ? <p className="m-small m-muted">{t("stats.noDeploymentsRecordedOnThisApi")}</p> : null}
             <ul className="m-small" style={{ display: "grid", gap: 6 }}>
               {(s?.onchain.contracts ?? []).map((c) => (
                 <li key={c.address} style={{ overflowWrap: "anywhere" }}>
@@ -65,25 +66,25 @@ export default function StatsPage() {
               ))}
             </ul>
           </Card>
-          <Card title={"Circle products integrated"} kicker={"CIRCLE'S RAILS"}>
+          <Card title={t("stats.circleProductsIntegrated")} kicker={t("stats.circleSRails")}>
             <div className="flex flex-wrap gap-2">
               {(s?.circle.integrated ?? []).map((p) => <Tag key={p} tone="sea">{p}</Tag>)}
             </div>
             <p className="m-small m-muted" style={{ marginTop: 10 }}>
-              {"How each one is used: "}
-              <Link to="/ecosystem">{"the ecosystem page"}</Link>
+              {t("stats.howEachOneIsUsed")}
+              <Link to="/ecosystem">{t("stats.theEcosystemPage")}</Link>
               {"."}
             </p>
           </Card>
         </div>
         <div style={{ marginTop: 16 }} />
-        <Card title={"Sources"} kicker={s ? `UPDATED ${s.at.slice(0, 16).replace("T", " ")} UTC` : "…"}>
+        <Card title={t("stats.sources")} kicker={s ? t("stats.updatedUtc", { value: s.at.slice(0, 16).replace("T", " ") }) : "…"}>
           <ul className="m-small" style={{ display: "grid", gap: 6 }}>
             {Object.entries(s?.sources ?? {}).map(([k, v]) => (
               <li key={k}><b className="mono">{k}</b>{` · ${v}`}</li>
             ))}
           </ul>
-          <p className="m-small m-muted" style={{ marginTop: 8 }}>{"JSON for anyone: GET /v1/stats (CORS-open, cached five minutes)."}</p>
+          <p className="m-small m-muted" style={{ marginTop: 8 }}>{t("stats.jsonForAnyoneGetV1Stats")}</p>
         </Card>
       </section>
     </div>

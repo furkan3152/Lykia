@@ -6,8 +6,8 @@
  * replies in English and understands any language, so there is no language
  * setting. Voice and look, and Memory, are the other two tabs.
  */
-import { DEFAULT_FOLD_PREFERENCES, FOLD_CARDS, FOLD_INSIGHT_NAMES, FOLD_TABS, foldPreferenceEffects, type FoldCard, type FoldInsightKind, type FoldPreferences, type FoldRisk, type FoldTab } from "@lykia/core";
-import React, { useEffect, useMemo, useState } from "react";
+import { DEFAULT_FOLD_PREFERENCES, FOLD_CARDS, FOLD_INSIGHT_NAMES, FOLD_TABS, type FoldCard, type FoldInsightKind, type FoldPreferences, type FoldRisk, type FoldTab } from "@lykia/core";
+import React, { useEffect, useState } from "react";
 
 import { Link } from "../../app/routes/Link";
 import { navigate } from "../../app/routes/history";
@@ -21,6 +21,7 @@ import { Button, LykoFace, Tag, cx, toast } from "../../mosaic";
 import { PixelArt } from "../../mosaic/PixelArt";
 import { INTENT_ART, INTENT_PAL, MARK_ART, STEP_ART } from "../../mosaic/pixelArtData";
 import { applyPreset, groupState, MIX_PRESETS, mixStones, presetOf, toggleGroup, WATCH_GROUPS, type WatchGroup } from "./prefsModel";
+import { intlLocale, t as msg } from "../../i18n";
 
 const STONE_COLOUR = { usdc: "var(--sea)", eurc: "var(--ochre)", earning: "var(--olive)" } as const;
 
@@ -45,22 +46,19 @@ const Memory = React.lazy(() => import("../memory/MemoryPage"));
 
 type Section = "preferences" | "voice" | "memory";
 const SECTIONS: readonly { id: Section; label: string; sub: string }[] = [
-  { id: "preferences", label: "Preferences", sub: "how Lyko decides" },
-  { id: "voice", label: "Voice and look", sub: "how Lyko speaks" },
-  { id: "memory", label: "Memory", sub: "what Lyko remembers" },
+  { id: "preferences", label: msg("you.yourLykoPage.preferences"), sub: msg("you.yourLykoPage.howLykoDecides") },
+  { id: "voice", label: msg("you.yourLykoPage.voiceAndLook"), sub: msg("you.yourLykoPage.howLykoSpeaks") },
+  { id: "memory", label: msg("you.yourLykoPage.memory"), sub: msg("you.yourLykoPage.whatLykoRemembers") },
 ];
 
 const RISKS: readonly { id: FoldRisk; title: string; line: string; mood: "resting" | "watching" | "proud" }[] = [
-  { id: "careful", title: "Careful", line: "The lowest-risk venues, verified tokens only, 0.3% slippage.", mood: "resting" },
-  { id: "balanced", title: "Balanced", line: "Established venues and up to 1% slippage.", mood: "watching" },
-  { id: "bold", title: "Bold", line: "Higher yields allowed, up to 3% slippage. The Fence still decides.", mood: "proud" },
+  { id: "careful", title: msg("you.yourLykoPage.careful"), line: msg("you.yourLykoPage.theLowestRiskVenuesVerifiedTokens"), mood: "resting" },
+  { id: "balanced", title: msg("you.yourLykoPage.balanced"), line: msg("you.yourLykoPage.establishedVenuesAndUpTo1"), mood: "watching" },
+  { id: "bold", title: msg("you.yourLykoPage.bold"), line: msg("you.yourLykoPage.higherYieldsAllowedUpTo3"), mood: "proud" },
 ];
 
-const CARD_NAMES: Readonly<Record<FoldCard, string>> = { networth: "Net worth", allocation: "Allocation strip", headroom: "Fence headroom", counts: "Counts and buttons" };
+const CARD_NAMES: Readonly<Record<FoldCard, string>> = { networth: msg("you.yourLykoPage.netWorth"), allocation: msg("you.yourLykoPage.allocationStrip"), headroom: msg("you.yourLykoPage.fenceHeadroom"), counts: msg("you.yourLykoPage.countsAndButtons") };
 
-function Effect({ text }: { readonly text: string | undefined }) {
-  return text ? <p className="yl-effect"><span aria-hidden="true">›</span> {text}</p> : null;
-}
 
 function move<T>(list: readonly T[], i: number, by: -1 | 1): T[] {
   const j = i + by;
@@ -85,7 +83,6 @@ function Preferences() {
     setDraft((d) => ({ ...d, [k]: v }));
     setDirty(true);
   };
-  const effects = useMemo(() => Object.fromEntries(foldPreferenceEffects(draft).map((e) => [e.key, e.text])), [draft]);
   const mix = draft.targetMix;
   const setMix = (k: "usdcPct" | "eurcPct", v: number) => {
     const other = k === "usdcPct" ? mix.eurcPct : mix.usdcPct;
@@ -104,9 +101,9 @@ function Preferences() {
       const { updatedAt: _u, schema: _s, risk: _r, ...patch } = draft;
       await save.mutateAsync(patch);
       setDirty(false);
-      toast.success("Lyko knows", { description: "Saved to your account. The Fold and Ask Lyko use it now.", from: "LYKO" });
+      toast.success(msg("you.yourLykoPage.lykoKnows"), { description: msg("you.yourLykoPage.savedToYourAccountTheFold"), from: "LYKO" });
     } catch (e) {
-      toast.error("Not saved", { description: describeError(e), from: "LYKO" });
+      toast.error(msg("you.yourLykoPage.notSaved"), { description: describeError(e), from: "LYKO" });
     }
   };
 
@@ -115,76 +112,71 @@ function Preferences() {
       {!siwe.signedIn ? (
         <div className="fd-samplebar" role="note">
           <LykoFace mood="watching" scale={1} />
-          <span>{"Try the settings here; sign in (one message, no transaction) to save them to your account, where the Fold and Ask Lyko read them."}</span>
-          <Button size="sm" onClick={() => void siwe.signIn()} disabled={!siwe.address || siwe.busy}>{siwe.address ? "SIGN IN" : "CONNECT FIRST"}</Button>
+          <span>{msg("you.yourLykoPage.tryTheSettingsHereSignIn")}</span>
+          <Button size="sm" onClick={() => void siwe.signIn()} disabled={!siwe.address || siwe.busy}>{siwe.address ? msg("you.yourLykoPage.signIn") : msg("you.yourLykoPage.connectFirst")}</Button>
         </div>
       ) : null}
       <div className="yl-grid">
         <section className="fd-card m-frame m-frame--thin yl-span2" aria-labelledby="risk-h">
-          <header className="fd-card__head"><h3 id="risk-h">{"How careful Lyko is"}</h3><span className="m-small m-muted">{"This is your Fence preset: one control, kept in the Fold's Fence tab, where a looser choice is signed by your wallet."}</span></header>
-          <div className="yl-risks" role="list" aria-label="Fence preset">
+          <header className="fd-card__head"><h3 id="risk-h">{msg("you.yourLykoPage.howCarefulLykoIs")}</h3></header>
+          <div className="yl-risks" role="list" aria-label={msg("you.yourLykoPage.fencePreset")}>
             {RISKS.map((r) => (
               <div key={r.id} role="listitem" aria-current={draft.risk === r.id ? "true" : undefined} className={cx("yl-risk", draft.risk === r.id && "yl-risk--on")}>
                 <LykoFace mood={r.mood} scale={2} />
-                <b>{r.title}{draft.risk === r.id ? " · now" : ""}</b>
+                <b>{r.title}{draft.risk === r.id ? msg("you.yourLykoPage.now") : ""}</b>
                 <span className="m-small">{r.line}</span>
               </div>
             ))}
           </div>
-          <Effect text={effects.risk} />
-          <div><Link to="/app/fold/fence" className="m-btn m-btn--sm m-btn--ghost">{"CHANGE IT IN THE FENCE"}</Link></div>
+          <div><Link to="/app/fold/fence" className="m-btn m-btn--sm m-btn--ghost">{msg("you.yourLykoPage.changeItInTheFence")}</Link></div>
         </section>
 
         <section className="fd-card m-frame m-frame--thin" aria-labelledby="floor-h">
-          <header className="fd-card__head"><h3 id="floor-h">{"Cash to keep at hand"}</h3><span className="m-small m-muted">{"USDC that always stays in your wallet; Lyko never suggests moving it."}</span></header>
-          <label className="yl-money"><span>$</span><input inputMode="decimal" value={draft.liquidityFloorUsd} onChange={(e) => set("liquidityFloorUsd", e.target.value.replace(/[^0-9.]/gu, "").slice(0, 12))} aria-label="Liquidity floor in USD" /></label>
-          <div className="flex gap-2 flex-wrap">{["250", "500", "1200", "5000"].map((v) => <button key={v} type="button" className="m-chip yl-chip" onClick={() => set("liquidityFloorUsd", v)}>{`$${Number(v).toLocaleString("en-US")}`}</button>)}</div>
-          <Effect text={effects.liquidityFloorUsd} />
+          <header className="fd-card__head"><h3 id="floor-h">{msg("you.yourLykoPage.cashToKeepAtHand")}</h3><span className="m-small m-muted">{msg("you.yourLykoPage.usdcThatAlwaysStaysInYour")}</span></header>
+          <label className="yl-money"><span>$</span><input inputMode="decimal" value={draft.liquidityFloorUsd} onChange={(e) => set("liquidityFloorUsd", e.target.value.replace(/[^0-9.]/gu, "").slice(0, 12))} aria-label={msg("you.yourLykoPage.liquidityFloorInUsd")} /></label>
+          <div className="flex gap-2 flex-wrap">{["250", "500", "1200", "5000"].map((v) => <button key={v} type="button" className="m-chip yl-chip" onClick={() => set("liquidityFloorUsd", v)}>{`$${Number(v).toLocaleString(intlLocale())}`}</button>)}</div>
         </section>
 
         <section className="fd-card m-frame m-frame--thin" aria-labelledby="gas-h">
-          <header className="fd-card__head"><h3 id="gas-h">{"Network fee reserve"}</h3><span className="m-small m-muted">{"Arc charges its small network fee in USDC; Lyko warns you below this."}</span></header>
-          <label className="yl-money"><input inputMode="decimal" value={draft.gasFloorUsdc} onChange={(e) => set("gasFloorUsdc", e.target.value.replace(/[^0-9.]/gu, "").slice(0, 8))} aria-label="Gas floor in USDC" /><span>USDC</span></label>
+          <header className="fd-card__head"><h3 id="gas-h">{msg("you.yourLykoPage.networkFeeReserve")}</h3><span className="m-small m-muted">{msg("you.yourLykoPage.arcChargesItsSmallNetworkFee")}</span></header>
+          <label className="yl-money"><input inputMode="decimal" value={draft.gasFloorUsdc} onChange={(e) => set("gasFloorUsdc", e.target.value.replace(/[^0-9.]/gu, "").slice(0, 8))} aria-label={msg("you.yourLykoPage.gasFloorInUsdc")} /><span>USDC</span></label>
           <div className="flex gap-2 flex-wrap">{["0.1", "0.5", "2"].map((v) => <button key={v} type="button" className="m-chip yl-chip" onClick={() => set("gasFloorUsdc", v)}>{`${v} USDC`}</button>)}</div>
-          <Effect text={effects.gasFloorUsdc} />
         </section>
 
         <section className="fd-card m-frame m-frame--thin yl-span2" aria-labelledby="mix-h">
-          <header className="fd-card__head"><h3 id="mix-h">{"Target mix"}</h3><span className="m-small m-muted">{"How you would like your money split; Lyko tells you when it drifts past the band."}</span></header>
-          <div className="yl-presets" role="radiogroup" aria-label="Target mix">
+          <header className="fd-card__head"><h3 id="mix-h">{msg("you.yourLykoPage.targetMix")}</h3></header>
+          <div className="yl-presets" role="radiogroup" aria-label={msg("you.yourLykoPage.targetMix")}>
             {MIX_PRESETS.map((p, i) => {
               const on = presetOf(mix) === p.id;
               return (
                 <button key={p.id} type="button" role="radio" aria-checked={on} className={cx("yl-preset", on && "yl-preset--on")} style={{ ["--i" as string]: i }} onClick={() => set("targetMix", applyPreset(mix, p.id))}>
                   <b>{p.title}</b>
                   <MixStrip mix={p.mix} />
-                  <span className="yl-preset__nums num">{`USDC ${p.mix.usdcPct} · EURC ${p.mix.eurcPct} · earning ${p.mix.earningPct}`}</span>
+                  <span className="yl-preset__nums num">{msg("you.yourLykoPage.usdcEurcEarning", { usdcPct: p.mix.usdcPct, eurcPct: p.mix.eurcPct, earningPct: p.mix.earningPct })}</span>
                   <span className="m-small m-muted">{p.line}</span>
                 </button>
               );
             })}
           </div>
           <details className="yl-fine" open={presetOf(mix) === null || undefined}>
-            <summary>{presetOf(mix) === null ? "Fine-tuned: your own split" : "Fine-tune"}</summary>
-            <div className="yl-mixbar" role="img" aria-label={`USDC ${mix.usdcPct}%, EURC ${mix.eurcPct}%, earning ${mix.earningPct}%`}>
+            <summary>{presetOf(mix) === null ? msg("you.yourLykoPage.fineTunedYourOwnSplit") : "Fine-tune"}</summary>
+            <div className="yl-mixbar" role="img" aria-label={msg("you.yourLykoPage.usdcEurcEarning2", { usdcPct: mix.usdcPct, eurcPct: mix.eurcPct, earningPct: mix.earningPct })}>
               <i style={{ flexGrow: mix.usdcPct, background: "var(--sea)" }}><span>{`USDC ${mix.usdcPct}%`}</span></i>
               <i style={{ flexGrow: mix.eurcPct, background: "var(--ochre)" }}><span>{`EURC ${mix.eurcPct}%`}</span></i>
-              <i style={{ flexGrow: mix.earningPct, background: "var(--olive)" }}><span>{`Earning ${mix.earningPct}%`}</span></i>
+              <i style={{ flexGrow: mix.earningPct, background: "var(--olive)" }}><span>{msg("you.yourLykoPage.earning", { earningPct: mix.earningPct })}</span></i>
             </div>
             <div className="fd-sliders">
               <label className="fd-slider"><span>{"USDC"}</span><input type="range" min={0} max={100} value={mix.usdcPct} onChange={(e) => setMix("usdcPct", Number(e.target.value))} /><b className="num">{mix.usdcPct}%</b></label>
               <label className="fd-slider"><span>{"EURC"}</span><input type="range" min={0} max={100} value={mix.eurcPct} onChange={(e) => setMix("eurcPct", Number(e.target.value))} /><b className="num">{mix.eurcPct}%</b></label>
-              <label className="fd-slider"><span>{"Band"}</span><input type="range" min={1} max={50} value={mix.bandPct} onChange={(e) => set("targetMix", { ...mix, bandPct: Number(e.target.value) })} /><b className="num">{`± ${mix.bandPct}`}</b></label>
+              <label className="fd-slider"><span>{msg("you.yourLykoPage.band")}</span><input type="range" min={1} max={50} value={mix.bandPct} onChange={(e) => set("targetMix", { ...mix, bandPct: Number(e.target.value) })} /><b className="num">{`± ${mix.bandPct}`}</b></label>
             </div>
-            <p className="m-small m-muted">{"Earning takes what USDC and EURC leave, so the three always add up to 100."}</p>
           </details>
-          <Effect text={effects.targetMix} />
         </section>
 
         <section className="fd-card m-frame m-frame--thin yl-span2" aria-labelledby="ins-h">
           <header className="fd-card__head fd-card__head--row">
-            <div><h3 id="ins-h">{"What Lyko watches for"}</h3><span className="m-small m-muted">{"What Lyko tells you about, and how you hear about it."}</span></div>
-            <div className="yl-seg" role="radiogroup" aria-label="Notify">
+            <h3 id="ins-h">{msg("you.yourLykoPage.whatLykoWatchesFor")}</h3>
+            <div className="yl-seg" role="radiogroup" aria-label={msg("you.yourLykoPage.notify")}>
               {(["inbox", "webhook", "telegram"] as const).map((n) => <button key={n} type="button" role="radio" aria-checked={draft.insights.notify === n} onClick={() => set("insights", { ...draft.insights, notify: n })}>{n}</button>)}
             </div>
           </header>
@@ -200,13 +192,13 @@ function Preferences() {
                       <b>{g.title}</b>
                       <small>{g.line}</small>
                     </span>
-                    <label className="fd-switch" title={st.on === st.of ? "All on" : st.on === 0 ? "All off" : `${st.on} of ${st.of} on`}>
-                      <input type="checkbox" checked={st.on === st.of} ref={(el) => { if (el) el.indeterminate = st.on > 0 && st.on < st.of; }} onChange={() => set("insights", { ...draft.insights, hidden: toggleGroup(g, draft.insights.hidden) })} aria-label={`${g.title}: ${st.on} of ${st.of} on`} />
+                    <label className="fd-switch" title={st.on === st.of ? msg("you.yourLykoPage.allOn") : st.on === 0 ? msg("you.yourLykoPage.allOff") : msg("you.yourLykoPage.ofOn", { on: st.on, of: st.of })}>
+                      <input type="checkbox" checked={st.on === st.of} ref={(el) => { if (el) el.indeterminate = st.on > 0 && st.on < st.of; }} onChange={() => set("insights", { ...draft.insights, hidden: toggleGroup(g, draft.insights.hidden) })} aria-label={msg("you.yourLykoPage.ofOn2", { title: g.title, on: st.on, of: st.of })} />
                       <i />
                     </label>
                   </div>
                   <details className="yl-group__more">
-                    <summary>{`${st.on} of ${st.of} on · see each`}</summary>
+                    <summary>{msg("you.yourLykoPage.ofOnSeeEach", { on: st.on, of: st.of })}</summary>
                     <ul className="yl-checks">
                       {g.kinds.map((k) => (
                         <li key={k}>
@@ -222,14 +214,13 @@ function Preferences() {
               );
             })}
           </ul>
-          <div className="yl-seg" role="radiogroup" aria-label="How often">
-            {(["live", "daily", "weekly"] as const).map((c) => <button key={c} type="button" role="radio" aria-checked={draft.insights.cadence === c} onClick={() => set("insights", { ...draft.insights, cadence: c })}>{c === "live" ? "as it happens" : c === "daily" ? "once a day" : "once a week"}</button>)}
+          <div className="yl-seg" role="radiogroup" aria-label={msg("you.yourLykoPage.howOften")}>
+            {(["live", "daily", "weekly"] as const).map((c) => <button key={c} type="button" role="radio" aria-checked={draft.insights.cadence === c} onClick={() => set("insights", { ...draft.insights, cadence: c })}>{c === "live" ? msg("you.yourLykoPage.asItHappens") : c === "daily" ? msg("you.yourLykoPage.onceADay") : msg("you.yourLykoPage.onceAWeek")}</button>)}
           </div>
-          <Effect text={effects.insights} />
         </section>
 
         <section className="fd-card m-frame m-frame--thin yl-span3" aria-labelledby="layout-h">
-          <header className="fd-card__head"><h3 id="layout-h">{"Your Fold"}</h3><span className="m-small m-muted">{"Which tabs and cards show, and in what order."}</span></header>
+          <header className="fd-card__head"><h3 id="layout-h">{msg("you.yourLykoPage.yourFold")}</h3></header>
           <div className="yl-orders">
           <ol className="yl-order">
             {allTabs.map((t) => {
@@ -239,8 +230,8 @@ function Preferences() {
                 <li key={t} data-on={on}>
                   <label><input type="checkbox" checked={on} disabled={on && draft.layout.tabs.length === 1} onChange={() => set("layout", { ...draft.layout, tabs: on ? draft.layout.tabs.filter((x) => x !== t) : [...draft.layout.tabs, t] })} /><span>{`${FOLD_TAB_META[t].label} · ${FOLD_TAB_META[t].sub}`}</span></label>
                   <span className="yl-order__btns">
-                    <button type="button" aria-label={`Move ${FOLD_TAB_META[t].label} up`} disabled={!on || i === 0} onClick={() => set("layout", { ...draft.layout, tabs: move(draft.layout.tabs, i, -1) })}>{"▲"}</button>
-                    <button type="button" aria-label={`Move ${FOLD_TAB_META[t].label} down`} disabled={!on || i === draft.layout.tabs.length - 1} onClick={() => set("layout", { ...draft.layout, tabs: move(draft.layout.tabs, i, 1) })}>{"▼"}</button>
+                    <button type="button" aria-label={msg("you.yourLykoPage.moveUp", { label: FOLD_TAB_META[t].label })} disabled={!on || i === 0} onClick={() => set("layout", { ...draft.layout, tabs: move(draft.layout.tabs, i, -1) })}>{"▲"}</button>
+                    <button type="button" aria-label={msg("you.yourLykoPage.moveDown", { label: FOLD_TAB_META[t].label })} disabled={!on || i === draft.layout.tabs.length - 1} onClick={() => set("layout", { ...draft.layout, tabs: move(draft.layout.tabs, i, 1) })}>{"▼"}</button>
                   </span>
                 </li>
               );
@@ -257,13 +248,12 @@ function Preferences() {
             })}
           </ol>
           </div>
-          <Effect text={effects.layout} />
         </section>
       </div>
       <div className="yl-save">
-        <Tag tone={dirty ? "ochre" : siwe.signedIn ? "ok" : "ghost"}>{dirty ? "UNSAVED CHANGES" : siwe.signedIn ? "SAVED TO YOUR ACCOUNT" : "NOT SIGNED IN"}</Tag>
-        <Button tone="ghost" onClick={() => { setDraft(DEFAULT_FOLD_PREFERENCES); setDirty(true); }}>{"DEFAULTS"}</Button>
-        <Button onClick={() => void submit()} disabled={save.isPending || (siwe.signedIn && !dirty)}>{siwe.signedIn ? (save.isPending ? "SAVING…" : "SAVE") : "SIGN IN TO SAVE"}</Button>
+        <Tag tone={dirty ? "ochre" : siwe.signedIn ? "ok" : "ghost"}>{dirty ? msg("you.yourLykoPage.unsavedChanges") : siwe.signedIn ? msg("you.yourLykoPage.savedToYourAccount") : msg("you.yourLykoPage.notSignedIn")}</Tag>
+        <Button tone="ghost" onClick={() => { setDraft(DEFAULT_FOLD_PREFERENCES); setDirty(true); }}>{msg("you.yourLykoPage.defaults")}</Button>
+        <Button onClick={() => void submit()} disabled={save.isPending || (siwe.signedIn && !dirty)}>{siwe.signedIn ? (save.isPending ? "SAVING…" : "SAVE") : msg("you.yourLykoPage.signInToSave")}</Button>
       </div>
     </div>
   );
@@ -277,13 +267,12 @@ export default function YourLykoPage() {
       <header className="yl-head m-wrap m-wrap--wide">
         <LykoFace mood="happy" scale={3} />
         <div>
-          <span className="m-kick">{"YOUR LYKO"}</span>
-          <h1>{"How Lyko decides, speaks and remembers for you"}</h1>
+          <span className="m-kick">{msg("you.yourLykoPage.yourLyko2")}</span>
+          <h1>{msg("you.yourLykoPage.howLykoDecidesSpeaksAndRemembers")}</h1>
           <HowItWorks area="you" />
-          <p>{"Everything here is a preference: your Fence still has the last word, and a preference can only make it stricter."}</p>
         </div>
       </header>
-      <nav className="m-wrap m-wrap--wide yl-tabs" role="tablist" aria-label="Your Lyko">
+      <nav className="m-wrap m-wrap--wide yl-tabs" role="tablist" aria-label={msg("you.yourLykoPage.yourLyko")}>
         {SECTIONS.map((s) => (
           <button key={s.id} type="button" role="tab" aria-selected={section === s.id} className="fd-tab" onClick={() => navigate(`/app/you${s.id === "preferences" ? "" : `?tab=${s.id}`}`, { replace: true })}>
             <span className="fd-tab__l">{s.label}</span>

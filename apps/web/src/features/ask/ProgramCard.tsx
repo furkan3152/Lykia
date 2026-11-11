@@ -15,15 +15,16 @@ import { useEnvironment } from "../../lib/environment";
 import { Button, Seal, Tag, cx } from "../../mosaic";
 import { useLykiaWallet } from "../wallet/useLykiaWallet";
 import { useChatActions } from "./actions";
+import { t as msg } from "../../i18n";
 
 const SAMPLE_OWNER = "0x000000000000000000000000000000000000dEaD";
-const KIND_LABEL: Readonly<Record<ChatProgramView["scheduled"][number]["kind"], string>> = { automation: "AUTOMATION", order: "LYKIAORDERS", alert: "WATCH", standing: "AUTOMATION", budget: "FENCE BUDGET", leash: "LEASH" };
+const KIND_LABEL: Readonly<Record<ChatProgramView["scheduled"][number]["kind"], string>> = { automation: "AUTOMATION", order: "LYKIAORDERS", alert: "WATCH", standing: "AUTOMATION", budget: msg("ask.programCard.fenceBudget"), leash: "LEASH" };
 
 /** The Fence verdict as a seal, or a quiet tag when it is decided later. */
 function Verdict({ decision, reasons }: { decision: "allow" | "confirm" | "deny" | "unknown"; reasons: readonly string[] }) {
   return (
     <div style={{ display: "grid", gap: 4, justifyItems: "start" }}>
-      {decision === "unknown" ? <Tag tone="ghost">FENCE · CHECKED WHEN IT RUNS</Tag> : <Seal decision={decision} stamp={false} />}
+      {decision === "unknown" ? <Tag tone="ghost">{msg("ask.programCard.fenceCheckedWhenItRuns")}</Tag> : <Seal decision={decision} stamp={false} />}
       {reasons.slice(0, 3).map((r) => (
         <span key={r} className="m-small m-muted">
           {r}
@@ -67,7 +68,7 @@ export function ProgramCard({ view: initial }: { view: ChatProgramView }) {
       const result = await apiPost<{ view: ChatProgramView }>("/v1/ai/compile", { text: view.text, owner, environment, overrides, plan: address !== undefined, search: false }, { timeoutMs: 60_000 });
       if (result.view) setView(result.view);
     } catch (e) {
-      setError((e as Error).message || "Lykia could not recompile that.");
+      setError((e as Error).message || msg("ask.programCard.lykiaCouldNotRecompileThat"));
     } finally {
       setBusy(null);
     }
@@ -78,13 +79,13 @@ export function ProgramCard({ view: initial }: { view: ChatProgramView }) {
     <div className="m-frame m-frame--thin" style={{ padding: 12, display: "grid", gap: 14, minWidth: 0, animation: "m-msg-in 400ms both" }} data-testid="program-card">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
-          <span className="m-kick">PROGRAM · {shortHash}</span>
-          <b style={{ fontFamily: "Pixelify Sans", fontSize: 18 }}>{view.goals.slice(0, 3).join(" · ") || "Your request, compiled"}</b>
+          <span className="m-kick">{msg("ask.programCard.program")} {shortHash}</span>
+          <b style={{ fontFamily: "Pixelify Sans", fontSize: 18 }}>{view.goals.slice(0, 3).join(" · ") || msg("ask.programCard.yourRequestCompiled")}</b>
         </div>
         <div className="flex gap-1 flex-wrap">
-          <Tag tone={view.status === "ready" ? "ok" : view.status === "refused" ? "bad" : "ochre"}>{view.status === "ready" ? "READY" : view.status === "refused" ? "REFUSED" : "NEEDS YOUR INPUT"}</Tag>
+          <Tag tone={view.status === "ready" ? "ok" : view.status === "refused" ? "bad" : "ochre"}>{view.status === "ready" ? "READY" : view.status === "refused" ? "REFUSED" : msg("ask.programCard.needsYourInput")}</Tag>
           <Tag tone="ghost">{view.source === "llm" ? "MODEL" : "LEXICON"}</Tag>
-          {view.hypothetical ? <Tag tone="sea">WHAT-IF</Tag> : null}
+          {view.hypothetical ? <Tag tone="sea">{msg("ask.programCard.whatIf")}</Tag> : null}
         </div>
       </div>
       <p className="m-small" style={{ margin: 0 }}>{view.summary}</p>
@@ -93,7 +94,7 @@ export function ProgramCard({ view: initial }: { view: ChatProgramView }) {
         <div style={{ display: "grid", gap: 6 }}>
           {view.questions.map((q) => (
             <p key={q} className="m-note" style={{ margin: 0 }}>
-              <b>Question:</b> {q}
+              <b>{msg("ask.programCard.question")}</b> {q}
             </p>
           ))}
           {view.blockers.map((b) => (
@@ -103,13 +104,13 @@ export function ProgramCard({ view: initial }: { view: ChatProgramView }) {
           ))}
           {view.refusals.map((r) => (
             <p key={r} className="m-note m-note--bad" style={{ margin: 0 }}>
-              <b>Not done:</b> {r}
+              <b>{msg("ask.programCard.notDone")}</b> {r}
             </p>
           ))}
         </div>
       ) : null}
 
-      <Section kick="NOW · ONE SIGNATURE PLAN" {...(view.now ? { count: view.now.steps.length } : {})}>
+      <Section kick="NOW" {...(view.now ? { count: view.now.steps.length } : {})}>
         {view.now ? (
           <>
             <ol style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6, fontSize: 14 }}>
@@ -123,29 +124,29 @@ export function ProgramCard({ view: initial }: { view: ChatProgramView }) {
               ))}
             </ol>
             <Verdict decision={view.now.decision} reasons={view.now.reasons} />
-            {view.kept.length > 0 ? <p className="m-small m-muted" style={{ margin: 0 }}>Kept liquid · {view.kept.join(" · ")}</p> : null}
+            {view.kept.length > 0 ? <p className="m-small m-muted" style={{ margin: 0 }}>{msg("ask.programCard.keptLiquid")} {view.kept.join(" · ")}</p> : null}
             {view.fees ? <p className="m-small m-muted" style={{ margin: 0 }}>{view.fees}</p> : null}
             {view.now.intentId ? (
               <div>
                 {openReview ? (
-                  <Button size="sm" onClick={() => openReview({ intentId: view.now!.intentId, title: "Your plan for now", steps: view.now!.steps.map((st) => st.summary), decision: view.now!.decision === "unknown" ? "confirm" : view.now!.decision, reasons: view.now!.reasons, warnings: [], attribution: [], rationale: "" })}>
-                    REVIEW AND SIGN
+                  <Button size="sm" onClick={() => openReview({ intentId: view.now!.intentId, title: msg("ask.programCard.yourPlanForNow"), steps: view.now!.steps.map((st) => st.summary), decision: view.now!.decision === "unknown" ? "confirm" : view.now!.decision, reasons: view.now!.reasons, warnings: [], attribution: [], rationale: "" })}>
+                    {msg("ask.programCard.reviewAndSign")}
                   </Button>
                 ) : (
                   <Link to={`/app/outrun/${encodeURIComponent(view.now.intentId)}`} className="m-btn m-btn--sm">
-                    REVIEW AND SIGN
+                    {msg("ask.programCard.reviewAndSign")}
                   </Link>
                 )}
               </div>
             ) : null}
           </>
         ) : (
-          <p className="m-small m-muted" style={{ margin: 0 }}>Nothing moves now.</p>
+          <p className="m-small m-muted" style={{ margin: 0 }}>{msg("ask.programCard.nothingMovesNow")}</p>
         )}
       </Section>
 
       {view.scheduled.length > 0 ? (
-        <Section kick="SCHEDULED · DRAFTS" count={view.scheduled.length}>
+        <Section kick="SCHEDULED" count={view.scheduled.length}>
           <div style={{ display: "grid", gap: 8 }}>
             {view.scheduled.map((s, i) => (
               <div key={`${s.summary}${i}`} className="m-note" style={{ display: "grid", gap: 6, minWidth: 0 }}>
@@ -157,12 +158,12 @@ export function ProgramCard({ view: initial }: { view: ChatProgramView }) {
                 <Verdict decision={s.decision} reasons={s.reasons} />
                 <div>
                   {s.kind === "leash" && !s.saved ? (
-                    <span className="m-small m-muted">{"Review it on the leash card in this answer: you sign once there."}</span>
+                    <span className="m-small m-muted">{msg("ask.programCard.reviewItOnTheLeashCard")}</span>
                   ) : s.kind === "order" && !s.saved ? (
-                    <span className="m-small m-muted">{"Review it on the order card in this answer: you sign it there."}</span>
+                    <span className="m-small m-muted">{msg("ask.programCard.reviewItOnTheOrderCard")}</span>
                   ) : (
                     <Link to={s.href} className={cx("m-btn m-btn--sm", s.saved && "m-btn--ghost")}>
-                      {s.saved ? "SEE IT RUNNING" : s.kind === "budget" ? "OPEN THE PACK" : "REVIEW IN ASK LYKO"}
+                      {s.saved ? msg("ask.programCard.seeItRunning") : s.kind === "budget" ? msg("ask.programCard.openThePack") : msg("ask.programCard.reviewInAskLyko")}
                     </Link>
                   )}
                 </div>
@@ -173,7 +174,7 @@ export function ProgramCard({ view: initial }: { view: ChatProgramView }) {
       ) : null}
 
       {view.assumptions.length > 0 ? (
-        <Section kick="ASSUMPTIONS · YOU CAN CHANGE THEM" count={view.assumptions.length}>
+        <Section kick="ASSUMPTIONS" count={view.assumptions.length}>
           <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8 }}>
             {view.assumptions.map((a) => (
               <li key={a.id} style={{ display: "grid", gap: 6 }}>
@@ -196,7 +197,7 @@ export function ProgramCard({ view: initial }: { view: ChatProgramView }) {
 
       {view.tradeoffs.length > 0 || view.rejected.length > 0 ? (
         <details>
-          <summary className="m-kick" style={{ cursor: "pointer" }}>WHY THIS PLAN</summary>
+          <summary className="m-kick" style={{ cursor: "pointer" }}>{msg("ask.programCard.whyThisPlan")}</summary>
           <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
             {view.tradeoffs.map((t) => (
               <p key={t} className="m-small" style={{ margin: 0 }}>
@@ -205,7 +206,7 @@ export function ProgramCard({ view: initial }: { view: ChatProgramView }) {
             ))}
             {view.rejected.map((r) => (
               <p key={`${r.option}${r.reason}`} className="m-small m-muted" style={{ margin: 0, overflowWrap: "anywhere" }}>
-                <b>Not chosen · {r.option}:</b> {r.reason}
+                <b>{msg("ask.programCard.notChosen")} {r.option}:</b> {r.reason}
               </p>
             ))}
           </div>

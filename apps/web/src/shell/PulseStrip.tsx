@@ -1,5 +1,6 @@
 import { useEnvironment } from "../lib/environment";
 import { usePulse } from "../lib/pulseStore";
+import { intlLocale, t } from "../i18n";
 
 /** The Patara strip: the lamp flashes on every Arc block the pulse reports. */
 export function PulseStrip() {
@@ -11,18 +12,18 @@ export function PulseStrip() {
     <div className="m-strip" aria-live="off">
       <span>
         <i className="m-lamp" data-on={lit} aria-hidden="true" />
-        PATARA · {environment === "mainnet" ? "ARC MAINNET" : "ARC TESTNET"} · {"BLOCK"} <b className="num">{pulse ? `#${pulse.block.toLocaleString("en-US")}` : "…"}</b>
+        PATARA · {environment === "mainnet" ? t("shell.pulseStrip.arcMainnet") : t("shell.pulseStrip.arcTestnet")} · {t("shell.pulseStrip.block")} <b className="num">{pulse ? `#${pulse.block.toLocaleString(intlLocale())}` : "…"}</b>
       </span>
       <span>
-        <b className="num">{pulse?.blockTimeMs ? `${Math.round(pulse.blockTimeMs)} MS` : "…"}</b> · {"FINAL"}
+        <b className="num">{pulse?.blockTimeMs ? `${Math.round(pulse.blockTimeMs)} MS` : "…"}</b> · {t("shell.pulseStrip.final")}
       </span>
       <span>
-        GAS <b className="num">{pulse?.gasPriceGwei ? `${Number(pulse.gasPriceGwei).toFixed(1)} GWEI` : "…"}</b>
+        {t("shell.pulseStrip.gas")} <b className="num">{pulse?.gasPriceGwei ? `${Number(pulse.gasPriceGwei).toFixed(1)} GWEI` : "…"}</b>
       </span>
       <span>
-        TRANSFER <b className="num">{pulse?.transferCostUsd ? `$${Number(pulse.transferCostUsd).toFixed(4)}` : "…"}</b>
+        {t("shell.pulseStrip.transfer")} <b className="num">{pulse?.transferCostUsd ? `$${Number(pulse.transferCostUsd).toFixed(4)}` : "…"}</b>
       </span>
-      {source === "rpc" ? <span>VIA PUBLIC RPC</span> : null}
+      {source === "rpc" ? <span>{t("shell.pulseStrip.viaPublicRpc")}</span> : null}
     </div>
   );
 }

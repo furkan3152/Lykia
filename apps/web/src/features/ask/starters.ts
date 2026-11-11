@@ -9,6 +9,7 @@
  * from what the answer showed. Nothing here invents a figure.
  */
 import type { ChatMessage } from "./model";
+import { intlLocale, t } from "../../i18n";
 
 export type StarterIcon = "earn" | "send" | "bridge" | "watch" | "have" | "can";
 
@@ -25,16 +26,16 @@ export interface Starter {
 
 /** Things to do: each fills the composer with blanks to finish. */
 export const DO_STARTERS: readonly Starter[] = [
-  { id: "earn", label: "Earn", icon: "earn", kind: "fill", text: "Put [amount] USDC to work at low risk", line: "Morpho or Aave V4 on Arc" },
-  { id: "send", label: "Send", icon: "send", kind: "fill", text: "Send [amount] USDC to [who]", line: "Address, name or @contact" },
-  { id: "bridge", label: "Bridge", icon: "bridge", kind: "fill", text: "Bridge [amount] USDC to [chain]", line: "CCTP to another chain" },
-  { id: "watch", label: "Watch", icon: "watch", kind: "fill", text: "Tell me if EURC drops below [price]", line: "A price or a loan's health" },
+  { id: "earn", label: t("ask.starters.earn"), icon: "earn", kind: "fill", text: t("ask.starters.putAmountUsdcToWorkAt"), line: t("ask.starters.morphoOrAaveV4OnArc") },
+  { id: "send", label: t("ask.starters.send"), icon: "send", kind: "fill", text: t("ask.starters.sendAmountUsdcToWho"), line: t("ask.starters.addressNameOrContact") },
+  { id: "bridge", label: t("ask.starters.bridge"), icon: "bridge", kind: "fill", text: t("ask.starters.bridgeAmountUsdcToChain"), line: t("ask.starters.cctpToAnotherChain") },
+  { id: "watch", label: t("ask.starters.watch"), icon: "watch", kind: "fill", text: t("ask.starters.tellMeIfEurcDropsBelow"), line: t("ask.starters.aPriceOrALoanS") },
 ];
 
 /** Questions: one tap asks them. */
 export const ASK_STARTERS: readonly Starter[] = [
-  { id: "have", label: "What do I have?", icon: "have", kind: "ask", text: "Where is my money and what is it doing?", line: "Read live from Arc" },
-  { id: "can", label: "What can you do?", icon: "can", kind: "ask", text: "What can you do?", line: "Everything, in one card" },
+  { id: "have", label: t("ask.starters.whatDoIHave"), icon: "have", kind: "ask", text: t("ask.starters.whereIsMyMoneyAndWhat"), line: t("ask.starters.readLiveFromArc") },
+  { id: "can", label: t("ask.starters.whatCanYouDo"), icon: "can", kind: "ask", text: t("ask.starters.whatCanYouDo"), line: t("ask.starters.everythingInOneCard") },
 ];
 
 const BLANK = /\[[^\][]{1,24}\]/g;
@@ -63,7 +64,7 @@ const CHAINS = /\b(base|arbitrum|ethereum|optimism|polygon|avalanche|solana|unic
 
 function list(items: readonly string[]): string {
   if (items.length <= 1) return items[0] ?? "";
-  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+  return new Intl.ListFormat(intlLocale(), { type: "conjunction" }).format(items);
 }
 
 /**
@@ -74,32 +75,32 @@ export function composerHint(raw: string): ComposerHint | null {
   const text = raw.trim();
   if (!text) return null;
   const open = blanks(text);
-  if (open.length > 0) return { tone: "todo", text: `Fill in ${list(open.map((b) => b.name))}. Tab jumps to the next blank.` };
-  if (text.endsWith("?") || QUESTION.test(text)) return { tone: "question", text: "A question: Lyko answers from live data. Nothing moves." };
+  if (open.length > 0) return { tone: "todo", text: t("ask.starters.fillInTabJumpsToThe", { list: list(open.map((b) => b.name)) }) };
+  if (text.endsWith("?") || QUESTION.test(text)) return { tone: "question", text: t("ask.starters.aQuestionLykoAnswersFromLive") };
   const missing: string[] = [];
   if (/\b(send|pay|transfer)\b/i.test(text)) {
-    if (!AMOUNT.test(text)) missing.push("an amount");
-    if (!TOKEN.test(text) && !/\$\s?\d/.test(text)) missing.push("a token (USDC or EURC)");
-    if (!ADDRESS.test(text) && !/@\w/.test(text) && !/\bto\s+\S+/i.test(text)) missing.push("who gets it");
+    if (!AMOUNT.test(text)) missing.push(t("ask.starters.anAmount"));
+    if (!TOKEN.test(text) && !/\$\s?\d/.test(text)) missing.push(t("ask.starters.aTokenUsdcOrEurc"));
+    if (!ADDRESS.test(text) && !/@\w/.test(text) && !/\bto\s+\S+/i.test(text)) missing.push(t("ask.starters.whoGetsIt"));
   } else if (/\bbridge\b/i.test(text)) {
-    if (!AMOUNT.test(text)) missing.push("an amount");
-    if (!CHAINS.test(text)) missing.push("the chain it goes to");
+    if (!AMOUNT.test(text)) missing.push(t("ask.starters.anAmount"));
+    if (!CHAINS.test(text)) missing.push(t("ask.starters.theChainItGoesTo"));
   } else if (/\b(convert|swap|exchange)\b/i.test(text)) {
-    if (!AMOUNT.test(text)) missing.push("an amount");
-    if (!/\b(to|into|for)\s+(usdc|eurc|usyc|cirbtc)\b/i.test(text)) missing.push("the token you want");
+    if (!AMOUNT.test(text)) missing.push(t("ask.starters.anAmount"));
+    if (!/\b(to|into|for)\s+(usdc|eurc|usyc|cirbtc)\b/i.test(text)) missing.push(t("ask.starters.theTokenYouWant"));
   } else if (/\b(earn|put .* to work|deposit|invest|lend|supply)\b/i.test(text)) {
-    if (!AMOUNT.test(text)) missing.push("how much");
+    if (!AMOUNT.test(text)) missing.push(t("ask.starters.howMuch"));
   } else if (/\b(tell me|alert|watch|let me know|notify)\b/i.test(text)) {
-    if (!/\d/.test(text)) missing.push("the level to watch for");
+    if (!/\d/.test(text)) missing.push(t("ask.starters.theLevelToWatchFor"));
   }
-  if (missing.length > 0) return { tone: "todo", text: `Add ${list(missing)}, or plan it and Lyko will ask.` };
-  return { tone: "ready", text: "Lyko plans it under your Fence. You review and sign; nothing moves before." };
+  if (missing.length > 0) return { tone: "todo", text: t("ask.starters.addOrPlanItAndLyko", { list: list(missing) }) };
+  return { tone: "ready", text: t("ask.starters.lykoPlansItUnderYourFence") };
 }
 
 /** The send button's word: "Ask" for a question, "Plan it" for something to do. */
 export function sendWord(raw: string): string {
   const hint = composerHint(raw);
-  return hint?.tone === "question" ? "ASK" : "PLAN IT";
+  return hint?.tone === "question" ? "ASK" : t("ask.starters.planIt");
 }
 
 /** The single next step an answer leads to. */
@@ -116,8 +117,8 @@ export function nextStep(m: ChatMessage): NextStep {
   const reviewable = m.proposals.findIndex((p) => Boolean(p.intentId));
   if (reviewable >= 0) return { kind: "review", index: reviewable };
   const herded = (m.blocks ?? []).find((b) => b.kind === "herded");
-  if (herded || (m.drafts ?? []).length > 0) return { kind: "fold", href: "/app/fold/herding", label: "See it in the Fold" };
-  if ((m.blocks ?? []).some((b) => b.kind === "positions" || b.kind === "balance")) return { kind: "fold", href: "/app/fold/flock", label: "Manage it in the Fold" };
+  if (herded || (m.drafts ?? []).length > 0) return { kind: "fold", href: "/app/fold/herding", label: t("ask.starters.seeItInTheFold") };
+  if ((m.blocks ?? []).some((b) => b.kind === "positions" || b.kind === "balance")) return { kind: "fold", href: "/app/fold/flock", label: t("ask.starters.manageItInTheFold") };
   return { kind: "none" };
 }
 
@@ -132,7 +133,7 @@ export function followUps(m: ChatMessage): readonly Starter[] {
   if (kinds.has("yields")) {
     const token = (m.blocks ?? []).find((b) => b.kind === "yields");
     const sym = token && token.kind === "yields" ? token.token : "USDC";
-    return [{ id: "earn-token", label: `Put ${sym} to work`, icon: "earn", kind: "fill", text: `Put [amount] ${sym} to work at low risk`, line: "" }, ...pick("have")];
+    return [{ id: "earn-token", label: t("ask.starters.putToWork", { sym }), icon: "earn", kind: "fill", text: t("ask.starters.putAmountToWorkAtLow", { sym }), line: "" }, ...pick("have")];
   }
   if (kinds.has("positions") || kinds.has("balance")) return pick("earn", "stress", "watch-health");
   if (kinds.has("capabilities")) return pick("send", "earn", "have");
@@ -141,7 +142,7 @@ export function followUps(m: ChatMessage): readonly Starter[] {
 }
 
 const EXTRA: readonly Starter[] = [
-  { id: "stress", label: "What if EURC drops 5%?", icon: "watch", kind: "ask", text: "What if EURC drops 5%?", line: "" },
-  { id: "watch-health", label: "Watch my loan's health", icon: "watch", kind: "fill", text: "Tell me if my health factor drops below [level]", line: "" },
-  { id: "watch-plan", label: "Watch a price", icon: "watch", kind: "fill", text: "Tell me if EURC drops below [price]", line: "" },
+  { id: "stress", label: t("ask.starters.whatIfEurcDrops5"), icon: "watch", kind: "ask", text: t("ask.starters.whatIfEurcDrops5"), line: "" },
+  { id: "watch-health", label: t("ask.starters.watchMyLoanSHealth"), icon: "watch", kind: "fill", text: t("ask.starters.tellMeIfMyHealthFactor"), line: "" },
+  { id: "watch-plan", label: t("ask.starters.watchAPrice"), icon: "watch", kind: "fill", text: t("ask.starters.tellMeIfEurcDropsBelow"), line: "" },
 ];

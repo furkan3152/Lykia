@@ -49,6 +49,7 @@ import { typedCollection } from "../platform/typed.js";
 import type { JsonValue } from "../store/types.js";
 import { destinationGas } from "./destinations.js";
 
+import { tx } from "@lykia/core";
 /** The placeholder owner chat plans for when no wallet is connected: not anyone's wallet, so nothing to warn about. */
 const SAMPLE_OWNER = "0x000000000000000000000000000000000000dead";
 const DAY = 86_400_000;
@@ -329,7 +330,7 @@ export async function gatherState(ctx: AppContext, plan: PreflightPlan, input: P
     unlimitedApprovals: approvals,
     vaults: Object.fromEntries(vaults),
     health: Object.fromEntries((health?.health ?? []).map((h) => [h.venue, h.healthFactor])),
-    budget: plan.accountKind === "smart" ? { kind: "leash", name: plan.fence.label ?? "this leash" } : plan.account !== plan.owner ? { kind: "agent", name: plan.fence.label ?? "the agent" } : { kind: "fence", name: "Your Fence" },
+    budget: plan.accountKind === "smart" ? { kind: "leash", name: plan.fence.label ?? tx("this leash") } : plan.account !== plan.owner ? { kind: "agent", name: plan.fence.label ?? tx("the agent") } : { kind: "fence", name: tx("Your Fence") },
     beta: env === "mainnet" ? (ctx.config.beta ?? null) : null,
     minFeeGwei: networkFor(env).minMaxFeePerGasGwei,
   };

@@ -22,6 +22,7 @@ import express, { type Express, type RequestHandler, type Router } from "express
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "./errors.js";
 import { errorHandler, sendError } from "./request.js";
+import { localeMiddleware } from "../i18n/index.js";
 
 const MAX_BODY_BYTES = 256 * 1024;
 
@@ -76,6 +77,8 @@ export function createV1Router(ctx: AppContext, modules: readonly ApiModule[]): 
   router.use(noStore);
   router.use(bodyGuards);
   router.use(express.json({ limit: MAX_BODY_BYTES, strict: true, type: ["application/json", "application/*+json"] }));
+  // The interface language of this request: every sentence code writes for the owner follows it.
+  router.use(localeMiddleware());
   router.use(ctx.limits.default);
   router.use(apiVersionMiddleware());
   router.use(developerGate(ctx));

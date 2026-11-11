@@ -5,6 +5,7 @@
  * view transitions all follow `isReducedMotion`.
  */
 import type { MotionSetting } from "../app/state/uiPrefs";
+import { t } from "../i18n";
 
 export const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
@@ -21,10 +22,10 @@ export interface MotionToggleView {
 }
 
 export function motionToggleView(setting: MotionSetting, systemReduced: boolean): MotionToggleView {
-  if (systemReduced) return { checked: false, disabled: true, description: "Off: your device asks for reduced motion" };
+  if (systemReduced) return { checked: false, disabled: true, description: t("motion.preference.offYourDeviceAsksForReduced") };
   return setting === "on"
-    ? { checked: true, disabled: false, description: "On: Lyko runs, the sea moves, the pulse ticks" }
-    : { checked: false, disabled: false, description: "Off: Lykia stays still" };
+    ? { checked: true, disabled: false, description: t("motion.preference.onLykoRunsTheSeaMoves") }
+    : { checked: false, disabled: false, description: t("motion.preference.offLykiaStaysStill") };
 }
 
 /**

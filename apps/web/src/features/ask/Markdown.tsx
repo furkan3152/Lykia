@@ -11,6 +11,7 @@ import { Link } from "../../app/routes/Link";
 import { Mark } from "../../mosaic/PixelArt";
 import { cx } from "../../mosaic/cx";
 import { parseInline, parseMarkdown, type Block, type Inline } from "./richText";
+import { t } from "../../i18n";
 
 
 /** An address or transaction hash: shortened, copyable, linked to the explorer. */
@@ -30,12 +31,12 @@ export function HashChip({ value, kind, environment }: { readonly value: string;
   return (
     <span className="m-hash" data-kind={kind} data-copied={copied || undefined}>
       <span className="m-hash__k" aria-hidden="true">{kind === "tx" ? "TX" : "0x"}</span>
-      <a className="m-hash__v" href={href} target="_blank" rel="noreferrer noopener" title={`${value} on the Arc explorer`}>
+      <a className="m-hash__v" href={href} target="_blank" rel="noreferrer noopener" title={t("ask.markdown.onTheArcExplorer", { value })}>
         <span aria-hidden="true">{shortHash(value, 4, 4)}</span>
-        <span className="sr-only">{`${kind === "tx" ? "Transaction" : "Address"} ${value}, open on the Arc explorer`}</span>
+        <span className="sr-only">{t("ask.markdown.openOnTheArcExplorer", { value: kind === "tx" ? t("ask.markdown.transaction") : t("ask.markdown.address"), value2: value })}</span>
         <Mark name="out" size={9} />
       </a>
-      <button type="button" className="m-hash__copy" onClick={copy} aria-label={copied ? "Copied" : `Copy ${kind === "tx" ? "transaction hash" : "address"}`}>
+      <button type="button" className="m-hash__copy" onClick={copy} aria-label={copied ? t("ask.markdown.copied") : t(kind === "tx" ? "ask.markdown.copyTransactionHash" : "ask.markdown.copyAddress")}>
         <Mark name={copied ? "check" : "copy"} size={11} />
       </button>
     </span>

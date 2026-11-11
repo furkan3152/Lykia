@@ -11,6 +11,7 @@ import { passkeyConfig, usernameProblem } from "./passkeyConfig";
 import { storedCredential } from "./passkey";
 import { useWallet } from "./store";
 import { browserWallets } from "./wallets";
+import { t } from "../../i18n";
 
 export function ConnectModal() {
   const open = useWallet((s) => s.modalOpen);
@@ -39,31 +40,31 @@ export function ConnectModal() {
     } catch (e) {
       const text = e instanceof Error ? e.message.split("\n")[0]! : String(e);
       // Plain words only: raw wallet and RPC messages stay out of the interface.
-      setWalletError(/rejected|denied/i.test(text) ? "The wallet request was rejected." : /already pending|pending request/i.test(text) ? "The wallet already has a request open. Finish or close it there, then try again." : /not (found|installed)|no provider/i.test(text) ? "That wallet was not found in this browser." : "The wallet could not connect. Try again, or pick another wallet.");
+      setWalletError(/rejected|denied/i.test(text) ? t("wallet.connectModal.theWalletRequestWasRejected") : /already pending|pending request/i.test(text) ? t("wallet.connectModal.theWalletAlreadyHasARequest") : /not (found|installed)|no provider/i.test(text) ? t("wallet.connectModal.thatWalletWasNotFoundIn") : t("wallet.connectModal.theWalletCouldNotConnectTry"));
     }
   };
 
   return (
-    <Modal open={open} onClose={close} title="Connect to Lykia">
+    <Modal open={open} onClose={close} title={t("wallet.connectModal.connectToLykia")}>
       <div className="m-connect">
         <section className="m-connect__opt" aria-labelledby="cx-passkey">
           <div className="m-connect__head">
             <LykoFace mood="proud" scale={1.4} label="" />
             <div>
-              <h4 id="cx-passkey">Passkey wallet</h4>
-              <p className="m-small m-muted">A Circle smart account on Arc, unlocked with Face ID, Touch ID or Windows Hello. No extension, no seed phrase.</p>
+              <h4 id="cx-passkey">{t("wallet.connectModal.passkeyWallet")}</h4>
+              <p className="m-small m-muted">{t("wallet.connectModal.aCircleSmartAccountOnArc")}</p>
             </div>
           </div>
           {configured ? (
             <div className="m-connect__body">
               {stored ? (
                 <button type="button" className="m-btn" disabled={opening} onClick={() => void connectPasskey(mode, "login")}>
-                  {opening ? "WAITING FOR YOUR DEVICE…" : `SIGN IN${stored.username ? ` AS ${stored.username.toUpperCase()}` : " WITH PASSKEY"}`}
+                  {opening ? t("wallet.connectModal.waitingForYourDevice") : (stored.username ? t("wallet.connectModal.signInAs", { name: stored.username.toUpperCase() }) : t("wallet.connectModal.signInWithPasskey"))}
                 </button>
               ) : null}
               <label className="m-connect__field">
-                <span className="m-small m-muted">{stored ? "Or create another passkey" : "Name your passkey"}</span>
-                <input className="m-input" value={name} maxLength={40} placeholder="e.g. treasury-laptop" onChange={(e) => setName(e.target.value)} aria-invalid={Boolean(nameProblem)} />
+                <span className="m-small m-muted">{stored ? t("wallet.connectModal.orCreateAnotherPasskey") : t("wallet.connectModal.nameYourPasskey")}</span>
+                <input className="m-input" value={name} maxLength={40} placeholder={t("wallet.connectModal.eGTreasuryLaptop")} onChange={(e) => setName(e.target.value)} aria-invalid={Boolean(nameProblem)} />
               </label>
               {nameProblem ? <p className="m-note m-note--bad">{nameProblem}</p> : null}
               <div className="m-connect__row">
@@ -72,14 +73,14 @@ export function ConnectModal() {
                 </button>
                 {!stored ? (
                   <button type="button" className="m-btn m-btn--ghost" disabled={opening} onClick={() => void connectPasskey(mode, "login")}>
-                    I HAVE ONE
+                    {t("wallet.connectModal.iHaveOne")}
                   </button>
                 ) : null}
               </div>
-              <p className="m-small m-muted">Plan steps go out as user operations through Circle's bundler on Arc {mode}.</p>
+              <p className="m-small m-muted">{t("wallet.connectModal.planStepsGoOutAsUser")} {mode}.</p>
             </div>
           ) : (
-            <p className="m-note">Not configured on this deployment: set VITE_CIRCLE_CLIENT_KEY and VITE_CIRCLE_CLIENT_URL to offer passkey wallets.</p>
+            <p className="m-note">{t("wallet.connectModal.notConfiguredOnThisDeploymentSet")}</p>
           )}
           {error ? <p className="m-note m-note--bad" role="alert">{error}</p> : null}
         </section>
@@ -88,8 +89,8 @@ export function ConnectModal() {
           <div className="m-connect__head">
             <span className="m-connect__icon" aria-hidden="true">⌂</span>
             <div>
-              <h4 id="cx-browser">Browser wallet</h4>
-              <p className="m-small m-muted">Wallets installed in this browser, found automatically (EIP-6963).</p>
+              <h4 id="cx-browser">{t("wallet.connectModal.browserWallet")}</h4>
+              <p className="m-small m-muted">{t("wallet.connectModal.walletsInstalledInThisBrowserFound")}</p>
             </div>
           </div>
           {wallets.length > 0 ? (
@@ -98,19 +99,19 @@ export function ConnectModal() {
                 <li key={w.id}>
                   <button type="button" className="m-connect__wallet" disabled={isPending} onClick={() => void connectBrowser(w.id)}>
                     {w.icon ? <img src={w.icon} alt="" width={28} height={28} /> : <span className="m-connect__icon" aria-hidden="true">◆</span>}
-                    <span>{w.id === "injected" ? "Browser wallet" : w.name}</span>
-                    {isPending && variables?.connector && "id" in variables.connector && variables.connector.id === w.id ? <Tag tone="sea">OPENING…</Tag> : null}
+                    <span>{w.id === "injected" ? t("wallet.connectModal.browserWallet") : w.name}</span>
+                    {isPending && variables?.connector && "id" in variables.connector && variables.connector.id === w.id ? <Tag tone="sea">{t("wallet.connectModal.opening")}</Tag> : null}
                   </button>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="m-note">No browser wallet found. Install one (MetaMask, Rabby, OKX, Coinbase Wallet…) or use a passkey wallet.</p>
+            <p className="m-note">{t("wallet.connectModal.noBrowserWalletFoundInstallOne")}</p>
           )}
           {walletError ? <p className="m-note m-note--bad" role="alert">{walletError}</p> : null}
         </section>
       </div>
-      <p className="m-small m-muted m-center" style={{ marginTop: 12 }}>Lykia never holds keys. Everything you sign is shown first.</p>
+      <p className="m-small m-muted m-center" style={{ marginTop: 12 }}>{t("wallet.connectModal.lykiaNeverHoldsKeysEverythingYou")}</p>
     </Modal>
   );
 }

@@ -13,6 +13,7 @@ import { cx } from "../../mosaic/cx";
 import { PixelArt } from "../../mosaic/PixelArt";
 import { INTENT_PAL, PREFLIGHT_ART } from "../../mosaic/pixelArtData";
 import { moreLabel, preflightChips, preflightView, SEVERITY_WORD, type PreflightChip } from "./preflightModel";
+import { intlLocale, t } from "../../i18n";
 
 function FindingCard({ f, compact = false, index }: { readonly f: Finding; readonly compact?: boolean; readonly index: number }) {
   const [open, setOpen] = useState(false);
@@ -27,7 +28,7 @@ function FindingCard({ f, compact = false, index }: { readonly f: Finding; reado
         <b className="pf-card__title">{f.title}</b>
         {compact ? null : <p className="pf-card__why">{f.why}</p>}
         {f.change && !compact ? (
-          <p className="pf-change" aria-label={`${f.change.label}: ${f.change.before} before, ${f.change.after} after`}>
+          <p className="pf-change" aria-label={t("route.preflight.beforeAfter", { label: f.change.label, before: f.change.before, after: f.change.after })}>
             <span className="pf-change__label">{f.change.label}</span>
             <span className="pf-change__fig num">{f.change.before}</span>
             <span className="pf-change__arrow" aria-hidden="true">→</span>
@@ -37,7 +38,7 @@ function FindingCard({ f, compact = false, index }: { readonly f: Finding; reado
         {f.figures.length > 0 && !compact ? (
           <>
             <button type="button" className="pf-why" aria-expanded={open} aria-controls={id} onClick={() => setOpen((o) => !o)}>
-              {open ? "Hide the figures" : "The figures"}
+              {open ? t("route.preflight.hideTheFigures") : t("route.preflight.theFigures")}
             </button>
             {open ? (
               <dl id={id} className="pf-figs">
@@ -45,7 +46,7 @@ function FindingCard({ f, compact = false, index }: { readonly f: Finding; reado
                   <div key={`${x.label}${x.value}`}>
                     <dt>{x.label}</dt>
                     <dd className="num">{x.value}</dd>
-                    <small>{`${x.source}${x.readAt ? ` · ${new Date(x.readAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })} UTC` : ""}`}</small>
+                    <small>{`${x.source}${x.readAt ? ` · ${new Date(x.readAt).toLocaleTimeString(intlLocale(), { hour: "2-digit", minute: "2-digit" })} UTC` : ""}`}</small>
                   </div>
                 ))}
               </dl>
@@ -95,7 +96,7 @@ export function PreflightLine({ findings, onFix }: { readonly findings: readonly
         </div>
       </div>
       {fixes.length > 0 && onFix ? (
-        <div className="pf-chips" role="group" aria-label="Fixes Lyko can make">
+        <div className="pf-chips" role="group" aria-label={t("route.preflight.fixesLykoCanMake")}>
           {fixes.map((fix, i) => (
             <button key={fix.id} type="button" className="pf-chip" data-role="fix" data-kind={fix.kind} style={{ "--i": i } as React.CSSProperties} onClick={() => onFix(fix)}>
               <span className="pf-chip__label">{fix.label}</span>
@@ -117,7 +118,7 @@ export function PreflightPanel(p: PreflightPanelProps) {
   return (
     <section className={cx("pf", `pf--${p.mode}`)} data-worst={worst} aria-labelledby={`${uid}-h`}>
       <h3 id={`${uid}-h`} className={p.mode === "review" ? "rv-h" : "pf__h"}>
-        {p.mode === "review" ? "Before you sign" : view.gate.blocked ? "Lyko stopped this one" : view.gate.needsAck.length > 0 ? "Lyko spotted something" : "Lyko checked"}
+        {p.mode === "review" ? t("route.preflight.beforeYouSign") : view.gate.blocked ? t("route.preflight.lykoStoppedThisOne") : view.gate.needsAck.length > 0 ? t("route.preflight.lykoSpottedSomething") : t("route.preflight.lykoChecked")}
         {view.list.length > 0 ? <span className="m-kick">{`${view.list.length} ${view.list.length === 1 ? "CHECK" : "CHECKS"}`}</span> : null}
       </h3>
       <ul className="pf__list">
@@ -137,7 +138,7 @@ export function PreflightPanel(p: PreflightPanelProps) {
         </details>
       ) : null}
       {chips.length > 0 ? (
-        <div className="pf-chips" role="group" aria-label="What Lyko can do instead">
+        <div className="pf-chips" role="group" aria-label={t("route.preflight.whatLykoCanDoInstead")}>
           {chips.map((c, i) => (
             <button
               key={c.key}
@@ -156,10 +157,10 @@ export function PreflightPanel(p: PreflightPanelProps) {
       ) : null}
       {p.mode === "review" && p.tick !== false && !view.gate.blocked && view.list.some((f) => f.severity === "warn") ? (
         <label className="rv-confirm pf-tick">
-          <input type="checkbox" checked={p.acknowledged} onChange={(e) => p.onAcknowledge?.(e.target.checked)} /> {"I read these warnings and want to sign it as it is."}
+          <input type="checkbox" checked={p.acknowledged} onChange={(e) => p.onAcknowledge?.(e.target.checked)} /> {t("route.preflight.iReadTheseWarningsAndWant")}
         </label>
       ) : null}
-      {p.mode === "review" && view.gate.blocked ? <p className="pf-blocked m-small">{"Signing is off until this is fixed. Pick a fix, or go back and ask Lyko for another plan."}</p> : null}
+      {p.mode === "review" && view.gate.blocked ? <p className="pf-blocked m-small">{t("route.preflight.signingIsOffUntilThisIs")}</p> : null}
     </section>
   );
 }

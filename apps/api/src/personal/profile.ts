@@ -1,10 +1,11 @@
 /** Owner profiles: stored per SIWE address, validated and versioned in the core. */
-import { DEFAULT_PROFILE, FENCE_PRESET_LABEL, fenceForProfile, fromWebProfile, isWebProfile, mergeProfile, validateProfile, type Address, type LykiaProfile } from "@lykia/core";
+import { DEFAULT_PROFILE, FENCE_PRESET_LABEL, fenceForProfile, fromWebProfile, isWebProfile, mergeProfile, validateProfile, type Address, type LykiaProfile, LOCALE_ENGLISH_NAMES } from "@lykia/core";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
 import { typedCollection } from "../platform/typed.js";
 import { mayUsePersonal } from "./guard.js";
 
+import { tx } from "@lykia/core";
 const profiles = (ctx: AppContext) => typedCollection<LykiaProfile>(ctx, "owner_profiles");
 
 /** The owner's profile, or the default when the request has not proven control of the owner (personal/guard.ts). */
@@ -41,18 +42,18 @@ export async function resetProfile(ctx: AppContext, owner: Address): Promise<voi
 export function profileEffects(profile: LykiaProfile): string[] {
   const fence = fenceForProfile(profile);
   const out = [
-    `Default Fence: ${FENCE_PRESET_LABEL[profile.risk]} with a ${fence.limits?.maxSlippageBps} bps slippage ceiling${profile.risk === "low" ? " and verified tokens only" : ""}.`,
-    `Routing risk ceiling: ${profile.risk}.`,
-    `Amounts shown in ${profile.displayCurrency}; plans still settle in tokens.`,
-    `Lyko replies in English (it reads any language), ${profile.persona.tone} and ${profile.persona.verbosity}.`,
+    tx("Default Fence: {value} with a {maxSlippageBps} bps slippage ceiling{value2}.", { value: FENCE_PRESET_LABEL[profile.risk], maxSlippageBps: fence.limits?.maxSlippageBps, value2: profile.risk === "low" ? tx(" and verified tokens only") : "" }),
+    tx("Routing risk ceiling: {risk}.", { risk: profile.risk }),
+    tx("Amounts shown in {displayCurrency}; plans still settle in tokens.", { displayCurrency: profile.displayCurrency }),
+    tx("Lyko replies in {value} (it reads any language), {tone} and {verbosity}.", { value: LOCALE_ENGLISH_NAMES[profile.language], tone: profile.persona.tone, verbosity: profile.persona.verbosity }),
   ];
-  if (profile.venues.favorites.length) out.push(`Favourite venues win ties: ${profile.venues.favorites.join(", ")}.`);
-  if (profile.venues.blocked.length) out.push(`Never routed: ${profile.venues.blocked.join(", ")}.`);
-  if (profile.confirmation.mode === "always") out.push("Every plan asks you to confirm.");
-  if (profile.confirmation.mode === "above") out.push(`Plans above $${profile.confirmation.aboveUsd} ask you to confirm.`);
-  if (profile.quietHours) out.push(`Quiet hours ${profile.quietHours.from}–${profile.quietHours.to} (${profile.quietHours.timezone}): no non-urgent notifications.`);
-  if (profile.explainLikeNew) out.push("Plan reasons come in plain words, with what each venue is.");
-  out.push(profile.memory.enabled ? `Memory on: kept ${profile.memory.retentionDays} days${profile.memory.learnContacts ? ", contacts learned from confirmed sends" : ""}.` : "Memory off: nothing new is remembered.");
-  if (profile.gas.sponsorship !== "off") out.push(`Gas sponsorship: ${profile.gas.sponsorship} (needs a Circle Wallets SCA with Gas Station).`);
+  if (profile.venues.favorites.length) out.push(tx("Favourite venues win ties: {value}.", { value: profile.venues.favorites.join(", ") }));
+  if (profile.venues.blocked.length) out.push(tx("Never routed: {value}.", { value: profile.venues.blocked.join(", ") }));
+  if (profile.confirmation.mode === "always") out.push(tx("Every plan asks you to confirm."));
+  if (profile.confirmation.mode === "above") out.push(tx("Plans above ${aboveUsd} ask you to confirm.", { aboveUsd: profile.confirmation.aboveUsd }));
+  if (profile.quietHours) out.push(tx("Quiet hours {from}–{to} ({timezone}): no non-urgent notifications.", { from: profile.quietHours.from, to: profile.quietHours.to, timezone: profile.quietHours.timezone }));
+  if (profile.explainLikeNew) out.push(tx("Plan reasons come in plain words, with what each venue is."));
+  out.push(profile.memory.enabled ? tx("Memory on: kept {retentionDays} days{value}.", { retentionDays: profile.memory.retentionDays, value: profile.memory.learnContacts ? tx(", contacts learned from confirmed sends") : "" }) : tx("Memory off: nothing new is remembered."));
+  if (profile.gas.sponsorship !== "off") out.push(tx("Gas sponsorship: {sponsorship} (needs a Circle Wallets SCA with Gas Station).", { sponsorship: profile.gas.sponsorship }));
   return out;
 }

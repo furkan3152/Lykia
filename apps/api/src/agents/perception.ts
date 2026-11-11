@@ -4,6 +4,8 @@
  * Pack roster. It rides in the user turn (the system prompt stays stable
  * for caching). Reads that fail are reported, never invented.
  */
+import { intlTag } from "../i18n/format.js";
+import { count } from "../i18n/count.js";
 import { isSampleOwner, type Address, type ArcEnvironment, type Fence, type PackAgent } from "@lykia/core";
 import type { FlockSnapshot } from "@lykia/core/api/flock";
 import type { AppContext } from "../context.js";
@@ -33,8 +35,8 @@ export async function perceive(ctx: AppContext, input: { environment: ArcEnviron
         .join(", ");
       parts.push(`flock total=${flock.totalUsd ?? "partly unpriced"} holdings=[${top || "empty"}]`);
       input.emit?.("reading", { what: "flock", ok: true });
-      const total = flock.totalUsd === null ? "" : ` · $${Number(flock.totalUsd).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
-      reading?.end("ok", `${flock.holdings.length} holding${flock.holdings.length === 1 ? "" : "s"}${total}`);
+      const total = flock.totalUsd === null ? "" : ` · $${Number(flock.totalUsd).toLocaleString(intlTag(), { maximumFractionDigits: 2 })}`;
+      reading?.end("ok", `${count(flock.holdings.length, "holding")}${total}`);
     } catch {
       parts.push("flock=unavailable");
       input.emit?.("reading", { what: "flock", ok: false });

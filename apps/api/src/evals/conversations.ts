@@ -22,6 +22,9 @@
  */
 import { AUTOPILOT_BETA, DEFAULT_BETA_CAP, DEFAULT_FEE_BPS, FENCE_PRESETS, LEASH_LIMITS, ALERT_LIMITS, STILE_BETA, ORDERS_MAX_EXECUTIONS } from "@lykia/core";
 import type { AnswerBlock } from "@lykia/core/api/answer";
+import type { Locale } from "@lykia/core";
+import { otherLanguageIn } from "@lykia/core/i18n/check";
+import { withLocale } from "../i18n/context.js";
 import { guardNumbers, visibleGround } from "../agents/numberGuard.js";
 import { numbersIn } from "../agents/grounding.js";
 import { PLACEHOLDER } from "../agents/prose.js";
@@ -81,6 +84,20 @@ export const CONVERSATIONS: readonly ConversationCase[] = [
   { id: "send-no-recipient", category: "act", who: "owner", turns: [{ say: "Send 50 USDC", expect: { outcome: "ask" } }] },
   { id: "convert", category: "act", who: "owner", turns: [{ say: "Convert 200 USDC to EURC", expect: { outcome: "sign", step: /EURC/u } }] },
   { id: "convert-tr", category: "act", who: "owner", turns: [{ say: "200 USDC'yi EURC'ye \u00e7evir", expect: { outcome: "sign", step: /EURC/u } }] },
+  // The other interface languages typed straight in (Spanish, Portuguese, French, Chinese), escaped like the Turkish ones.
+  { id: "convert-es", category: "act", who: "owner", turns: [{ say: "Convierte 200 USDC a EURC", expect: { outcome: "sign", step: /EURC/u } }] },
+  { id: "convert-pt", category: "act", who: "owner", turns: [{ say: "Converta 200 USDC para EURC", expect: { outcome: "sign", step: /EURC/u } }] },
+  { id: "convert-fr", category: "act", who: "owner", turns: [{ say: "Convertis 200 USDC en EURC", expect: { outcome: "sign", step: /EURC/u } }] },
+  { id: "convert-zh", category: "act", who: "owner", turns: [{ say: "\u628a 200 USDC \u5151\u6362\u6210 EURC", expect: { outcome: "sign", step: /EURC/u } }] },
+  { id: "bridge-es", category: "act", who: "owner", turns: [{ say: "Pasa 50 USDC a Base", expect: { outcome: "sign", step: /Base/u } }] },
+  { id: "bridge-zh", category: "act", who: "owner", turns: [{ say: "\u628a 50 USDC \u8de8\u94fe\u5230 Base", expect: { outcome: "sign", step: /Base/u } }] },
+  { id: "send-fr", category: "act", who: "owner", turns: [{ say: "Envoie 20 USDC \u00e0 0x1111111111111111111111111111111111111111", expect: { outcome: ["sign", "refuse"] } }] },
+  { id: "balance-es", category: "read", who: "owner", turns: [{ say: "\u00bfCu\u00e1l es mi saldo?", expect: { outcome: "read", block: "balance" } }] },
+  { id: "balance-pt", category: "read", who: "owner", turns: [{ say: "Qual \u00e9 o meu saldo?", expect: { outcome: "read", block: "balance" } }] },
+  { id: "where-money-fr", category: "read", who: "owner", turns: [{ say: "O\u00f9 est mon argent ?", expect: { outcome: "read", block: "positions" } }] },
+  { id: "capabilities-zh", category: "read", who: "owner", turns: [{ say: "\u4f60\u80fd\u505a\u4ec0\u4e48\uff1f", expect: { outcome: ["read", "ask"], block: "capabilities" } }] },
+  { id: "capabilities-fr", category: "read", who: "owner", turns: [{ say: "Que peux-tu faire ?", expect: { outcome: ["read", "ask"], block: "capabilities" } }] },
+  { id: "fees-pt", category: "read", who: "owner", turns: [{ say: "Quanto paguei de taxas?", expect: { outcome: "read", block: "facts" } }] },
   { id: "swap-back", category: "act", who: "owner", turns: [{ say: "Swap 50 EURC to USDC", expect: { outcome: "sign", step: /USDC/u } }] },
   { id: "bridge", category: "act", who: "owner", turns: [{ say: "Bridge 50 USDC to Base", expect: { outcome: "sign", step: /Base/u } }] },
   { id: "bridge-no-chain", category: "act", who: "owner", turns: [{ say: "Bridge 50 USDC", expect: { outcome: "ask", option: /Base|Arbitrum|Ethereum/u } }] },
@@ -158,20 +175,20 @@ export const CONVERSATIONS: readonly ConversationCase[] = [
   { id: "bridge-destinations", category: "read", who: "owner", turns: [{ say: "Where can I bridge USDC to?", expect: { outcome: ["read", "ask"], block: "capabilities" } }] },
 
   /* ----------------------------------------------- no wallet: the sample */
-  { id: "guest-balance", category: "guest", who: "guest", turns: [{ say: "What is my balance?", expect: { outcome: "read", block: ["balance", "sample"], text: /^\*\*Sample address, not your wallet\.\*\*/u, notText: /\byour wallet (?:holds|is)\b|\bYou hold\b/u } }] },
-  { id: "guest-positions", category: "guest", who: "guest", turns: [{ say: "Where is my money?", expect: { outcome: "read", block: ["positions", "sample"], text: /^\*\*Sample address, not your wallet\.\*\*/u, notText: /\bYour money\b/u } }] },
-  { id: "guest-plan", category: "guest", who: "guest", turns: [{ say: "Convert 100 USDC to EURC", expect: { outcome: "sign", block: "sample", text: /^\*\*Sample address, not your wallet\.\*\*/u } }] },
-  { id: "guest-fix-health", category: "guest", who: "guest", turns: [{ say: OWNER_FIX_TR, expect: { outcome: ["read", "ask", "sign"], block: ["facts", "sample"], text: /^\*\*Sample address, not your wallet\.\*\*/u, notText: /Ask Lyko/u } }] },
+  { id: "guest-balance", category: "guest", who: "guest", turns: [{ say: "What is my balance?", expect: { outcome: "read", block: ["balance", "sample"], notText: /\byour wallet (?:holds|is)\b|\bYou hold\b/u } }] },
+  { id: "guest-positions", category: "guest", who: "guest", turns: [{ say: "Where is my money?", expect: { outcome: "read", block: ["positions", "sample"], notText: /\bYour money\b/u } }] },
+  { id: "guest-plan", category: "guest", who: "guest", turns: [{ say: "Convert 100 USDC to EURC", expect: { outcome: "sign", block: "sample" } }] },
+  { id: "guest-fix-health", category: "guest", who: "guest", turns: [{ say: OWNER_FIX_TR, expect: { outcome: ["read", "ask", "sign"], block: ["facts", "sample"], notText: /Ask Lyko/u } }] },
   { id: "guest-fees", category: "guest", who: "guest", turns: [{ say: "What did I pay in fees?", expect: { outcome: "refuse", text: /connect a wallet/iu } }] },
   { id: "guest-capabilities", category: "guest", who: "guest", turns: [{ say: "What can you do?", expect: { outcome: ["read", "ask"], block: "capabilities", notText: /dry-run|mapped actions/u } }] },
   { id: "owner-three-turns", category: "guest", who: "guest", turns: [
-    { say: "Where is my money and what is it doing?", expect: { outcome: "read", block: ["positions", "sample"], text: /^\*\*Sample address, not your wallet\.\*\*/u } },
+    { say: "Where is my money and what is it doing?", expect: { outcome: "read", block: ["positions", "sample"] } },
     { say: OWNER_FIX_TR, expect: { outcome: ["read", "ask", "sign"], block: ["facts", "sample"], notText: /Ask Lyko|Correction|earlier reply/u } },
     { say: "What can you do?", expect: { outcome: ["read", "ask"], block: "capabilities", notText: /dry-run|mapped actions|Your mode/u } },
   ] },
 
   /* ------------------------------------------------- written in the Fold */
-  { id: "fold-sample-read", category: "fold", who: "guest", origin: "fold", offlineOnly: true, turns: [{ say: "What is my Fold worth?", expect: { outcome: "read", block: ["facts", "sample"], text: /^\*\*Sample flock, not your wallet\.\*\*/u } }] },
+  { id: "fold-sample-read", category: "fold", who: "guest", origin: "fold", offlineOnly: true, turns: [{ say: "What is my Fold worth?", expect: { outcome: "read", block: ["facts", "sample"] } }] },
   { id: "fold-sample-fix", category: "fold", who: "guest", origin: "fold", offlineOnly: true, turns: [{ say: OWNER_FIX_TR, expect: { outcome: "read", block: ["facts", "sample"], text: /connect a wallet/iu, notText: /Ask Lyko/u } }] },
   { id: "fold-sample-move", category: "fold", who: "guest", origin: "fold", offlineOnly: true, turns: [{ say: "Convert 100 USDC to EURC", expect: { outcome: "refuse", text: /sample flock/u, notText: /Ask Lyko/u } }] },
   { id: "fold-owner-acts", category: "fold", who: "owner", origin: "fold", turns: [{ say: "Convert 100 USDC to EURC", expect: { outcome: "sign", notText: /Ask Lyko/u } }] },
@@ -235,7 +252,7 @@ export const CONVERSATIONS: readonly ConversationCase[] = [
   { id: "know-forecast-tr", category: "self", who: "guest", turns: [{ say: "EURC y\u00fckselecek mi?", expect: { outcome: "refuse", text: /does not guess|Nobody knows/u } }] },
   { id: "know-liquidated-tr", category: "self", who: "guest", turns: [{ say: "Likide olursam ne olur?", expect: { outcome: "read", block: "facts", text: /collateral/u } }] },
   /* ------------------------------ the model path, with a model that drifts */
-  { id: "model-empty-clarify", category: "act", who: "guest", model: "drifting", offlineOnly: true, turns: [{ say: "Do something nice with it", expect: { outcome: "ask", text: /^\*\*Sample address, not your wallet\.\*\* What should I do with it\?/u, option: /Put it to work/u, block: "sample" } }] },
+  { id: "model-empty-clarify", category: "act", who: "guest", model: "drifting", offlineOnly: true, turns: [{ say: "Do something nice with it", expect: { outcome: "ask", text: /^What should I do with it\?/u, option: /Put it to work/u, block: "sample" } }] },
   { id: "model-ask-figures", category: "act", who: "guest", model: "drifting", offlineOnly: true, turns: [{ say: "Put some money to work", expect: { outcome: "ask", text: /How much USDC should go to work\?/u, notText: /187\.28/u, option: /^Half of it$/u } }] },
   { id: "model-send-no-recipient", category: "act", who: "guest", model: "drifting", offlineOnly: true, turns: [{ say: "Send 50 USDC", expect: { outcome: "ask", text: /Who should get the 50 USDC\?/u, block: "sample" } }] },
   { id: "model-bridge-no-chain", category: "act", who: "guest", model: "drifting", offlineOnly: true, turns: [{ say: "Bridge 50 USDC", expect: { outcome: "ask", text: /Bridge 50 USDC to which chain\?/u, option: /^Bridge 50 USDC to Base$/u } }] },
@@ -287,6 +304,8 @@ export function outcomeOf(a: ChatAnswer): Outcome {
   // A plan the Fence refused is a refusal, whatever cards explain it.
   if (a.proposals.length > 0 && a.proposals.every((p) => p.decision === "deny")) return "refuse";
   if (/^(?:\*\*Sample[^*]*\*\*\s*)?(?:No[.,:]|No wallet\b|I can't\b|I cannot\b|I couldn't\b|I won't\b)/u.test(a.reply)) return "refuse";
+  // The same honest no in the other interface languages.
+  if (/^(?:Hay\u0131r[.,:]|Bunu yapmayaca\u011f\u0131m|Ba\u011fl\u0131 c\u00fczdan yok|\S+(?:amad\u0131m|emedim|amam|emem)\b|No (?:he podido|puedo|hay billetera)|Eso no|N\u00e3o[.,:]|Isso eu n\u00e3o|N\u00e3o consegui|Nenhuma carteira|Non[.,:]|Je n'ai pas pu|Je ne (?:peux|ferai)|Aucun portefeuille|\u4e0d[\uff0c\u3002\uff1a]|\u4e0d\u80fd[\u3002\uff0c]|\u6211\u65e0\u6cd5|\u6211\u4e0d|\u672a\u8fde\u63a5\u94b1\u5305|\u8fd9\u4ef6\u4e8b\u6211\u4e0d\u4f1a)/u.test(a.reply)) return "refuse";
   if (blocks.some((b) => READ_CARDS.has(b.kind))) return "read";
   return "refuse";
 }
@@ -301,12 +320,54 @@ function unsourcedFigures(a: ChatAnswer, said: readonly string[]): string[] {
   const other = a.events.filter((e) => e.event === "step" || e.event === "draft" || e.event === "program").map((e) => (e.event === "step" ? [(e.data as { result?: string }).result ?? "", (e.data as { detail?: string }).detail ?? ""] : e.data));
   const ground = visibleGround({ ownerText: said.join("\n"), ownerNumbers: numbersIn(said.join("\n")), toolNumbers: new Set(), toolAddresses: new Set(), question: null }, { proposals: a.proposals as never, options: optionsOf(a), other });
   // A quoted sentence ("say “convert 100 USDC to EURC”") is something the owner could say, not a claim about their money.
-  const claims = a.reply.replace(/“[^”\n]*”/gu, "“…”");
+  const claims = a.reply.replace(/“[^”\n]*”|«[^»\n]*»|「[^」\n]*」/gu, "“…”");
   return [...guardNumbers(claims, ground, blocks).removed];
 }
 
 /** The structural checks every answer must pass, on either path. */
-export function structureChecks(c: ConversationCase, a: ChatAnswer, said: readonly string[]): Check[] {
+/** Every sentence of an answer the owner reads: the reply, the chips, the plan cards and the answer cards (identifiers and data sources aside). */
+export function readableTexts(a: ChatAnswer): string[] {
+  const out: string[] = [a.reply, ...optionsOf(a)];
+  for (const p of a.proposals) out.push(...[p.title ?? "", ...(p.steps ?? []), ...(p.reasons ?? [])]);
+  const skip = new Set(["kind", "id", "href", "address", "owner", "token", "symbol", "source", "feature", "role", "environment", "tone", "icon", "status", "decision", "readAt", "at", "hash", "txHash", "url", "venue", "chain", "protocol", "pair", "market", "name", "account", "agentName"]);
+  const visit = (v: unknown, depth: number): void => {
+    if (depth > 8 || v === null || v === undefined) return;
+    if (typeof v === "string") out.push(v);
+    else if (Array.isArray(v)) for (const x of v) visit(x, depth + 1);
+    else if (typeof v === "object") for (const [k, x] of Object.entries(v as Record<string, unknown>)) if (!skip.has(k)) visit(x, depth + 1);
+  };
+  visit(blocksOf(a), 0);
+  return out.filter((t) => t.trim().length > 0);
+}
+
+/** The pieces of an answer that are not in the interface language. */
+/** Names the suite's own fixtures give things (the owner's words, not code's): a running order's sentence, an agent's name. */
+const FIXTURE_NAMES = ["Pay 5 USDC rent every Friday", "Health factor below 1.5", "Invoice bot", "rent payment", "Friday payment"];
+
+/** A chip that restates the owner's own sentence keeps the owner's words (the reader reads it back); code's words around it are checked. */
+function echoesOwner(text: string, said: readonly string[]): boolean {
+  const words = (s: string) => s.toLowerCase().match(/[\p{L}\p{N}'’]+/gu) ?? [];
+  const t = words(text).join(" ");
+  return said.some((s) => {
+    const w = words(s);
+    return w.length >= 2 && t.includes(w.slice(0, 2).join(" "));
+  });
+}
+
+export function mixedLanguage(a: ChatAnswer, locale: Locale, modelWritten = false, said: readonly string[] = []): string[] {
+  // A scripted test model writes English whatever the request says; its reply is the model's, the cards are code's.
+  const options = new Set(optionsOf(a));
+  const titles = new Set(a.proposals.map((p) => p.title ?? ""));
+  return readableTexts(a)
+    .filter((t, i) => !(modelWritten && (i === 0 || options.has(t))))
+    .filter((t) => !((options.has(t) || titles.has(t)) && echoesOwner(t, said)))
+    // The owner's own sentence, quoted back ("**What:** Every Friday pay …"), stays in the owner's words.
+    .map((t) => otherLanguageIn(t, locale, [...FIXTURE_NAMES, ...said.filter((s) => s.trim().length >= 12).map((s) => s.trim())]))
+    .filter((f): f is NonNullable<typeof f> => f !== null)
+    .map((f) => `[${f.words.join(", ")}] ${f.text.slice(0, 120)}`);
+}
+
+export function structureChecks(c: ConversationCase, a: ChatAnswer, said: readonly string[], locale: Locale = "en"): Check[] {
   const blocks = blocksOf(a);
   const fixture = blocks.some((b) => JSON.stringify(b).includes('"source":"sample"'));
   const bullets = a.reply.split("\n").filter((l) => /^\s*[-*•]\s/u.test(l)).length;
@@ -322,12 +383,20 @@ export function structureChecks(c: ConversationCase, a: ChatAnswer, said: readon
     check("every figure in the prose has a source", unsourced.length === 0, `${unsourced.join(", ")} in: ${a.reply}`),
     check("at most three bullets", bullets <= 3, String(bullets)),
     check("prices are rounded", !/\$\s?\d+\.\d{5,}/u.test(a.reply), a.reply),
-    check("English only", !/[\u00e7\u011f\u0131\u015f\u00f6\u00fc\u00c7\u011e\u0130\u015e\u00d6\u00dc]/u.test(a.reply), a.reply),
+    check(`all in one language (${locale})`, mixedLanguage(a, locale, c.model !== undefined, said).length === 0, mixedLanguage(a, locale, c.model !== undefined, said).slice(0, 4).join(" | ")),
   ];
 }
 
 /** Scores one conversation: each turn's structure, then what the case expects of it. `guest` says the transport had no wallet. */
-export function scoreConversation(c: ConversationCase, answers: readonly ChatAnswer[], guest: boolean): CaseScore {
+export function scoreConversation(c: ConversationCase, answers: readonly ChatAnswer[], guest: boolean, locale: Locale = "en"): CaseScore {
+  // Figures are read the way the interface language writes them.
+  return withLocale(locale, () => scoreIn(c, answers, guest, locale));
+}
+
+/** English wording checks apply to English answers; in another language the outcome, the cards, the figures and the language itself are checked. */
+const englishWording = (re: RegExp) => /[A-Za-z]{2,}/u.test(re.source.replace(/cirBTC|aave-v4|USDC|EURC|Base|Arbitrum|Ethereum|Solana|\\[a-z]/gu, ""));
+
+function scoreIn(c: ConversationCase, answers: readonly ChatAnswer[], guest: boolean, locale: Locale): CaseScore {
   const checks: Check[] = [];
   const said: string[] = [];
   c.turns.forEach((turn, i) => {
@@ -338,24 +407,32 @@ export function scoreConversation(c: ConversationCase, answers: readonly ChatAns
       checks.push(check(`${tag}answered`, false, "no answer"));
       return;
     }
-    for (const s of structureChecks(c, a, said)) checks.push({ ...s, name: `${tag}${s.name}` });
+    for (const s of structureChecks(c, a, said, locale)) checks.push({ ...s, name: `${tag}${s.name}` });
     const e = turn.expect;
     const blocks = blocksOf(a);
     const got = outcomeOf(a);
     const want = (Array.isArray(e.outcome) ? e.outcome : [e.outcome]) as readonly Outcome[];
     checks.push(check(`${tag}outcome ${want.join(" or ")}`, want.includes(got), `${got}: ${a.reply}`));
     for (const kind of e.block ? ((Array.isArray(e.block) ? e.block : [e.block]) as readonly string[]) : []) checks.push(check(`${tag}a ${kind} card`, blocks.some((b) => b.kind === kind), blocks.map((b) => b.kind).join(",") || "no cards"));
-    if (e.text) checks.push(check(`${tag}says ${e.text.source.slice(0, 40)}`, e.text.test(a.reply), a.reply));
-    if (e.notText) checks.push(check(`${tag}never says ${e.notText.source.slice(0, 40)}`, !e.notText.test(a.reply), a.reply));
-    if (e.option) checks.push(check(`${tag}offers ${e.option.source.slice(0, 40)}`, optionsOf(a).some((o) => e.option!.test(o)), optionsOf(a).join(" | ") || "no options"));
-    if (e.step) checks.push(check(`${tag}plans ${e.step.source.slice(0, 40)}`, a.proposals.some((p) => (p.steps ?? []).some((s) => e.step!.test(s))), JSON.stringify(a.proposals.map((p) => p.steps))));
-    for (const f of e.figures ?? []) checks.push(check(`${tag}states ${f} from the code`, `${a.reply} ${JSON.stringify(blocks)}`.includes(f), a.reply));
-    // With no wallet, an answer that shows or plans money is labelled as a sample, in its first line and on a card.
+    const english = locale === "en";
+    if (e.text && (english || !englishWording(e.text))) checks.push(check(`${tag}says ${e.text.source.slice(0, 40)}`, e.text.test(a.reply), a.reply));
+    if (e.notText && (english || !englishWording(e.notText))) checks.push(check(`${tag}never says ${e.notText.source.slice(0, 40)}`, !e.notText.test(a.reply), a.reply));
+    if (e.option && (english || !englishWording(e.option))) checks.push(check(`${tag}offers ${e.option.source.slice(0, 40)}`, optionsOf(a).some((o) => e.option!.test(o)), optionsOf(a).join(" | ") || "no options"));
+    if (e.step && (english || !englishWording(e.step))) checks.push(check(`${tag}plans ${e.step.source.slice(0, 40)}`, a.proposals.some((p) => (p.steps ?? []).some((s) => e.step!.test(s))), JSON.stringify(a.proposals.map((p) => p.steps))));
+    for (const f of e.figures ?? []) {
+      // The figure as the language writes it: its value must be on screen.
+      const shown = `${a.reply} ${JSON.stringify(blocks)}`;
+      const value = [...numbersIn(f, "en")][0];
+      const ok = shown.includes(f) || (!english && value !== undefined && numbersIn(shown, locale).has(value));
+      checks.push(check(`${tag}states ${f} from the code`, ok, a.reply));
+    }
+    // With no wallet, an answer that shows or plans money carries the sample card (the app shows it once, at the top).
     if (guest && (a.proposals.length > 0 || blocks.some((b) => ["gas", "balance", "positions", "stress"].includes(b.kind)))) {
-      checks.push(check(`${tag}first line says it is a sample`, /^\*\*Sample (?:address|flock), not your wallet\.\*\*/u.test(a.reply), a.reply));
-      checks.push(check(`${tag}a sample card with a Connect action`, blocks.some((b) => b.kind === "sample" && /connect/iu.test(b.cta)), blocks.map((b) => b.kind).join(",")));
-      checks.push(check(`${tag}never "your wallet" for the sample`, !/\byour (?:own )?wallet (?:holds|has|is)\b|\bin your wallet\b|\bYou hold\b|\bYour money\b/u.test(a.reply.replace(/^\*\*Sample[^*]+\*\*/u, "")), a.reply));
+      // The app shows the one sample notice; the answer never repeats it as a lead sentence.
+      if (english) checks.push(check(`${tag}no sample lead sentence`, !/^\*\*Sample (?:address|flock), not your wallet\.\*\*/u.test(a.reply), a.reply));
+      checks.push(check(`${tag}a sample card with a Connect action`, blocks.some((b) => b.kind === "sample" && (!english || /connect/iu.test(b.cta))), blocks.map((b) => b.kind).join(",")));
+      if (english) checks.push(check(`${tag}never "your wallet" for the sample`, !/\byour (?:own )?wallet (?:holds|has|is)\b|\bin your wallet\b|\bYou hold\b|\bYour money\b/u.test(a.reply), a.reply));
     }
   });
-  return { id: c.id, category: `talk:${c.category}`, passed: checks.every((x) => x.ok), checks, score: checks.filter((x) => x.ok).length / Math.max(1, checks.length) };
+  return { id: locale === "en" ? c.id : `${c.id}@${locale}`, category: `talk:${c.category}`, passed: checks.every((x) => x.ok), checks, score: checks.filter((x) => x.ok).length / Math.max(1, checks.length) };
 }

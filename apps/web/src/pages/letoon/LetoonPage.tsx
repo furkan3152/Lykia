@@ -23,16 +23,17 @@ import { ApiError, apiGet, apiPut, describeError } from "../../lib/api";
 import { useEnvironment } from "../../lib/environment";
 import { Button, Card, Stat, Tag, cx, toast } from "../../mosaic";
 import { Contracts } from "./Contracts";
+import { intlLocale, t } from "../../i18n";
 
 type Section = "council" | "contracts" | "flags" | "circle" | "audit" | "usage";
 
 const SECTIONS: readonly { readonly id: Section; readonly label: string; readonly sub: string }[] = [
-  { id: "council", label: "League council", sub: "cities" },
-  { id: "contracts", label: "Contracts", sub: "deployments" },
-  { id: "flags", label: "Flags", sub: "and the Whistle" },
+  { id: "council", label: t("letoon.leagueCouncil"), sub: "cities" },
+  { id: "contracts", label: t("letoon.contracts"), sub: "deployments" },
+  { id: "flags", label: t("letoon.flags"), sub: t("letoon.andTheWhistle") },
   { id: "circle", label: "Circle", sub: "setup" },
-  { id: "audit", label: "Audit log", sub: "platform chain" },
-  { id: "usage", label: "Usage", sub: "platform" },
+  { id: "audit", label: t("letoon.auditLog"), sub: t("letoon.platformChain") },
+  { id: "usage", label: t("letoon.usage"), sub: "platform" },
 ];
 
 /** Flags switched here directly. `routing.halt` goes through the audited Whistle instead. */
@@ -65,22 +66,22 @@ export default function LetoonPage() {
     <div>
       <header className="m-wrap lt-head">
         <div className={cx("m-frame lt-door", admin && "lt-door--open")}>
-          <TempleDoor open={admin} label={admin ? "The Letoon's doors open; light spills down the steps." : "The Letoon's doors are closed. Lyko keeps watch on the steps."} />
+          <TempleDoor open={admin} label={admin ? t("letoon.theLetoonSDoorsOpenLight") : t("letoon.theLetoonSDoorsAreClosed")} />
         </div>
         <div className="lt-head__text">
-          <span className="m-kick">{"LETOON · TEAM CONSOLE"}</span>
-          <h1 className="m-title" style={{ marginTop: 10 }}>{admin ? <>The council <em>is in session.</em></> : <>The sanctuary <em>where the League met.</em></>}</h1>
+          <span className="m-kick">{t("letoon.letoonTeamConsole")}</span>
+          <h1 className="m-title" style={{ marginTop: 10 }}>{admin ? <>{t("letoon.theCouncil")} <em>{t("letoon.isInSession")}</em></> : <>{t("letoon.theSanctuary")} <em>{t("letoon.whereTheLeagueMet")}</em></>}</h1>
           <p className="m-sub" style={{ marginInline: 0 }}>
             {admin
-              ? "Approve and pause cities, deploy and record contracts, switch flags, blow the Whistle, set up Circle and read the audit chain. Every action is checked on the server and recorded."
-              : "This is the Lykia team's console. The doors open only for the team's addresses, and the server checks that on every call. Lyko keeps watch for everyone else."}
+              ? t("letoon.approveAndPauseCitiesDeployAnd")
+              : t("letoon.thisIsTheLykiaTeamS")}
           </p>
           <div className="lt-head__acts">
-            {state === "out" ? <Button onClick={() => void siwe.signIn()} disabled={siwe.busy}>{siwe.address ? "SIGN IN ON ARC" : "CONNECT A WALLET TO KNOCK"}</Button> : null}
-            {state === "checking" ? <Tag tone="ghost">{"LYKO IS CHECKING…"}</Tag> : null}
-            {state === "denied" ? <Tag tone="wolf">{"NOT ON THE TEAM · THE DOOR STAYS SHUT"}</Tag> : null}
+            {state === "out" ? <Button onClick={() => void siwe.signIn()} disabled={siwe.busy}>{siwe.address ? t("letoon.signInOnArc") : t("letoon.connectAWalletToKnock")}</Button> : null}
+            {state === "checking" ? <Tag tone="ghost">{t("letoon.lykoIsChecking")}</Tag> : null}
+            {state === "denied" ? <Tag tone="wolf">{t("letoon.notOnTheTeamTheDoor")}</Tag> : null}
             {state === "error" ? <Tag tone="bad">{describeError(council.error)}</Tag> : null}
-            {state === "in" ? <Tag tone="ok">{`ADMIN · ${siwe.session?.address.slice(0, 6)}…${siwe.session?.address.slice(-4)}`}</Tag> : null}
+            {state === "in" ? <Tag tone="ok">{t("letoon.admin", { value: siwe.session?.address.slice(0, 6), value2: siwe.session?.address.slice(-4) })}</Tag> : null}
           </div>
         </div>
       </header>
@@ -122,19 +123,19 @@ function FlagsSection({ data }: { readonly data: CouncilData | undefined }) {
     <div className="m-grid-2" style={{ alignItems: "start" }}>
       <div style={{ display: "grid", gap: 20, minWidth: 0, gridTemplateColumns: "minmax(0, 1fr)" }}>
         <KillSwitch status={status.data} />
-        <Card title="Per-city pause" kicker="A PAUSED CITY ANSWERS READS ONLY">
-          {live.length === 0 ? <p className="m-small m-muted m-center">{"No listed city."}</p> : <Council data={data ? { ...data, cities: live } : undefined} compact />}
+        <Card title={t("letoon.perCityPause")} kicker={t("letoon.aPausedCityAnswersReadsOnly")}>
+          {live.length === 0 ? <p className="m-small m-muted m-center">{t("letoon.noListedCity")}</p> : <Council data={data ? { ...data, cities: live } : undefined} compact />}
         </Card>
       </div>
       <div style={{ display: "grid", gap: 20, minWidth: 0, gridTemplateColumns: "minmax(0, 1fr)" }}>
-        <Card title="Flags" kicker="ADMIN · CHECKED ON THE SERVER">
+        <Card title={t("letoon.flags")} kicker={t("letoon.adminCheckedOnTheServer")}>
           {DIRECT_FLAGS.map((k) => (
             <label key={k} className="m-row lt-flag">
               <span className="num m-small">{k}</span>
               <input type="checkbox" checked={flags.data?.[k] ?? false} disabled={!flags.data} onChange={(e) => void set(k, e.target.checked)} />
             </label>
           ))}
-          <p className="m-small m-muted" style={{ marginTop: 8 }}>{`routing.halt is ${flags.data?.["routing.halt"] ? "ON" : "off"}: it is switched only with the Whistle, which asks for a reason and writes it to the audit chain.`}</p>
+          <p className="m-small m-muted" style={{ marginTop: 8 }}>{t(flags.data?.["routing.halt"] ? "letoon.routingHaltOn" : "letoon.routingHaltOff")}</p>
         </Card>
         <VenueBreakers status={status.data} />
       </div>
@@ -151,20 +152,20 @@ function UsageSection({ data }: { readonly data: CouncilData | undefined }) {
   return (
     <div style={{ display: "grid", gap: 20, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <div className="m-grid-4">
-        <Stat label="DEVELOPERS" value={o?.developers !== undefined ? String(o.developers) : "…"} hint="registered addresses" />
-        <Stat label="PROJECTS" value={o?.projects !== undefined ? String(o.projects) : "…"} hint="cities and white-label apps" />
-        <Stat label="AGENTS" value={o ? String(o.packAgents) : "…"} hint="in every Pack" />
-        <Stat label="DEPLOYMENTS" value={o ? String(o.deployments) : "…"} hint="recorded contracts" />
+        <Stat label={t("letoon.developers")} value={o?.developers !== undefined ? String(o.developers) : "…"} hint={t("letoon.registeredAddresses")} />
+        <Stat label={t("letoon.projects")} value={o?.projects !== undefined ? String(o.projects) : "…"} hint={t("letoon.citiesAndWhiteLabelApps")} />
+        <Stat label={t("letoon.agents")} value={o ? String(o.packAgents) : "…"} hint={t("letoon.inEveryPack")} />
+        <Stat label={t("letoon.deployments")} value={o ? String(o.deployments) : "…"} hint={t("letoon.recordedContracts")} />
       </div>
       <div className="m-grid-2">
-        <Card title="The League this week" kicker={`${cities.length} ENTRIES`}>
+        <Card title={t("letoon.theLeagueThisWeek")} kicker={`${cities.length} ENTRIES`}>
           <div className="lg-live">
-            <Stat label="REQUESTS" value={requests.toLocaleString("en-US")} hint="through city keys" />
-            <Stat label="PLANS" value={plans.toLocaleString("en-US")} hint="built for cities" />
+            <Stat label={t("letoon.requests")} value={requests.toLocaleString(intlLocale())} hint={t("letoon.throughCityKeys")} />
+            <Stat label={t("letoon.plans")} value={plans.toLocaleString(intlLocale())} hint={t("letoon.builtForCities")} />
           </div>
         </Card>
-        <Card title="This deployment" kicker="FROM GET /v1/admin/overview">
-          <p className="m-small">{o ? `Version ${o.version} · ${o.mode} · store ${o.store}` : "…"}</p>
+        <Card title={t("letoon.thisDeployment")} kicker={t("letoon.fromGetV1AdminOverview")}>
+          <p className="m-small">{o ? t("letoon.versionStore", { version: o.version, mode: o.mode, store: o.store }) : "…"}</p>
         </Card>
       </div>
     </div>

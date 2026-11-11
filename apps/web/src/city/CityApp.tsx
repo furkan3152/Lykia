@@ -13,6 +13,7 @@ import { apiGet } from "../lib/api";
 import { Toaster } from "../mosaic/Toaster";
 import { lykiaHome, type CityTarget } from "./detect";
 import { shellFor } from "./model";
+import { t } from "../i18n";
 
 const WalletProviders = React.lazy(() => loadProviders().then((m) => ({ default: m.WalletProviders })));
 const PayShell = React.lazy(() => import("./PayShell").then((m) => ({ default: m.PayShell })));
@@ -39,18 +40,18 @@ export default function CityApp({ target }: { readonly target: CityTarget }) {
   });
   useEffect(() => {
     if (!city.data) return;
-    document.title = `${city.data.project.name} · a Lykia city`;
+    document.title = t("city.cityApp.aLykiaCity", { name: city.data.project.name });
     document.documentElement.dataset.city = city.data.slug;
     document.querySelector('meta[name="description"]')?.setAttribute("content", city.data.league.tagline);
   }, [city.data]);
-  if (city.isLoading) return <Striking label="STRIKING THE CITY…" />;
+  if (city.isLoading) return <Striking label={t("city.cityApp.strikingTheCity")} />;
   if (!city.data) {
     return (
       <div className="ct-boot" role="alert">
         <Coin state="paused" emblem="triskeles" codename={null} name="Lykia" size={120} interactive={false} />
-        <h1 className="m-h2">{"No city lives here"}</h1>
-        <p className="m-small m-muted">{"This address is not a listed city of the League, or the API did not answer."}</p>
-        <a className="m-btn" href={`${home}/league`}>{"SEE THE LEAGUE"}</a>
+        <h1 className="m-h2">{t("city.cityApp.noCityLivesHere")}</h1>
+        <p className="m-small m-muted">{t("city.cityApp.thisAddressIsNotAListed")}</p>
+        <a className="m-btn" href={`${home}/league`}>{t("city.cityApp.seeTheLeague")}</a>
       </div>
     );
   }

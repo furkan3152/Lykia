@@ -18,6 +18,7 @@
  * is retried by submitting the same hashes.
  */
 import { ApiError, describeError } from "../../lib/apiErrors";
+import { t as tr } from "../../i18n";
 
 export type TxFailureKind = "quote" | "revert" | "chain" | "rejected" | "gas" | "funds" | "rpc" | "fence" | "unknown";
 /** What the retry button does. */
@@ -61,11 +62,11 @@ function shapeOf(error: unknown): Shape {
 }
 
 const LABEL: Readonly<Record<TxRetry, string | null>> = {
-  "sign-again": "Try again",
-  resubmit: "Check Arc again",
-  replan: "Plan again",
-  "switch-chain": "Switch network and sign",
-  confirm: "Confirm and sign",
+  "sign-again": tr("route.txErrors.tryAgain"),
+  resubmit: tr("route.txErrors.checkArcAgain"),
+  replan: tr("route.txErrors.planAgain"),
+  "switch-chain": tr("route.txErrors.switchNetworkAndSign"),
+  confirm: tr("route.txErrors.confirmAndSign"),
   none: null,
 };
 
@@ -90,43 +91,43 @@ export function classifyTxError(error: unknown, stage: TxStage, context: { reado
   if (error instanceof ApiError) {
     const msg = error.message;
     if (error.code === "NO_ROUTE" && /price moved|planned minimum|plan again/iu.test(msg))
-      return failure("quote", "The quote moved", "The price moved past this plan's minimum since it was planned, so Lykia refused to build a worse trade. Nothing was sent. Plan again for a fresh quote.", "replan", false, raw);
+      return failure("quote", tr("route.txErrors.theQuoteMoved"), tr("route.txErrors.thePriceMovedPastThisPlan"), "replan", false, raw);
     if (error.code === "STEP_NOT_READY" || error.code === "CONFLICT")
-      return failure("quote", "The plan changed", "This step is not ready to sign any more (it changed or ran meanwhile). Nothing new was sent. Reload the plan, or plan again.", "replan", sent, raw);
+      return failure("quote", tr("route.txErrors.thePlanChanged"), tr("route.txErrors.thisStepIsNotReadyTo"), "replan", sent, raw);
     if (error.code === "BINDING_MISMATCH")
-      return failure("quote", "The transaction does not match the plan", "Arc has a transaction that is not the one Lykia prepared, so the step was not recorded. Plan again for fresh calls.", "replan", sent, raw);
+      return failure("quote", tr("route.txErrors.theTransactionDoesNotMatchThe"), tr("route.txErrors.arcHasATransactionThatIs"), "replan", sent, raw);
     if (error.code === "CONFIRMATION_REQUIRED")
-      return failure("fence", "Your Fence asks you to confirm", "Read the Fence's lines above, tick the confirmation and sign.", "confirm", false, raw);
+      return failure("fence", tr("route.txErrors.yourFenceAsksYouToConfirm"), tr("route.txErrors.readTheFenceSLinesAbove"), "confirm", false, raw);
     if (error.code === "PREFLIGHT_ACK_REQUIRED")
-      return failure("fence", "Lyko found something to check first", `${msg} Read "Before you sign", tick it and sign.`, "confirm", false, raw);
+      return failure("fence", tr("route.txErrors.lykoFoundSomethingToCheckFirst"), tr("route.txErrors.readBeforeYouSignTickIt", { value: msg }), "confirm", false, raw);
     if (error.code === "PREFLIGHT_BLOCKED")
-      return failure("fence", "Lyko stopped this one", `${msg} Pick a fix under "Before you sign", or plan again.`, "replan", false, raw);
+      return failure("fence", tr("route.txErrors.lykoStoppedThisOne"), tr("route.txErrors.pickAFixUnderBeforeYou", { value: msg }), "replan", false, raw);
     if (error.code === "NOT_SIGNABLE")
-      return failure("fence", "Nothing to sign", `${msg} Change the request or your Fence and plan again.`, "replan", false, raw);
+      return failure("fence", tr("route.txErrors.nothingToSign"), tr("route.txErrors.changeTheRequestOrYourFence", { value: msg }), "replan", false, raw);
     if (error.code === "INSUFFICIENT_BALANCE")
-      return failure("funds", "Not enough funds", `${msg} Top up the wallet or ask for less, then plan again.`, "replan", false, raw);
+      return failure("funds", tr("route.txErrors.notEnoughFunds"), tr("route.txErrors.topUpTheWalletOrAsk", { value: msg }), "replan", false, raw);
     if (error.code === "SECURITY_BLOCKED" || error.code === "SECURITY_BLOCK")
-      return failure("revert", "The security check stopped this step", `${msg} Nothing was sent.`, "none", false, raw);
+      return failure("revert", tr("route.txErrors.theSecurityCheckStoppedThisStep"), tr("route.txErrors.nothingWasSent", { value: msg }), "none", false, raw);
     if (error.code === "NOT_FOUND" && /does not know/iu.test(msg))
-      return failure("rpc", "Arc has not seen the transaction yet", "Your wallet sent it, but the node Lykia asked has not seen it yet. Check again in a moment; do not sign again.", "resubmit", true, raw);
+      return failure("rpc", tr("route.txErrors.arcHasNotSeenTheTransaction"), tr("route.txErrors.yourWalletSentItButThe"), "resubmit", true, raw);
     if (error.retryable)
-      return failure("rpc", sent ? "Lykia could not record the step yet" : "The Lykia API did not answer", sent ? "Your wallet sent the transaction; Lykia could not confirm it yet. Check again; do not sign again." : `${msg} Nothing was sent. Try again in a moment.`, sent ? "resubmit" : "sign-again", sent, raw);
-    return failure("unknown", "The step did not go through", msg, sent ? "resubmit" : "sign-again", sent, raw);
+      return failure("rpc", sent ? tr("route.txErrors.lykiaCouldNotRecordTheStep") : tr("route.txErrors.theLykiaApiDidNotAnswer"), sent ? tr("route.txErrors.yourWalletSentTheTransactionLykia") : tr("route.txErrors.nothingWasSentTryAgainIn", { value: msg }), sent ? "resubmit" : "sign-again", sent, raw);
+    return failure("unknown", tr("route.txErrors.theStepDidNotGoThrough"), msg, sent ? "resubmit" : "sign-again", sent, raw);
   }
 
   if (s.code === 4001 || s.code === "ACTION_REJECTED" || /UserRejected/u.test(s.name) || /user (?:rejected|denied|cancel+ed)|rejected the request|request (?:was )?rejected|denied transaction/u.test(text))
-    return failure("rejected", "You cancelled in your wallet", partialOf(error) > 0 ? `The first ${partialOf(error) === 1 ? "transaction (the approval)" : `${partialOf(error)} transactions`} went through, then you stopped. Nothing else moved. Sign again to finish; Lykia rebuilds the rest of the step.` : sent ? "The wallet stopped before every transaction was sent. Lykia checks what reached Arc when you try again." : "Nothing was sent. Sign again when you are ready.", sent ? "resubmit" : "sign-again", sent, raw);
+    return failure("rejected", tr("route.txErrors.youCancelledInYourWallet"), partialOf(error) > 0 ? (partialOf(error) === 1 ? tr("route.txErrors.firstApprovalWentThrough") : tr("route.txErrors.firstTransactionsWentThrough", { n: partialOf(error) })) : sent ? tr("route.txErrors.theWalletStoppedBeforeEveryTransaction") : tr("route.txErrors.nothingWasSentSignAgainWhen"), sent ? "resubmit" : "sign-again", sent, raw);
   if (s.code === 4902 || /ChainMismatch|SwitchChain|ChainNotConfigured/u.test(s.name) || /chain mismatch|does not match the target chain|switch (?:the )?(?:chain|network)|unrecognized chain|chain (?:id )?.*not (?:supported|configured)|wrong network|is on arc (?:mainnet|testnet); switch/u.test(text))
-    return failure("chain", "Your wallet is on another network", `This plan runs on ${network}. Lykia asks your wallet to switch; approve the switch (or switch in the wallet) and sign again.`, "switch-chain", false, raw);
+    return failure("chain", tr("route.txErrors.yourWalletIsOnAnotherNetwork"), tr("route.txErrors.thisPlanRunsOnLykiaAsks", { network }), "switch-chain", false, raw);
   if (/InsufficientFunds/u.test(s.name) || /insufficient funds|exceeds (?:the )?balance|gas required exceeds|not enough (?:native|usdc) for gas/u.test(text))
-    return failure("gas", "Not enough USDC for gas", "Arc pays gas in USDC. Add a little USDC to this wallet (a few cents covers most steps) and sign again.", "sign-again", sent, raw);
+    return failure("gas", tr("route.txErrors.notEnoughUsdcForGas"), tr("route.txErrors.arcPaysGasInUsdcAdd"), "sign-again", sent, raw);
   if (/ContractFunctionRevert|ExecutionReverted|EstimateGasExecution|CallExecution/u.test(s.name) || /execution reverted|reverted|revert|simulation failed|would fail/u.test(text)) {
     const reason = /reason:?\s*([^|]{3,120})/iu.exec(s.text)?.[1]?.trim();
     return sent
-      ? failure("revert", "The transaction reverted on Arc", `Arc ran it and it failed${reason ? ` (${reason})` : ""}. Only the gas was spent; your other funds did not move. Plan again for fresh calls.`, "replan", true, raw)
-      : failure("revert", "The simulation says this would fail", `The call reverts against the current state of Arc${reason ? ` (${reason})` : ""}. Nothing was sent. Try again for a fresh quote, or plan again if it keeps failing.`, "sign-again", false, raw);
+      ? failure("revert", tr("route.txErrors.theTransactionRevertedOnArc"), reason ? tr("route.txErrors.arcRanItReason", { reason }) : tr("route.txErrors.arcRanIt"), "replan", true, raw)
+      : failure("revert", tr("route.txErrors.theSimulationSaysThisWouldFail"), reason ? tr("route.txErrors.callRevertsReason", { reason }) : tr("route.txErrors.callReverts"), "sign-again", false, raw);
   }
   if (/HttpRequest|Timeout|RpcRequest|InternalRpc|LimitExceeded|ResourceUnavailable/u.test(s.name) || s.code === -32603 || s.code === -32005 || /failed to fetch|fetch failed|network error|timed? ?out|rate limit|too many requests|503|502|econnreset|socket hang up/u.test(text))
-    return failure("rpc", sent ? "Arc's RPC did not answer" : "Arc's RPC did not answer", sent ? "Your wallet may have sent the transaction. Check again before signing anything new." : "Nothing was sent. Arc's RPC or your wallet's node did not answer; try again in a moment.", sent ? "resubmit" : "sign-again", sent, raw);
-  return failure("unknown", "The step did not go through", raw, sent ? "resubmit" : "sign-again", sent, raw);
+    return failure("rpc", sent ? tr("route.txErrors.arcSRpcDidNotAnswer") : tr("route.txErrors.arcSRpcDidNotAnswer"), sent ? tr("route.txErrors.yourWalletMayHaveSentThe") : tr("route.txErrors.nothingWasSentArcSRpc"), sent ? "resubmit" : "sign-again", sent, raw);
+  return failure("unknown", tr("route.txErrors.theStepDidNotGoThrough"), raw, sent ? "resubmit" : "sign-again", sent, raw);
 }

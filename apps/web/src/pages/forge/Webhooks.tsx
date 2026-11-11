@@ -7,6 +7,7 @@ import { apiGet, apiPost, describeError } from "../../lib/api";
 import { Button, Card, EmptyState, Field, Input, Select, Skeleton, Tag, toast } from "../../mosaic";
 import { ScrollTable } from "./portalShared";
 import { shortTime } from "./portalFormat";
+import { t } from "../../i18n";
 
 interface CatalogueEntry {
   readonly type: string;
@@ -50,7 +51,7 @@ export function Webhooks({ enabled }: { readonly enabled: boolean }) {
   });
   const test = useMutation({
     mutationFn: (endpointId: string) => apiPost<{ sent: number; deliveries: WebhookDelivery[] }>("/v1/developers/webhooks/test", { endpointId }),
-    onSuccess: (r) => { toast.success(`Test event: ${r.deliveries[0]?.status ?? "sent"}`, { from: "LYKO" }); refresh(); },
+    onSuccess: (r) => { toast.success(t("forge.webhooks.testEvent", { status: r.deliveries[0]?.status ?? t("forge.webhooks.sent") }), { from: "LYKO" }); refresh(); },
     onError: fail,
   });
   const replay = useMutation({ mutationFn: (id: string) => apiPost<WebhookDelivery>(`/v1/developers/webhooks/deliveries/${id}/replay`, {}), onSuccess: (d) => { toast.success(`Replayed: ${d.status}`, { from: "LYKO" }); refresh(); }, onError: fail });
@@ -67,29 +68,29 @@ export function Webhooks({ enabled }: { readonly enabled: boolean }) {
 
   return (
     <div style={{ display: "grid", gap: 16, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      {secret ? <div className="m-note" role="status" style={{ overflowWrap: "anywhere" }}><b>Signing secret, shown once:</b> <code className="num">{secret}</code> <Button size="sm" tone="ghost" onClick={() => setSecret(null)}>HIDE</Button></div> : null}
-      {!enabled ? <EmptyState title="Sign in first">Endpoints belong to your developer wallet. The event catalogue is below.</EmptyState> : (
+      {secret ? <div className="m-note" role="status" style={{ overflowWrap: "anywhere" }}><b>{t("forge.webhooks.signingSecretShownOnce")}</b> <code className="num">{secret}</code> <Button size="sm" tone="ghost" onClick={() => setSecret(null)}>{t("forge.webhooks.hide")}</Button></div> : null}
+      {!enabled ? <EmptyState title={t("forge.webhooks.signInFirst")}>{t("forge.webhooks.endpointsBelongToYourDeveloperWallet")}</EmptyState> : (
         <div className="m-grid-2" style={{ alignItems: "start" }}>
-          <Card title="Endpoints" kicker="HMAC-SHA256 · Lykia-Signature">
-            {endpoints.isLoading ? <Skeleton h={80} /> : (endpoints.data?.endpoints ?? []).length === 0 ? <p className="m-small m-muted">No endpoints yet.</p> : (
+          <Card title={t("forge.webhooks.endpoints")} kicker={t("forge.webhooks.hmacSha256LykiaSignature")}>
+            {endpoints.isLoading ? <Skeleton h={80} /> : (endpoints.data?.endpoints ?? []).length === 0 ? <p className="m-small m-muted">{t("forge.webhooks.noEndpointsYet")}</p> : (
               <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
                 {(endpoints.data?.endpoints ?? []).map((e) => (
                   <li key={e.id} className="m-row" style={{ flexDirection: "column", gap: 6 }}>
                     <span className="num m-small" style={{ overflowWrap: "anywhere" }}>{e.url}</span>
-                    <span className="m-small m-muted">{e.id} · {e.events.length} events {e.disabled ? <Tag tone="ghost">disabled</Tag> : <Tag tone="ok">on</Tag>}</span>
+                    <span className="m-small m-muted">{e.id} · {e.events.length} {t("forge.webhooks.events")} {e.disabled ? <Tag tone="ghost">{t("forge.webhooks.disabled")}</Tag> : <Tag tone="ok">on</Tag>}</span>
                     <div className="flex flex-wrap gap-2">
-                      <Button size="sm" tone="sea" onClick={() => test.mutate(e.id)} disabled={e.disabled}>SEND TEST</Button>
+                      <Button size="sm" tone="sea" onClick={() => test.mutate(e.id)} disabled={e.disabled}>{t("forge.webhooks.sendTest")}</Button>
                       <Button size="sm" tone="ghost" onClick={() => action.mutate({ id: e.id, verb: e.disabled ? "enable" : "disable" })}>{e.disabled ? "ENABLE" : "DISABLE"}</Button>
-                      <Button size="sm" tone="ghost" onClick={() => action.mutate({ id: e.id, verb: "rotate-secret" })}>NEW SECRET</Button>
+                      <Button size="sm" tone="ghost" onClick={() => action.mutate({ id: e.id, verb: "rotate-secret" })}>{t("forge.webhooks.newSecret")}</Button>
                     </div>
                   </li>
                 ))}
               </ul>
             )}
           </Card>
-          <Card title="New endpoint" kicker="HTTPS · RETRIES WITH BACKOFF" footer={<Button disabled={!url || create.isPending} onClick={() => create.mutate()}>ADD ENDPOINT</Button>}>
+          <Card title={t("forge.webhooks.newEndpoint")} kicker={t("forge.webhooks.httpsRetriesWithBackoff")} footer={<Button disabled={!url || create.isPending} onClick={() => create.mutate()}>{t("forge.webhooks.addEndpoint")}</Button>}>
             <Field label="URL"><Input placeholder="https://example.com/lykia" value={url} onChange={(e) => setUrl(e.target.value.trim())} /></Field>
-            <p className="m-small m-muted" style={{ margin: "8px 0 4px" }}>Events (none ticked means every catalogue event):</p>
+            <p className="m-small m-muted" style={{ margin: "8px 0 4px" }}>{t("forge.webhooks.eventsNoneTickedMeansEveryCatalogue")}</p>
             <div style={{ display: "grid", gap: 4, maxHeight: 220, overflowY: "auto" }}>
               {(catalogue.data?.events ?? []).map((e) => (
                 <label key={e.type} className="m-small" style={{ display: "flex", gap: 8 }}>
@@ -102,13 +103,13 @@ export function Webhooks({ enabled }: { readonly enabled: boolean }) {
         </div>
       )}
       {enabled ? (
-        <Card title="Deliveries" kicker="EVERY ATTEMPT IS LOGGED">
+        <Card title={t("forge.webhooks.deliveries")} kicker={t("forge.webhooks.everyAttemptIsLogged")}>
           <div style={{ maxWidth: 220, marginBottom: 10 }}>
-            <Select aria-label="Delivery status" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">all</option><option value="pending">pending</option><option value="delivered">delivered</option><option value="failed">failed</option></Select>
+            <Select aria-label={t("forge.webhooks.deliveryStatus")} value={status} onChange={(e) => setStatus(e.target.value)}><option value="">{t("forge.webhooks.all")}</option><option value="pending">{t("forge.webhooks.pending")}</option><option value="delivered">{t("forge.webhooks.delivered")}</option><option value="failed">{t("forge.webhooks.failed")}</option></Select>
           </div>
-          {(deliveries.data?.deliveries ?? []).length === 0 ? <p className="m-small m-muted">No deliveries yet. Send a test event.</p> : (
-            <ScrollTable label="Webhook deliveries">
-              <thead><tr><th>Created</th><th>Event</th><th>Status</th><th className="r">Tries</th><th>Last</th><th /></tr></thead>
+          {(deliveries.data?.deliveries ?? []).length === 0 ? <p className="m-small m-muted">{t("forge.webhooks.noDeliveriesYetSendATest")}</p> : (
+            <ScrollTable label={t("forge.webhooks.webhookDeliveries")}>
+              <thead><tr><th>{t("forge.webhooks.created")}</th><th>{t("forge.webhooks.event")}</th><th>{t("forge.webhooks.status")}</th><th className="r">{t("forge.webhooks.tries")}</th><th>{t("forge.webhooks.last")}</th><th /></tr></thead>
               <tbody>
                 {(deliveries.data?.deliveries ?? []).map((d) => (
                   <tr key={d.id}>
@@ -117,7 +118,7 @@ export function Webhooks({ enabled }: { readonly enabled: boolean }) {
                     <td><Tag tone={d.status === "delivered" ? "ok" : d.status === "failed" ? "bad" : "ochre"}>{d.status}</Tag></td>
                     <td className="num r">{d.attempts}</td>
                     <td className="num m-small">{d.lastStatusCode ?? "none"}</td>
-                    <td><div className="flex gap-2"><Button size="sm" tone="ghost" onClick={() => void open(d.id)}>VIEW</Button><Button size="sm" tone="sea" onClick={() => replay.mutate(d.id)}>REPLAY</Button></div></td>
+                    <td><div className="flex gap-2"><Button size="sm" tone="ghost" onClick={() => void open(d.id)}>{t("forge.webhooks.view")}</Button><Button size="sm" tone="sea" onClick={() => replay.mutate(d.id)}>{t("forge.webhooks.replay")}</Button></div></td>
                   </tr>
                 ))}
               </tbody>
@@ -125,15 +126,15 @@ export function Webhooks({ enabled }: { readonly enabled: boolean }) {
           )}
           {detail ? (
             <div style={{ marginTop: 12 }}>
-              <div className="flex flex-wrap gap-2" style={{ alignItems: "center" }}><b className="num m-small">{detail.id}</b><Button size="sm" tone="ghost" onClick={() => setDetail(null)}>CLOSE</Button></div>
-              <ul className="m-small" style={{ paddingLeft: 18 }}>{(detail.attemptLog ?? []).map((a) => <li key={a.at}>{shortTime(a.at)}: {a.statusCode ?? "no answer"} in {a.durationMs} ms{a.error ? ` (${a.error})` : ""}</li>)}</ul>
+              <div className="flex flex-wrap gap-2" style={{ alignItems: "center" }}><b className="num m-small">{detail.id}</b><Button size="sm" tone="ghost" onClick={() => setDetail(null)}>{t("forge.webhooks.close")}</Button></div>
+              <ul className="m-small" style={{ paddingLeft: 18 }}>{(detail.attemptLog ?? []).map((a) => <li key={a.at}>{shortTime(a.at)}: {a.statusCode ?? t("forge.webhooks.noAnswer")} in {a.durationMs} ms{a.error ? ` (${a.error})` : ""}</li>)}</ul>
               <pre className="m-code" style={{ maxHeight: 260 }}>{JSON.stringify(detail.payload, null, 2)}</pre>
             </div>
           ) : null}
         </Card>
       ) : null}
       <div className="m-grid-2" style={{ alignItems: "start" }}>
-        <Card title="Event catalogue" kicker="GET /v1/webhooks/events">
+        <Card title={t("forge.webhooks.eventCatalogue")} kicker="GET /v1/webhooks/events">
           {[...groups].map(([group, list]) => (
             <div key={group} style={{ marginBottom: 8 }}>
               <span className="m-kick">{group}</span>
@@ -141,7 +142,7 @@ export function Webhooks({ enabled }: { readonly enabled: boolean }) {
             </div>
           ))}
         </Card>
-        <Card title="Verify a delivery" kicker="@lykia/sdk · lykia (Python)"><pre className="m-code">{VERIFY}</pre><p className="m-small m-muted" style={{ marginTop: 8 }}>Forward events to your laptop with <code>lykia webhooks listen --forward-to http://localhost:3000/hooks</code>.</p></Card>
+        <Card title={t("forge.webhooks.verifyADelivery")} kicker="@lykia/sdk · lykia (Python)"><pre className="m-code">{VERIFY}</pre><p className="m-small m-muted" style={{ marginTop: 8 }}>{t("forge.webhooks.forwardEventsToYourLaptopWith")} <code>{"lykia webhooks listen --forward-to http://localhost:3000/hooks"}</code>.</p></Card>
       </div>
     </div>
   );

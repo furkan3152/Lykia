@@ -29,6 +29,7 @@
 import { fromBaseUnits, toBaseUnitsBig, truncateDecimal } from "./amounts.js";
 import type { ActionAmount, PlanAction } from "./actions.js";
 import { getToken } from "./assets.js";
+import { tx } from "./i18n/index.js";
 import { canonicalDigest, type Sha256Digest } from "./canonical.js";
 import type { AlertDraft, AutomationDraft } from "./drafts.js";
 import type { LeashDraft } from "./leash.js";
@@ -841,6 +842,32 @@ function whenWords(when: When, sched?: { at: string; timezone: string; day?: num
   }
 }
 
+/** The same moment as `whenWords`, in the interface language, for summaries the owner reads. */
+function whenSaid(when: When, sched?: { at: string; timezone: string; day?: number; weekday?: Weekday }): string {
+  const at = sched?.at ?? "09:00";
+  const timezone = sched?.timezone ?? "UTC";
+  switch (when.type) {
+    case "now":
+      return tx("now");
+    case "schedule":
+      return when.every === "month"
+        ? tx("every month on day {day} at {at} {timezone}", { day: sched?.day ?? when.day ?? 1, at, timezone })
+        : when.every === "week"
+          ? tx("every {weekday, select, mon {Monday} tue {Tuesday} wed {Wednesday} thu {Thursday} fri {Friday} sat {Saturday} other {Sunday}} at {at} {timezone}", { weekday: sched?.weekday ?? when.weekday ?? "mon", at, timezone })
+          : tx("every day at {at} {timezone}", { at, timezone });
+    case "price":
+      return tx("when {feed} goes {op, select, above {above} other {below}} {value}", { feed: when.feed, op: when.op, value: when.value });
+    case "balance":
+      return tx("when the {token} balance goes {op, select, above {above} other {below}} {value}", { token: when.token, op: when.op, value: when.value });
+    case "health":
+      return tx("when the health factor falls below {below}", { below: when.below });
+  }
+}
+
+function budgetSummary(agent: string | undefined, caps: string): string {
+  return agent ? tx("Budget for {agent}: {caps}", { agent, caps }) : tx("Budget: {caps}", { caps });
+}
+
 const FEED_TOKEN: Readonly<Record<string, string>> = { "EURC/USD": "EURC", "EUR/USD": "EURC", "BTC/USD": "cirBTC", "ETH/USD": "WETH" };
 
 /** Resolves the program against the state and compiles it: the plan for now, drafts for later and the why. */
@@ -870,22 +897,23 @@ export function compileProgram(program: Program, state: ProgramState, options: R
     switch (e.kind) {
       case "reserve": {
         const kept = keptBy.get(e.token);
-        return `Keep ${kept && resolution.balances ? `${kept.amount} ${e.token}` : amt} liquid${e.purpose ? ` (${e.purpose})` : ""}`;
+        const keep = kept && resolution.balances ? `${kept.amount} ${e.token}` : amt;
+        return e.purpose ? tx("Keep {amount} liquid ({purpose})", { amount: keep, purpose: e.purpose }) : tx("Keep {amount} liquid", { amount: keep });
       }
       case "convert":
-        return `Convert ${amt} to ${e.to}${e.purpose === "hedge" ? " as a hedge" : ""}`;
+        return e.purpose === "hedge" ? tx("Convert {amount} to {to} as a hedge", { amount: amt, to: e.to }) : tx("Convert {amount} to {to}", { amount: amt, to: e.to });
       case "earn":
-        return `Put ${amt} to work`;
+        return tx("Put {amount} to work", { amount: amt });
       case "pay":
-        return `Pay ${amt} to ${e.recipients.length} recipient${e.recipients.length === 1 ? "" : "s"}${e.recipients.length > 1 ? " each" : ""}`;
+        return tx("Pay {amount} to {n, plural, one {# recipient} other {# recipients each}}", { amount: amt, n: e.recipients.length });
       case "bridge":
-        return `Bridge ${amt} to ${e.destination}`;
+        return tx("Bridge {amount} to {destination}", { amount: amt, destination: e.destination });
       case "unify":
-        return `Move ${amt} into the Circle Gateway balance`;
+        return tx("Move {amount} into the Circle Gateway balance", { amount: amt });
       case "withdraw":
-        return `Withdraw ${amt}`;
+        return tx("Withdraw {amount}", { amount: amt });
       case "repay":
-        return `Repay ${amt}`;
+        return tx("Repay {amount}", { amount: amt });
       default:
         return describeElement(e);
     }
@@ -915,7 +943,7 @@ export function compileProgram(program: Program, state: ProgramState, options: R
     if (!anchor) continue;
     reservedTokens.add(k.token);
     actions.push({ verb: "reserve", token: k.token, amount: { exact: k.amount }, reason: "buffer" });
-    parts.push({ elementId: anchor.id, actions: [actions.length - 1], summary: `Keep ${k.amount} ${k.token} liquid`, rationale: `Kept liquid: ${k.parts.map((p) => `${p.amount} ${k.token} ${p.label}`).join(", ")}.` });
+    parts.push({ elementId: anchor.id, actions: [actions.length - 1], summary: tx("Keep {amount} liquid", { amount: `${k.amount} ${k.token}` }), rationale: `Kept liquid: ${k.parts.map((p) => `${p.amount} ${k.token} ${p.label}`).join(", ")}.` });
   }
   const consumed = new Set<string>();
   for (const e of nowEls.filter((x) => x.kind === "withdraw")) {
@@ -975,7 +1003,7 @@ export function compileProgram(program: Program, state: ProgramState, options: R
     const firstRun = when?.type === "schedule" ? firstRunDate({ ...when, ...(sched?.day ? { day: sched.day } : {}), ...(sched?.weekday ? { weekday: sched.weekday } : {}) }, internal.now, sched?.timezone ?? "UTC") : null;
     if (e.kind === "dca") {
       const executions = e.executions ?? 12;
-      scheduled.push({ kind: "order", elementId: e.id, summary: `DCA: ${e.amount} ${e.sell} into ${e.buy} every ${PERIOD_WORD[e.every]}, ${executions} times`, rationale: `${quoteOf(e)} → a LykiaOrders DCA order: funds stay in your wallet behind an allowance and a keeper executes each slice${e.executions ? "" : " (12 executions unless you say otherwise)"}${e.every === "month" ? "; a month is 30 days on LykiaOrders" : ""}.`, order: { kind: "dca", sell: e.sell, buy: e.buy, amount: e.amount, executions, intervalSeconds: PERIOD_SECONDS[e.every] } });
+      scheduled.push({ kind: "order", elementId: e.id, summary: tx("DCA: {amount} {sell} into {buy} {period, select, day {every day} week {every week} other {every month}}, {executions} times", { amount: e.amount, sell: e.sell, buy: e.buy, period: e.every, executions }), rationale: `${quoteOf(e)} → a LykiaOrders DCA order: funds stay in your wallet behind an allowance and a keeper executes each slice${e.executions ? "" : " (12 executions unless you say otherwise)"}${e.every === "month" ? "; a month is 30 days on LykiaOrders" : ""}.`, order: { kind: "dca", sell: e.sell, buy: e.buy, amount: e.amount, executions, intervalSeconds: PERIOD_SECONDS[e.every] } });
       continue;
     }
     if (e.kind === "sweep") {
@@ -983,7 +1011,7 @@ export function compileProgram(program: Program, state: ProgramState, options: R
       const trigger = automationTrigger(e.when, sched);
       if (!trigger) continue;
       const sentence = sentenceOf(actionsLater, risk);
-      scheduled.push({ kind: "automation", elementId: e.id, summary: `Sweep ${e.token} above ${e.keep} ${whenWords(e.when, sched)}`, rationale: `${quoteOf(e)} → an automation that plans "${sentence}" ${whenWords(e.when, sched)}; each run is a proposal the Fence checks and you sign.`, draft: { name: `Sweep ${e.token} above ${e.keep}`.slice(0, 120), trigger, action: { type: "plan", sentence } }, actions: actionsLater, firstRun });
+      scheduled.push({ kind: "automation", elementId: e.id, summary: tx("Sweep {token} above {keep} {when}", { token: e.token, keep: e.keep, when: whenSaid(e.when, sched) }), rationale: `${quoteOf(e)} → an automation that plans "${sentence}" ${whenWords(e.when, sched)}; each run is a proposal the Fence checks and you sign.`, draft: { name: `Sweep ${e.token} above ${e.keep}`.slice(0, 120), trigger, action: { type: "plan", sentence } }, actions: actionsLater, firstRun });
       continue;
     }
     if (e.kind === "alert") {
@@ -991,10 +1019,10 @@ export function compileProgram(program: Program, state: ProgramState, options: R
       let draft: AlertDraft | null = null;
       if (w2.type === "price" && FEED_TOKEN[w2.feed] && (FEED_TOKEN[w2.feed] === "EURC" || FEED_TOKEN[w2.feed] === "cirBTC")) draft = { kind: w2.op === "above" ? "price-above" : "price-below", token: FEED_TOKEN[w2.feed]!, threshold: w2.value };
       else if (w2.type === "health") draft = { kind: "health-below", threshold: w2.below };
-      if (draft) scheduled.push({ kind: "alert", elementId: e.id, summary: `Alert ${whenWords(w2)}`, rationale: `${quoteOf(e)} → an alert in your inbox; alerts never move money.`, draft });
+      if (draft) scheduled.push({ kind: "alert", elementId: e.id, summary: tx("Alert {when}", { when: whenSaid(w2) }), rationale: `${quoteOf(e)} → an alert in your inbox; alerts never move money.`, draft });
       else {
         const trigger = automationTrigger(w2, sched);
-        if (trigger) scheduled.push({ kind: "automation", elementId: e.id, summary: `Notify ${whenWords(w2)}`, rationale: `${quoteOf(e)} → an automation that notifies your webhooks; it moves no money.`, draft: { name: `Notify ${whenWords(w2)}`.slice(0, 120), trigger, action: { type: "notify", channel: "webhook" } }, actions: [], firstRun: null });
+        if (trigger) scheduled.push({ kind: "automation", elementId: e.id, summary: tx("Notify {when}", { when: whenSaid(w2) }), rationale: `${quoteOf(e)} → an automation that notifies your webhooks; it moves no money.`, draft: { name: `Notify ${whenWords(w2)}`.slice(0, 120), trigger, action: { type: "notify", channel: "webhook" } }, actions: [], firstRun: null });
       }
       continue;
     }
@@ -1004,13 +1032,12 @@ export function compileProgram(program: Program, state: ProgramState, options: R
       const days = e.days ?? 7;
       const label = e.agent ? `${e.agent.charAt(0).toUpperCase()}${e.agent.slice(1)}` : template === "pay-invoices" ? "Invoice bot" : template === "trade-small" ? "Trading bot" : "Yield bot";
       const draft: LeashDraft = { name: label.slice(0, 48), template, perDayUsd: e.perDayUsd, days };
-      const titles = { "pay-invoices": "pay invoices", "trade-small": "trade small", earn: "earn" } as const;
       const notes = [e.days === undefined ? "No duration was named, so it runs for 7 days; change it in the sheet." : "", template === "pay-invoices" ? "Name the payees in the sheet: this leash pays known recipients only." : ""].filter(Boolean).join(" ");
-      scheduled.push({ kind: "leash", elementId: e.id, summary: `Leash for ${draft.name}: $${e.perDayUsd} a day for ${days} day${days === 1 ? "" : "s"}, to ${titles[template]}`, rationale: `${quoteOf(e)} → a leash: a Pack agent with its own Fence and budget, an on-chain session on your LykiaAccount you sign once, and a key that works for that leash only.${notes ? ` ${notes}` : ""}`, draft });
+      scheduled.push({ kind: "leash", elementId: e.id, summary: tx("Leash for {name}: ${perDay} a day for {days, plural, one {# day} other {# days}}, to {purpose, select, pay-invoices {pay invoices} trade-small {trade small} other {earn}}", { name: draft.name, perDay: e.perDayUsd, days, purpose: template }), rationale: `${quoteOf(e)} → a leash: a Pack agent with its own Fence and budget, an on-chain session on your LykiaAccount you sign once, and a key that works for that leash only.${notes ? ` ${notes}` : ""}`, draft });
       continue;
     }
     if (e.kind === "budget") {
-      scheduled.push({ kind: "budget", elementId: e.id, summary: `Budget${e.agent ? ` for ${e.agent}` : ""}: ${[e.perDayUsd ? `$${e.perDayUsd}/day` : "", e.perWeekUsd ? `$${e.perWeekUsd}/week` : ""].filter(Boolean).join(", ")}`, rationale: `${quoteOf(e)} → a Fence for that agent with these caps. Lykia never changes a Fence on its own: you sign it on the Pack page.`, suggestion: { agent: e.agent ?? null, perDayUsd: e.perDayUsd ?? null, perWeekUsd: e.perWeekUsd ?? null } });
+      scheduled.push({ kind: "budget", elementId: e.id, summary: budgetSummary(e.agent, [e.perDayUsd ? tx("${value}/day", { value: e.perDayUsd }) : "", e.perWeekUsd ? tx("${value}/week", { value: e.perWeekUsd }) : ""].filter(Boolean).join(", ")), rationale: `${quoteOf(e)} → a Fence for that agent with these caps. Lykia never changes a Fence on its own: you sign it on the Pack page.`, suggestion: { agent: e.agent ?? null, perDayUsd: e.perDayUsd ?? null, perWeekUsd: e.perWeekUsd ?? null } });
       continue;
     }
     if (!when || when.type === "now") continue;
@@ -1021,7 +1048,7 @@ export function compileProgram(program: Program, state: ProgramState, options: R
       const selling = e.from !== "USDC";
       const kind: OrderKind = e.purpose === "take-profit" || (selling && when.op === "above") ? "take-profit" : e.purpose === "stop-loss" || (selling && when.op === "below") ? "stop-loss" : "limit";
       const amount = whole(u, e.from, decimalsOf(e.from));
-      scheduled.push({ kind: "order", elementId: e.id, summary: `${kind}: sell ${amount} ${e.from} for ${e.to} ${whenWords(when)}`, rationale: `${quoteOf(e)} → a LykiaOrders ${kind} order with a Chainlink trigger: nothing moves until ${when.feed} is ${when.op} ${when.value}, and the output must meet the signed minimum.`, order: { kind, sell: e.from, buy: e.to, amount, triggerPrice: when.value, triggerAbove: when.op === "above" } });
+      scheduled.push({ kind: "order", elementId: e.id, summary: tx("{kind, select, take-profit {Take-profit} stop-loss {Stop-loss} other {Limit}}: sell {amount} {from} for {to} {when}", { kind, amount, from: e.from, to: e.to, when: whenSaid(when) }), rationale: `${quoteOf(e)} → a LykiaOrders ${kind} order with a Chainlink trigger: nothing moves until ${when.feed} is ${when.op} ${when.value}, and the output must meet the signed minimum.`, order: { kind, sell: e.from, buy: e.to, amount, triggerPrice: when.value, triggerAbove: when.op === "above" } });
       continue;
     }
     // Everything else becomes plan actions re-planned at each fire.

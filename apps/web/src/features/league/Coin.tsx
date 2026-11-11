@@ -10,6 +10,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { useReducedMotion } from "../../motion/useReducedMotion";
 import { MosaicCanvas, cx } from "../../mosaic";
 import { COIN, coinObverse, coinReverse } from "./art";
+import { t } from "../../i18n";
 
 export interface CoinProps {
   readonly state: LeagueState;
@@ -58,7 +59,7 @@ export function Coin({ state, emblem, codename, name, size = 132, delay = 0, int
       </span>
     </span>
   );
-  const label = `${name} coin${codename ? `, struck at ${codename}` : ""}: ${state}. ${showReverse ? "Showing the city's emblem." : "Showing the League's shared face."}`;
+  const label = `${t(codename ? "league.coin.coinStruckAt" : "league.coin.coin", { name, codename, state: t(`league.coin.state.${state}`) })} ${showReverse ? t("league.coin.showingTheCitySEmblem") : t("league.coin.showingTheLeagueSSharedFace")}`;
   const className = cx("lg-coin", `lg-coin--${state}`, showReverse && "is-turned", reduced && "is-still");
   const style = { width: size, height: size };
   if (!interactive) {
@@ -69,7 +70,7 @@ export function Coin({ state, emblem, codename, name, size = 132, delay = 0, int
     );
   }
   return (
-    <button type="button" className={className} style={style} aria-label={`${label} Turn the coin over.`} aria-pressed={!showReverse} onClick={() => setHeld((h) => !h)} onPointerEnter={(e) => e.pointerType === "mouse" && setHeld(true)} onPointerLeave={(e) => e.pointerType === "mouse" && setHeld(false)}>
+    <button type="button" className={className} style={style} aria-label={t("league.coin.turnTheCoinOver", { label })} aria-pressed={!showReverse} onClick={() => setHeld((h) => !h)} onPointerEnter={(e) => e.pointerType === "mouse" && setHeld(true)} onPointerLeave={(e) => e.pointerType === "mouse" && setHeld(false)}>
       {faces}
     </button>
   );

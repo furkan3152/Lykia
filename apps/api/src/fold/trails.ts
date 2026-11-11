@@ -11,8 +11,9 @@ import { ordersService } from "../orders/service.js";
 import type { JsonValue } from "../store/types.js";
 import { listFeed } from "./proposals.js";
 
+import { tx, phrase } from "@lykia/core";
 const SCAN_LIMIT = 1000;
-const FEED_WORDS = { proposed: "Drafted by Lyko", approved: "Signing started", done: "Done", stopped: "Stopped" } as const;
+const FEED_WORDS = { proposed: phrase("Drafted by Lyko"), approved: phrase("Signing started"), done: phrase("Done"), stopped: phrase("Stopped") } as const;
 
 /** The owner's intents (both networks), newest first. */
 export async function ownerIntents(ctx: AppContext, owner: Address): Promise<IntentGraph[]> {
@@ -40,7 +41,7 @@ function trailsFromIntents(graphs: readonly IntentGraph[]): FoldTrailEntry[] {
     const status = deriveIntentStatus(g);
     const verdict = { decision: g.verdict.decision, digest: g.verdict.digest };
     if (status === "denied") {
-      out.push({ id: g.id, at: g.createdAt, kind: "refused", title: g.source.slice(0, 140), detail: g.verdict.reasons.filter((r) => r.decision === "deny").map((r) => r.message).join(" ") || "The Fence said no.", environment: g.environment, memo: null, verdict, transactions: [], feeUsd: null, link: `/app/outrun/${g.id}` });
+      out.push({ id: g.id, at: g.createdAt, kind: "refused", title: g.source.slice(0, 140), detail: g.verdict.reasons.filter((r) => r.decision === "deny").map((r) => r.message).join(" ") || tx("The Fence said no."), environment: g.environment, memo: null, verdict, transactions: [], feeUsd: null, link: `/app/outrun/${g.id}` });
       continue;
     }
     for (const s of g.steps) {
@@ -50,10 +51,10 @@ function trailsFromIntents(graphs: readonly IntentGraph[]): FoldTrailEntry[] {
     }
     if (status === "failed") {
       const failed = g.steps.find((s) => s.status === "failed");
-      out.push({ id: `${g.id}:failed`, at: g.createdAt, kind: "failed", title: g.source.slice(0, 140), detail: failed?.failure?.message ?? "A step failed.", environment: g.environment, memo: null, verdict, transactions: [...(failed?.references ?? [])], feeUsd: null, link: `/app/outrun/${g.id}` });
+      out.push({ id: `${g.id}:failed`, at: g.createdAt, kind: "failed", title: g.source.slice(0, 140), detail: failed?.failure?.message ?? tx("A step failed."), environment: g.environment, memo: null, verdict, transactions: [...(failed?.references ?? [])], feeUsd: null, link: `/app/outrun/${g.id}` });
     } else if (status === "planned" || status === "running") {
       const settled = g.steps.filter((s) => s.status === "settled").length;
-      out.push({ id: `${g.id}:open`, at: g.createdAt, kind: status, title: g.source.slice(0, 140), detail: `${settled} of ${g.steps.length} steps settled${g.steps.some((s) => s.status === "settling" && s.settlement.kind !== "receipt") ? " · a cross-chain leg is settling" : ""}`, environment: g.environment, memo: null, verdict, transactions: [], feeUsd: null, link: `/app/outrun/${g.id}` });
+      out.push({ id: `${g.id}:open`, at: g.createdAt, kind: status, title: g.source.slice(0, 140), detail: tx("{settled} of {length} steps settled{value}", { settled, length: g.steps.length, value: g.steps.some((s) => s.status === "settling" && s.settlement.kind !== "receipt") ? tx(" · a cross-chain leg is settling") : "" }), environment: g.environment, memo: null, verdict, transactions: [], feeUsd: null, link: `/app/outrun/${g.id}` });
     }
   }
   return out;
@@ -64,7 +65,7 @@ export async function trailsFor(ctx: AppContext, owner: Address): Promise<FoldTr
   const items = trailsFromIntents(graphs);
   for (const environment of ["mainnet", "testnet"] as const) {
     for (const o of await ordersService(ctx).list(environment, owner).catch(() => [])) {
-      items.push({ id: o.hash, at: o.lastExecutedAt ?? o.createdAt, kind: "order", title: o.summary, detail: `${o.status} · ${o.executed} of ${o.order.executions} executed`, environment, memo: null, verdict: null, transactions: [], feeUsd: null, link: "/app/fold/herding" });
+      items.push({ id: o.hash, at: o.lastExecutedAt ?? o.createdAt, kind: "order", title: o.summary, detail: tx("{status} · {executed} of {executions} executed", { status: o.status, executed: o.executed, executions: o.order.executions }), environment, memo: null, verdict: null, transactions: [], feeUsd: null, link: "/app/fold/herding" });
     }
   }
   for (const f of (await alertsService(ctx).inbox(owner).catch(() => [])).slice(0, 50)) {

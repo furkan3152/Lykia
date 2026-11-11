@@ -12,8 +12,9 @@ import { navigate } from "../../app/routes/history";
 import { cx } from "../../mosaic/cx";
 import { useAsk } from "../ask/store";
 import { HELP, type HelpArea } from "./help";
+import { t as msg } from "../../i18n";
 
-export function Hint({ text, label = "What does this mean?", className }: { readonly text: string; readonly label?: string; readonly className?: string }) {
+export function Hint({ text, label = msg("help.whatDoesThisMean"), className }: { readonly text: string; readonly label?: string; readonly className?: string }) {
   const [open, setOpen] = useState(false);
   const id = useId();
   const ref = useRef<HTMLSpanElement | null>(null);
@@ -70,10 +71,10 @@ export function HowItWorks({ area, inAsk = false, className }: { readonly area: 
     <div className={cx("p-how", className)} data-open={open || undefined}>
       <button type="button" className="p-how__btn" aria-expanded={open} aria-controls={id} onClick={() => setOpen((o) => !o)}>
         <span aria-hidden="true">?</span>
-        {"How this works"}
+        {msg("help.howThisWorks")}
       </button>
       {open ? (
-        <div id={id} className="p-how__panel" role="region" aria-label={`How this works: ${entry.title}`}>
+        <div id={id} className="p-how__panel" role="region" aria-label={msg("help.howThisWorks2", { title: entry.title })}>
           <b className="p-how__title">{entry.title}</b>
           <ul>
             {entry.bullets.slice(0, 3).map((b) => (
@@ -89,7 +90,7 @@ export function HowItWorks({ area, inAsk = false, className }: { readonly area: 
               if (!inAsk) navigate("/app");
             }}
           >
-            {`Ask Lyko about this: “${entry.ask}”`}
+            {msg("help.askLykoAboutThis", { ask: entry.ask })}
           </button>
         </div>
       ) : null}
@@ -102,7 +103,7 @@ export function BetaCapNote({ cap, compact = false, className }: { readonly cap:
   const b = betaCapExplain(cap);
   return (
     <div className={cx("p-beta", compact && "p-beta--compact", className)} role="note" data-beta-explained="">
-      <span className="p-beta__tag">{"LYKIA'S BETA LIMIT"}</span>
+      <span className="p-beta__tag">{msg("help.lykiaSBetaLimit")}</span>
       <p className="p-beta__lead">{b.sentence}</p>
       {compact ? (
         <p className="p-beta__more">{`${b.why} ${b.home}`}</p>

@@ -21,6 +21,7 @@ import { planSentence, preflightOf } from "./engine.js";
 import { insightsFor } from "./insights.js";
 import type { PackService } from "./pack.js";
 
+import { tx } from "@lykia/core";
 const MAX_AUTOMATIONS = 20;
 const MAX_RUNS_PER_DAY = 6;
 
@@ -105,7 +106,7 @@ export async function runAutomations(ctx: AppContext, pack: PackService, owner: 
   const out: AutomationRun[] = [];
   for (const a of all) {
     if ((await runs.get(`${a.id}:${day}`)) >= a.maxRunsPerDay) {
-      out.push({ automationId: a.id, fired: false, reason: "Daily run limit reached.", proposal: null });
+      out.push({ automationId: a.id, fired: false, reason: tx("Daily run limit reached."), proposal: null });
       continue;
     }
     let due: boolean;
@@ -116,12 +117,12 @@ export async function runAutomations(ctx: AppContext, pack: PackService, owner: 
       due = !a.lastRunAt || now - Date.parse(a.lastRunAt) >= a.when.everyMinutes * 60_000;
     }
     if (!due) {
-      out.push({ automationId: a.id, fired: false, reason: "Not due.", proposal: null });
+      out.push({ automationId: a.id, fired: false, reason: tx("Not due."), proposal: null });
       continue;
     }
     const agent = a.agentId ? await pack.get(a.agentId).catch(() => null) : null;
     if (a.agentId && (!agent || agent.status !== "active")) {
-      out.push({ automationId: a.id, fired: false, reason: "Its agent is not active.", proposal: null });
+      out.push({ automationId: a.id, fired: false, reason: tx("Its agent is not active."), proposal: null });
       continue;
     }
     fenceOfOwner ??= ownerFence ?? (await ownerFenceOf(ctx, owner));
@@ -142,10 +143,10 @@ export async function runAutomations(ctx: AppContext, pack: PackService, owner: 
       reasons: intent.verdict.reasons.filter((r) => r.decision !== "allow").map((r) => r.message),
       warnings: intent.warnings, ...preflightOf(intent),
       attribution: [{ agent: agent?.name ?? "Lyko", role: agent?.role ?? "orchestrator", part: a.sentence }],
-      rationale: "insight" in a.when ? `Fired on the ${a.when.insight} insight.` : `Runs every ${a.when.everyMinutes} minutes.`,
+      rationale: "insight" in a.when ? tx("Fired on the {insight} insight.", { insight: a.when.insight }) : tx("Runs every {everyMinutes} minutes.", { everyMinutes: a.when.everyMinutes }),
     };
     onFired?.(a, proposal);
-    out.push({ automationId: a.id, fired: true, reason: a.mode === "session" ? "Planned; the agent may execute it through its on-chain session." : "Planned; waiting for the owner's signature.", proposal });
+    out.push({ automationId: a.id, fired: true, reason: a.mode === "session" ? tx("Planned; the agent may execute it through its on-chain session.") : tx("Planned; waiting for the owner's signature."), proposal });
   }
   return out;
 }

@@ -9,23 +9,25 @@
  * and the summary live here so the server, the web sample and the tests
  * agree on them.
  */
+import { coreIntlTag, localized } from "./i18n/index.js";
 import type { Address } from "./contracts.js";
 import type { ArcEnvironment } from "./networks.js";
 
+import { tx, phrase } from "./i18n/index.js";
 export const POSITION_STATES = ["earning", "idle", "borrowing", "at-risk", "out-of-range", "pending", "escrowed", "committed", "watching"] as const;
 export type PositionState = (typeof POSITION_STATES)[number];
 
-export const POSITION_STATE_LABELS: Readonly<Record<PositionState, string>> = {
-  earning: "Earning",
-  idle: "Idle",
-  borrowing: "Borrowing",
-  "at-risk": "At risk",
-  "out-of-range": "Out of range",
-  pending: "Pending",
-  escrowed: "Escrowed",
-  committed: "Committed",
-  watching: "Watching",
-};
+export const POSITION_STATE_LABELS: Readonly<Record<PositionState, string>> = localized({
+  earning: phrase("Earning"),
+  idle: phrase("Idle"),
+  borrowing: phrase("Borrowing"),
+  "at-risk": phrase("At risk"),
+  "out-of-range": phrase("Out of range"),
+  pending: phrase("Pending"),
+  escrowed: phrase("Escrowed"),
+  committed: phrase("Committed"),
+  watching: phrase("Watching"),
+});
 
 export type PositionVenueKind = "wallet" | "lending" | "vault" | "market" | "lp" | "gateway" | "bridge" | "treasury" | "orders" | "payments" | "leash" | "watch" | "plan";
 
@@ -34,25 +36,25 @@ export type PositionVenueKind = "wallet" | "lending" | "vault" | "market" | "lp"
  * name Lyko uses. A new kind adds one line here and a reader; the Fold draws
  * it from its generic detail blocks with no screen of its own.
  */
-export const POSITION_KINDS: Readonly<Record<PositionVenueKind, { readonly label: string; readonly plain: string }>> = {
-  wallet: { label: "Wallet", plain: "money resting in your wallet" },
-  lending: { label: "Lending", plain: "money lent out, or borrowed against collateral" },
-  vault: { label: "Vault", plain: "a fund that lends your deposit for you" },
-  market: { label: "Lending market", plain: "a single lending market with its own collateral" },
-  lp: { label: "Liquidity", plain: "money that earns swap fees inside a price band" },
-  gateway: { label: "Gateway", plain: "one USDC balance usable on several chains" },
-  bridge: { label: "On its way", plain: "money moving to another chain" },
-  treasury: { label: "Treasury fund", plain: "a tokenized fund of short-term US Treasuries" },
-  orders: { label: "Orders", plain: "money set aside for an order waiting for its price" },
-  payments: { label: "Scheduled payments", plain: "money promised to a payment that runs on its own" },
-  leash: { label: "Leash budgets", plain: "budgets you gave to outside bots" },
-  watch: { label: "Watches", plain: "things Lyko on watch keeps an eye on for you" },
-  plan: { label: "Plans in progress", plain: "step-by-step plans with steps still to sign" },
-};
+export const POSITION_KINDS: Readonly<Record<PositionVenueKind, { readonly label: string; readonly plain: string }>> = localized({
+  wallet: { label: phrase("Wallet"), plain: phrase("money resting in your wallet") },
+  lending: { label: phrase("Lending"), plain: phrase("money lent out, or borrowed against collateral") },
+  vault: { label: phrase("Vault"), plain: phrase("a fund that lends your deposit for you") },
+  market: { label: phrase("Lending market"), plain: phrase("a single lending market with its own collateral") },
+  lp: { label: phrase("Liquidity"), plain: phrase("money that earns swap fees inside a price band") },
+  gateway: { label: "Gateway", plain: phrase("one USDC balance usable on several chains") },
+  bridge: { label: phrase("On its way"), plain: phrase("money moving to another chain") },
+  treasury: { label: phrase("Treasury fund"), plain: phrase("a tokenized fund of short-term US Treasuries") },
+  orders: { label: phrase("Orders"), plain: phrase("money set aside for an order waiting for its price") },
+  payments: { label: phrase("Scheduled payments"), plain: phrase("money promised to a payment that runs on its own") },
+  leash: { label: phrase("Leash budgets"), plain: phrase("budgets you gave to outside bots") },
+  watch: { label: phrase("Watches"), plain: phrase("things Lyko on watch keeps an eye on for you") },
+  plan: { label: phrase("Plans in progress"), plain: phrase("step-by-step plans with steps still to sign") },
+});
 
 /** The plain description of a kind, with a fallback for a kind this build does not know yet. */
 export function positionKindInfo(kind: string): { readonly label: string; readonly plain: string } {
-  return (POSITION_KINDS as Readonly<Record<string, { label: string; plain: string }>>)[kind] ?? { label: kind.replace(/-/gu, " ").replace(/\b\w/gu, (c) => c.toUpperCase()), plain: "a position Lykia reads for you" };
+  return (POSITION_KINDS as Readonly<Record<string, { label: string; plain: string }>>)[kind] ?? { label: kind.replace(/-/gu, " ").replace(/\b\w/gu, (c) => c.toUpperCase()), plain: tx("a position Lykia reads for you") };
 }
 
 /* ------------------------------------------------------- generic detail blocks */
@@ -239,47 +241,47 @@ export interface PositionVenueInfo {
 }
 
 /** The venues with a position reader, in reading order. */
-export const POSITION_VENUES: Readonly<Record<ArcEnvironment, readonly PositionVenueInfo[]>> = {
+export const POSITION_VENUES: Readonly<Record<ArcEnvironment, readonly PositionVenueInfo[]>> = localized({
   mainnet: [
-    { id: "wallet", name: "Wallet", kind: "wallet", personal: false },
+    { id: "wallet", name: phrase("Wallet"), kind: "wallet", personal: false },
     { id: "aave-v4", name: "Aave V4", kind: "lending", personal: false },
-    { id: "morpho-vaults", name: "Morpho Vaults", kind: "vault", personal: false },
-    { id: "galaxy-curation", name: "Galaxy (Morpho vaults)", kind: "vault", personal: false },
-    { id: "keyrock", name: "Keyrock (Morpho vaults)", kind: "vault", personal: false },
-    { id: "steakhouse-financial", name: "Steakhouse (Morpho vaults)", kind: "vault", personal: false },
-    { id: "gauntlet", name: "Gauntlet (Morpho vaults)", kind: "vault", personal: false },
-    { id: "bitwise", name: "Bitwise (Morpho vaults)", kind: "vault", personal: false },
-    { id: "morpho-blue", name: "Morpho Blue", kind: "market", personal: false },
+    { id: "morpho-vaults", name: phrase("Morpho Vaults"), kind: "vault", personal: false },
+    { id: "galaxy-curation", name: phrase("Galaxy (Morpho vaults)"), kind: "vault", personal: false },
+    { id: "keyrock", name: phrase("Keyrock (Morpho vaults)"), kind: "vault", personal: false },
+    { id: "steakhouse-financial", name: phrase("Steakhouse (Morpho vaults)"), kind: "vault", personal: false },
+    { id: "gauntlet", name: phrase("Gauntlet (Morpho vaults)"), kind: "vault", personal: false },
+    { id: "bitwise", name: phrase("Bitwise (Morpho vaults)"), kind: "vault", personal: false },
+    { id: "morpho-blue", name: phrase("Morpho Blue"), kind: "market", personal: false },
     { id: "uniswap-v3", name: "Uniswap v3", kind: "lp", personal: false },
     { id: "uniswap-v4", name: "Uniswap v4", kind: "lp", personal: false },
-    { id: "aerodrome-slipstream", name: "Aerodrome Slipstream", kind: "lp", personal: false },
-    { id: "archery", name: "Archery", kind: "lp", personal: false },
-    { id: "unitflow-finance-v3", name: "Unitflow V3", kind: "lp", personal: false },
-    { id: "sushiswap", name: "SushiSwap V3", kind: "lp", personal: false },
+    { id: "aerodrome-slipstream", name: phrase("Aerodrome Slipstream"), kind: "lp", personal: false },
+    { id: "archery", name: phrase("Archery"), kind: "lp", personal: false },
+    { id: "unitflow-finance-v3", name: phrase("Unitflow V3"), kind: "lp", personal: false },
+    { id: "sushiswap", name: phrase("SushiSwap V3"), kind: "lp", personal: false },
     { id: "usyc", name: "USYC", kind: "treasury", personal: false },
     { id: "gateway", name: "Circle Gateway", kind: "gateway", personal: false },
-    { id: "cctp", name: "CCTP transfers", kind: "bridge", personal: true },
-    { id: "relay", name: "Relay transfers", kind: "bridge", personal: true },
-    { id: "across", name: "Across transfers", kind: "bridge", personal: true },
+    { id: "cctp", name: phrase("CCTP transfers"), kind: "bridge", personal: true },
+    { id: "relay", name: phrase("Relay transfers"), kind: "bridge", personal: true },
+    { id: "across", name: phrase("Across transfers"), kind: "bridge", personal: true },
     { id: "lykia-orders", name: "LykiaOrders", kind: "orders", personal: true },
-    { id: "arc-transfer", name: "Scheduled payments", kind: "payments", personal: true },
-    { id: "leashes", name: "Leash budgets", kind: "leash", personal: true },
-    { id: "plans", name: "Plans in progress", kind: "plan", personal: true },
-    { id: "watches", name: "Watches", kind: "watch", personal: true },
+    { id: "arc-transfer", name: phrase("Scheduled payments"), kind: "payments", personal: true },
+    { id: "leashes", name: phrase("Leash budgets"), kind: "leash", personal: true },
+    { id: "plans", name: phrase("Plans in progress"), kind: "plan", personal: true },
+    { id: "watches", name: phrase("Watches"), kind: "watch", personal: true },
   ],
   testnet: [
-    { id: "wallet", name: "Wallet", kind: "wallet", personal: false },
-    { id: "lykia-practice", name: "Lykia practice venues", kind: "vault", personal: false },
+    { id: "wallet", name: phrase("Wallet"), kind: "wallet", personal: false },
+    { id: "lykia-practice", name: phrase("Lykia practice venues"), kind: "vault", personal: false },
     { id: "usyc", name: "USYC", kind: "treasury", personal: false },
     { id: "gateway", name: "Circle Gateway", kind: "gateway", personal: false },
-    { id: "cctp", name: "CCTP transfers", kind: "bridge", personal: true },
+    { id: "cctp", name: phrase("CCTP transfers"), kind: "bridge", personal: true },
     { id: "lykia-orders", name: "LykiaOrders", kind: "orders", personal: true },
-    { id: "arc-transfer", name: "Scheduled payments", kind: "payments", personal: true },
-    { id: "leashes", name: "Leash budgets", kind: "leash", personal: true },
-    { id: "plans", name: "Plans in progress", kind: "plan", personal: true },
-    { id: "watches", name: "Watches", kind: "watch", personal: true },
+    { id: "arc-transfer", name: phrase("Scheduled payments"), kind: "payments", personal: true },
+    { id: "leashes", name: phrase("Leash budgets"), kind: "leash", personal: true },
+    { id: "plans", name: phrase("Plans in progress"), kind: "plan", personal: true },
+    { id: "watches", name: phrase("Watches"), kind: "watch", personal: true },
   ],
-};
+});
 
 export function positionVenue(environment: ArcEnvironment, id: string): PositionVenueInfo | null {
   return POSITION_VENUES[environment].find((v) => v.id === id) ?? null;
@@ -337,7 +339,7 @@ export function classifyPosition(f: StateFacts): PositionState {
 export function fmtUsd(n: number, digits?: number): string {
   const d = digits ?? (Math.abs(n) >= 1000 ? 0 : 2);
   const sign = n < 0 ? "−" : "";
-  return `${sign}$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d })}`;
+  return `${sign}$${Math.abs(n).toLocaleString(coreIntlTag(), { minimumFractionDigits: d, maximumFractionDigits: d })}`;
 }
 
 export function fmtAmount(value: string | number, symbol?: string): string {
@@ -345,7 +347,7 @@ export function fmtAmount(value: string | number, symbol?: string): string {
   if (!Number.isFinite(n)) return `${value}${symbol ? ` ${symbol}` : ""}`;
   const a = Math.abs(n);
   const digits = a >= 1000 ? 0 : a >= 1 ? 2 : a >= 0.01 ? 4 : 6;
-  const s = n.toLocaleString("en-US", { maximumFractionDigits: digits, minimumFractionDigits: 0 });
+  const s = n.toLocaleString(coreIntlTag(), { maximumFractionDigits: digits, minimumFractionDigits: 0 });
   return symbol ? `${s} ${symbol}` : s;
 }
 
@@ -363,7 +365,7 @@ export function fmtPrice(p: string | number): string {
   if (!Number.isFinite(n)) return String(p);
   if (n === 0) return "0";
   const a = Math.abs(n);
-  if (a >= 1000) return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  if (a >= 1000) return n.toLocaleString(coreIntlTag(), { maximumFractionDigits: 0 });
   if (a >= 10) return n.toFixed(2);
   if (a >= 0.0001) return n.toPrecision(4);
   return n.toExponential(2);
@@ -386,52 +388,52 @@ export function blocksDoing(blocks: readonly PositionBlock[], now: number = Date
 export function untilText(iso: string, now: number = Date.now()): string {
   const s = Math.round((Date.parse(iso) - now) / 1000);
   if (!Number.isFinite(s) || s <= 0) return "now";
-  if (s >= 86_400) return `in ${Math.round(s / 86_400)} d`;
-  if (s >= 3600) return `in ${Math.round(s / 3600)} h`;
-  return `in ${Math.max(1, Math.round(s / 60))} min`;
+  if (s >= 86_400) return tx("in {value} d", { value: Math.round(s / 86_400) });
+  if (s >= 3600) return tx("in {value} h", { value: Math.round(s / 3600) });
+  return tx("in {value} min", { value: Math.max(1, Math.round(s / 60)) });
 }
 
 export function positionDoing(p: Pick<Position, "state" | "venueKind" | "amount" | "symbol" | "apy" | "earned" | "health" | "range" | "fees" | "assets" | "facts"> & { readonly blocks?: readonly PositionBlock[]; readonly claimable?: Position["claimable"] }): string {
   const apy = p.apy ? fmtPercent(p.apy.percent, Number(p.apy.percent) >= 10 ? 1 : 2) : null;
-  const earned = p.earned && Number(p.earned.usd) > 0 ? ` · +${fmtUsd(Number(p.earned.usd), 2)} so far` : "";
+  const earned = p.earned && Number(p.earned.usd) > 0 ? tx(" · +{amount} so far", { amount: fmtUsd(Number(p.earned.usd), 2) }) : "";
   const hf = p.health?.factor ? Number(p.health.factor).toFixed(2) : null;
   const fact = (label: string) => p.facts?.find((f) => f.label === label)?.value ?? null;
-  const backing = p.assets.some((a) => a.role === "collateral") && hf ? ` · backing a loan, health ${hf}` : "";
+  const backing = p.assets.some((a) => a.role === "collateral") && hf ? tx(" · backing a loan, health {hf}", { hf }) : "";
   switch (p.state) {
     case "earning":
       if (p.venueKind === "lp") {
         const feesUsd = p.fees?.valueUsd ? Number(p.fees.valueUsd) : 0;
-        const fees = feesUsd > 0 ? ` · ${feesUsd < 0.01 ? "under $0.01" : fmtUsd(feesUsd, 2)} in fees to collect` : "";
-        return `In range, earning swap fees${fees}`;
+        const fees = feesUsd > 0 ? tx(" · {value} in fees to collect", { value: feesUsd < 0.01 ? tx("under $0.01") : fmtUsd(feesUsd, 2) }) : "";
+        return tx("In range, earning swap fees{fees}", { fees });
       }
-      return apy ? `Earning ${apy} APY${earned}${backing}` : `Earning${earned}${backing}`;
+      return apy ? tx("Earning {apy} APY{earned}{backing}", { apy, earned, backing }) : tx("Earning{earned}{backing}", { earned, backing });
     case "idle":
-      if (p.venueKind === "wallet") return `Resting in the wallet, earning nothing`;
-      if (backing) return `Collateral${backing}`;
-      return apy ? `Supplied at ${apy}, earning almost nothing` : "Deposited, no yield right now";
+      if (p.venueKind === "wallet") return tx("Resting in the wallet, earning nothing");
+      if (backing) return tx("Collateral{backing}", { backing });
+      return apy ? tx("Supplied at {apy}, earning almost nothing", { apy }) : tx("Deposited, no yield right now");
     case "borrowing":
-      return `Borrowing ${fmtAmount(p.amount, p.symbol)}${apy ? ` at ${apy}` : ""}${hf ? ` · health ${hf}` : ""}`;
+      return tx("Borrowing {value}{value2}{value3}", { value: fmtAmount(p.amount, p.symbol), value2: apy ? ` at ${apy}` : "", value3: hf ? tx(" · health {hf}", { hf }) : "" });
     case "at-risk":
-      return `At risk: health ${hf ?? "unknown"}, under your ${p.health?.floor ?? "?"} floor · liquidation at 1.00`;
+      return tx("At risk: health {value}, under your {value2} floor · liquidation at 1.00", { value: hf ?? "unknown", value2: p.health?.floor ?? "?" });
     case "out-of-range": {
       const r = p.range;
-      if (!r) return "Out of range: earning no fees";
+      if (!r) return tx("Out of range: earning no fees");
       const side = Number(r.price) > Number(r.upper) ? "above" : "below";
-      return `Out of range: price ${fmtPrice(r.price)} is ${side} your ${fmtPrice(r.lower)}–${fmtPrice(r.upper)} band (${r.quote})`;
+      return tx("Out of range: price {price} is {side} your {lower}–{upper} band ({quote})", { price: fmtPrice(r.price), side, lower: fmtPrice(r.lower), upper: fmtPrice(r.upper), quote: r.quote });
     }
     case "pending":
-      return fact("Stage") ?? "In flight, waiting to settle";
+      return fact(tx("Stage")) ?? tx("In flight, waiting to settle");
     case "escrowed":
-      return fact("Waiting for") ? `Reserved for an order · ${fact("Waiting for")}` : "Reserved for an order";
+      return fact(tx("Waiting for")) ? tx("Reserved for an order · {value}", { value: fact(tx("Waiting for")) }) : tx("Reserved for an order");
     case "committed": {
       const generic = p.blocks ? blocksDoing(p.blocks) : null;
-      if (p.venueKind === "leash") return `Budget for a bot${generic ? ` · ${generic}` : ""}`;
-      if (p.venueKind === "plan") return `Plan in progress${generic ? ` · ${generic}` : ""}`;
-      return fact("Next run") ? `Committed to a scheduled payment · next ${fact("Next run")}` : generic ? `Committed · ${generic}` : "Committed to a scheduled payment";
+      if (p.venueKind === "leash") return tx("Budget for a bot{value}", { value: generic ? ` · ${generic}` : "" });
+      if (p.venueKind === "plan") return tx("Plan in progress{value}", { value: generic ? ` · ${generic}` : "" });
+      return fact(tx("Next run")) ? tx("Committed to a scheduled payment · next {value}", { value: fact(tx("Next run")) }) : generic ? tx("Committed · {generic}", { generic }) : tx("Committed to a scheduled payment");
     }
     case "watching": {
       const generic = p.blocks ? blocksDoing(p.blocks) : null;
-      return generic ? `Watching · ${generic}` : "Lyko on watch keeps an eye on it";
+      return generic ? tx("Watching · {generic}", { generic }) : tx("Lyko on watch keeps an eye on it");
     }
   }
 }

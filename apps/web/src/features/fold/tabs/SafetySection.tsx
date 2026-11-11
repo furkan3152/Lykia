@@ -22,6 +22,7 @@ import { apiGet, apiPost, describeError } from "../../../lib/api";
 import { Button, Input, Tag, cx, toast } from "../../../mosaic";
 import { useLykiaWallet } from "../../wallet/useLykiaWallet";
 import type { FoldOwner } from "../data";
+import { t as msg } from "../../../i18n";
 
 interface Pause {
   readonly subject: string;
@@ -60,14 +61,14 @@ export function SafetySection({ owner, fence }: { readonly owner: FoldOwner; rea
   const scent = fence.scent?.require ?? "no-red-flags";
 
   const revoke = async (a: Insight) => {
-    if (owner.sample) return void toast.info("This is the sample flock", { description: "Connect a wallet to see and revoke your own approvals.", from: "LYKO" });
+    if (owner.sample) return void toast.info(msg("fold.tabs.safetySection.thisIsTheSampleFlock"), { description: msg("fold.tabs.safetySection.connectAWalletToSeeAnd"), from: "LYKO" });
     setBusy(a.id);
     try {
       await wallet.sendForSubmit(a.transactions ?? []);
-      toast.success("Allowance revoked", { description: a.title, from: "LYKO" });
+      toast.success(msg("fold.tabs.safetySection.allowanceRevoked"), { description: a.title, from: "LYKO" });
       await qc.invalidateQueries({ queryKey: ["security-approvals"] });
     } catch (e) {
-      toast.error("Revoke did not go through", { description: describeError(e), from: "LYKO" });
+      toast.error(msg("fold.tabs.safetySection.revokeDidNotGoThrough"), { description: describeError(e), from: "LYKO" });
     } finally {
       setBusy(null);
     }
@@ -80,7 +81,7 @@ export function SafetySection({ owner, fence }: { readonly owner: FoldOwner; rea
       toast.success(done, { from: "LYKO" });
       await qc.invalidateQueries({ queryKey: ["security-pauses"] });
     } catch (e) {
-      toast.error("No change", { description: describeError(e), from: "LYKO" });
+      toast.error(msg("fold.tabs.safetySection.noChange"), { description: describeError(e), from: "LYKO" });
     } finally {
       setBusy(null);
     }
@@ -89,17 +90,17 @@ export function SafetySection({ owner, fence }: { readonly owner: FoldOwner; rea
   return (
     <section className="fd-card m-frame m-frame--thin fd-safe" id="safety" aria-labelledby="safety-h">
       <header className="fd-safe__top">
-        <h3 id="safety-h">{"Safety"}</h3>
-        <span className="m-small m-muted">{"Approvals, token checks and pauses: the guards between a plan and your wallet."}</span>
+        <h3 id="safety-h">{msg("fold.tabs.safetySection.safety")}</h3>
+        <span className="m-small m-muted">{msg("fold.tabs.safetySection.approvalsTokenChecksAndPausesThe")}</span>
       </header>
       <div className="fd-safe__grid">
-        <Panel icon="key" tone="terra" title="Approvals" kick={!owner.address ? "SAMPLE: CONNECT TO SEE YOURS" : approvals.isLoading ? "READING…" : `${open.length} OPEN`}>
+        <Panel icon="key" tone="terra" title={msg("fold.tabs.safetySection.approvals")} kick={!owner.address ? msg("fold.tabs.safetySection.sampleConnectToSeeYours") : approvals.isLoading ? "READING…" : `${open.length} OPEN`}>
           {!owner.address ? (
-            <p className="m-small m-muted">{"Allowances you left open to Arc venues show here, each with Revoke. Lykia itself approves exact amounts that the same transaction spends."}</p>
+            <p className="m-small m-muted">{msg("fold.tabs.safetySection.allowancesYouLeftOpenToArc")}</p>
           ) : approvals.isLoading ? (
             <div className="m-skel" style={{ height: 60 }} />
           ) : open.length === 0 ? (
-            <p className="fd-safe__calm"><PixelIcon name="check" size={14} />{" No allowance left open."}</p>
+            <p className="fd-safe__calm"><PixelIcon name="check" size={14} />{msg("fold.tabs.safetySection.noAllowanceLeftOpen")}</p>
           ) : (
             <ul className="fd-safe__list">
               {open.slice(0, 4).map((a) => (
@@ -112,8 +113,8 @@ export function SafetySection({ owner, fence }: { readonly owner: FoldOwner; rea
             </ul>
           )}
         </Panel>
-        <Panel icon="eye" tone="olive" title="Token checks" kick={scent === "verified" ? "VERIFIED TOKENS ONLY" : scent === "off" ? "CHECKS OFF" : "NO RED FLAGS"}>
-          <p className="m-small">{scent === "verified" ? "Your Fence lets Lyko touch registry-verified tokens only." : "Your Fence refuses any token with a red flag: a look-alike, a blocklist hit or a trap in its code."}</p>
+        <Panel icon="eye" tone="olive" title={msg("fold.tabs.safetySection.tokenChecks")} kick={scent === "verified" ? msg("fold.tabs.safetySection.verifiedTokensOnly") : scent === "off" ? msg("fold.tabs.safetySection.checksOff") : msg("fold.tabs.safetySection.noRedFlags")}>
+          <p className="m-small">{scent === "verified" ? msg("fold.tabs.safetySection.yourFenceLetsLykoTouchRegistry") : msg("fold.tabs.safetySection.yourFenceRefusesAnyTokenWith")}</p>
           <form
             className="fd-safe__check"
             onSubmit={(e) => {
@@ -122,29 +123,29 @@ export function SafetySection({ owner, fence }: { readonly owner: FoldOwner; rea
               if (/^0x[0-9a-fA-F]{40}$/u.test(t) || /^[A-Za-z0-9.]{2,12}$/u.test(t)) navigate(`/app/scent/${encodeURIComponent(t)}`);
             }}
           >
-            <Input value={token} onChange={(e) => setToken(e.target.value)} placeholder="Token address or symbol" aria-label="Token to check" spellCheck={false} />
-            <Button size="sm" tone="ghost" disabled={token.trim().length < 2}>{"CHECK"}</Button>
+            <Input value={token} onChange={(e) => setToken(e.target.value)} placeholder={msg("fold.tabs.safetySection.tokenAddressOrSymbol")} aria-label={msg("fold.tabs.safetySection.tokenToCheck")} spellCheck={false} />
+            <Button size="sm" tone="ghost" disabled={token.trim().length < 2}>{msg("fold.tabs.safetySection.check")}</Button>
           </form>
-          <small className="m-muted">{"What can be proven about it, never a promise that it is safe."}</small>
+          <small className="m-muted">{msg("fold.tabs.safetySection.whatCanBeProvenAboutIt")}</small>
         </Panel>
-        <Panel icon="shield" tone="navy" title="Pauses" kick={!personal ? "SIGN IN TO SEE YOURS" : `${held.length} PAUSED`}>
+        <Panel icon="shield" tone="navy" title={msg("fold.tabs.safetySection.pauses")} kick={!personal ? msg("fold.tabs.safetySection.signInToSeeYours") : `${held.length} PAUSED`}>
           {!personal ? (
-            <p className="m-small m-muted">{"When Lykia's monitors or you pause your wallet or an agent, it shows here with Resume."}</p>
+            <p className="m-small m-muted">{msg("fold.tabs.safetySection.whenLykiaSMonitorsOrYou")}</p>
           ) : held.length === 0 ? (
-            <p className="fd-safe__calm"><PixelIcon name="check" size={14} />{" Nothing is paused."}</p>
+            <p className="fd-safe__calm"><PixelIcon name="check" size={14} />{msg("fold.tabs.safetySection.nothingIsPaused")}</p>
           ) : (
             <ul className="fd-safe__list">
               {held.map((p) => (
                 <li key={p.subject}>
-                  <Tag tone="bad">{"paused"}</Tag>
+                  <Tag tone="bad">{msg("fold.tabs.safetySection.paused")}</Tag>
                   <span className="fd-safe__what"><b>{short(p.subject)}</b><small>{`${p.by} · ${p.reason}`}</small></span>
-                  <Button size="sm" tone="sea" disabled={busy !== null} onClick={() => void act("/v1/security/resume", { subject: p.subject }, "Resumed")}>{"RESUME"}</Button>
+                  <Button size="sm" tone="sea" disabled={busy !== null} onClick={() => void act("/v1/security/resume", { subject: p.subject }, msg("fold.tabs.safetySection.resumed"))}>{msg("fold.tabs.safetySection.resume")}</Button>
                 </li>
               ))}
             </ul>
           )}
           {personal && owner.address && !held.some((p) => p.subject.toLowerCase() === owner.address!.toLowerCase()) ? (
-            <Button size="sm" tone="ghost" className={cx("fd-safe__pause")} disabled={busy !== null} onClick={() => void act("/v1/security/pause", { subject: owner.address!, reason: "Paused by the owner from the Fence" }, "Your wallet is paused in Lykia")}>{"PAUSE MY WALLET IN LYKIA"}</Button>
+            <Button size="sm" tone="ghost" className={cx("fd-safe__pause")} disabled={busy !== null} onClick={() => void act("/v1/security/pause", { subject: owner.address!, reason: msg("fold.tabs.safetySection.pausedByTheOwnerFromThe") }, msg("fold.tabs.safetySection.yourWalletIsPausedInLykia"))}>{msg("fold.tabs.safetySection.pauseMyWalletInLykia")}</Button>
           ) : null}
         </Panel>
       </div>

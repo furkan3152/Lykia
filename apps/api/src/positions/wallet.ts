@@ -16,6 +16,7 @@ import { CHAINLINK_ROUNDS_ABI, ERC20_META_ABI } from "./abis.js";
 import { action, addressLink, asset, finish, sentenceAmount, valued, VenueUnavailable, type Reader } from "./context.js";
 import { navApyPercent } from "./math.js";
 
+import { tx } from "@lykia/core";
 export const readWallet: Reader = async (r, venue) => {
   const tokens = TOKENS.filter((t) => t.symbol !== "USYC").map((t) => ({ token: t, address: tokenAddress(t, r.environment) })).filter((t): t is { token: (typeof TOKENS)[number]; address: Address } => t.address !== null);
   const result = await r.ctx.chains.getBalances(r.environment, r.owner, ["native", ...tokens.map((t) => t.address)]);
@@ -29,21 +30,21 @@ export const readWallet: Reader = async (r, venue) => {
   const positions: Position[] = held.map((h) => {
     const price = prices[h.token.symbol]?.usd ?? null;
     const v = valued(h.units, h.token.decimals, price);
-    const facts: { label: string; value: string }[] = [{ label: "Price source", value: prices[h.token.symbol]?.source ?? "none" }];
+    const facts: { label: string; value: string }[] = [{ label: tx("Price source"), value: prices[h.token.symbol]?.source ?? "none" }];
     if (h.token.symbol === "USDC" && gas !== null) {
-      facts.unshift({ label: "Gas balance (native USDC)", value: `${fromBaseUnits(nativeUsdcToErc20(gas, "floor"), 6)} USDC` });
+      facts.unshift({ label: tx("Gas balance (native USDC)"), value: `${fromBaseUnits(nativeUsdcToErc20(gas, "floor"), 6)} USDC` });
     }
     const amount = Number(v.amount);
     const usd = v.valueUsd === null ? null : Number(v.valueUsd);
     const actions =
       h.token.symbol === "USDC"
         ? usd !== null && usd - r.liquidityFloorUsd >= 1
-          ? [action("put-to-work", "Put to work", `Put ${sentenceAmount(usd - r.liquidityFloorUsd)} USDC to work`)]
+          ? [action("put-to-work", tx("Put to work"), tx("Put {value} USDC to work", { value: sentenceAmount(usd - r.liquidityFloorUsd) }))]
           : []
         : h.token.symbol === "EURC"
-          ? [action("convert", "Convert half to USDC", `Convert ${sentenceAmount(amount / 2)} EURC to USDC`)]
-          : [action("convert", `Convert to USDC`, `Convert ${sentenceAmount(amount)} ${h.token.symbol} to USDC`)];
-    if (h.token.symbol === "USDC" && usd !== null && usd > r.liquidityFloorUsd) facts.push({ label: "Above your liquidity floor", value: `$${(usd - r.liquidityFloorUsd).toFixed(2)}` });
+          ? [action("convert", tx("Convert half to USDC"), tx("Convert {value} EURC to USDC", { value: sentenceAmount(amount / 2) }))]
+          : [action("convert", tx("Convert to USDC"), tx("Convert {amount} {symbol} to USDC", { amount: sentenceAmount(amount), symbol: h.token.symbol }))];
+    if (h.token.symbol === "USDC" && usd !== null && usd > r.liquidityFloorUsd) facts.push({ label: tx("Above your liquidity floor"), value: `$${(usd - r.liquidityFloorUsd).toFixed(2)}` });
     return finish({
       id: `wallet:${h.address.toLowerCase()}`,
       venue: venue.id,
@@ -65,7 +66,7 @@ export const readWallet: Reader = async (r, venue) => {
     });
   });
   // A token that did not answer is named in the coverage line, never shown as zero.
-  return { positions, block, method: "Multicall3: native balance and every registry token's balanceOf in one call.", source: "chain", ...(failed.length > 0 ? { coverage: `Not read this time: ${failed.map((f) => f.token.symbol).join(", ")}.` } : {}) };
+  return { positions, block, method: "Multicall3: native balance and every registry token's balanceOf in one call.", source: "chain", ...(failed.length > 0 ? { coverage: tx("Not read this time: {value}.", { value: failed.map((f) => f.token.symbol).join(", ") }) } : {}) };
 };
 
 export const readUsyc: Reader = async (r, venue) => {
@@ -93,7 +94,7 @@ export const readUsyc: Reader = async (r, venue) => {
         const a = navApyPercent(nav, then[1], seconds);
         if (a !== null && seconds >= 7 * 86_400) {
           apy = a;
-          apyWindow = `${Math.round(seconds / 86_400)} days of NAV`;
+          apyWindow = tx("{value} days of NAV", { value: Math.round(seconds / 86_400) });
           break;
         }
       } catch {
@@ -107,7 +108,7 @@ export const readUsyc: Reader = async (r, venue) => {
     venue: venue.id,
     venueName: venue.name,
     venueKind: "treasury",
-    label: "USYC · tokenized US Treasury fund",
+    label: tx("USYC · tokenized US Treasury fund"),
     assets: [asset("USYC", token, v.amount, v.valueUsd, "held")],
     amount: v.amount,
     symbol: "USYC",
@@ -116,11 +117,11 @@ export const readUsyc: Reader = async (r, venue) => {
     state: classifyPosition({ kind: "vault", apyPercent: apy }),
     ...(apy !== null ? { apy: { percent: apy.toFixed(2), kind: "nav" as const, source: `USYC oracle, ${apyWindow}` } } : {}),
     facts: [
-      { label: "NAV per USYC", value: navString === null ? "unreadable" : `$${Number(navString).toFixed(6)}` },
-      { label: "NAV updated", value: new Date(Number(latest[3]) * 1000).toISOString() },
-      { label: "Price source", value: "Circle USYC oracle (business days)" },
+      { label: tx("NAV per USYC"), value: navString === null ? "unreadable" : `$${Number(navString).toFixed(6)}` },
+      { label: tx("NAV updated"), value: new Date(Number(latest[3]) * 1000).toISOString() },
+      { label: tx("Price source"), value: tx("Circle USYC oracle (business days)") },
     ],
-    actions: [action("withdraw", "Redeem to USDC", `Redeem ${sentenceAmount(amount)} USYC to USDC`)],
+    actions: [action("withdraw", tx("Redeem to USDC"), tx("Redeem {amount} USYC to USDC", { amount: sentenceAmount(amount) }))],
     source: "chain",
     readAt: r.readAt,
     block: block.toString(),

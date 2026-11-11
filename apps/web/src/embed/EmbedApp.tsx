@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { API_BASE } from "../lib/env";
 import { brandFromQuery, parentAllowed } from "./helpers";
+import { t } from "../i18n";
 
 const COMPONENTS: Record<EmbedRoute, () => React.ReactElement> = {
   chat: () => <LykiaChat />,
@@ -66,7 +67,7 @@ export default function EmbedApp() {
   const projectId = params.get("project") ?? "";
   const [session, setSession] = useState<Session | null>(null);
   const [view, setView] = useState<ProjectPublicView | null>(null);
-  const invalid = window.parent === window ? "This page runs inside a <lykia-*> element on your site." : !EMBED_ROUTE_NAMES.includes(route) || !PROJECT_ID.test(projectId) ? "Unknown embed." : null;
+  const invalid = window.parent === window ? t("embed.embedApp.thisPageRunsInsideALykia") : !EMBED_ROUTE_NAMES.includes(route) || !PROJECT_ID.test(projectId) ? t("embed.embedApp.unknownEmbed") : null;
   const [problem, setProblem] = useState<string | null>(null);
   const [owner, setOwner] = useState<string | undefined>(undefined);
   const root = useRef<HTMLDivElement>(null);
@@ -96,13 +97,13 @@ export default function EmbedApp() {
       .public(projectId)
       .then((v) => {
         if (!parentAllowed(session.parent, v)) {
-          setProblem(`${session.parent} is not a verified origin of this project.`);
+          setProblem(t("embed.embedApp.isNotAVerifiedOriginOf", { parent: session.parent }));
           return;
         }
         setView(v);
         session.port.postMessage({ type: "ready", v: EMBED_PROTOCOL_VERSION } satisfies FrameMessage);
       })
-      .catch(() => setProblem("This project could not be loaded."));
+      .catch(() => setProblem(t("embed.embedApp.thisProjectCouldNotBeLoaded")));
     const onHost = (event: MessageEvent<HostMessage>) => {
       if (event.data?.type === "update" && event.data.owner) setOwner(event.data.owner);
     };

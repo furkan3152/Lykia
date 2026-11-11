@@ -11,6 +11,7 @@ import type { Hex } from "viem";
 import { readStorage, removeStorage, writeStorage } from "../../app/state/storage";
 import { chainFor } from "../../app/wallet/chains";
 import { modularPath, type PasskeyConfig } from "./passkeyConfig";
+import { t } from "../../i18n";
 
 const CREDENTIAL_KEY = "lykia.passkey.credential";
 
@@ -62,7 +63,7 @@ export async function openPasskey(config: PasskeyConfig, environment: ArcEnviron
   let credential: StoredCredential;
   if (mode === "restore") {
     const stored = storedCredential();
-    if (!stored) throw new Error("No passkey on this device yet.");
+    if (!stored) throw new Error(t("wallet.passkey.noPasskeyOnThisDeviceYet"));
     credential = stored;
   } else {
     const passkeyTransport = sdk.toPasskeyTransport(config.clientUrl, config.clientKey);
@@ -87,7 +88,7 @@ export async function openPasskey(config: PasskeyConfig, environment: ArcEnviron
     async sendCalls(calls) {
       const hash = await bundler.sendUserOperation({ calls: calls.map((c) => ({ to: c.to, data: c.data, value: c.value })), paymaster: true } as never);
       const receipt = await bundler.waitForUserOperationReceipt({ hash });
-      if (!receipt.success) throw new Error("The user operation reverted on Arc.");
+      if (!receipt.success) throw new Error(t("wallet.passkey.theUserOperationRevertedOnArc"));
       return { userOpHash: hash as `0x${string}`, transactionHash: receipt.receipt.transactionHash as `0x${string}` };
     },
     signMessage: (message) => account.signMessage({ message }) as Promise<Hex>,

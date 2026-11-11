@@ -2,8 +2,8 @@
  * Two cards that keep Ask honest about whose money it is and what it may
  * change:
  *
- *   SampleCard    no wallet is connected: the answer is about a sample
- *                 address, said first, with the Connect action on it.
+ *   SampleBar     no wallet is connected: one slim line at the top of the
+ *                 conversation, with the Connect action on it.
  *   RunningCard   something running that the owner named, with the same one
  *                 control its row has in Herding. Nothing changes until the
  *                 owner presses it; a control that needs a signature opens
@@ -22,8 +22,8 @@ import { toast } from "../../mosaic";
 import { cx } from "../../mosaic/cx";
 import { useWallet } from "../wallet/store";
 import { useLykiaWallet } from "../wallet/useLykiaWallet";
+import { t } from "../../i18n";
 
-type SampleBlock = Extract<AnswerBlock, { kind: "sample" }>;
 type RunningBlock = Extract<AnswerBlock, { kind: "running" }>;
 type RunningItem = RunningBlock["items"][number];
 
@@ -38,30 +38,22 @@ function SampleBand() {
   );
 }
 
-export function SampleCard({ block }: { readonly block: SampleBlock }) {
+/** No wallet: one slim line at the top of the conversation, with Connect. Answers never repeat it. */
+export function SampleBar() {
   const openModal = useWallet((s) => s.openModal);
-  const { connected } = useLykiaWallet();
   return (
-    <aside className="m-sample" role="note" aria-label="Sample address, not your wallet">
+    <aside className="m-sample m-sample--bar" role="note">
       <SampleBand />
-      <div className="m-sample__body">
-        <span className="m-sample__k">{"SAMPLE ADDRESS · NOT YOUR WALLET"}</span>
-        <p className="m-sample__line">{block.line}</p>
-        <code className="m-sample__addr" title={block.address}>{`${block.address.slice(0, 6)}…${block.address.slice(-4)}`}</code>
-      </div>
-      {connected ? (
-        <span className="m-sample__done">{"Wallet connected: ask again for your own"}</span>
-      ) : (
-        <button type="button" className="m-mini m-mini--solid m-sample__cta" onClick={openModal}>
-          <PixelIcon name="key" size={14} />
-          {block.cta}
-        </button>
-      )}
+      <p className="m-sample__line">{t("ask.controlCards.sampleModeNoWalletIsConnected")}</p>
+      <button type="button" className="m-mini m-mini--solid m-sample__cta" onClick={openModal}>
+        <PixelIcon name="key" size={14} />
+        {t("ask.controlCards.connect")}
+      </button>
     </aside>
   );
 }
 
-const DONE: Readonly<Record<string, string>> = { pause: "Paused", resume: "Running again", stop: "Stopped", cancel: "Cancelled" };
+const DONE: Readonly<Record<string, string>> = { pause: t("ask.controlCards.paused"), resume: t("ask.controlCards.runningAgain"), stop: t("ask.controlCards.stopped"), cancel: t("ask.controlCards.cancelled") };
 const ICON: Readonly<Record<string, "repeat" | "order" | "eye" | "leash" | "pilot" | "plan" | "coin">> = { automation: "repeat", standing: "repeat", recurring: "coin", order: "order", watch: "eye", alert: "eye", leash: "leash", "pack-agent": "leash", autopilot: "pilot", "autopilot-task": "pilot", plan: "plan" };
 
 function RunningRow({ item }: { readonly item: RunningItem }) {
@@ -76,7 +68,7 @@ function RunningRow({ item }: { readonly item: RunningItem }) {
     if (!c || state !== "idle") return;
     if (!signedIn) {
       if (!wallet.connected) openModal();
-      else toast.info("Sign in first", { description: "One message, no transaction: it proves the wallet is yours.", from: "LYKO" });
+      else toast.info(t("ask.controlCards.signInFirst"), { description: t("ask.controlCards.oneMessageNoTransactionItProves"), from: "LYKO" });
       return;
     }
     setState("busy");
@@ -88,10 +80,10 @@ function RunningRow({ item }: { readonly item: RunningItem }) {
       // A leash's key dies at the API at once; the session on chain ends with one signature.
       if (c.sign === "revoke-session" && tx) await wallet.send([{ to: tx.to, data: tx.data, value: tx.value, chainId: tx.chainId }]);
       setState("done");
-      toast.success(c.label === "Revoke" ? "Key stopped" : (DONE[c.action] ?? "Done"), { description: item.name, from: "LYKO" });
+      toast.success(c.label === "Revoke" ? t("ask.controlCards.keyStopped") : (DONE[c.action] ?? t("ask.controlCards.done")), { description: item.name, from: "LYKO" });
     } catch (e) {
       setState("idle");
-      toast.error("No change", { description: describeError(e), from: "LYKO" });
+      toast.error(t("ask.controlCards.noChange"), { description: describeError(e), from: "LYKO" });
     }
   };
   const stop = c && (c.action === "stop" || c.action === "cancel");
@@ -104,14 +96,14 @@ function RunningRow({ item }: { readonly item: RunningItem }) {
         {item.nextLine ? <span className="m-run__next">{item.nextLine}</span> : null}
       </span>
       {!c ? (
-        <Link to="/app/fold/herding" className="m-mini">{"Open Herding"}</Link>
+        <Link to="/app/fold/herding" className="m-mini">{t("ask.controlCards.openHerding")}</Link>
       ) : c.sign === "order-cancel" ? (
         // Cancelling an order is a transaction built for that order: Herding holds its review.
-        <Link to="/app/fold/herding?show=orders" className="m-mini m-mini--stop">{"Cancel in Herding"}</Link>
+        <Link to="/app/fold/herding?show=orders" className="m-mini m-mini--stop">{t("ask.controlCards.cancelInHerding")}</Link>
       ) : state === "done" ? (
-        <span className="m-run__done">{c.label === "Revoke" ? "Key stopped" : (DONE[c.action] ?? "Done")}</span>
+        <span className="m-run__done">{c.label === "Revoke" ? t("ask.controlCards.keyStopped") : (DONE[c.action] ?? t("ask.controlCards.done"))}</span>
       ) : (
-        <button type="button" className={cx("m-mini", stop ? "m-mini--stop" : "m-mini--solid")} disabled={state === "busy"} onClick={() => void run()} title={c.sign === "revoke-session" ? "The key stops at once; then your wallet ends its session on chain" : "Nothing changes until you press this"}>
+        <button type="button" className={cx("m-mini", stop ? "m-mini--stop" : "m-mini--solid")} disabled={state === "busy"} onClick={() => void run()} title={c.sign === "revoke-session" ? t("ask.controlCards.theKeyStopsAtOnceThen") : t("ask.controlCards.nothingChangesUntilYouPressThis")}>
           {state === "busy" ? "…" : c.label}
         </button>
       )}
@@ -125,7 +117,7 @@ export function RunningCard({ block }: { readonly block: RunningBlock }) {
       <header className="m-card2__head">
         <span className="m-card2__icon" aria-hidden="true"><PixelIcon name="list" size={20} /></span>
         <span className="m-card2__titles">
-          <span className="m-card2__kick">{"HERDING · YOU CONFIRM"}</span>
+          <span className="m-card2__kick">{t("ask.controlCards.herdingYouConfirm")}</span>
           <span className="m-card2__title">{block.title}</span>
         </span>
       </header>
@@ -137,7 +129,7 @@ export function RunningCard({ block }: { readonly block: RunningBlock }) {
         </ul>
         {block.note ? <p className="m-card2__note">{block.note}</p> : null}
         <div className="m-card2__acts">
-          <Link to="/app/fold/herding" className="m-mini">{"Open Herding"}</Link>
+          <Link to="/app/fold/herding" className="m-mini">{t("ask.controlCards.openHerding")}</Link>
         </div>
       </div>
     </section>

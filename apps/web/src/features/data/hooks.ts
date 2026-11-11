@@ -3,6 +3,7 @@ import type { ArcEnvironment } from "@lykia/core";
 import { useQuery } from "@tanstack/react-query";
 
 import { apiGet } from "../../lib/api";
+import { t } from "../../i18n";
 
 export interface VaultRate { readonly address: string; readonly name: string; readonly asset: string; readonly apy: string | null; readonly tvlUsd: string | null }
 export interface MarketRate { readonly marketId: string; readonly loan: string; readonly collateral: string | null; readonly borrowApy: string | null; readonly supplyApy: string | null; readonly utilization: string | null; readonly supplyUsd: string | null }
@@ -17,7 +18,7 @@ export function useRates(environment: ArcEnvironment) {
 export function topYields(rates: RatesSnapshot | undefined, asset: string, n = 6): { label: string; apy: number | null; source: string; tvl: number | null; risk: "low" | "medium" | "high" }[] {
   if (!rates) return [];
   const rows = [
-    ...rates.vaults.filter((v) => v.asset === asset).map((v) => ({ label: v.name || `Morpho vault ${v.address.slice(0, 6)}…`, apy: v.apy === null ? null : Number(v.apy) * 100, source: "Morpho API", tvl: v.tvlUsd === null ? null : Number(v.tvlUsd) })),
+    ...rates.vaults.filter((v) => v.asset === asset).map((v) => ({ label: v.name || t("data.hooks.morphoVault", { value: v.address.slice(0, 6) }), apy: v.apy === null ? null : Number(v.apy) * 100, source: "Morpho API", tvl: v.tvlUsd === null ? null : Number(v.tvlUsd) })),
     ...rates.reserves.filter((r) => r.symbol === asset && r.canSupply).map((r) => ({ label: `Aave V4 ${r.spokeName}`, apy: r.supplyApy === null ? null : Number(r.supplyApy) * 100, source: "Aave API", tvl: null as number | null })),
   ];
   return rows
@@ -27,6 +28,7 @@ export function topYields(rates: RatesSnapshot | undefined, asset: string, n = 6
 }
 
 /** Shown when the API is unreachable, and labelled "sample" wherever it is used. */
+// i18n-ignore: vault names are product names.
 export const SAMPLE_PENS = [
   { label: "Keyrock Prime USDC", apy: 5.8 },
   { label: "Galaxy USDC", apy: 6.1 },

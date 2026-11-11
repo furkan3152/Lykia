@@ -3,6 +3,7 @@ import { betaCapExplain, DEFAULT_BETA_CAP } from "@lykia/core";
 
 import { BetaCapNote, Hint } from "../help/Help";
 import { useBetaCap } from "./useBetaCap";
+import { t } from "../../i18n";
 
 export function BetaRibbon({ inline = false }: { readonly inline?: boolean }) {
   const beta = useBetaCap();
@@ -12,10 +13,10 @@ export function BetaRibbon({ inline = false }: { readonly inline?: boolean }) {
   const b = betaCapExplain(cap);
   return (
     <div className="beta-ribbon" role="note" data-beta-explained="">
-      <span className="m-kick">{"BETA · LYKIA'S SAFETY LIMIT"}</span>
+      <span className="m-kick">{t("ecosystem.betaRibbon.betaLykiaSSafetyLimit")}</span>
       <span className="m-small">
         {`${b.sentence} ${b.home}`}
-        <Hint text={`${b.why} ${b.scope}`} label="Why is there a limit?" />
+        <Hint text={`${b.why} ${b.scope}`} label={t("ecosystem.betaRibbon.whyIsThereALimit")} />
       </span>
     </div>
   );

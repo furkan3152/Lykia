@@ -23,7 +23,12 @@ outside it. That one sentence covers both Scent and the Fence.
 
 ## Vocabulary
 
-The product language is English. The interface leads with metaphors from the
+The interface speaks English, Turkish, Spanish, Brazilian Portuguese,
+Simplified Chinese and French (the picker in the top bar; each language has one
+glossary in `apps/web/src/i18n/glossary/`). Brand names stay as they are in
+every language: Lykia, Lyko, Ask Lyko, The Fold, The Forge, the Fence, Leash,
+Whistle, Stile, Autopilot, Herding, Flock, Trails, Pack and the League; their
+subtitles are translated. The interface leads with metaphors from the
 shepherd's valley and pairs each with a short plain word, so a newcomer reads
 the product and a returning user reads the story ("Flock · holdings"). Page
 titles, tabs and menus show the pair. The three top-level tiles (Ask Lyko,
@@ -77,9 +82,13 @@ automations and watches), Pastures (yields are an answer in Ask Lyko),
 Fence name (the presets are Careful, Balanced and Bold; the developer
 template key `shepherd` stays in the API as the Balanced default).
 
-The interface is English only, and so is Lyko: it always replies in English,
-whatever language the owner writes in. The model reads any language; the
-deterministic reader reads English and common Turkish phrasings.
+Languages are never mixed. The interface, every sentence code writes (desk
+answers, questions and options, preflight findings, Fence reasons, step
+summaries, insights, errors) and Lyko's own answers all follow the language
+the owner picked, whatever language the owner writes in. The model reads any
+language and is told which one to answer in; the deterministic reader reads
+plain requests in all six languages. Numbers, money and dates are written the
+way the language writes them.
 
 ## The League
 
@@ -108,6 +117,24 @@ by typing them.
   pose and *patara* shows the lighthouse.
 - **Waypoints.** Outrun waypoints are named after the ancient cities of
   Lycia, in order: Telmessos, Pinara, Sidyma, Xanthos and so on.
+
+## Visual grammar
+
+Every element shows its role at a glance. Six kinds, the same everywhere
+(Ask Lyko, the review modal, the Fold's rows and the landing):
+
+| Kind | What it looks like | Where |
+| --- | --- | --- |
+| **Primary action** | One per screen. Terra fill, 52px tall (full width on phones), a hard pixel shadow that presses down on tap, a key or seal pixel icon, and one short line under it when money is involved ("Opens your wallet to sign · nothing moves before"). Class `m-btn m-btn--hero`. | "Review and sign" on a plan, "Sign" in the review modal, "Ask Lyko" on the landing. |
+| **Secondary** | Outline: cream with a navy inset border (`m-btn--ghost`, `m-mini`). Never terra-filled next to a primary. | Back, Stop here, Watch this position, a preflight fix, the Fold's row actions. |
+| **Choice / answer tiles** | Lyko's question waits for the owner: Lyko's face beside a speech tessera with a terra border and a tail, the label "LYKO ASKS", and the options as big tiles (48px, a navy border, an arrow, hover turns navy, press moves down). "Or type your own answer below" points at the composer, whose placeholder becomes "Answer Lyko…". The bubble glows once on arrival (not under reduced motion). | Clarify questions in Ask and in Lyko on watch. |
+| **Links** | Underlined sea-ink text (`m-linkbtn`), no box. | Open the route, Learn more, Why?. |
+| **Informational cards** | Quieter: cream, a thin border, no arrows, no buttons of their own unless they act. At most one small label above the title, and only when the title does not already say it. Sources are a small stamp, not a kicker. | Facts, sources, balances, positions, notes. |
+| **Warnings** | One line with an ochre edge (a block is terra), the plain reason and at most the fixes as secondary tiles. One warning per card. | Preflight on a plan, the review modal, a Fold row at risk. |
+
+The Fence verdict on a plan is a small badge beside the title, not a rotated
+stamp. Text stays only if a newcomer needs it to act or to stay safe; the
+rest moves behind one "How this works" per area.
 
 ## Arc Network brand rules
 

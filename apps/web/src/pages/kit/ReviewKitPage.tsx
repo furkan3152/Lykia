@@ -1,3 +1,4 @@
+// i18n-ignore-file: design kit for reviewing states during development; its fixtures stand in for API answers.
 /**
  * The review kit (development only, /app/kit/review?state=…): the review
  * modal in every state with sample data, so each can be checked and
