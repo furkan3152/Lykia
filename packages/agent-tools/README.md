@@ -33,7 +33,7 @@ planning, Fence checks, quotes and reads still work.
 | `plan_intent` | Plans a sentence; returns steps, fees and the Fence verdict. |
 | `check_fence` | Dry-runs a move (or evaluates Fence facts); never stores a plan. |
 | `scent_token` | What can be proven about a token. |
-| `quote_route` | Every executable venue for a swap, deposit or borrow, and the pick. |
+| `quote_route` | Every executable venue for a swap, earn or borrow, and the pick. |
 | `flock` | Everything an address holds on Arc. |
 | `spawn_agent` | An agent in the Pack, or a sub-agent inside its parent's Fence. |
 | `standing_order` | A sentence with a condition or a schedule. |

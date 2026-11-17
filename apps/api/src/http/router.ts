@@ -1,7 +1,8 @@
 /**
  * The /v1 router. Order matters:
  *
- *   no-store default -> body guards (413 / 415) -> JSON parser (256 KB)
+ *   no-store default -> body guards (413 / 415) -> JSON parser (256 KB;
+ *   on paid x402 routes every body error waits until a payment verifies)
  *   -> default per-IP rate limit -> Lykia-Version -> developer gate (keys,
  *   scopes, quotas, request log) -> Idempotency-Key -> personal-data guard
  *   -> modules (each on its
@@ -23,6 +24,7 @@ import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "./errors.js";
 import { errorHandler, sendError } from "./request.js";
 import { localeMiddleware } from "../i18n/index.js";
+import { deferBodyError, hasDeferredBodyError, isPaidRoutePath } from "../x402/x402.js";
 
 const MAX_BODY_BYTES = 256 * 1024;
 
@@ -44,20 +46,39 @@ function payloadTooLarge(): LykiaHttpError {
   return new LykiaHttpError("PAYLOAD_TOO_LARGE", 413, `Request bodies are limited to ${MAX_BODY_BYTES / 1024} KB.`);
 }
 
-/** 413 from Content-Length before reading the body; 415 for bodies that are not JSON. */
+/**
+ * 413 from Content-Length before reading the body; 415 for bodies that are not JSON. A paid route answers an
+ * unpaid request with its 402 first, so there the error is held back (and the body left unread) until a payment verifies.
+ */
 const bodyGuards: RequestHandler = (req, res, next) => {
+  const refuse = (error: LykiaHttpError) => {
+    if (!isPaidRoutePath(req.path)) return sendError(req, res, error);
+    deferBodyError(req, error);
+    next();
+  };
   const declared = req.get("content-length");
   const length = declared === undefined ? 0 : Number(declared);
-  if (Number.isFinite(length) && length > MAX_BODY_BYTES) {
-    sendError(req, res, payloadTooLarge());
-    return;
-  }
+  if (Number.isFinite(length) && length > MAX_BODY_BYTES) return refuse(payloadTooLarge());
   const hasBody = req.get("transfer-encoding") !== undefined || (Number.isFinite(length) && length > 0);
-  if (hasBody && req.method !== "GET" && req.method !== "HEAD" && req.is(["application/json", "application/*+json"]) === false) {
-    sendError(req, res, new LykiaHttpError("UNSUPPORTED_MEDIA_TYPE", 415, "Send request bodies as application/json."));
-    return;
-  }
+  if (hasBody && req.method !== "GET" && req.method !== "HEAD" && req.is(["application/json", "application/*+json"]) === false) return refuse(new LykiaHttpError("UNSUPPORTED_MEDIA_TYPE", 415, "Send request bodies as application/json."));
   next();
+};
+
+const parseJson = express.json({ limit: MAX_BODY_BYTES, strict: true, type: ["application/json", "application/*+json"] });
+
+/** The JSON parser. On paid routes a body it refuses (malformed, too large, an unsupported charset or encoding) is held back like the guards' errors. */
+const jsonBody: RequestHandler = (req, res, next) => {
+  const paid = isPaidRoutePath(req.path);
+  if (paid && hasDeferredBodyError(req)) return next();
+  parseJson(req, res, (error?: unknown) => {
+    const status = (error as { status?: unknown } | undefined)?.status;
+    if (paid && typeof status === "number" && status >= 400 && status < 500) {
+      deferBodyError(req, error);
+      next();
+      return;
+    }
+    next(error as Error | undefined);
+  });
 };
 
 const noStore: RequestHandler = (_req, res, next) => {
@@ -76,7 +97,7 @@ export function createV1Router(ctx: AppContext, modules: readonly ApiModule[]): 
   const router = express.Router();
   router.use(noStore);
   router.use(bodyGuards);
-  router.use(express.json({ limit: MAX_BODY_BYTES, strict: true, type: ["application/json", "application/*+json"] }));
+  router.use(jsonBody);
   // The interface language of this request: every sentence code writes for the owner follows it.
   router.use(localeMiddleware());
   router.use(ctx.limits.default);

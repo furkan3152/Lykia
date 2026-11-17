@@ -2,6 +2,29 @@
 
 ## Unreleased (additive, under `2026-11-01`)
 
+- Paid x402 routes (`/v1/x402/fence/evaluate`, `/v1/x402/quote`,
+  `/v1/x402/scent/{token}`): an unpaid request answers `402` whatever its
+  body holds (before, an invalid body answered `400` first). With a payment,
+  an invalid request answers `400` and nothing is settled; the answer is
+  sent only after settlement. The 402 body and `PAYMENT-REQUIRED` gain
+  x402 v2 `resource` (`url`, `description`, `mimeType`) and
+  `extensions.bazaar`; `accepts[].resource` is the absolute URL.
+  `Idempotency-Key` is ignored on these routes (the payment nonce is their
+  replay guard), under every path spelling that reaches them. Each call is
+  paid on the Arc network it runs on: `facts.environment` for the Fence
+  check, `environment` in the quote body, `?environment=` for Scent. `HEAD`
+  only gets the offer. A call with a live key is not billed overage on top
+  of the route's own payment, and is not counted against the plan.
+- The OpenAPI document: each paid operation's `200` has its answer schema,
+  `PAYMENT-SIGNATURE` is listed beside `X-PAYMENT`, and `0x` address fields
+  carry their pattern.
+- The OpenAPI document is also served at `/openapi.json` and
+  `/.well-known/openapi.json`, with `x-payment-info` on paid operations,
+  `info.x-guidance` and `externalDocs`. `/.well-known/x402` adds `items[]`
+  and `pagination`.
+- Overage and credit 402s carry the absolute resource URL and x402 v2
+  `resource`.
+
 - Lyko Autopilot ([../autopilot.md](../autopilot.md)), for signed-in owners
   only:
   - Routes: `GET /v1/autopilot`, `POST /v1/autopilot/(enable|stop|pause|resume)`,

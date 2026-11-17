@@ -17,9 +17,11 @@ const CORS_ALLOWED_HEADERS = [
   "Idempotency-Key",
   "Lykia-Key",
   "Lykia-Embed-Parent",
+  "X-PAYMENT",
+  "PAYMENT-SIGNATURE",
 ] as const;
 
-const CORS_EXPOSED_HEADERS = ["X-Request-Id", "Retry-After", "RateLimit", "RateLimit-Policy"] as const;
+const CORS_EXPOSED_HEADERS = ["X-Request-Id", "Retry-After", "RateLimit", "RateLimit-Policy", "PAYMENT-REQUIRED", "PAYMENT-RESPONSE"] as const;
 
 /**
  * `extra` admits origins outside the static list: the verified origins of

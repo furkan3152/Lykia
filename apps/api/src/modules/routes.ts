@@ -15,17 +15,10 @@ import { MESSAGE_TRANSMITTER_V2_ABI } from "../engine/abis.js";
 import { IRIS_API } from "../engine/adapters.js";
 import { quoteVenues, type QuoteRequest } from "../engine/api.js";
 import { services } from "../services.js";
-import { paid } from "../x402/x402.js";
+import { paidOffer } from "../x402/manifest.js";
+import { paidRoute } from "../x402/x402.js";
 import { environmentOf, environmentQuery, environmentSchema } from "./common.js";
-
-const amount = z.string().regex(/^\d{1,18}(?:\.\d{1,18})?$/u);
-const token = z.string().min(2).max(10);
-
-const quoteSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("swap"), environment: environmentSchema.optional(), from: token, to: token, amount }),
-  z.object({ kind: z.literal("earn"), environment: environmentSchema.optional(), token, maxRisk: z.enum(["low", "medium", "high"]).optional() }),
-  z.object({ kind: z.literal("borrow"), environment: environmentSchema.optional(), token, amount, collateral: token.optional(), collateralAmount: amount.optional(), minHealth: z.string().regex(/^\d{1,3}(?:\.\d{1,4})?$/u).optional(), account: evmAddress }),
-]);
+import { quoteSchema } from "./inputs.js";
 
 export const routesModule: ApiModule = {
   name: "routes",
@@ -40,15 +33,15 @@ export const routesModule: ApiModule = {
     router.post(
       "/x402/quote",
       ctx.limits.heavy,
-      (req, _res, next) => {
-        parseBody(req, quoteSchema);
-        next();
-      },
-      paid(ctx, "Route quote: the best executable venue on Arc for a swap, deposit or borrow, with every alternative"),
-      async (req, res) => {
-        const body = parseBody(req, quoteSchema);
-        res.json(await quoteVenues(services(ctx).router, { ...body, environment: environmentOf(ctx, body.environment) } as QuoteRequest));
-      },
+      paidRoute(ctx, {
+        ...paidOffer("route-quote"),
+        environment: (req) => (req.body as { environment?: unknown } | undefined)?.environment,
+        parse: (req) => {
+          const body = parseBody(req, quoteSchema);
+          return { ...body, environment: environmentOf(ctx, body.environment) } as QuoteRequest;
+        },
+        run: (request) => quoteVenues(services(ctx).router, request),
+      }),
     );
 
     router.get("/rates", ctx.limits.heavy, async (req, res) => {

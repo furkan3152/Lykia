@@ -62,6 +62,8 @@ export interface Config {
     readonly adminAddresses: readonly string[];
     /** The domain League cities run under as subdomains (pay.<root>, agents.<root>); null until one is set. */
     readonly rootDomain: string | null;
+    /** Where people reach the operator (LYKIA_CONTACT_EMAIL), published as the OpenAPI info.contact.email; null = not published. */
+    readonly contactEmail?: string | null;
   };
   /** Circle StableFX RFQ credentials for the /v1/circle/stablefx/* taker endpoints (fx steps in a plan route on chain either way). */
   readonly stablefxApiKey: string | null;
@@ -210,6 +212,7 @@ const EnvSchema = z.object({
   ),
   LYKIA_WEB_ORIGIN: optionalString,
   LYKIA_ROOT_DOMAIN: optionalString,
+  LYKIA_CONTACT_EMAIL: optionalString,
   LYKIA_DATABASE_URL: optionalString,
   DATABASE_URL: optionalString,
   POSTGRES_URL: optionalString,
@@ -342,6 +345,7 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
   if (siweDomains.some((d) => !/^[a-z0-9.-]+(?::\d{1,5})?$/u.test(d))) issues.push("LYKIA_SIWE_DOMAINS: comma-separated host[:port] entries");
   const rootDomain = env.LYKIA_ROOT_DOMAIN?.trim().toLowerCase().replace(/^\.+|\.+$/gu, "") || null;
   if (rootDomain && !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/u.test(rootDomain)) issues.push("LYKIA_ROOT_DOMAIN: a bare domain such as lykiaai.com (no scheme, no path)");
+  if (env.LYKIA_CONTACT_EMAIL && !z.string().email().max(254).safeParse(env.LYKIA_CONTACT_EMAIL).success) issues.push("LYKIA_CONTACT_EMAIL: an email address");
   if (issues.length > 0) throw new ConfigError(issues);
 
   const config: Config = {
@@ -359,7 +363,7 @@ export function loadConfig(source: Readonly<Record<string, string | undefined>> 
       maxSteps: env.LYKIA_AGENT_MAX_STEPS,
       maxTokens: env.LYKIA_AGENT_MAX_TOKENS,
     }),
-    platform: Object.freeze({ siweDomains: Object.freeze(siweDomains), adminAddresses: Object.freeze(adminAddresses), rootDomain }),
+    platform: Object.freeze({ siweDomains: Object.freeze(siweDomains), adminAddresses: Object.freeze(adminAddresses), rootDomain, contactEmail: env.LYKIA_CONTACT_EMAIL ?? null }),
     stablefxApiKey: env.STABLEFX_API_KEY ?? env.CIRCLE_API_KEY ?? null,
     circle: Object.freeze({ apiKey: env.CIRCLE_API_KEY ?? null, entitySecret: env.CIRCLE_ENTITY_SECRET ?? null, walletSetId: env.CIRCLE_WALLET_SET_ID ?? null, sellerWalletId: env.CIRCLE_X402_SELLER_WALLET_ID ?? null, serverWallets: env.LYKIA_CIRCLE_SERVER_WALLETS === "true" }),
     telegramBotToken: env.TELEGRAM_BOT_TOKEN ?? null,

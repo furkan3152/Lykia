@@ -8,28 +8,21 @@
 import { LOCALES } from "@lykia/core";
 import { z } from "zod";
 import { createSchema, prepareSchema } from "../../modules/intents.js";
-import { factsSchema } from "../../modules/fence.js";
+import { environmentQuerySchema, fenceCheckSchema, quoteSchema, tokenParamsSchema } from "../../modules/inputs.js";
 import type { DocumentedRoute, HttpMethod } from "./registry.js";
 import { intentResponseSchema, prepareResponseSchema, preflightResponseSchema } from "../../preflight/schema.js";
 
 const env = z.object({ environment: z.enum(["mainnet", "testnet"]).optional().describe("Arc network; defaults to the server's mode. Test keys are always testnet.") });
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/u);
-const amount = z.string().regex(/^\d{1,18}(?:\.\d{1,18})?$/u);
-const token = z.string().min(2).max(10);
 const hash = z.string().regex(/^0x[0-9a-fA-F]{64}$/u);
 const sentence = z.object({ text: z.string().min(1).max(500), environment: z.enum(["mainnet", "testnet"]).optional(), owner: z.string().optional() });
 
-const quoteBody = z.union([
-  z.object({ kind: z.literal("swap"), environment: z.enum(["mainnet", "testnet"]).optional(), from: token, to: token, amount }),
-  z.object({ kind: z.literal("earn"), environment: z.enum(["mainnet", "testnet"]).optional(), token, maxRisk: z.enum(["low", "medium", "high"]).optional() }),
-  z.object({ kind: z.literal("borrow"), environment: z.enum(["mainnet", "testnet"]).optional(), token, amount, collateral: token.optional(), collateralAmount: amount.optional(), minHealth: z.string().optional(), account: address }),
-]);
-
 type Auth = DocumentedRoute["auth"];
-type Extra = Partial<Pick<DocumentedRoute, "query" | "body" | "response" | "description" | "idempotent" | "x402" | "scope">>;
+type Extra = Partial<Pick<DocumentedRoute, "params" | "query" | "body" | "response" | "description" | "idempotent" | "x402" | "scope">>;
 
+/** POSTs honour Idempotency-Key, except sign-in, MCP, the chat stream and the paid x402 routes (http/idempotency.ts). */
 function r(method: HttpMethod, path: string, tag: string, summary: string, auth: Auth = "public", extra: Extra = {}): DocumentedRoute {
-  return { method, path: `/v1${path}`, tag, summary, auth, idempotent: method === "post" && !/\/(?:auth\/|mcp$|agent\/chat$)/u.test(path), ...extra };
+  return { method, path: `/v1${path}`, tag, summary, auth, idempotent: method === "post" && !/\/(?:auth\/|mcp$|agent\/chat$)|^\/x402\//u.test(path), ...extra };
 }
 
 export const EXISTING_ROUTES: readonly DocumentedRoute[] = [
@@ -78,7 +71,7 @@ export const EXISTING_ROUTES: readonly DocumentedRoute[] = [
   r("get", "/fence/templates", "Fence", "Fence templates"),
   r("get", "/fence/default", "Fence", "The default Fence"),
   r("post", "/fence/validate", "Fence", "Validate a Fence document (and diff it against a previous one)", "key", { scope: "quote", body: z.object({ fence: z.unknown(), previous: z.unknown().optional() }) }),
-  r("post", "/fence/evaluate", "Fence", "Evaluate a planned move against a Fence: allow, confirm or deny with reasons", "key", { scope: "quote", body: z.object({ fence: z.unknown().optional(), facts: factsSchema }) }),
+  r("post", "/fence/evaluate", "Fence", "Evaluate a planned move against a Fence: allow, confirm or deny with reasons", "key", { scope: "quote", body: fenceCheckSchema }),
   // Language
   r("post", "/language/parse", "Language", "Read a sentence into typed actions", "key", { scope: "quote", body: sentence }),
   // Intents
@@ -101,7 +94,7 @@ export const EXISTING_ROUTES: readonly DocumentedRoute[] = [
   r("post", "/standing/:id/resume", "Standing", "Resume a standing order", "session", { scope: "automation" }),
   r("delete", "/standing/:id", "Standing", "Cancel a standing order", "session", { scope: "automation" }),
   // Routes
-  r("post", "/quote", "Routes", "Every live venue's option for a swap, earn or borrow, and the engine's pick", "key", { scope: "quote", body: quoteBody }),
+  r("post", "/quote", "Routes", "Every live venue's option for a swap, earn or borrow, and the engine's pick", "key", { scope: "quote", body: quoteSchema }),
   r("get", "/rates", "Routes", "Live yields and borrow rates on Arc"),
   r("post", "/cctp/inbound", "Routes", "USDC burned elsewhere: attestation and the unsigned receiveMessage on Arc", "key", { body: z.object({ environment: z.enum(["mainnet", "testnet"]).optional(), source: z.string(), txHash: hash, from: address.optional() }) }),
   r("post", "/routes/search", "Routes", "Search multi-hop routes across Arc venues, each checked against the Fence", "key", { scope: "quote", body: z.object({}).passthrough() }),
@@ -274,9 +267,9 @@ export const EXISTING_ROUTES: readonly DocumentedRoute[] = [
   r("get", "/mcp", "MCP", "MCP session stream", "key"),
   r("delete", "/mcp", "MCP", "Close an MCP session", "key"),
   // x402
-  r("post", "/x402/fence/evaluate", "x402", "Fence check, paid per call in USDC on Arc", "public", { x402: true, body: z.object({ fence: z.unknown().optional(), facts: factsSchema }) }),
-  r("get", "/x402/scent/:token", "x402", "Deep Scent report, paid per call", "public", { x402: true, query: env }),
-  r("post", "/x402/quote", "x402", "Route quote, paid per call", "public", { x402: true, body: quoteBody }),
+  r("post", "/x402/fence/evaluate", "x402", "Fence check, paid per call in USDC on Arc", "public", { x402: true, body: fenceCheckSchema }),
+  r("get", "/x402/scent/:token", "x402", "Deep Scent report, paid per call in USDC on Arc", "public", { x402: true, params: tokenParamsSchema, query: environmentQuerySchema }),
+  r("post", "/x402/quote", "x402", "Route quote for a swap, earn or borrow, paid per call in USDC on Arc", "public", { x402: true, body: quoteSchema }),
 ];
 
 /** Mounted routes that are deliberately not in the reference (callbacks and operator triggers). */

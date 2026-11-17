@@ -9,16 +9,19 @@
  *   enterprise  custom limits, set by a Lykia admin
  *
  * Test-key (sandbox) requests are never billed; they only count against the
- * key's own per-minute and per-day limits. Counters are atomic store
- * counters, so the hot path needs no compare-and-set. Credits are bought
- * with an x402 payment in USDC on Arc (POST /v1/billing/credits).
+ * key's own per-minute and per-day limits. Paid x402 routes are not billed
+ * either: their own payment is the charge, so their payment header is never
+ * spent here. Counters are atomic store counters, so the hot path needs no
+ * compare-and-set. Credits are bought with an x402 payment in USDC on Arc
+ * (POST /v1/billing/credits).
  */
 import type { Request } from "express";
 import { BILLING_PLANS, type BillingPlan, type BillingPlanId, type BillingUsageView } from "@lykia/core/api/platform";
 import type { Address } from "@lykia/core";
 import type { AppContext } from "../context.js";
 import { LykiaHttpError } from "../http/errors.js";
-import { acceptPayment, requirementsFor, X402_VERSION } from "../x402/x402.js";
+import { originOf } from "../x402/manifest.js";
+import { acceptPayment, isPaidRoutePath, paymentRequired as paymentRequiredBody, requirementsFor } from "../x402/x402.js";
 import { typedCollection } from "./typed.js";
 import { randomHex } from "./crypto.js";
 import { usageByDay } from "./metering.js";
@@ -79,24 +82,36 @@ export interface ChargeOutcome {
   /** Requests used this month (live keys). */
   readonly used: number;
   readonly included: number;
-  readonly paidWith: "included" | "credits" | "x402" | "unbilled";
+  /** `paid-route`: a paid x402 route, bought by its own payment and not counted against the plan. */
+  readonly paidWith: "included" | "credits" | "x402" | "unbilled" | "paid-route";
 }
 
-function paymentRequired(ctx: AppContext, req: Request, units: string, message: string): LykiaHttpError {
+/** The absolute URL of the resource a 402 offer pays for. */
+function resourceOf(req: Request): string {
+  return `${originOf(req)}${req.baseUrl}${req.path}`;
+}
+
+function paymentRequired(ctx: AppContext, req: Request, units: string, message: string, description: string): LykiaHttpError {
   const payTo = ctx.config.x402.payTo as Address;
-  const requirements = requirementsFor(ctx.config.mode, payTo, units, `${req.baseUrl}${req.path}`, "Lykia API usage above the monthly free quota");
-  const body = { x402Version: X402_VERSION, error: message, accepts: [requirements] };
+  const body = paymentRequiredBody(requirementsFor(ctx.config.mode, payTo, units, resourceOf(req), description), message);
   return new LykiaHttpError("PAYMENT_REQUIRED", 402, message, { ...body, topUp: "/v1/billing/credits" }, { headers: { "PAYMENT-REQUIRED": Buffer.from(JSON.stringify(body)).toString("base64") } });
 }
+
+const OVERAGE = "Lykia API usage above the monthly free quota";
+const CREDITS = "Lykia API credits";
 
 /**
  * Counts one live request against the owner's plan. Throws 429 on a free plan
  * past its quota, 402 on pay-as-you-go without credits or an x402 payment.
+ * A paid x402 route is left to its own payment: it is neither counted nor
+ * charged here, and its X-PAYMENT stays the route's.
  */
 export async function chargeRequest(ctx: AppContext, req: Request, owner: string, plan: BillingPlan): Promise<ChargeOutcome> {
   const who = owner.toLowerCase();
   const month = monthKey(ctx.clock.now());
-  const used = await ctx.store.counters("bill_month").increment(`${who}:${month}`, 1, { ttlMs: 70 * 86_400_000 });
+  const monthly = ctx.store.counters("bill_month");
+  if (isPaidRoutePath(req.path)) return { used: await monthly.get(`${who}:${month}`), included: plan.includedRequests, paidWith: "paid-route" };
+  const used = await monthly.increment(`${who}:${month}`, 1, { ttlMs: 70 * 86_400_000 });
   if (used <= plan.includedRequests) return { used, included: plan.includedRequests, paidWith: "included" };
   if (plan.overageUnitsPerRequest === null) {
     throw new LykiaHttpError("QUOTA_EXCEEDED", 429, `The ${plan.name} plan includes ${plan.includedRequests.toLocaleString("en-US")} requests a month. Switch to pay as you go (PUT /v1/billing/plan) to keep going.`, { plan: plan.id, used, included: plan.includedRequests });
@@ -116,10 +131,10 @@ export async function chargeRequest(ctx: AppContext, req: Request, owner: string
     return { used, included: plan.includedRequests, paidWith: "unbilled" };
   }
   const header = req.get("x-payment") ?? req.get("payment-signature");
-  if (!header) throw paymentRequired(ctx, req, String(price), "Monthly free quota used: buy credits or pay this call over x402 (X-PAYMENT).");
-  const requirements = requirementsFor(ctx.config.mode, ctx.config.x402.payTo, String(price), `${req.baseUrl}${req.path}`, "Lykia API usage above the monthly free quota");
+  if (!header) throw paymentRequired(ctx, req, String(price), "Monthly free quota used: buy credits or pay this call over x402 (X-PAYMENT).", OVERAGE);
+  const requirements = requirementsFor(ctx.config.mode, ctx.config.x402.payTo, String(price), resourceOf(req), OVERAGE);
   const accepted = await acceptPayment(ctx, header, requirements, ctx.config.mode);
-  if (!accepted.ok) throw paymentRequired(ctx, req, String(price), accepted.reason);
+  if (!accepted.ok) throw paymentRequired(ctx, req, String(price), accepted.reason, OVERAGE);
   await overage.increment(`${who}:${month}`, price, { ttlMs: 400 * 86_400_000 });
   await record(ctx, who, { at: new Date(ctx.clock.now()).toISOString(), kind: "overage-x402", units: price, payer: accepted.payer, transaction: accepted.settlement.transaction ?? null });
   return { used, included: plan.includedRequests, paidWith: "x402" };
@@ -130,10 +145,10 @@ export async function buyCredits(ctx: AppContext, req: Request, owner: string, u
   if (!Number.isSafeInteger(units) || units < MIN_CREDIT_PURCHASE_UNITS || units > MAX_CREDIT_PURCHASE_UNITS) throw new LykiaHttpError("INVALID_REQUEST", 400, "Buy between 1 and 10,000 USDC of credits.");
   if (!ctx.config.x402.payTo) throw new LykiaHttpError("BILLING_UNAVAILABLE", 503, "Credits need LYKIA_X402_PAY_TO on this server.");
   const header = req.get("x-payment") ?? req.get("payment-signature");
-  if (!header) throw paymentRequired(ctx, req, String(units), `Pay ${units / 1_000_000} USDC on Arc to add credits.`);
-  const requirements = requirementsFor(ctx.config.mode, ctx.config.x402.payTo, String(units), `${req.baseUrl}${req.path}`, "Lykia API credits");
+  if (!header) throw paymentRequired(ctx, req, String(units), `Pay ${units / 1_000_000} USDC on Arc to add credits.`, CREDITS);
+  const requirements = requirementsFor(ctx.config.mode, ctx.config.x402.payTo, String(units), resourceOf(req), CREDITS);
   const accepted = await acceptPayment(ctx, header, requirements, ctx.config.mode);
-  if (!accepted.ok) throw paymentRequired(ctx, req, String(units), accepted.reason);
+  if (!accepted.ok) throw paymentRequired(ctx, req, String(units), accepted.reason, CREDITS);
   const who = owner.toLowerCase();
   await ctx.store.counters("billing_credits").increment(`bought:${who}`, units);
   await record(ctx, who, { at: new Date(ctx.clock.now()).toISOString(), kind: "credit", units, payer: accepted.payer, transaction: accepted.settlement.transaction ?? null });

@@ -27,8 +27,14 @@ import { sendError } from "./request.js";
 import { LykiaHttpError } from "./errors.js";
 
 const IDEMPOTENCY_TTL_MS = 24 * 60 * 60_000;
-/** POST routes that stream, sign in or receive third-party callbacks: an Idempotency-Key is ignored there. */
-const NON_IDEMPOTENT: readonly RegExp[] = [/^\/auth\//u, /^\/mcp$/u, /^\/agent\/chat$/u, /\/stream$/u, /^\/telegram\/webhook$/u];
+/**
+ * POST routes that stream, sign in or receive third-party callbacks: an Idempotency-Key is ignored there.
+ * Paid x402 routes too: each answer is bought by one payment, whose nonce is their replay guard, and a
+ * replayed answer would hand out paid content (or a stale 402) without a settled payment.
+ * Matched the way Express routes (case-insensitive, a trailing slash allowed): /v1/X402/quote reaches the
+ * same handler as /v1/x402/quote.
+ */
+const NON_IDEMPOTENT: readonly RegExp[] = [/^\/auth\//iu, /^\/mcp\/?$/iu, /^\/agent\/chat\/?$/iu, /\/stream\/?$/iu, /^\/telegram\/webhook\/?$/iu, /^\/x402\//iu];
 const KEY = /^[A-Za-z0-9_.:-]{8,128}$/u;
 
 type Stored = {

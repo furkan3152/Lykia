@@ -3,33 +3,12 @@ import { DEFAULT_FENCE, evaluateFence, FENCE_TEMPLATES, fenceHash, loosenedRules
 import { z } from "zod";
 import type { ApiModule } from "../http/router.js";
 import { parseBody } from "../http/validate.js";
-import { paid } from "../x402/x402.js";
+import { paidOffer } from "../x402/manifest.js";
+import { paidRoute } from "../x402/x402.js";
 import { fenceFrom } from "./common.js";
+import { factsSchema, fenceCheckSchema } from "./inputs.js";
 
-const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/u);
-const usd = z.string().regex(/^\d{1,15}(?:\.\d{1,8})?$/u);
-const tokenFact = z.object({ symbol: z.string().max(32), address, listed: z.boolean(), acquired: z.boolean(), scent: z.enum(["verified", "no-red-flags", "caution", "danger", "unknown"]).optional() });
-const stepFact = z.object({
-  id: z.string().max(32),
-  kind: z.string().max(32),
-  venue: z.string().max(48),
-  usd: usd.nullable(),
-  tokens: z.array(tokenFact).max(8),
-  recipient: address.optional(),
-  destination: z.string().max(32).optional(),
-  slippageBps: z.number().int().min(0).max(10_000).optional(),
-  healthFactorAfter: z.string().max(16).nullable().optional(),
-  fxDeviationBps: z.number().int().min(-10_000).max(10_000).nullable().optional(),
-});
-export const factsSchema = z.object({
-  environment: z.enum(["mainnet", "testnet"]),
-  signer: z.enum(["wallet", "agent"]),
-  owner: address,
-  proposedByAgent: z.boolean().optional(),
-  steps: z.array(stepFact).max(12),
-  spent: z.object({ dayUsd: usd.nullable(), weekUsd: usd.nullable() }).optional(),
-  now: z.number().int().positive().optional(),
-});
+export { factsSchema };
 
 export const fenceModule: ApiModule = {
   name: "fence",
@@ -54,27 +33,26 @@ export const fenceModule: ApiModule = {
     });
 
     router.post("/fence/evaluate", (req, res) => {
-      const body = parseBody(req, z.object({ fence: z.unknown().optional(), facts: factsSchema }));
+      const body = parseBody(req, fenceCheckSchema);
       const fence = fenceFrom(body.fence) ?? DEFAULT_FENCE;
       const facts = { ...body.facts, now: body.facts.now ?? ctx.clock.now() } as FenceFacts;
       res.json(evaluateFence(fence, facts));
     });
 
     // The same check, sold per call over x402 (USDC on Arc) for agents listed on Circle's Agent Marketplace.
-    // The body is validated before payment, so a malformed request never costs anything.
-    const paidSchema = z.object({ fence: z.unknown().optional(), facts: factsSchema });
+    // Unpaid requests get the 402 whatever they hold; with a valid payment a malformed request answers 400 and is never settled.
     router.post(
       "/x402/fence/evaluate",
-      (req, _res, next) => {
-        parseBody(req, paidSchema);
-        next();
-      },
-      paid(ctx, "Fence check: allow, confirm or deny a planned DeFi move against an owner's Fence, with a verdict digest"),
-      (req, res) => {
-        const body = parseBody(req, paidSchema);
-        const fence = fenceFrom(body.fence) ?? DEFAULT_FENCE;
-        res.json(evaluateFence(fence, { ...body.facts, now: body.facts.now ?? ctx.clock.now() } as FenceFacts));
-      },
+      paidRoute(ctx, {
+        ...paidOffer("fence-check"),
+        // The move's own network: the Fence check is paid on the network it checks.
+        environment: (req) => (req.body as { facts?: { environment?: unknown } } | undefined)?.facts?.environment,
+        parse: (req) => {
+          const body = parseBody(req, fenceCheckSchema);
+          return { fence: fenceFrom(body.fence) ?? DEFAULT_FENCE, facts: body.facts, environment: body.facts.environment };
+        },
+        run: ({ fence, facts }) => evaluateFence(fence, { ...facts, now: facts.now ?? ctx.clock.now() } as FenceFacts),
+      }),
     );
   },
 };

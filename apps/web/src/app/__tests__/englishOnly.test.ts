@@ -1,6 +1,6 @@
 /**
- * The repository is English only, apart from the translation catalogues
- * (and the glossaries their translators follow). Every other tracked text
+ * The repository is English only, apart from language data: the translation
+ * catalogues and glossaries, locale names and the multilingual intent vocabulary. Every other tracked text
  * file is checked for Turkish-specific letters and a few transliterated
  * Turkish words, and so is the shared lore the app renders. The letters and
  * words are written as Unicode escapes on purpose.
@@ -79,13 +79,17 @@ function exempt(file: string, line: string): boolean {
   return false;
 }
 
-/** Translation catalogues and glossaries: the only files allowed to hold another language. */
-const CATALOGUE = /(?:^|\/)(?:apps\/(?:web|api)\/src\/i18n\/(?:messages|glossary)\/|packages\/core\/src\/i18n\/)[^/]+$/u;
+/**
+ * Files that hold other languages on purpose: the translation catalogues and
+ * glossaries, the locale names, the multilingual intent vocabulary that reads
+ * what owners type, and the tests that check them.
+ */
+const LANGUAGE_DATA = /^(?:apps\/(?:web|api)\/src\/i18n\/(?:messages|glossary)\/[^/]+|packages\/core\/src\/i18n\/[^/]+|packages\/core\/src\/locale\.ts|apps\/api\/src\/language\/vocabulary\.ts|apps\/api\/src\/language\/__tests__\/[^/]+|apps\/api\/src\/agents\/__tests__\/localeNumbers\.test\.ts)$/u;
 
 function offenders(): string[] {
   const found: string[] = [];
   for (const file of trackedFiles()) {
-    if (CATALOGUE.test(file) || LOCKFILE.test(file) || BINARY.test(file) || file.split("/").some((part) => part === "node_modules")) continue;
+    if (LANGUAGE_DATA.test(file) || LOCKFILE.test(file) || BINARY.test(file) || file.split("/").some((part) => part === "node_modules")) continue;
     let text: string;
     try {
       text = readFileSync(join(ROOT, file), "utf8");

@@ -132,6 +132,13 @@ own dated version history in [docs/platform/changelog.md](docs/platform/changelo
 
 ### Changed
 
+- Agent-readiness for marketplaces: every paid operation in the OpenAPI
+  document has `x-payment-info` (price in USDC, the x402 protocol) and a
+  described request schema; `info.x-guidance` says what each paid call gives
+  and when to make it; `externalDocs` and, with `LYKIA_CONTACT_EMAIL`,
+  `info.contact.email` are set. The document is also served at
+  `/openapi.json`. `/.well-known/x402` adds `items[]` in the shape of
+  Circle's Discovery API listings beside `services[]`.
 - Session call rules now also cover Archery's and Unitflow V3's
   `exactInputSingle`, which take the recipient at a fixed ABI word like
   Uniswap v3's, so the account can pin the output.
@@ -156,6 +163,35 @@ own dated version history in [docs/platform/changelog.md](docs/platform/changelo
 
 ### Fixed
 
+- **Paid x402 routes answer agents the way x402 expects.** An unpaid call
+  to `/v1/x402/fence/evaluate`, `/v1/x402/quote` or `/v1/x402/scent/{token}`
+  gets the 402 offer whatever its body holds (an empty or malformed body
+  used to answer 400). With a payment attached the order is verify, then
+  validate (400, nothing settled, the authorization stays usable), then
+  run, then settle; the answer leaves only after settlement, and a failed
+  run frees the authorization. Each offer names the absolute URL that
+  discovery lists, in x402 v2's `resource` and in every `accepts` entry,
+  and carries the request and answer schemas (`bazaar`).
+- A paid route is paid on the Arc network its work runs on (the Fence
+  check's `facts.environment`, the quote's `environment`, Scent's
+  `?environment=`); a query parameter could make a mainnet answer payable
+  in testnet USDC.
+- A paid route ignores `Idempotency-Key` and holds back body errors under
+  every spelling Express routes to it (`/v1/X402/...`, a trailing slash);
+  a `HEAD` request only gets the offer and is never charged.
+- A call to a paid route with a live `Lykia-Key` past its monthly quota
+  was also billed overage, spending the same `X-PAYMENT` before the request
+  was validated. The route's own payment is now the only charge, and the
+  call is not counted against the plan.
+- The OpenAPI document gives each paid operation its answer schema, lists
+  `PAYMENT-SIGNATURE` beside `X-PAYMENT`, and publishes the address pattern
+  of every `0x` address field.
+- The route-quote listing describes what the API accepts: `swap`, `earn` or
+  `borrow`, each with its own required fields (it said swap, deposit or
+  borrow, with `amount` always required).
+- `docsUrl` in the discovery document and the listing package pointed to a
+  404; it is now the API reference (`/v1/reference`) and `website` is the
+  web app.
 - The Fold's sample flock is used only by the Fold for a signed-out
   visitor; an Ask turn always reads the chain.
 - With no wallet connected, an answer about money says it is a sample

@@ -51,6 +51,7 @@ All variables are optional; see [`.env.example`](./.env.example).
 | `LYKIA_GUARD_ADDRESS` | (none) | ERC-8354 guard that answers validation requests for Fence verdicts (own key; see docs/tag.md) |
 | `LYKIA_X402_PAY_TO`, `LYKIA_X402_PRICE_USDC`, `LYKIA_X402_FACILITATOR_URL` | the fee recipient, `0.01`, Circle's facilitator | x402 paid routes; `PAY_TO=off` disables them. Circle's facilitator settles with `CIRCLE_API_KEY`; without the key the routes keep answering 402. `FACILITATOR_URL=off` runs verify-only |
 | `CIRCLE_X402_SELLER_WALLET_ID` | (none) | the Circle developer-controlled EOA wallet that is the x402 `payTo`; it signs the seller proof Circle's facilitator asks for |
+| `LYKIA_CONTACT_EMAIL` | (none) | published as `info.contact.email` in the OpenAPI document, where marketplaces and agents look for the operator; left out when unset |
 | `LYKIA_BETA_CAP_USD` | `1000/5000` | Mainnet beta cap per step / per day per owner, above every Fence while the contracts are unaudited; `off` removes it |
 | `LYKIA_RATE_LIMIT_DEFAULT`, `_HEAVY`, `_AUTH` | `600`, `60`, `20` | requests per minute per IP |
 | `LYKIA_LOG_LEVEL` | `debug` (development), `info` (production), `warn` (test) | `debug`, `info`, `warn`, `error` or `silent` |
@@ -143,10 +144,12 @@ Rules the engine keeps:
 |---|---|
 | `GET /v1/scent/:token?environment=` | registry and look-alike check, bytecode, EIP-1167 / EIP-1967 proxies, privileged selectors, owner, and a holder transfer simulated with `eth_call` plus a balance-slot state override |
 | `GET /v1/x402/scent/:token` | the same report with a wider balance-slot search, paid per call over x402 |
-| `POST /v1/x402/fence/evaluate` | the Fence check, paid per call over x402 (validated before payment) |
+| `POST /v1/x402/fence/evaluate` | the Fence check, paid per call over x402 |
 | `POST /v1/x402/quote` | the route quote across every executable Arc venue, paid per call over x402 |
 | `GET /v1/ecosystem` | the protocols mapped on Arc, Circle's products, TVL on Arc (DefiLlama, cached) and the value Lykia routed; public, CORS-open, cached 60 s |
-| `GET /v1/openapi.json`, `GET /.well-known/x402` | OpenAPI 3.1 and the x402 service manifest for marketplaces and agents |
+| `GET /v1/openapi.json`, `GET /.well-known/x402` | OpenAPI 3.1 and the x402 service manifest for marketplaces and agents; the same OpenAPI document is also served at `/openapi.json` and `/.well-known/openapi.json` |
+
+A paid route answers an unpaid request with `402` and the offer (x402 v2: `resource`, `accepts`, and the `bazaar` extension with the request and answer schemas), whatever its body holds: malformed, empty, oversized or not JSON. With a payment attached it verifies the payment, then validates the request (`400`, nothing settled, the same authorization can be sent again), runs, and settles; the answer is sent only after settlement succeeds. The offer and the payment are on the Arc network the work runs on: `facts.environment` for the Fence check, `environment` in the body for a quote, `?environment=` for Scent. Each authorization's nonce is claimed once; a `HEAD` request only gets the offer and is never charged; `Idempotency-Key` is ignored on these routes. A call with a live `Lykia-Key` is bought by the route's own payment: it is not counted against the key's monthly plan quota and never billed overage.
 
 Arc's public RPC does not offer `eth_simulateV1` or `debug_traceCall`, so Scent simulates with `eth_call` state overrides. The best verdict for a token outside the registry is `no-red-flags`; Scent never says "safe".
 

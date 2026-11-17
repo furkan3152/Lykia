@@ -13,7 +13,12 @@
     "license": {
       "name": "MIT",
       "identifier": "MIT"
-    }
+    },
+    "x-guidance": "Lykia sells three checks for agents that move money on Arc Network, each 0.01 USDC per call over x402 (scheme exact, USDC on Arc, EIP-3009). POST /v1/x402/fence/evaluate before an agent signs a DeFi move: send the planned steps and, optionally, the owner's Fence; get allow, confirm or deny, one reason per rule and a verdict digest for the Arc Memo. GET /v1/x402/scent/{token} before touching an unfamiliar Arc token: get its risk level, the red flags and every check that ran. Scent never calls a token safe. POST /v1/x402/quote to choose where to swap, earn or borrow on Arc: get every live venue's option and the engine's pick with its reason. An unpaid call answers 402 with the offer. Sign the EIP-3009 authorization and send it again in PAYMENT-SIGNATURE or X-PAYMENT. With a valid payment, an invalid request answers 400 and nothing is settled; the payment settles only when the answer is ready. Each call is paid on the Arc network it runs on (mainnet or testnet): facts.environment for the Fence check, environment in the body for a quote, the environment query parameter for Scent; the last two default to the server's network."
+  },
+  "externalDocs": {
+    "description": "The API reference, rendered from this document",
+    "url": "https://api.lykiaai.com/v1/reference"
   },
   "servers": [
     {
@@ -1694,7 +1699,8 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
             }
           },
           {
@@ -2032,7 +2038,8 @@
                     "type": "object",
                     "properties": {
                       "owner": {
-                        "type": "string"
+                        "type": "string",
+                        "pattern": "^0x[0-9a-fA-F]{40}$"
                       },
                       "environment": {
                         "type": "string",
@@ -2081,7 +2088,8 @@
                     "type": "object",
                     "properties": {
                       "owner": {
-                        "type": "string"
+                        "type": "string",
+                        "pattern": "^0x[0-9a-fA-F]{40}$"
                       },
                       "environment": {
                         "type": "string",
@@ -2376,7 +2384,8 @@
                 "type": "object",
                 "properties": {
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   }
                 },
                 "required": [
@@ -2544,7 +2553,8 @@
                 "type": "object",
                 "properties": {
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   }
                 },
                 "required": [
@@ -2712,7 +2722,8 @@
                 "type": "object",
                 "properties": {
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   }
                 },
                 "required": [
@@ -2875,7 +2886,8 @@
                     "maxLength": 64
                   },
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "environment": {
                     "type": "string",
@@ -3258,7 +3270,8 @@
                     "maxLength": 64
                   },
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "environment": {
                     "type": "string",
@@ -3595,7 +3608,8 @@
                     "maxLength": 500
                   },
                   "agentWallet": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   }
                 }
               }
@@ -4397,10 +4411,12 @@
                     ]
                   },
                   "taker": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "tokenIn": {
                     "type": "string",
@@ -4429,7 +4445,8 @@
                     ]
                   },
                   "to": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "memo": {
                     "type": "string",
@@ -4441,7 +4458,8 @@
                     "maxLength": 20
                   },
                   "recipient": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "venue": {
                     "type": "string",
@@ -4503,7 +4521,8 @@
                         "maximum": 50
                       },
                       "recipient": {
-                        "type": "string"
+                        "type": "string",
+                        "pattern": "^0x[0-9a-fA-F]{40}$"
                       }
                     },
                     "required": [
@@ -4547,7 +4566,8 @@
                     "type": "object",
                     "properties": {
                       "address": {
-                        "type": "string"
+                        "type": "string",
+                        "pattern": "^0x[0-9a-fA-F]{40}$"
                       },
                       "agentId": {
                         "type": "string",
@@ -4656,7 +4676,8 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
             }
           },
           {
@@ -4684,7 +4705,8 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
             }
           },
           {
@@ -5447,10 +5469,12 @@
                     ]
                   },
                   "taker": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "tokenIn": {
                     "type": "string",
@@ -5479,7 +5503,8 @@
                     ]
                   },
                   "to": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "memo": {
                     "type": "string",
@@ -5491,7 +5516,8 @@
                     "maxLength": 20
                   },
                   "recipient": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "venue": {
                     "type": "string",
@@ -5553,7 +5579,8 @@
                         "maximum": 50
                       },
                       "recipient": {
-                        "type": "string"
+                        "type": "string",
+                        "pattern": "^0x[0-9a-fA-F]{40}$"
                       }
                     },
                     "required": [
@@ -5597,7 +5624,8 @@
                     "type": "object",
                     "properties": {
                       "address": {
-                        "type": "string"
+                        "type": "string",
+                        "pattern": "^0x[0-9a-fA-F]{40}$"
                       },
                       "agentId": {
                         "type": "string",
@@ -6250,10 +6278,12 @@
                     ]
                   },
                   "taker": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "tokenIn": {
                     "type": "string",
@@ -6282,7 +6312,8 @@
                     ]
                   },
                   "to": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "memo": {
                     "type": "string",
@@ -6294,7 +6325,8 @@
                     "maxLength": 20
                   },
                   "recipient": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "venue": {
                     "type": "string",
@@ -6356,7 +6388,8 @@
                         "maximum": 50
                       },
                       "recipient": {
-                        "type": "string"
+                        "type": "string",
+                        "pattern": "^0x[0-9a-fA-F]{40}$"
                       }
                     },
                     "required": [
@@ -6400,7 +6433,8 @@
                     "type": "object",
                     "properties": {
                       "address": {
-                        "type": "string"
+                        "type": "string",
+                        "pattern": "^0x[0-9a-fA-F]{40}$"
                       },
                       "agentId": {
                         "type": "string",
@@ -6831,10 +6865,12 @@
                     ]
                   },
                   "taker": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "tokenIn": {
                     "type": "string",
@@ -6863,7 +6899,8 @@
                     ]
                   },
                   "to": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "memo": {
                     "type": "string",
@@ -6875,7 +6912,8 @@
                     "maxLength": 20
                   },
                   "recipient": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "venue": {
                     "type": "string",
@@ -6937,7 +6975,8 @@
                         "maximum": 50
                       },
                       "recipient": {
-                        "type": "string"
+                        "type": "string",
+                        "pattern": "^0x[0-9a-fA-F]{40}$"
                       }
                     },
                     "required": [
@@ -6981,7 +7020,8 @@
                     "type": "object",
                     "properties": {
                       "address": {
-                        "type": "string"
+                        "type": "string",
+                        "pattern": "^0x[0-9a-fA-F]{40}$"
                       },
                       "agentId": {
                         "type": "string",
@@ -7129,7 +7169,8 @@
                     "maxLength": 1000
                   },
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "environment": {
                     "type": "string",
@@ -7488,7 +7529,8 @@
                     "maxLength": 1000
                   },
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "environment": {
                     "type": "string",
@@ -9277,7 +9319,8 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
             }
           },
           {
@@ -9425,7 +9468,8 @@
                     "pattern": "^prj_[a-z0-9]{12}$"
                   },
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "name": {
                     "type": "string",
@@ -9551,7 +9595,8 @@
                             "pattern": "^(?:0|[1-9]\\d{0,17})(?:\\.\\d{1,18})?$"
                           },
                           "address": {
-                            "type": "string"
+                            "type": "string",
+                            "pattern": "^0x[0-9a-fA-F]{40}$"
                           }
                         },
                         "required": [
@@ -10155,7 +10200,8 @@
                   "payees": {
                     "type": "array",
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "pattern": "^0x[0-9a-fA-F]{40}$"
                     },
                     "maxItems": 10,
                     "description": "Addresses Autopilot may pay (recurring invoices). Money to you is always allowed."
@@ -10633,7 +10679,8 @@
                             ]
                           },
                           "payee": {
-                            "type": "string"
+                            "type": "string",
+                            "pattern": "^0x[0-9a-fA-F]{40}$"
                           },
                           "note": {
                             "type": "string",
@@ -10853,10 +10900,19 @@
             "$ref": "#/components/parameters/IdempotencyKey"
           },
           {
+            "name": "PAYMENT-SIGNATURE",
+            "in": "header",
+            "required": false,
+            "description": "x402 v2: the payment payload, base64 JSON (an EIP-3009 authorization in USDC on Arc). Send this or X-PAYMENT.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "X-PAYMENT",
             "in": "header",
             "required": false,
-            "description": "Base64 JSON x402 payment payload (EIP-3009 authorization in USDC on Arc).",
+            "description": "x402 v1 name for the same base64 JSON payment payload. Send this or PAYMENT-SIGNATURE.",
             "schema": {
               "type": "string"
             }
@@ -11349,6 +11405,7 @@
                   },
                   "owner": {
                     "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$",
                     "description": "Admins only: the account to change."
                   }
                 },
@@ -14480,7 +14537,8 @@
                     ]
                   },
                   "to": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "data": {
                     "type": "string",
@@ -14496,7 +14554,8 @@
                       "type": "object",
                       "properties": {
                         "address": {
-                          "type": "string"
+                          "type": "string",
+                          "pattern": "^0x[0-9a-fA-F]{40}$"
                         },
                         "topics": {
                           "type": "array",
@@ -14784,7 +14843,8 @@
                       "type": "object",
                       "properties": {
                         "address": {
-                          "type": "string"
+                          "type": "string",
+                          "pattern": "^0x[0-9a-fA-F]{40}$"
                         },
                         "abi": {
                           "anyOf": [
@@ -14955,7 +15015,8 @@
                     ]
                   },
                   "from": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "calls": {
                     "type": "array",
@@ -14965,7 +15026,8 @@
                           "type": "object",
                           "properties": {
                             "to": {
-                              "type": "string"
+                              "type": "string",
+                              "pattern": "^0x[0-9a-fA-F]{40}$"
                             },
                             "data": {
                               "type": "string",
@@ -14986,7 +15048,8 @@
                           "type": "object",
                           "properties": {
                             "to": {
-                              "type": "string"
+                              "type": "string",
+                              "pattern": "^0x[0-9a-fA-F]{40}$"
                             },
                             "abi": {
                               "anyOf": [
@@ -15040,7 +15103,8 @@
                   "tokens": {
                     "type": "array",
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "pattern": "^0x[0-9a-fA-F]{40}$"
                     },
                     "maxItems": 10
                   },
@@ -15091,7 +15155,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
             }
           },
           {
@@ -15648,10 +15713,12 @@
                         "type": "object",
                         "properties": {
                           "from": {
-                            "type": "string"
+                            "type": "string",
+                            "pattern": "^0x[0-9a-fA-F]{40}$"
                           },
                           "to": {
-                            "type": "string"
+                            "type": "string",
+                            "pattern": "^0x[0-9a-fA-F]{40}$"
                           },
                           "data": {
                             "type": "string",
@@ -17236,7 +17303,9 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "fence": {},
+                  "fence": {
+                    "description": "A lykia.fence/v1 document; omit it to use the default Fence (the Balanced preset)."
+                  },
                   "facts": {
                     "type": "object",
                     "properties": {
@@ -17245,21 +17314,25 @@
                         "enum": [
                           "mainnet",
                           "testnet"
-                        ]
+                        ],
+                        "description": "Arc network the move runs on: mainnet or testnet."
                       },
                       "signer": {
                         "type": "string",
                         "enum": [
                           "wallet",
                           "agent"
-                        ]
+                        ],
+                        "description": "Who signs: the owner's own wallet, or an agent acting for the owner."
                       },
                       "owner": {
                         "type": "string",
-                        "pattern": "^0x[0-9a-fA-F]{40}$"
+                        "pattern": "^0x[0-9a-fA-F]{40}$",
+                        "description": "The owner's address on Arc."
                       },
                       "proposedByAgent": {
-                        "type": "boolean"
+                        "type": "boolean",
+                        "description": "True when an agent proposed the plan rather than the owner."
                       },
                       "steps": {
                         "type": "array",
@@ -17268,22 +17341,26 @@
                           "properties": {
                             "id": {
                               "type": "string",
-                              "maxLength": 32
+                              "maxLength": 32,
+                              "description": "Step id, unique within the plan, for example s1."
                             },
                             "kind": {
                               "type": "string",
-                              "maxLength": 32
+                              "maxLength": 32,
+                              "description": "Step kind: approve, transfer, swap, fx, deposit, withdraw, supply, borrow, repay, bridge, gateway-deposit, register-agent, attest."
                             },
                             "venue": {
                               "type": "string",
-                              "maxLength": 48
+                              "maxLength": 48,
+                              "description": "Venue id the step uses, as GET /v1/venues lists it, for example arc-transfer."
                             },
                             "usd": {
                               "type": [
                                 "string",
                                 "null"
                               ],
-                              "pattern": "^\\d{1,15}(?:\\.\\d{1,8})?$"
+                              "pattern": "^\\d{1,15}(?:\\.\\d{1,8})?$",
+                              "description": "USD value the step moves, as a decimal string; null when it could not be priced (caps then fail closed)."
                             },
                             "tokens": {
                               "type": "array",
@@ -17292,17 +17369,21 @@
                                 "properties": {
                                   "symbol": {
                                     "type": "string",
-                                    "maxLength": 32
+                                    "maxLength": 32,
+                                    "description": "Token symbol, for example USDC."
                                   },
                                   "address": {
                                     "type": "string",
-                                    "pattern": "^0x[0-9a-fA-F]{40}$"
+                                    "pattern": "^0x[0-9a-fA-F]{40}$",
+                                    "description": "Token contract address on Arc."
                                   },
                                   "listed": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "True when the token is in Lykia's token registry."
                                   },
                                   "acquired": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "True when the step buys or receives this token, false when it spends it."
                                   },
                                   "scent": {
                                     "type": "string",
@@ -17312,7 +17393,8 @@
                                       "caution",
                                       "danger",
                                       "unknown"
-                                    ]
+                                    ],
+                                    "description": "Scent result for a token the step acquires; omit when the token was not inspected."
                                   }
                                 },
                                 "required": [
@@ -17322,27 +17404,32 @@
                                   "acquired"
                                 ]
                               },
-                              "maxItems": 8
+                              "maxItems": 8,
+                              "description": "Tokens the step spends or acquires, at most 8."
                             },
                             "recipient": {
                               "type": "string",
-                              "pattern": "^0x[0-9a-fA-F]{40}$"
+                              "pattern": "^0x[0-9a-fA-F]{40}$",
+                              "description": "Address that receives value, for transfers and payouts."
                             },
                             "destination": {
                               "type": "string",
-                              "maxLength": 32
+                              "maxLength": 32,
+                              "description": "Bridge destination chain key, for example base."
                             },
                             "slippageBps": {
                               "type": "integer",
                               "minimum": 0,
-                              "maximum": 10000
+                              "maximum": 10000,
+                              "description": "Maximum slippage in basis points (0 to 10000)."
                             },
                             "healthFactorAfter": {
                               "type": [
                                 "string",
                                 "null"
                               ],
-                              "maxLength": 16
+                              "maxLength": 16,
+                              "description": "Lending health factor after the step, as a decimal string; null when it could not be read."
                             },
                             "fxDeviationBps": {
                               "type": [
@@ -17350,7 +17437,8 @@
                                 "null"
                               ],
                               "minimum": -10000,
-                              "maximum": 10000
+                              "maximum": 10000,
+                              "description": "FX quote deviation from the reference rate in basis points; null when there is no reference rate."
                             }
                           },
                           "required": [
@@ -17361,7 +17449,8 @@
                             "tokens"
                           ]
                         },
-                        "maxItems": 12
+                        "maxItems": 12,
+                        "description": "The planned steps, at most 12."
                       },
                       "spent": {
                         "type": "object",
@@ -17371,24 +17460,28 @@
                               "string",
                               "null"
                             ],
-                            "pattern": "^\\d{1,15}(?:\\.\\d{1,8})?$"
+                            "pattern": "^\\d{1,15}(?:\\.\\d{1,8})?$",
+                            "description": "USD already spent today; null when unknown."
                           },
                           "weekUsd": {
                             "type": [
                               "string",
                               "null"
                             ],
-                            "pattern": "^\\d{1,15}(?:\\.\\d{1,8})?$"
+                            "pattern": "^\\d{1,15}(?:\\.\\d{1,8})?$",
+                            "description": "USD already spent this week; null when unknown."
                           }
                         },
                         "required": [
                           "dayUsd",
                           "weekUsd"
-                        ]
+                        ],
+                        "description": "Spend so far, for the daily and weekly caps; omit when there are no such caps to check."
                       },
                       "now": {
                         "type": "integer",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "description": "Evaluation time in Unix milliseconds; defaults to the server's clock."
                       }
                     },
                     "required": [
@@ -17396,7 +17489,8 @@
                       "signer",
                       "owner",
                       "steps"
-                    ]
+                    ],
+                    "description": "The planned move to check."
                   }
                 },
                 "required": [
@@ -18118,7 +18212,8 @@
                 "type": "object",
                 "properties": {
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "environment": {
                     "type": "string",
@@ -18187,7 +18282,8 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
             }
           },
           {
@@ -18347,7 +18443,8 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
             }
           },
           {
@@ -18434,7 +18531,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
             }
           },
           {
@@ -18667,7 +18765,8 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
             }
           },
           {
@@ -18923,7 +19022,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
             }
           },
           {
@@ -19551,7 +19651,8 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
             }
           },
           {
@@ -19837,7 +19938,8 @@
                 "type": "object",
                 "properties": {
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "environment": {
                     "type": "string",
@@ -20037,7 +20139,8 @@
                 "type": "object",
                 "properties": {
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "note": {
                     "type": "string",
@@ -20193,7 +20296,8 @@
                 "type": "object",
                 "properties": {
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "note": {
                     "type": "string",
@@ -20349,7 +20453,8 @@
                 "type": "object",
                 "properties": {
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "note": {
                     "type": "string",
@@ -20446,7 +20551,8 @@
                 "type": "object",
                 "properties": {
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "environment": {
                     "type": "string",
@@ -20478,7 +20584,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
             }
           },
           {
@@ -20563,7 +20670,8 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
             }
           },
           {
@@ -20650,7 +20758,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
             }
           },
           {
@@ -22252,7 +22361,8 @@
                     "maxItems": 12
                   },
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "environment": {
                     "type": "string",
@@ -22273,7 +22383,8 @@
                     "type": "object",
                     "properties": {
                       "address": {
-                        "type": "string"
+                        "type": "string",
+                        "pattern": "^0x[0-9a-fA-F]{40}$"
                       },
                       "agentId": {
                         "type": "string",
@@ -24005,14 +24116,16 @@
                     "maxLength": 42
                   },
                   "payee": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "amount": {
                     "type": "string",
                     "pattern": "^(?:0|[1-9]\\d{0,17})(?:\\.\\d{1,18})?$"
                   },
                   "payer": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "dueDate": {
                     "type": "string",
@@ -24226,7 +24339,8 @@
                 "type": "object",
                 "properties": {
                   "payer": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "amount": {
                     "type": "string",
@@ -28147,7 +28261,8 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
             }
           },
           {
@@ -28305,6 +28420,7 @@
                 "properties": {
                   "owner": {
                     "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$",
                     "description": "Defaults to the signed-in address; required with a project key acting through consent."
                   },
                   "environment": {
@@ -28328,6 +28444,7 @@
                       },
                       "signer": {
                         "type": "string",
+                        "pattern": "^0x[0-9a-fA-F]{40}$",
                         "description": "The agent's own address: it becomes the LykiaAccount session key. Lykia never sees its private key."
                       }
                     },
@@ -28350,6 +28467,7 @@
                   },
                   "signer": {
                     "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$",
                     "description": "With parentAgentId: the new sub-agent's session key address."
                   },
                   "template": {
@@ -28404,7 +28522,8 @@
                   "recipients": {
                     "type": "array",
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "pattern": "^0x[0-9a-fA-F]{40}$"
                     },
                     "maxItems": 25
                   },
@@ -28767,7 +28886,8 @@
                   "recipients": {
                     "type": "array",
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "pattern": "^0x[0-9a-fA-F]{40}$"
                     },
                     "maxItems": 25
                   },
@@ -28781,7 +28901,8 @@
                     "maxItems": 20
                   },
                   "signer": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   }
                 },
                 "required": [
@@ -31240,7 +31361,8 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
             }
           },
           {
@@ -31615,7 +31737,8 @@
                 "type": "object",
                 "properties": {
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "environment": {
                     "type": "string",
@@ -31826,7 +31949,8 @@
                 "type": "object",
                 "properties": {
                   "owner": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$"
                   },
                   "environment": {
                     "type": "string",
@@ -32030,6 +32154,7 @@
                 "properties": {
                   "payer": {
                     "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$",
                     "description": "The paying wallet. Required unless circleWalletId is given; with it, the payer is that wallet's own address."
                   },
                   "projectId": {
@@ -32467,6 +32592,7 @@
                 "properties": {
                   "payer": {
                     "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{40}$",
                     "description": "The paying wallet. Required unless circleWalletId is given; with it, the payer is that wallet's own address."
                   },
                   "projectId": {
@@ -35372,28 +35498,33 @@
                     "type": "object",
                     "properties": {
                       "kind": {
-                        "const": "swap"
+                        "const": "swap",
+                        "description": "swap: the best venue to sell `amount` of `from` for `to`."
                       },
                       "environment": {
                         "type": "string",
                         "enum": [
                           "mainnet",
                           "testnet"
-                        ]
+                        ],
+                        "description": "Arc network to quote on: mainnet or testnet; defaults to the server's network."
                       },
                       "from": {
                         "type": "string",
                         "minLength": 2,
-                        "maxLength": 10
+                        "maxLength": 10,
+                        "description": "Symbol of the token to sell, for example USDC."
                       },
                       "to": {
                         "type": "string",
                         "minLength": 2,
-                        "maxLength": 10
+                        "maxLength": 10,
+                        "description": "Symbol of the token to buy, for example EURC."
                       },
                       "amount": {
                         "type": "string",
-                        "pattern": "^\\d{1,18}(?:\\.\\d{1,18})?$"
+                        "pattern": "^\\d{1,18}(?:\\.\\d{1,18})?$",
+                        "description": "Amount of `from` to sell, in whole tokens as a decimal string, for example 100."
                       }
                     },
                     "required": [
@@ -35407,19 +35538,22 @@
                     "type": "object",
                     "properties": {
                       "kind": {
-                        "const": "earn"
+                        "const": "earn",
+                        "description": "earn: every venue that pays a yield on `token`, and the pick."
                       },
                       "environment": {
                         "type": "string",
                         "enum": [
                           "mainnet",
                           "testnet"
-                        ]
+                        ],
+                        "description": "Arc network to quote on: mainnet or testnet; defaults to the server's network."
                       },
                       "token": {
                         "type": "string",
                         "minLength": 2,
-                        "maxLength": 10
+                        "maxLength": 10,
+                        "description": "Symbol of the token to earn on, for example USDC."
                       },
                       "maxRisk": {
                         "type": "string",
@@ -35427,7 +35561,8 @@
                           "low",
                           "medium",
                           "high"
-                        ]
+                        ],
+                        "description": "Highest risk tier the pick may take: low, medium or high (default medium)."
                       }
                     },
                     "required": [
@@ -35439,39 +35574,48 @@
                     "type": "object",
                     "properties": {
                       "kind": {
-                        "const": "borrow"
+                        "const": "borrow",
+                        "description": "borrow: every lending venue that can lend `amount` of `token` to `account`, and the pick."
                       },
                       "environment": {
                         "type": "string",
                         "enum": [
                           "mainnet",
                           "testnet"
-                        ]
+                        ],
+                        "description": "Arc network to quote on: mainnet or testnet; defaults to the server's network."
                       },
                       "token": {
                         "type": "string",
                         "minLength": 2,
-                        "maxLength": 10
+                        "maxLength": 10,
+                        "description": "Symbol of the token to borrow, for example USDC."
                       },
                       "amount": {
                         "type": "string",
-                        "pattern": "^\\d{1,18}(?:\\.\\d{1,18})?$"
+                        "pattern": "^\\d{1,18}(?:\\.\\d{1,18})?$",
+                        "description": "Amount to borrow, in whole tokens as a decimal string."
                       },
                       "collateral": {
                         "type": "string",
                         "minLength": 2,
-                        "maxLength": 10
+                        "maxLength": 10,
+                        "description": "Symbol of the collateral token (default cirBTC)."
                       },
                       "collateralAmount": {
                         "type": "string",
-                        "pattern": "^\\d{1,18}(?:\\.\\d{1,18})?$"
+                        "pattern": "^\\d{1,18}(?:\\.\\d{1,18})?$",
+                        "description": "Collateral to post, in whole tokens as a decimal string; omit it and the quote sizes the collateral that keeps `minHealth`."
                       },
                       "minHealth": {
-                        "type": "string"
+                        "type": "string",
+                        "pattern": "^\\d{1,3}(?:\\.\\d{1,4})?$",
+                        "description": "Lowest health factor to keep after borrowing, as a decimal string (default 1.5)."
                       },
                       "account": {
                         "type": "string",
-                        "pattern": "^0x[0-9a-fA-F]{40}$"
+                        "pattern": "^0x[0-9a-fA-F]{40}$",
+                        "description": "The borrower's address on Arc; its existing positions are read."
                       }
                     },
                     "required": [
@@ -36502,7 +36646,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
             }
           },
           {
@@ -36590,7 +36735,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
             }
           },
           {
@@ -36610,7 +36756,8 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
             }
           },
           {
@@ -38525,21 +38672,25 @@
                         "enum": [
                           "mainnet",
                           "testnet"
-                        ]
+                        ],
+                        "description": "Arc network the move runs on: mainnet or testnet."
                       },
                       "signer": {
                         "type": "string",
                         "enum": [
                           "wallet",
                           "agent"
-                        ]
+                        ],
+                        "description": "Who signs: the owner's own wallet, or an agent acting for the owner."
                       },
                       "owner": {
                         "type": "string",
-                        "pattern": "^0x[0-9a-fA-F]{40}$"
+                        "pattern": "^0x[0-9a-fA-F]{40}$",
+                        "description": "The owner's address on Arc."
                       },
                       "proposedByAgent": {
-                        "type": "boolean"
+                        "type": "boolean",
+                        "description": "True when an agent proposed the plan rather than the owner."
                       },
                       "steps": {
                         "type": "array",
@@ -38548,22 +38699,26 @@
                           "properties": {
                             "id": {
                               "type": "string",
-                              "maxLength": 32
+                              "maxLength": 32,
+                              "description": "Step id, unique within the plan, for example s1."
                             },
                             "kind": {
                               "type": "string",
-                              "maxLength": 32
+                              "maxLength": 32,
+                              "description": "Step kind: approve, transfer, swap, fx, deposit, withdraw, supply, borrow, repay, bridge, gateway-deposit, register-agent, attest."
                             },
                             "venue": {
                               "type": "string",
-                              "maxLength": 48
+                              "maxLength": 48,
+                              "description": "Venue id the step uses, as GET /v1/venues lists it, for example arc-transfer."
                             },
                             "usd": {
                               "type": [
                                 "string",
                                 "null"
                               ],
-                              "pattern": "^\\d{1,15}(?:\\.\\d{1,8})?$"
+                              "pattern": "^\\d{1,15}(?:\\.\\d{1,8})?$",
+                              "description": "USD value the step moves, as a decimal string; null when it could not be priced (caps then fail closed)."
                             },
                             "tokens": {
                               "type": "array",
@@ -38572,17 +38727,21 @@
                                 "properties": {
                                   "symbol": {
                                     "type": "string",
-                                    "maxLength": 32
+                                    "maxLength": 32,
+                                    "description": "Token symbol, for example USDC."
                                   },
                                   "address": {
                                     "type": "string",
-                                    "pattern": "^0x[0-9a-fA-F]{40}$"
+                                    "pattern": "^0x[0-9a-fA-F]{40}$",
+                                    "description": "Token contract address on Arc."
                                   },
                                   "listed": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "True when the token is in Lykia's token registry."
                                   },
                                   "acquired": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "True when the step buys or receives this token, false when it spends it."
                                   },
                                   "scent": {
                                     "type": "string",
@@ -38592,7 +38751,8 @@
                                       "caution",
                                       "danger",
                                       "unknown"
-                                    ]
+                                    ],
+                                    "description": "Scent result for a token the step acquires; omit when the token was not inspected."
                                   }
                                 },
                                 "required": [
@@ -38602,27 +38762,32 @@
                                   "acquired"
                                 ]
                               },
-                              "maxItems": 8
+                              "maxItems": 8,
+                              "description": "Tokens the step spends or acquires, at most 8."
                             },
                             "recipient": {
                               "type": "string",
-                              "pattern": "^0x[0-9a-fA-F]{40}$"
+                              "pattern": "^0x[0-9a-fA-F]{40}$",
+                              "description": "Address that receives value, for transfers and payouts."
                             },
                             "destination": {
                               "type": "string",
-                              "maxLength": 32
+                              "maxLength": 32,
+                              "description": "Bridge destination chain key, for example base."
                             },
                             "slippageBps": {
                               "type": "integer",
                               "minimum": 0,
-                              "maximum": 10000
+                              "maximum": 10000,
+                              "description": "Maximum slippage in basis points (0 to 10000)."
                             },
                             "healthFactorAfter": {
                               "type": [
                                 "string",
                                 "null"
                               ],
-                              "maxLength": 16
+                              "maxLength": 16,
+                              "description": "Lending health factor after the step, as a decimal string; null when it could not be read."
                             },
                             "fxDeviationBps": {
                               "type": [
@@ -38630,7 +38795,8 @@
                                 "null"
                               ],
                               "minimum": -10000,
-                              "maximum": 10000
+                              "maximum": 10000,
+                              "description": "FX quote deviation from the reference rate in basis points; null when there is no reference rate."
                             }
                           },
                           "required": [
@@ -38641,7 +38807,8 @@
                             "tokens"
                           ]
                         },
-                        "maxItems": 12
+                        "maxItems": 12,
+                        "description": "The planned steps, at most 12."
                       },
                       "spent": {
                         "type": "object",
@@ -38651,24 +38818,28 @@
                               "string",
                               "null"
                             ],
-                            "pattern": "^\\d{1,15}(?:\\.\\d{1,8})?$"
+                            "pattern": "^\\d{1,15}(?:\\.\\d{1,8})?$",
+                            "description": "USD already spent today; null when unknown."
                           },
                           "weekUsd": {
                             "type": [
                               "string",
                               "null"
                             ],
-                            "pattern": "^\\d{1,15}(?:\\.\\d{1,8})?$"
+                            "pattern": "^\\d{1,15}(?:\\.\\d{1,8})?$",
+                            "description": "USD already spent this week; null when unknown."
                           }
                         },
                         "required": [
                           "dayUsd",
                           "weekUsd"
-                        ]
+                        ],
+                        "description": "Spend so far, for the daily and weekly caps; omit when there are no such caps to check."
                       },
                       "now": {
                         "type": "integer",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "description": "Evaluation time in Unix milliseconds; defaults to the server's clock."
                       }
                     },
                     "required": [
@@ -40290,13 +40461,19 @@
             "$ref": "#/components/parameters/AcceptLanguage"
           },
           {
-            "$ref": "#/components/parameters/IdempotencyKey"
+            "name": "PAYMENT-SIGNATURE",
+            "in": "header",
+            "required": false,
+            "description": "x402 v2: the payment payload, base64 JSON (an EIP-3009 authorization in USDC on Arc). Send this or X-PAYMENT.",
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "X-PAYMENT",
             "in": "header",
             "required": false,
-            "description": "Base64 JSON x402 payment payload (EIP-3009 authorization in USDC on Arc).",
+            "description": "x402 v1 name for the same base64 JSON payment payload. Send this or PAYMENT-SIGNATURE.",
             "schema": {
               "type": "string"
             }
@@ -40322,7 +40499,88 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "required": [
+                    "schema",
+                    "decision",
+                    "signable",
+                    "reasons",
+                    "waived",
+                    "fenceHash",
+                    "factsDigest",
+                    "digest"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "lykia.verdict/v1"
+                    },
+                    "decision": {
+                      "type": "string",
+                      "enum": [
+                        "allow",
+                        "confirm",
+                        "deny"
+                      ],
+                      "description": "The verdict: allow, confirm (the owner must confirm) or deny."
+                    },
+                    "signable": {
+                      "type": "boolean",
+                      "description": "False on deny or in dry-run: nothing may be signed."
+                    },
+                    "reasons": {
+                      "type": "array",
+                      "description": "One entry per rule that spoke.",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "rule",
+                          "decision",
+                          "message"
+                        ],
+                        "properties": {
+                          "rule": {
+                            "type": "string"
+                          },
+                          "decision": {
+                            "type": "string",
+                            "enum": [
+                              "allow",
+                              "confirm",
+                              "deny"
+                            ]
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "step": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "waived": {
+                      "type": "array",
+                      "description": "Reasons set aside for a step that brings funds home.",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "fenceHash": {
+                      "type": "string",
+                      "pattern": "^sha256:[0-9a-f]{64}$",
+                      "description": "Hash of the Fence that was applied."
+                    },
+                    "factsDigest": {
+                      "type": "string",
+                      "pattern": "^sha256:[0-9a-f]{64}$",
+                      "description": "Digest of the facts that were checked."
+                    },
+                    "digest": {
+                      "type": "string",
+                      "pattern": "^sha256:[0-9a-f]{64}$",
+                      "description": "Binds the Fence, the facts and the decision; goes into the Arc Memo."
+                    }
+                  }
                 }
               }
             }
@@ -40339,9 +40597,6 @@
           "403": {
             "$ref": "#/components/responses/Forbidden"
           },
-          "409": {
-            "$ref": "#/components/responses/Conflict"
-          },
           "429": {
             "$ref": "#/components/responses/RateLimited"
           },
@@ -40350,7 +40605,6 @@
           }
         },
         "x-lykia-auth": "public",
-        "x-lykia-idempotent": true,
         "security": [
           {},
           {
@@ -40364,7 +40618,9 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "fence": {},
+                  "fence": {
+                    "description": "A lykia.fence/v1 document; omit it to use the default Fence (the Balanced preset)."
+                  },
                   "facts": {
                     "type": "object",
                     "properties": {
@@ -40373,21 +40629,25 @@
                         "enum": [
                           "mainnet",
                           "testnet"
-                        ]
+                        ],
+                        "description": "Arc network the move runs on: mainnet or testnet."
                       },
                       "signer": {
                         "type": "string",
                         "enum": [
                           "wallet",
                           "agent"
-                        ]
+                        ],
+                        "description": "Who signs: the owner's own wallet, or an agent acting for the owner."
                       },
                       "owner": {
                         "type": "string",
-                        "pattern": "^0x[0-9a-fA-F]{40}$"
+                        "pattern": "^0x[0-9a-fA-F]{40}$",
+                        "description": "The owner's address on Arc."
                       },
                       "proposedByAgent": {
-                        "type": "boolean"
+                        "type": "boolean",
+                        "description": "True when an agent proposed the plan rather than the owner."
                       },
                       "steps": {
                         "type": "array",
@@ -40396,22 +40656,26 @@
                           "properties": {
                             "id": {
                               "type": "string",
-                              "maxLength": 32
+                              "maxLength": 32,
+                              "description": "Step id, unique within the plan, for example s1."
                             },
                             "kind": {
                               "type": "string",
-                              "maxLength": 32
+                              "maxLength": 32,
+                              "description": "Step kind: approve, transfer, swap, fx, deposit, withdraw, supply, borrow, repay, bridge, gateway-deposit, register-agent, attest."
                             },
                             "venue": {
                               "type": "string",
-                              "maxLength": 48
+                              "maxLength": 48,
+                              "description": "Venue id the step uses, as GET /v1/venues lists it, for example arc-transfer."
                             },
                             "usd": {
                               "type": [
                                 "string",
                                 "null"
                               ],
-                              "pattern": "^\\d{1,15}(?:\\.\\d{1,8})?$"
+                              "pattern": "^\\d{1,15}(?:\\.\\d{1,8})?$",
+                              "description": "USD value the step moves, as a decimal string; null when it could not be priced (caps then fail closed)."
                             },
                             "tokens": {
                               "type": "array",
@@ -40420,17 +40684,21 @@
                                 "properties": {
                                   "symbol": {
                                     "type": "string",
-                                    "maxLength": 32
+                                    "maxLength": 32,
+                                    "description": "Token symbol, for example USDC."
                                   },
                                   "address": {
                                     "type": "string",
-                                    "pattern": "^0x[0-9a-fA-F]{40}$"
+                                    "pattern": "^0x[0-9a-fA-F]{40}$",
+                                    "description": "Token contract address on Arc."
                                   },
                                   "listed": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "True when the token is in Lykia's token registry."
                                   },
                                   "acquired": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "True when the step buys or receives this token, false when it spends it."
                                   },
                                   "scent": {
                                     "type": "string",
@@ -40440,7 +40708,8 @@
                                       "caution",
                                       "danger",
                                       "unknown"
-                                    ]
+                                    ],
+                                    "description": "Scent result for a token the step acquires; omit when the token was not inspected."
                                   }
                                 },
                                 "required": [
@@ -40450,27 +40719,32 @@
                                   "acquired"
                                 ]
                               },
-                              "maxItems": 8
+                              "maxItems": 8,
+                              "description": "Tokens the step spends or acquires, at most 8."
                             },
                             "recipient": {
                               "type": "string",
-                              "pattern": "^0x[0-9a-fA-F]{40}$"
+                              "pattern": "^0x[0-9a-fA-F]{40}$",
+                              "description": "Address that receives value, for transfers and payouts."
                             },
                             "destination": {
                               "type": "string",
-                              "maxLength": 32
+                              "maxLength": 32,
+                              "description": "Bridge destination chain key, for example base."
                             },
                             "slippageBps": {
                               "type": "integer",
                               "minimum": 0,
-                              "maximum": 10000
+                              "maximum": 10000,
+                              "description": "Maximum slippage in basis points (0 to 10000)."
                             },
                             "healthFactorAfter": {
                               "type": [
                                 "string",
                                 "null"
                               ],
-                              "maxLength": 16
+                              "maxLength": 16,
+                              "description": "Lending health factor after the step, as a decimal string; null when it could not be read."
                             },
                             "fxDeviationBps": {
                               "type": [
@@ -40478,7 +40752,8 @@
                                 "null"
                               ],
                               "minimum": -10000,
-                              "maximum": 10000
+                              "maximum": 10000,
+                              "description": "FX quote deviation from the reference rate in basis points; null when there is no reference rate."
                             }
                           },
                           "required": [
@@ -40489,7 +40764,8 @@
                             "tokens"
                           ]
                         },
-                        "maxItems": 12
+                        "maxItems": 12,
+                        "description": "The planned steps, at most 12."
                       },
                       "spent": {
                         "type": "object",
@@ -40499,24 +40775,28 @@
                               "string",
                               "null"
                             ],
-                            "pattern": "^\\d{1,15}(?:\\.\\d{1,8})?$"
+                            "pattern": "^\\d{1,15}(?:\\.\\d{1,8})?$",
+                            "description": "USD already spent today; null when unknown."
                           },
                           "weekUsd": {
                             "type": [
                               "string",
                               "null"
                             ],
-                            "pattern": "^\\d{1,15}(?:\\.\\d{1,8})?$"
+                            "pattern": "^\\d{1,15}(?:\\.\\d{1,8})?$",
+                            "description": "USD already spent this week; null when unknown."
                           }
                         },
                         "required": [
                           "dayUsd",
                           "weekUsd"
-                        ]
+                        ],
+                        "description": "Spend so far, for the daily and weekly caps; omit when there are no such caps to check."
                       },
                       "now": {
                         "type": "integer",
-                        "exclusiveMinimum": 0
+                        "exclusiveMinimum": 0,
+                        "description": "Evaluation time in Unix milliseconds; defaults to the server's clock."
                       }
                     },
                     "required": [
@@ -40524,7 +40804,8 @@
                       "signer",
                       "owner",
                       "steps"
-                    ]
+                    ],
+                    "description": "The planned move to check."
                   }
                 },
                 "required": [
@@ -40533,6 +40814,34 @@
               }
             }
           }
+        },
+        "x-payment-info": {
+          "price": {
+            "mode": "fixed",
+            "currency": "USDC",
+            "amount": "0.01"
+          },
+          "protocols": [
+            {
+              "x402": {
+                "x402Version": 2,
+                "scheme": "exact",
+                "payTo": "0x8c5281055b197443ff01dbbdfbf29fd63946ca1e",
+                "networks": [
+                  {
+                    "environment": "mainnet",
+                    "network": "eip155:5042",
+                    "asset": "0x3600000000000000000000000000000000000000"
+                  },
+                  {
+                    "environment": "testnet",
+                    "network": "eip155:5042002",
+                    "asset": "0x3600000000000000000000000000000000000000"
+                  }
+                ]
+              }
+            }
+          ]
         },
         "x-x402": {
           "scheme": "exact",
@@ -40543,7 +40852,8 @@
             "eip155:5042",
             "eip155:5042002"
           ]
-        }
+        },
+        "description": "Checks a planned DeFi move against an owner's Fence (caps, venues, tokens, recipients, schedule, Scent) and returns allow, confirm or deny with one reason per rule and a verdict digest an agent can put in its Arc Memo. Paid per call over x402: 0.01 USDC to 0x8c5281055b197443ff01dbbdfbf29fd63946ca1e, on the Arc network the request runs on. Without a payment the route answers 402 with the offer, whatever the request holds; with a valid payment an invalid request answers 400 and nothing is settled."
       }
     },
     "/v1/x402/health": {
@@ -40614,7 +40924,7 @@
     "/v1/x402/quote": {
       "post": {
         "operationId": "postX402Quote",
-        "summary": "Route quote, paid per call",
+        "summary": "Route quote for a swap, earn or borrow, paid per call in USDC on Arc",
         "tags": [
           "x402"
         ],
@@ -40626,13 +40936,19 @@
             "$ref": "#/components/parameters/AcceptLanguage"
           },
           {
-            "$ref": "#/components/parameters/IdempotencyKey"
+            "name": "PAYMENT-SIGNATURE",
+            "in": "header",
+            "required": false,
+            "description": "x402 v2: the payment payload, base64 JSON (an EIP-3009 authorization in USDC on Arc). Send this or X-PAYMENT.",
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "X-PAYMENT",
             "in": "header",
             "required": false,
-            "description": "Base64 JSON x402 payment payload (EIP-3009 authorization in USDC on Arc).",
+            "description": "x402 v1 name for the same base64 JSON payment payload. Send this or PAYMENT-SIGNATURE.",
             "schema": {
               "type": "string"
             }
@@ -40658,7 +40974,70 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "environment",
+                    "options",
+                    "choice"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "swap",
+                        "earn",
+                        "borrow"
+                      ]
+                    },
+                    "environment": {
+                      "type": "string",
+                      "enum": [
+                        "mainnet",
+                        "testnet"
+                      ]
+                    },
+                    "options": {
+                      "type": "array",
+                      "description": "Every live venue's option, priced the same way.",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "venue",
+                          "label"
+                        ],
+                        "properties": {
+                          "venue": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "choice": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "The engine's pick: { chosen, alternatives, reason }; null when no venue can do it.",
+                      "properties": {
+                        "chosen": {
+                          "type": "object"
+                        },
+                        "alternatives": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "reason": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -40675,9 +41054,6 @@
           "403": {
             "$ref": "#/components/responses/Forbidden"
           },
-          "409": {
-            "$ref": "#/components/responses/Conflict"
-          },
           "429": {
             "$ref": "#/components/responses/RateLimited"
           },
@@ -40686,7 +41062,6 @@
           }
         },
         "x-lykia-auth": "public",
-        "x-lykia-idempotent": true,
         "security": [
           {},
           {
@@ -40703,28 +41078,33 @@
                     "type": "object",
                     "properties": {
                       "kind": {
-                        "const": "swap"
+                        "const": "swap",
+                        "description": "swap: the best venue to sell `amount` of `from` for `to`."
                       },
                       "environment": {
                         "type": "string",
                         "enum": [
                           "mainnet",
                           "testnet"
-                        ]
+                        ],
+                        "description": "Arc network to quote on: mainnet or testnet; defaults to the server's network."
                       },
                       "from": {
                         "type": "string",
                         "minLength": 2,
-                        "maxLength": 10
+                        "maxLength": 10,
+                        "description": "Symbol of the token to sell, for example USDC."
                       },
                       "to": {
                         "type": "string",
                         "minLength": 2,
-                        "maxLength": 10
+                        "maxLength": 10,
+                        "description": "Symbol of the token to buy, for example EURC."
                       },
                       "amount": {
                         "type": "string",
-                        "pattern": "^\\d{1,18}(?:\\.\\d{1,18})?$"
+                        "pattern": "^\\d{1,18}(?:\\.\\d{1,18})?$",
+                        "description": "Amount of `from` to sell, in whole tokens as a decimal string, for example 100."
                       }
                     },
                     "required": [
@@ -40738,19 +41118,22 @@
                     "type": "object",
                     "properties": {
                       "kind": {
-                        "const": "earn"
+                        "const": "earn",
+                        "description": "earn: every venue that pays a yield on `token`, and the pick."
                       },
                       "environment": {
                         "type": "string",
                         "enum": [
                           "mainnet",
                           "testnet"
-                        ]
+                        ],
+                        "description": "Arc network to quote on: mainnet or testnet; defaults to the server's network."
                       },
                       "token": {
                         "type": "string",
                         "minLength": 2,
-                        "maxLength": 10
+                        "maxLength": 10,
+                        "description": "Symbol of the token to earn on, for example USDC."
                       },
                       "maxRisk": {
                         "type": "string",
@@ -40758,7 +41141,8 @@
                           "low",
                           "medium",
                           "high"
-                        ]
+                        ],
+                        "description": "Highest risk tier the pick may take: low, medium or high (default medium)."
                       }
                     },
                     "required": [
@@ -40770,39 +41154,48 @@
                     "type": "object",
                     "properties": {
                       "kind": {
-                        "const": "borrow"
+                        "const": "borrow",
+                        "description": "borrow: every lending venue that can lend `amount` of `token` to `account`, and the pick."
                       },
                       "environment": {
                         "type": "string",
                         "enum": [
                           "mainnet",
                           "testnet"
-                        ]
+                        ],
+                        "description": "Arc network to quote on: mainnet or testnet; defaults to the server's network."
                       },
                       "token": {
                         "type": "string",
                         "minLength": 2,
-                        "maxLength": 10
+                        "maxLength": 10,
+                        "description": "Symbol of the token to borrow, for example USDC."
                       },
                       "amount": {
                         "type": "string",
-                        "pattern": "^\\d{1,18}(?:\\.\\d{1,18})?$"
+                        "pattern": "^\\d{1,18}(?:\\.\\d{1,18})?$",
+                        "description": "Amount to borrow, in whole tokens as a decimal string."
                       },
                       "collateral": {
                         "type": "string",
                         "minLength": 2,
-                        "maxLength": 10
+                        "maxLength": 10,
+                        "description": "Symbol of the collateral token (default cirBTC)."
                       },
                       "collateralAmount": {
                         "type": "string",
-                        "pattern": "^\\d{1,18}(?:\\.\\d{1,18})?$"
+                        "pattern": "^\\d{1,18}(?:\\.\\d{1,18})?$",
+                        "description": "Collateral to post, in whole tokens as a decimal string; omit it and the quote sizes the collateral that keeps `minHealth`."
                       },
                       "minHealth": {
-                        "type": "string"
+                        "type": "string",
+                        "pattern": "^\\d{1,3}(?:\\.\\d{1,4})?$",
+                        "description": "Lowest health factor to keep after borrowing, as a decimal string (default 1.5)."
                       },
                       "account": {
                         "type": "string",
-                        "pattern": "^0x[0-9a-fA-F]{40}$"
+                        "pattern": "^0x[0-9a-fA-F]{40}$",
+                        "description": "The borrower's address on Arc; its existing positions are read."
                       }
                     },
                     "required": [
@@ -40817,6 +41210,34 @@
             }
           }
         },
+        "x-payment-info": {
+          "price": {
+            "mode": "fixed",
+            "currency": "USDC",
+            "amount": "0.01"
+          },
+          "protocols": [
+            {
+              "x402": {
+                "x402Version": 2,
+                "scheme": "exact",
+                "payTo": "0x8c5281055b197443ff01dbbdfbf29fd63946ca1e",
+                "networks": [
+                  {
+                    "environment": "mainnet",
+                    "network": "eip155:5042",
+                    "asset": "0x3600000000000000000000000000000000000000"
+                  },
+                  {
+                    "environment": "testnet",
+                    "network": "eip155:5042002",
+                    "asset": "0x3600000000000000000000000000000000000000"
+                  }
+                ]
+              }
+            }
+          ]
+        },
         "x-x402": {
           "scheme": "exact",
           "amount": "10000",
@@ -40826,13 +41247,14 @@
             "eip155:5042",
             "eip155:5042002"
           ]
-        }
+        },
+        "description": "The best executable venue on Arc for a swap, earn or borrow, with every alternative it beat and why. Covers Uniswap, Aerodrome, Morpho, Aave and every other venue Lykia can route through today. Paid per call over x402: 0.01 USDC to 0x8c5281055b197443ff01dbbdfbf29fd63946ca1e, on the Arc network the request runs on. Without a payment the route answers 402 with the offer, whatever the request holds; with a valid payment an invalid request answers 400 and nothing is settled."
       }
     },
     "/v1/x402/scent/{token}": {
       "get": {
         "operationId": "getX402ScentByToken",
-        "summary": "Deep Scent report, paid per call",
+        "summary": "Deep Scent report, paid per call in USDC on Arc",
         "tags": [
           "x402"
         ],
@@ -40842,8 +41264,11 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$",
+              "description": "Token contract address on Arc."
+            },
+            "description": "Token contract address on Arc."
           },
           {
             "name": "environment",
@@ -40855,9 +41280,9 @@
                 "mainnet",
                 "testnet"
               ],
-              "description": "Arc network; defaults to the server's mode. Test keys are always testnet."
+              "description": "Arc network to read the token on, and to pay on: mainnet or testnet; defaults to the server's network."
             },
-            "description": "Arc network; defaults to the server's mode. Test keys are always testnet."
+            "description": "Arc network to read the token on, and to pay on: mainnet or testnet; defaults to the server's network."
           },
           {
             "$ref": "#/components/parameters/LykiaVersion"
@@ -40866,10 +41291,19 @@
             "$ref": "#/components/parameters/AcceptLanguage"
           },
           {
+            "name": "PAYMENT-SIGNATURE",
+            "in": "header",
+            "required": false,
+            "description": "x402 v2: the payment payload, base64 JSON (an EIP-3009 authorization in USDC on Arc). Send this or X-PAYMENT.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "X-PAYMENT",
             "in": "header",
             "required": false,
-            "description": "Base64 JSON x402 payment payload (EIP-3009 authorization in USDC on Arc).",
+            "description": "x402 v1 name for the same base64 JSON payment payload. Send this or PAYMENT-SIGNATURE.",
             "schema": {
               "type": "string"
             }
@@ -40895,7 +41329,102 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "required": [
+                    "token",
+                    "environment",
+                    "level",
+                    "wolves",
+                    "checks",
+                    "trust",
+                    "at"
+                  ],
+                  "properties": {
+                    "token": {
+                      "type": "string",
+                      "pattern": "^0x[0-9a-fA-F]{40}$"
+                    },
+                    "environment": {
+                      "type": "string",
+                      "enum": [
+                        "mainnet",
+                        "testnet"
+                      ]
+                    },
+                    "symbol": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "name": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "decimals": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "level": {
+                      "type": "string",
+                      "enum": [
+                        "verified",
+                        "no-red-flags",
+                        "caution",
+                        "danger",
+                        "unknown"
+                      ],
+                      "description": "The best level a token outside the registry can reach is no-red-flags; Scent never says safe."
+                    },
+                    "wolves": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "The red flags found."
+                    },
+                    "checks": {
+                      "type": "array",
+                      "description": "Every check that ran: true passed, false is a red flag, null could not run.",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "ok",
+                          "detail"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "ok": {
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "detail": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "trust": {
+                      "type": "object",
+                      "description": "Registry status: verified, lookalike or unverified."
+                    },
+                    "at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "deep": {
+                      "type": "boolean"
+                    }
+                  }
                 }
               }
             }
@@ -40926,6 +41455,34 @@
             "LykiaKey": []
           }
         ],
+        "x-payment-info": {
+          "price": {
+            "mode": "fixed",
+            "currency": "USDC",
+            "amount": "0.01"
+          },
+          "protocols": [
+            {
+              "x402": {
+                "x402Version": 2,
+                "scheme": "exact",
+                "payTo": "0x8c5281055b197443ff01dbbdfbf29fd63946ca1e",
+                "networks": [
+                  {
+                    "environment": "mainnet",
+                    "network": "eip155:5042",
+                    "asset": "0x3600000000000000000000000000000000000000"
+                  },
+                  {
+                    "environment": "testnet",
+                    "network": "eip155:5042002",
+                    "asset": "0x3600000000000000000000000000000000000000"
+                  }
+                ]
+              }
+            }
+          ]
+        },
         "x-x402": {
           "scheme": "exact",
           "amount": "10000",
@@ -40935,7 +41492,8 @@
             "eip155:5042",
             "eip155:5042002"
           ]
-        }
+        },
+        "description": "What can be proven about an Arc token before anyone touches it: look-alikes, mint authority, upgradeability, blacklists, transfer fees and owner activity, with a wider balance-slot search than the free report. Paid per call over x402: 0.01 USDC to 0x8c5281055b197443ff01dbbdfbf29fd63946ca1e, on the Arc network the request runs on. Without a payment the route answers 402 with the offer, whatever the request holds; with a valid payment an invalid request answers 400 and nothing is settled."
       }
     }
   },
@@ -40957,7 +41515,7 @@
         "type": "apiKey",
         "in": "header",
         "name": "X-PAYMENT",
-        "description": "x402 payment (USDC on Arc) for paid routes and pay-as-you-go overage."
+        "description": "x402 payment (USDC on Arc) for paid routes and pay-as-you-go overage. The x402 v2 header PAYMENT-SIGNATURE is read too."
       }
     },
     "parameters": {
@@ -41026,6 +41584,7 @@
         "type": "object",
         "required": [
           "x402Version",
+          "resource",
           "accepts"
         ],
         "properties": {
@@ -41035,6 +41594,24 @@
           },
           "error": {
             "type": "string"
+          },
+          "resource": {
+            "type": "object",
+            "required": [
+              "url"
+            ],
+            "properties": {
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "description": {
+                "type": "string"
+              },
+              "mimeType": {
+                "type": "string"
+              }
+            }
           },
           "accepts": {
             "type": "array",
@@ -41060,7 +41637,8 @@
                   "type": "integer"
                 },
                 "resource": {
-                  "type": "string"
+                  "type": "string",
+                  "format": "uri"
                 },
                 "description": {
                   "type": "string"
@@ -41073,6 +41651,10 @@
                 }
               }
             }
+          },
+          "extensions": {
+            "type": "object",
+            "description": "x402 extensions; bazaar carries the request and answer schemas."
           }
         }
       },
@@ -41171,7 +41753,7 @@
         }
       },
       "PaymentRequired": {
-        "description": "x402 payment required: { x402Version, error, accepts: [PaymentRequirements] }.",
+        "description": "x402 payment required: { x402Version, error, resource, accepts: [PaymentRequirements], extensions }, also base64 JSON in the PAYMENT-REQUIRED header.",
         "content": {
           "application/json": {
             "schema": {

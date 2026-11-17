@@ -157,18 +157,27 @@ Lykia sells three endpoints per call in USDC on Arc over x402 (scheme
 | Deep Scent report | `GET /v1/x402/scent/{token}` | 0.01 USDC |
 | Route quote | `POST /v1/x402/quote` | 0.01 USDC |
 
-Requests are validated before a payment is asked for, so a malformed request
-never costs anything. Payments go to `LYKIA_X402_PAY_TO`, which defaults to
-the protocol fee recipient. Circle's x402 facilitator settles each payment on
-Arc before the answer is sent; settlement uses the server's `CIRCLE_API_KEY`.
-Without that key the routes keep answering `402` rather than serving unpaid.
+Any unpaid request gets the `402` offer first, whatever its body holds, so
+agents and marketplace probes can read the price from any call. With a payment
+attached, the server verifies it, then validates the request: a malformed
+request answers `400`, nothing is settled, and the same authorization can be
+sent again with a corrected request. The answer is computed, the payment is
+settled, and only then is the answer sent. Each call is paid on the Arc
+network it runs on: `facts.environment` for the Fence check, `environment` in
+the body for a quote, `?environment=` for Scent. Payments go to
+`LYKIA_X402_PAY_TO`, which defaults to the protocol fee recipient. Circle's
+x402 facilitator settles each payment on Arc; settlement uses the server's
+`CIRCLE_API_KEY`. Without that key the routes keep answering `402` rather than
+serving unpaid.
 
 Machine-readable descriptions:
 
 - `GET /.well-known/x402`: the service manifest (pay-to wallet, price,
-  networks, settlement mode, every resource).
-- `GET /v1/openapi.json`: OpenAPI 3.1 for the paid and public routes, with
-  `x-x402` on each paid operation.
+  networks, settlement mode, every resource), with an `items` list in the
+  shape of Circle's Discovery API listings next to the older `services` list.
+- `GET /v1/openapi.json` (also at `/openapi.json`): OpenAPI 3.1 for the paid
+  and public routes, with `x-payment-info` and `x-x402` on each paid
+  operation and `info.x-guidance` for agents.
 
 To list the services, the owner of the payout wallet:
 

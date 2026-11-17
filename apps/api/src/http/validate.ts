@@ -7,7 +7,6 @@
  * value instead of writing it back.
  */
 import type { Request } from "express";
-import { isAddress } from "viem";
 import { z, type ZodTypeAny } from "zod";
 import { invalidRequest, zodIssues } from "./errors.js";
 
@@ -60,11 +59,14 @@ export function queryList(maxItems: number, item: ZodTypeAny = z.string().min(1)
     .pipe(z.array(item).max(maxItems, `At most ${maxItems} items.`));
 }
 
-/** A 20-byte hex address, returned lowercase (checksums are accepted but not required). */
+/**
+ * A 20-byte hex address, returned lowercase (checksums are accepted but not required). A regex rather than a
+ * refine, so the published JSON Schemas (OpenAPI, x402 discovery, the 402 bazaar extension) carry the pattern.
+ */
 export const evmAddress = z
   .string()
   .trim()
-  .refine((value) => isAddress(value, { strict: false }), "Expected a 0x-prefixed 20-byte hex address.")
+  .regex(/^0x[0-9a-fA-F]{40}$/u, "Expected a 0x-prefixed 20-byte hex address.")
   .transform((value) => value.toLowerCase() as `0x${string}`);
 
 export const txHash = z

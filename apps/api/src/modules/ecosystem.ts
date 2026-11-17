@@ -4,6 +4,7 @@
  *   GET /ecosystem              the protocols mapped on Arc, Circle's products, TVL, value routed by Lykia (CORS-open)
  *   GET /openapi.json           OpenAPI 3.1 for every documented route (platform/openapi/document.ts)
  *   GET /.well-known/x402       (root) the x402 service manifest for marketplaces and agents
+ *   GET /openapi.json           (root, also /.well-known/openapi.json) the same OpenAPI document, where agents that know only the domain look first
  */
 import type { Response } from "express";
 import type { ApiModule } from "../http/router.js";
@@ -27,6 +28,11 @@ export const ecosystemModule: ApiModule = {
       openToEveryone(res);
       cachePublicly(res, 300);
       res.json(serviceManifest(ctx, originOf(req)));
+    });
+    app.get(["/openapi.json", "/.well-known/openapi.json"], (req, res) => {
+      openToEveryone(res);
+      cachePublicly(res, 300);
+      res.json(buildOpenApi(ctx, originOf(req)));
     });
   },
   register(router, ctx) {

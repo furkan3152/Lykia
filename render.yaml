@@ -76,6 +76,8 @@ services:
         sync: false
       - key: LYKIA_X402_FACILITATOR_URL
         sync: false
+      - key: LYKIA_CONTACT_EMAIL
+        sync: false
       - key: LYKIA_GUARD_ADDRESS
         sync: false
       - key: LYKIA_KEEPER_PRIVATE_KEY

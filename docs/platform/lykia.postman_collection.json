@@ -1016,7 +1016,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"owner\": \"\",\n  \"kind\": \"plan\",\n  \"from\": \"watch\",\n  \"to\": \"watch\",\n  \"insightId\": \"\"\n}",
+              "raw": "{\n  \"owner\": \"0x0000000000000000000000000000000000000001\",\n  \"kind\": \"plan\",\n  \"from\": \"watch\",\n  \"to\": \"watch\",\n  \"insightId\": \"\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1065,7 +1065,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"owner\": \"\"\n}",
+              "raw": "{\n  \"owner\": \"0x0000000000000000000000000000000000000001\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1114,7 +1114,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"owner\": \"\"\n}",
+              "raw": "{\n  \"owner\": \"0x0000000000000000000000000000000000000001\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1163,7 +1163,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"owner\": \"\"\n}",
+              "raw": "{\n  \"owner\": \"0x0000000000000000000000000000000000000001\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1203,7 +1203,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"\",\n  \"owner\": \"\"\n}",
+              "raw": "{\n  \"name\": \"\",\n  \"owner\": \"0x0000000000000000000000000000000000000001\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1710,7 +1710,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"text\": \"\",\n  \"owner\": \"\"\n}",
+              "raw": "{\n  \"text\": \"\",\n  \"owner\": \"0x0000000000000000000000000000000000000001\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2630,7 +2630,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"owner\": \"\",\n  \"name\": \"\",\n  \"trigger\": {\n    \"type\": \"price\",\n    \"feed\": \"EURC/USD\",\n    \"op\": \"above\",\n    \"value\": \"\"\n  },\n  \"action\": {\n    \"type\": \"plan\"\n  }\n}",
+              "raw": "{\n  \"owner\": \"0x0000000000000000000000000000000000000001\",\n  \"name\": \"\",\n  \"trigger\": {\n    \"type\": \"price\",\n    \"feed\": \"EURC/USD\",\n    \"op\": \"above\",\n    \"value\": \"\"\n  },\n  \"action\": {\n    \"type\": \"plan\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4745,7 +4745,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"from\": \"\",\n  \"calls\": []\n}",
+              "raw": "{\n  \"from\": \"0x0000000000000000000000000000000000000001\",\n  \"calls\": []\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6407,7 +6407,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"owner\": \"\",\n  \"question\": \"yield\"\n}",
+              "raw": "{\n  \"owner\": \"0x0000000000000000000000000000000000000001\",\n  \"question\": \"yield\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6448,7 +6448,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"owner\": \"\",\n  \"source\": {\n    \"kind\": \"insight\"\n  }\n}",
+              "raw": "{\n  \"owner\": \"0x0000000000000000000000000000000000000001\",\n  \"source\": {\n    \"kind\": \"insight\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6497,7 +6497,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"owner\": \"\"\n}",
+              "raw": "{\n  \"owner\": \"0x0000000000000000000000000000000000000001\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6546,7 +6546,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"owner\": \"\"\n}",
+              "raw": "{\n  \"owner\": \"0x0000000000000000000000000000000000000001\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6595,7 +6595,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"owner\": \"\"\n}",
+              "raw": "{\n  \"owner\": \"0x0000000000000000000000000000000000000001\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6636,7 +6636,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"owner\": \"\"\n}",
+              "raw": "{\n  \"owner\": \"0x0000000000000000000000000000000000000001\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -7193,7 +7193,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"owner\": \"\"\n}",
+              "raw": "{\n  \"owner\": \"0x0000000000000000000000000000000000000001\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -7550,7 +7550,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"token\": \"\",\n  \"payee\": \"\"\n}",
+              "raw": "{\n  \"token\": \"\",\n  \"payee\": \"0x0000000000000000000000000000000000000001\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -7598,7 +7598,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"payer\": \"\"\n}",
+              "raw": "{\n  \"payer\": \"0x0000000000000000000000000000000000000001\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -10039,7 +10039,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"owner\": \"\"\n}",
+              "raw": "{\n  \"owner\": \"0x0000000000000000000000000000000000000001\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -10080,7 +10080,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"owner\": \"\"\n}",
+              "raw": "{\n  \"owner\": \"0x0000000000000000000000000000000000000001\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -13594,7 +13594,7 @@
           }
         },
         {
-          "name": "Deep Scent report, paid per call",
+          "name": "Deep Scent report, paid per call in USDC on Arc",
           "request": {
             "method": "GET",
             "header": [
@@ -13632,7 +13632,7 @@
                 }
               ]
             },
-            "description": "Deep Scent report, paid per call\n\nAuth: public."
+            "description": "What can be proven about an Arc token before anyone touches it: look-alikes, mint authority, upgradeability, blacklists, transfer fees and owner activity, with a wider balance-slot search than the free report. Paid per call over x402: 0.01 USDC to 0x8c5281055b197443ff01dbbdfbf29fd63946ca1e, on the Arc network the request runs on. Without a payment the route answers 402 with the offer, whatever the request holds; with a valid payment an invalid request answers 400 and nothing is settled.\n\nAuth: public."
           }
         },
         {
@@ -13647,10 +13647,6 @@
               {
                 "key": "Lykia-Version",
                 "value": "{{lykiaVersion}}"
-              },
-              {
-                "key": "Idempotency-Key",
-                "value": "{{$guid}}"
               },
               {
                 "key": "Content-Type",
@@ -13678,11 +13674,11 @@
                 }
               }
             },
-            "description": "Fence check, paid per call in USDC on Arc\n\nAuth: public."
+            "description": "Checks a planned DeFi move against an owner's Fence (caps, venues, tokens, recipients, schedule, Scent) and returns allow, confirm or deny with one reason per rule and a verdict digest an agent can put in its Arc Memo. Paid per call over x402: 0.01 USDC to 0x8c5281055b197443ff01dbbdfbf29fd63946ca1e, on the Arc network the request runs on. Without a payment the route answers 402 with the offer, whatever the request holds; with a valid payment an invalid request answers 400 and nothing is settled.\n\nAuth: public."
           }
         },
         {
-          "name": "Route quote, paid per call",
+          "name": "Route quote for a swap, earn or borrow, paid per call in USDC on Arc",
           "request": {
             "method": "POST",
             "header": [
@@ -13693,10 +13689,6 @@
               {
                 "key": "Lykia-Version",
                 "value": "{{lykiaVersion}}"
-              },
-              {
-                "key": "Idempotency-Key",
-                "value": "{{$guid}}"
               },
               {
                 "key": "Content-Type",
@@ -13723,7 +13715,7 @@
                 }
               }
             },
-            "description": "Route quote, paid per call\n\nAuth: public."
+            "description": "The best executable venue on Arc for a swap, earn or borrow, with every alternative it beat and why. Covers Uniswap, Aerodrome, Morpho, Aave and every other venue Lykia can route through today. Paid per call over x402: 0.01 USDC to 0x8c5281055b197443ff01dbbdfbf29fd63946ca1e, on the Arc network the request runs on. Without a payment the route answers 402 with the offer, whatever the request holds; with a valid payment an invalid request answers 400 and nothing is settled.\n\nAuth: public."
           }
         }
       ]

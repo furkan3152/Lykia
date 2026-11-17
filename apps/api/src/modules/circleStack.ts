@@ -25,7 +25,7 @@ import { applyCirclePolicy, compileFenceToCirclePolicy } from "../circle/policy.
 import { circleCapabilities, circleProviders, registerCircleProviders } from "../circle/providers.js";
 import { ARC_NETWORKS, discoverServices } from "../circle/discovery.js";
 import { EXTRA_PROVIDERS } from "../engine/providers.js";
-import { originOf, PAID_SERVICES } from "../x402/manifest.js";
+import { docsUrl, originOf, PAID_SERVICES, resourceUrl, siteOrigin } from "../x402/manifest.js";
 import { settlementMode } from "../x402/x402.js";
 import { publicStats } from "../stats/stats.js";
 import { environmentOf, environmentSchema, fenceFrom } from "./common.js";
@@ -58,25 +58,28 @@ const verdictSchema = z.object({
 
 function marketplaceListing(ctx: AppContext, origin: string) {
   const settlement = settlementMode(ctx);
-  const site = origin.replace("lykia-api-", "lykia-");
+  const site = siteOrigin(ctx, origin);
   return {
     marketplace: "Circle Agent Marketplace",
     status: ctx.config.x402.payTo ? "ready-to-submit" : "paid-routes-off",
     submit: { form: MARKETPLACE_FORM, page: "https://developers.circle.com/agent-stack/agent-marketplace/get-listed", review: "Manual review by Circle; the payout wallet is sanctions-screened; listed services are health-checked continuously." },
     fields: {
       endpointUrl: `${origin}/.well-known/x402`,
-      endpoints: PAID_SERVICES.map((s) => ({ name: s.name, method: s.method, url: `${origin}${s.path}`, category: s.category })),
+      endpoints: PAID_SERVICES.map((s) => ({ name: s.name, method: s.method, url: resourceUrl(s, origin), category: s.category })),
       payoutWallet: ctx.config.x402.payTo,
       description: "Lykia: Fence checks, token Scent and route quotes for agents on Arc Network. Pay per call in USDC on Arc over x402.",
       openApiUrl: `${origin}/v1/openapi.json`,
       healthUrl: `${origin}/v1/x402/health`,
       website: site,
-      docsUrl: `${site}/build`,
+      docsUrl: docsUrl(origin),
+      developerPortal: `${site}/forge/reference`,
     },
     pricing: { perCallUsdc: (Number(ctx.config.x402.priceUnits) / 1e6).toString(), scheme: "exact", networks: Object.values(ARC_NETWORKS) },
     settlement,
     evidence: {
       unpaid402: `curl -si -X POST ${origin}/v1/x402/fence/evaluate -H 'content-type: application/json' -d '{}' | head -1   # expect HTTP 402`,
+      unpaid402Quote: `curl -si -X POST ${origin}/v1/x402/quote -H 'content-type: application/json' -d '{}' | head -1   # expect HTTP 402`,
+      unpaid402Scent: `curl -si ${origin}/v1/x402/scent/0x3600000000000000000000000000000000000000 | head -1   # expect HTTP 402`,
       inspect: `circle services inspect ${origin}/v1/x402/quote`,
       health: `curl -s ${origin}/v1/x402/health`,
     },
@@ -142,7 +145,7 @@ export const circleStackModule: ApiModule = {
       res.status(up ? 200 : 503).json({
         status: up ? "ok" : "off",
         settlement,
-        services: PAID_SERVICES.map((s) => ({ id: s.id, method: s.method, resource: `${origin}${s.path}`, status: up ? "accepting-payments" : "off" })),
+        services: PAID_SERVICES.map((s) => ({ id: s.id, method: s.method, resource: resourceUrl(s, origin), status: up ? "accepting-payments" : "off" })),
         uptimeSeconds: Math.max(0, Math.round((Date.now() - STARTED_AT) / 1000)),
         at: new Date(ctx.clock.now()).toISOString(),
       });

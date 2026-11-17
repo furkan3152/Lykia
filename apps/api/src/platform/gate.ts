@@ -206,7 +206,7 @@ export function developerGate(ctx: AppContext) {
         const found = await services(ctx).intents.get(intent[1] as string).catch(() => null);
         if (found && found.intent.environment === "mainnet") throw testKeyMainnetError();
       }
-      // Monthly plan quota and overage: live keys only (the sandbox is free).
+      // Monthly plan quota and overage: live keys only (the sandbox is free); a paid x402 route is bought by its own payment (chargeRequest).
       if (key.mode !== "test") {
         const charged = await chargeRequest(ctx, req, key.owner, ownerPlan);
         res.setHeader("X-Monthly-Quota-Limit", String(charged.included));

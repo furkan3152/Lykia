@@ -129,8 +129,9 @@ describe("Lykia API", () => {
     assert.ok(spec.paths["/v1/x402/fence/evaluate"]);
   });
 
-  it("validates a paid request before asking for payment", async () => {
-    assert.equal((await post("/v1/x402/fence/evaluate", { facts: {} })).status, 400);
+  it("asks for payment before validating a paid request", async () => {
+    assert.equal((await post("/v1/x402/fence/evaluate", { facts: {} })).status, 402);
+    assert.equal((await post("/v1/x402/fence/evaluate", {})).status, 402);
     const ok = await post("/v1/x402/fence/evaluate", { facts: { environment: "testnet", owner: "0x1111111111111111111111111111111111111111", signer: "wallet", steps: [] } });
     assert.equal(ok.status, 402);
   });

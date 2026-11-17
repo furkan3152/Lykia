@@ -9,7 +9,7 @@
 import { LOCALES } from "@lykia/core";
 import { API_VERSIONS, LATEST_API_VERSION, SCOPE_DESCRIPTIONS } from "@lykia/core/api/platform";
 import type { AppContext } from "../../context.js";
-import { openApi as x402Document } from "../../x402/manifest.js";
+import { agentGuidance, docsUrl, openApi as x402Document, siteOrigin } from "../../x402/manifest.js";
 import { EXISTING_ROUTES } from "./catalog.js";
 import { documentedRoutes, type DocumentedRoute } from "./registry.js";
 import { zodToJsonSchema, isOptional, type JsonSchema } from "./zodSchema.js";
@@ -50,7 +50,10 @@ function operationId(route: DocumentedRoute): string {
 function pathParams(route: DocumentedRoute): JsonSchema[] {
   const declared = route.params ? zodToJsonSchema(route.params) : null;
   const props = (declared?.properties ?? {}) as Record<string, JsonSchema>;
-  return [...route.path.matchAll(/:([A-Za-z0-9_]+)/gu)].map((m) => ({ name: m[1], in: "path", required: true, schema: props[m[1] as string] ?? { type: "string" } }));
+  return [...route.path.matchAll(/:([A-Za-z0-9_]+)/gu)].map((m) => {
+    const schema = props[m[1] as string] ?? { type: "string" };
+    return { name: m[1], in: "path", required: true, schema, ...(typeof schema.description === "string" ? { description: schema.description } : {}) };
+  });
 }
 
 function queryParams(route: DocumentedRoute): JsonSchema[] {
@@ -76,6 +79,12 @@ function security(route: DocumentedRoute): JsonSchema[] | undefined {
   }
 }
 
+/** The two header names an x402 payment arrives under; the server reads either. */
+const X402_PAYMENT_HEADERS: readonly JsonSchema[] = [
+  { name: "PAYMENT-SIGNATURE", in: "header", required: false, description: "x402 v2: the payment payload, base64 JSON (an EIP-3009 authorization in USDC on Arc). Send this or X-PAYMENT.", schema: { type: "string" } },
+  { name: "X-PAYMENT", in: "header", required: false, description: "x402 v1 name for the same base64 JSON payment payload. Send this or PAYMENT-SIGNATURE.", schema: { type: "string" } },
+];
+
 const ERROR_RESPONSES = {
   "400": { $ref: "#/components/responses/BadRequest" },
   "401": { $ref: "#/components/responses/Unauthorized" },
@@ -88,7 +97,7 @@ function operation(route: DocumentedRoute): JsonSchema {
   const status = String(route.status ?? 200);
   const parameters: JsonSchema[] = [...pathParams(route), ...queryParams(route), { $ref: "#/components/parameters/LykiaVersion" }, { $ref: "#/components/parameters/AcceptLanguage" }];
   if (route.idempotent) parameters.push({ $ref: "#/components/parameters/IdempotencyKey" });
-  if (route.x402) parameters.push({ name: "X-PAYMENT", in: "header", required: false, description: "Base64 JSON x402 payment payload (EIP-3009 authorization in USDC on Arc).", schema: { type: "string" } });
+  if (route.x402) parameters.push(...X402_PAYMENT_HEADERS);
   const op: JsonSchema = {
     operationId: operationId(route),
     summary: route.summary,
@@ -130,7 +139,7 @@ let cache: { key: string; doc: JsonSchema } | null = null;
 
 export function buildOpenApi(ctx: AppContext, origin: string): JsonSchema {
   const routes = allDocumentedRoutes();
-  const cacheKey = `${origin}|${routes.length}|${ctx.config.version}|${ctx.config.x402.payTo ?? ""}`;
+  const cacheKey = `${origin}|${routes.length}|${ctx.config.version}|${ctx.config.x402.payTo ?? ""}|${ctx.config.x402.priceUnits}|${ctx.config.platform.contactEmail ?? ""}`;
   if (cache?.key === cacheKey) return cache.doc;
   const paid = x402Document(ctx, origin) as { paths: Record<string, Record<string, JsonSchema>>; components: { schemas: Record<string, JsonSchema> } };
   const paths: Record<string, Record<string, JsonSchema>> = {};
@@ -138,7 +147,15 @@ export function buildOpenApi(ctx: AppContext, origin: string): JsonSchema {
     const p = openApiPath(route.path);
     const op = operation(route);
     const extra = paid.paths[p]?.[route.method];
-    if (extra?.["x-x402"]) op["x-x402"] = extra["x-x402"];
+    if (extra?.["x-x402"]) {
+      // A paid operation: price and protocol for agents (x-payment-info), the x402 details, how payment and validation interact, and the answer's schema.
+      op["x-payment-info"] = extra["x-payment-info"];
+      op["x-x402"] = extra["x-x402"];
+      if (!op.description && typeof extra.description === "string") op.description = extra.description;
+      const answer = (extra.responses as { "200"?: { content?: { "application/json"?: { schema?: JsonSchema } } } } | undefined)?.["200"]?.content?.["application/json"]?.schema;
+      const ok = (op.responses as Record<string, { content?: { "application/json"?: { schema?: JsonSchema } } }>)["200"]?.content?.["application/json"];
+      if (answer && ok) ok.schema = answer;
+    }
     paths[p] = { ...(paths[p] ?? {}), [route.method]: op };
   }
   const tags = [...new Set(routes.map((r) => r.tag))].sort().map((name) => ({ name, ...(TAG_DESCRIPTIONS[name] ? { description: TAG_DESCRIPTIONS[name] } : {}) }));
@@ -153,9 +170,11 @@ export function buildOpenApi(ctx: AppContext, origin: string): JsonSchema {
         "Built on Arc Network and Circle's rails. Plan money moves in plain words, check them against a Fence, hand unsigned steps to the user's wallet and follow them to finality. The server never holds user keys; intents come back unsigned. Optional server signers (a gas-only keeper, opt-in Circle developer-controlled wallets) are off unless the operator configures them.\n\nAuthenticate with `Lykia-Key` (lk_live_… or lk_test_…; test keys only reach testnet) or a `Lykia-Session` from wallet sign-in. Pin behaviour with `Lykia-Version` (" +
         API_VERSIONS.join(", ") +
         "). Send `Idempotency-Key` on POSTs. Every answer carries `X-Request-Id`; every error is `{ error: { code, message, details?, requestId } }`.",
-      contact: { name: "Lykia", url: origin.replace("://api.", "://") },
+      contact: { name: "Lykia", url: siteOrigin(ctx, origin), ...(ctx.config.platform.contactEmail ? { email: ctx.config.platform.contactEmail } : {}) },
       license: { name: "MIT", identifier: "MIT" },
+      "x-guidance": agentGuidance(ctx),
     },
+    externalDocs: { description: "The API reference, rendered from this document", url: docsUrl(origin) },
     servers: [{ url: origin }],
     security: [{}, { LykiaKey: [] }, { LykiaSession: [] }],
     tags,
@@ -164,7 +183,7 @@ export function buildOpenApi(ctx: AppContext, origin: string): JsonSchema {
       securitySchemes: {
         LykiaKey: { type: "apiKey", in: "header", name: "Lykia-Key", description: `API key. Scopes: ${Object.entries(SCOPE_DESCRIPTIONS).map(([k, v]) => `${k} (${v})`).join("; ")}` },
         LykiaSession: { type: "apiKey", in: "header", name: "Lykia-Session", description: "Session token from POST /v1/auth/verify (SIWE on Arc)." },
-        X402: { type: "apiKey", in: "header", name: "X-PAYMENT", description: "x402 payment (USDC on Arc) for paid routes and pay-as-you-go overage." },
+        X402: { type: "apiKey", in: "header", name: "X-PAYMENT", description: "x402 payment (USDC on Arc) for paid routes and pay-as-you-go overage. The x402 v2 header PAYMENT-SIGNATURE is read too." },
       },
       parameters: {
         IdempotencyKey: { name: "Idempotency-Key", in: "header", required: false, description: "8 to 128 characters. Retries with the same key and body replay the first answer (Idempotent-Replayed: true); a different body is 409.", schema: { type: "string", pattern: "^[A-Za-z0-9_.:-]{8,128}$" } },
@@ -197,7 +216,7 @@ export function buildOpenApi(ctx: AppContext, origin: string): JsonSchema {
         Forbidden: { description: "The key lacks a scope, the IP or origin is not allowed, or a test key asked for mainnet (LIVE_MODE_REQUIRED).", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         Conflict: { description: "IDEMPOTENCY_CONFLICT: the key was used with a different body, or the first request is still running.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         RateLimited: { description: "RATE_LIMITED or QUOTA_EXCEEDED. Retry-After says when.", headers: { "Retry-After": { schema: { type: "integer" } } }, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-        PaymentRequired: { description: "x402 payment required: { x402Version, error, accepts: [PaymentRequirements] }.", content: { "application/json": { schema: { $ref: "#/components/schemas/PaymentRequired" } } } },
+        PaymentRequired: { description: "x402 payment required: { x402Version, error, resource, accepts: [PaymentRequirements], extensions }, also base64 JSON in the PAYMENT-REQUIRED header.", content: { "application/json": { schema: { $ref: "#/components/schemas/PaymentRequired" } } } },
         ServerError: { description: "An internal or upstream failure. Safe to retry GETs; retry POSTs with the same Idempotency-Key.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
       },
     },
