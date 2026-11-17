@@ -1,0 +1,55 @@
+name: canteen-submit
+on:
+  push:
+    branches: [canteen-submit]
+    paths: ['.canteen/go']
+permissions:
+  contents: write
+concurrency:
+  group: canteen-submit
+  cancel-in-progress: false
+jobs:
+  code:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      device_code: ${{ steps.dc.outputs.device_code }}
+      interval: ${{ steps.dc.outputs.interval }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: dc
+        run: python3 .canteen/device_code.py
+      - name: Publish the code to enter on github.com/login/device
+        run: |
+          git config user.name "Furkan Akdoğan"
+          git config user.email "70746444+furkan3152@users.noreply.github.com"
+          git add .canteen/code.txt
+          git commit -m "Canteen device code"
+          git push
+  submit:
+    needs: code
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet arc-canteen==0.1.18
+      - name: Log in to Canteen with the authorised GitHub account
+        env:
+          DEVICE_CODE: ${{ needs.code.outputs.device_code }}
+          INTERVAL: ${{ needs.code.outputs.interval }}
+        run: python3 .canteen/login.py
+      - name: Submit the showcase entry
+        run: arc-canteen submit-showcase < .canteen/answers.txt | tee .canteen/submit.log
+      - name: Record the outcome
+        if: always()
+        run: |
+          git pull --quiet --rebase || true
+          { echo "github: $(cat .canteen/handle.txt 2>/dev/null || echo unknown)"; grep -E "Showcase submission sent|cancelled|Not logged in|required|rror" .canteen/submit.log || true; } > .canteen/result.txt
+          git config user.name "Furkan Akdoğan"
+          git config user.email "70746444+furkan3152@users.noreply.github.com"
+          git add .canteen/result.txt
+          git commit -m "Canteen submission result"
+          git push

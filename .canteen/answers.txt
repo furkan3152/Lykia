@@ -1,0 +1,14 @@
+https://github.com/furkan3152/Lykia
+https://lykiaai.com
+
+Lykia is an open-source (MIT) intent router and policy layer live on Arc mainnet. Primitives other Arc builders can reuse:
+- The Fence: a typed, hashable spending policy (caps per step and day, venues, tokens, recipients, slippage, health factor, schedule), checked before signing and enforced on chain by Lykia smart accounts.
+- 22 deterministic preflight checks (USDC gas reserve, address poisoning, loan health, duplicates, price impact, stale quotes, bridge destination gas), each with a fix computed in code.
+- Leash: session-key budgets an outside agent cannot exceed, each call carrying its Fence verdict hash in the Arc Memo; Pack: sub-agents with strict-subset Fences and carved budgets.
+- Aggregator API and adapter manifests (lykia.adapter/v1): any Arc protocol becomes routable after on-chain validation, with no redeploy; quotes and builds return EOA transactions, smart-account calls or EIP-5792 wallet_sendCalls.
+- TypeScript and Python SDKs, a CLI, React and web components, an MCP server that executes plans, and x402 pay-per-call endpoints.
+Compared to the single-flow samples in circlefin/arc-*, Lykia adds multi-step planning across Arc venues, policy checks before signing plus on-chain enforcement, and agent spend limits with an on-chain record.
+Mainnet bounty: contracts verified on Sourcify (exact match) and arc.etherscan.io: LykiaAccountFactory 0x810e8db89f4c4e8fa814ed3ed0d636d3416dd7f9, LykiaAccount 0x27cb1d443ab0906f34f0f2b0d421ff0a907c211b, LykiaRouter 0xc9c0ea4d22ddbef4504a634759fb78334efc5d18, LykiaOrders 0xdcefebb3d449b7f8965c5f1ae3bba836f30ae6cc. Announcement: https://x.com/LykiaAi/status/2122747975394877926
+
+y
+y
