@@ -17,7 +17,7 @@ services:
     plan: starter            # always on: the schedulers need a process that does not sleep
     region: virginia         # next to the Neon database (aws-us-east-1)
     rootDir: .               # build from the workspace root (npm workspaces)
-    buildCommand: npm ci && npm run build:api
+    buildCommand: npm ci --include=dev && npm run build:api   # NODE_ENV=production would skip the build tools
     startCommand: node apps/api/dist/index.js
     healthCheckPath: /health
     autoDeploy: true
