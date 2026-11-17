@@ -1,11 +1,15 @@
-# Hosting the API: Vercel or Render
+# Hosting: Render (and Vercel)
 
-The web app (`apps/web`) is a static Vite build and stays on Vercel either way.
-This page is about the API (`apps/api`).
+Lykia is set up to run on Render. The Blueprint in [`render.yaml`](../render.yaml) creates two
+services: `lykia-api`, an always-on Node web service (Starter plan, Virginia, next to
+the Neon database), and `lykia-web`, the static Vite build of `apps/web` on Render's
+CDN with the single-page rewrite, the `/mint` redirect and the security headers. The
+Vercel configuration (`apps/api/vercel.json`, `apps/web/vercel.json`) still works and
+is kept for anyone who prefers Vercel. The table compares how the API runs in each.
 
 ## How the API runs in each place
 
-| | Vercel (today) | Render (`render.yaml`) |
+| | Vercel | Render (`render.yaml`, current) |
 |---|---|---|
 | Process | Serverless function (`apps/api/api/index.js`, wraps `src/vercel.ts`), started per request, frozen between requests | One long-running Node process (`node apps/api/dist/index.js`) |
 | Background schedulers | Run only while an instance is warm. Vercel Cron calls `/cron/standing`, `/cron/orders` and `/cron/alerts` once a day each (the Hobby plan allows daily crons only). A full pass (standing orders, orders, alerts, webhook retries, payouts, invoices, automations) also starts on API traffic, at most once every 5 minutes across instances. For schedules tighter than daily without traffic, point an external pinger at `POST /v1/reconcile/tick` with `Authorization: Bearer $CRON_SECRET`; nothing promises more often than that | Started once after `listen` (`startServer` → `startModules`): standing orders every 30 s, the intent receipt poller, alerts and the limit-order keeper keep running |
@@ -46,6 +50,14 @@ This page is about the API (`apps/api`).
 
 ## Recommendation
 
-Keep the web app on Vercel and run the API on Render once standing orders, limit orders
-and alerts need to fire on time. Vercel remains fine for a demo where nothing has to run
-between requests.
+Run the API on an always-on host once standing orders, limit orders and alerts need to
+fire on time; that is why Lykia is set up for Render. Vercel remains fine for a demo where
+nothing has to run between requests.
+
+## Static site on Render
+
+`lykia-web` builds with `npm ci && npm run build:web` and publishes `apps/web/dist`.
+Render serves an existing file first and applies the `/*` rewrite to `index.html` only
+when no file matches, so assets keep their own paths. Headers are set per path in the
+Blueprint; `/embed/*` carries its own `frame-ancestors` so the embeds can run inside
+other sites.

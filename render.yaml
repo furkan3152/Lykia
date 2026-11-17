@@ -1,14 +1,21 @@
-# Render Blueprint for the Lykia API (apps/api) as a persistent Node web service.
-# Values are never committed: every key with `sync: false` is filled in the
-# Render dashboard (Environment) when the Blueprint is applied.
-# The web app (apps/web) stays on Vercel; point LYKIA_WEB_ORIGIN at it and set
-# VITE_API_URL in the web project to this service's URL.
+# Render Blueprint for Lykia: the API (apps/api) as an always-on Node web
+# service and the web app (apps/web) as a static site on Render's CDN.
+#
+# Secrets are never committed. Every key marked `sync: false` is filled in on
+# the service's Environment page in the Render dashboard (or when the Blueprint
+# is approved). Optional keys that are not listed here can be added there too:
+# ARC_TESTNET_RPC_URL, CIRCLE_WALLET_SET_ID, LYKIA_CIRCLE_SERVER_WALLETS,
+# CIRCLE_X402_SELLER_WALLET_ID, STABLEFX_API_KEY, ZEROX_API_KEY,
+# TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME, LYKIA_FEE_BPS, LYKIA_FEE_RECIPIENT,
+# LYKIA_X402_PAY_TO, LYKIA_X402_PRICE_USDC, LYKIA_X402_FACILITATOR_URL,
+# LYKIA_GUARD_ADDRESS, LYKIA_KEEPER_PRIVATE_KEY, LYKIA_LOG_LEVEL.
+# See apps/api/.env.example for what each one does.
 services:
   - type: web
     name: lykia-api
     runtime: node
-    plan: starter            # always on: schedulers need a process that does not sleep
-    region: frankfurt
+    plan: starter            # always on: the schedulers need a process that does not sleep
+    region: virginia         # next to the Neon database (aws-us-east-1)
     rootDir: .               # build from the workspace root (npm workspaces)
     buildCommand: npm ci && npm run build:api
     startCommand: node apps/api/dist/index.js
@@ -23,28 +30,40 @@ services:
         value: mainnet
       - key: LYKIA_TRUST_PROXY
         value: "1"
-      # Postgres (Neon or Render Postgres). DATABASE_URL / POSTGRES_URL also work; this one wins.
+      - key: LYKIA_PUBLIC_API_URL
+        value: https://api.lykiaai.com
+      # City subdomains: <slug>.lykiaai.com
+      - key: LYKIA_ROOT_DOMAIN
+        value: lykiaai.com
+      - key: LYKIA_WEB_ORIGIN
+        value: https://lykiaai.com,https://www.lykiaai.com
+      - key: LYKIA_SIWE_DOMAINS
+        value: lykiaai.com,www.lykiaai.com
+      - key: LYKIA_ADMIN_ADDRESSES
+        value: "0x8c5281055b197443ff01dbbdfbf29fd63946ca1e"
+      # Public RPCs used to read Gateway mints on other chains (Stile trail).
+      - key: LYKIA_GATEWAY_RPC_BASE
+        value: https://mainnet.base.org
+      - key: LYKIA_GATEWAY_RPC_ARBITRUM
+        value: https://arb1.arbitrum.io/rpc
+      - key: LYKIA_GATEWAY_RPC_ETHEREUM
+        value: https://ethereum-rpc.publicnode.com
+      - key: LYKIA_GATEWAY_RPC_OPTIMISM
+        value: https://mainnet.optimism.io
+      - key: LYKIA_GATEWAY_RPC_AVALANCHE
+        value: https://api.avax.network/ext/bc/C/rpc
+      - key: LYKIA_GATEWAY_RPC_POLYGON
+        value: https://polygon-bor-rpc.publicnode.com
+      # Postgres (Neon). DATABASE_URL / POSTGRES_URL also work; this one wins.
       - key: LYKIA_DATABASE_URL
         sync: false
       - key: LYKIA_SESSION_SECRET
         sync: false
-      - key: LYKIA_WEB_ORIGIN
+      # Guards the /cron/* endpoints an outside scheduler may call.
+      - key: CRON_SECRET
         sync: false
-      # City subdomains: <slug>.lykiaai.com
-      - key: LYKIA_ROOT_DOMAIN
-        sync: false
-      - key: LYKIA_SIWE_DOMAINS
-        sync: false
-      - key: LYKIA_ADMIN_ADDRESSES
-        sync: false
-      # Protocol fee: 100 bps = 1% by default, capped at 300.
-      - key: LYKIA_FEE_BPS
-        sync: false
-      - key: LYKIA_FEE_RECIPIENT
-        sync: false
+      # A dedicated Arc mainnet RPC (for example Alchemy); public endpoints stay as fallbacks.
       - key: ARC_MAINNET_RPC_URL
-        sync: false
-      - key: ARC_TESTNET_RPC_URL
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
@@ -54,35 +73,57 @@ services:
         sync: false
       - key: CIRCLE_ENTITY_SECRET
         sync: false
-      - key: CIRCLE_WALLET_SET_ID
-        sync: false
-      # Opt-in: "true" lets the server sign for Circle developer-controlled wallets.
-      - key: LYKIA_CIRCLE_SERVER_WALLETS
-        sync: false
-      - key: CIRCLE_X402_SELLER_WALLET_ID
-        sync: false
-      - key: STABLEFX_API_KEY
-        sync: false
-      # 0x becomes routable only with this key.
-      - key: ZEROX_API_KEY
-        sync: false
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: TELEGRAM_BOT_USERNAME
-        sync: false
-      - key: LYKIA_X402_PAY_TO
-        sync: false
-      - key: LYKIA_X402_PRICE_USDC
-        sync: false
-      - key: LYKIA_X402_FACILITATOR_URL
-        sync: false
       - key: LYKIA_CONTACT_EMAIL
         sync: false
-      - key: LYKIA_GUARD_ADDRESS
-        sync: false
-      - key: LYKIA_KEEPER_PRIVATE_KEY
-        sync: false
-      - key: CRON_SECRET
-        sync: false
-      - key: LYKIA_LOG_LEVEL
-        sync: false
+
+  - type: web
+    name: lykia-web
+    runtime: static
+    rootDir: .
+    buildCommand: npm ci && npm run build:web
+    staticPublishPath: apps/web/dist
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22.12.0"
+      - key: VITE_API_URL
+        value: https://api.lykiaai.com
+      - key: VITE_LYKIA_ROOT_DOMAIN
+        value: lykiaai.com
+    routes:
+      - type: redirect
+        source: /mint
+        destination: /forge
+      - type: redirect
+        source: /mint/*
+        destination: /forge/*
+      # Single-page app: any path without a file serves index.html.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'self'; script-src 'self' 'sha256-0MuS7NRlEZtkVaWdFttqHwkiT7o73x3HcmjgtEkV6FA=' 'sha256-fA/yDElyLDNHEeosMgmo4W7w9nzwC6wn5Td+9GFIYww='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-src 'self' https:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; frame-ancestors 'none'"
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Strict-Transport-Security
+        value: max-age=63072000; includeSubDomains
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(), microphone=(), geolocation=(), payment=()
+      # Embeds run inside other sites, so they need their own frame-ancestors.
+      - path: /embed/*
+        name: Content-Security-Policy
+        value: "default-src 'self'; script-src 'self' 'sha256-0MuS7NRlEZtkVaWdFttqHwkiT7o73x3HcmjgtEkV6FA=' 'sha256-fA/yDElyLDNHEeosMgmo4W7w9nzwC6wn5Td+9GFIYww='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-src 'self' https:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests; frame-ancestors https: http://localhost:* http://127.0.0.1:*"
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
