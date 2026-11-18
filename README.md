@@ -123,6 +123,24 @@ authoritative version of this table.
 
 - **Plain-language intents.** "Convert 500 USDC to EURC and pay 200 EURC
   for invoice 7" becomes a checked, multi-step plan.
+- **Ask Lyko.** A chat that reads your live wallet on Arc and answers with
+  actions: "fix my loan" comes back as a repay you can sign, and follow-ups
+  such as "half of that" or "same but to Base" resolve against the last
+  answer. A number without a source in the data is never shown.
+- **Preflight before every signature.** 22 deterministic checks run on
+  every plan, order, automation and leash: a gas reserve (gas is USDC on
+  Arc), your cash floor, loan health, price impact, look-alike payees, gas
+  on the destination chain, duplicates, Fence room and more. Each finding
+  is a note, a warning you acknowledge or a block, with fixes computed in
+  code (`packages/core/src/preflight`).
+- **Plans in stages.** Bridge then deposit, or swap then supply: after each
+  stage settles, the next step is rebuilt from what the receipt says
+  arrived and checked again. A refused or reverted step pauses the plan
+  with its reason.
+- **Six languages, day and night.** English, Turkish, Spanish, Brazilian
+  Portuguese, Simplified Chinese and French, Lyko's answers included, never
+  mixed. A night theme, and a contrast check of every main screen in both
+  themes against WCAG AA ([docs/brand.md](docs/brand.md)).
 - **Route search.** Every capable venue is compared on net outcome after
   fees, gas, slippage and risk; the winner is simulated on chain before it
   is offered.
