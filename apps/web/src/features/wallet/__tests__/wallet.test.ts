@@ -6,9 +6,25 @@ import { failureReasons } from "../../ask/model";
 import { circleSetup, parseEntitySecret, recoveryBytes } from "../../circle/setup";
 import { displayRate, rateLabel } from "../../../lib/rates";
 import { modularPath, passkeyConfig, usernameProblem } from "../passkeyConfig";
-import { browserWallets } from "../wallets";
+import { LYKIA_WALLET_ID as CONNECTOR_ID } from "@kletia-wallet/connector";
+
+import { LYKIA_WALLET_ID, browserWallets, hardwareWallet, hasWebBluetooth } from "../wallets";
 
 describe("connect options", () => {
+  it("offers Lykia Wallet (hardware, Web Bluetooth) apart from browser wallets", () => {
+    assert.equal(LYKIA_WALLET_ID, CONNECTOR_ID);
+    const connectors = [
+      { id: "io.metamask", name: "MetaMask", type: "injected", icon: undefined },
+      { id: LYKIA_WALLET_ID, name: "Lykia Wallet", type: "lykiaWallet", icon: "data:image/svg+xml;base64," },
+    ];
+    assert.deepEqual(browserWallets(connectors, true).map((w) => w.id), ["io.metamask"]);
+    assert.equal(hardwareWallet(connectors)?.name, "Lykia Wallet");
+    assert.equal(hardwareWallet(connectors.slice(0, 1)), null);
+    assert.equal(hasWebBluetooth({ bluetooth: {} }), true);
+    assert.equal(hasWebBluetooth({}), false);
+    assert.equal(hasWebBluetooth(undefined), false);
+  });
+
   it("lists EIP-6963 wallets once each and falls back to the injected provider", () => {
     const list = browserWallets(
       [

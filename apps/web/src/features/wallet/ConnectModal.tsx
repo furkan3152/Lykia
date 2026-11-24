@@ -1,6 +1,7 @@
 /**
- * The connect modal: a passkey smart account (Circle Modular Wallet) or a
- * browser wallet found through EIP-6963. No WalletConnect, no QR codes.
+ * The connect modal: a passkey smart account (Circle Modular Wallet), a
+ * browser wallet found through EIP-6963, or Lykia Wallet (the ESP32 hardware
+ * wallet over Web Bluetooth). No WalletConnect, no QR codes.
  */
 import { useMemo, useState } from "react";
 import { useConnect, useConnectors } from "wagmi";
@@ -10,7 +11,7 @@ import { LykoFace, Modal, Tag } from "../../mosaic";
 import { passkeyConfig, usernameProblem } from "./passkeyConfig";
 import { storedCredential } from "./passkey";
 import { useWallet } from "./store";
-import { browserWallets } from "./wallets";
+import { browserWallets, hardwareWallet, hasWebBluetooth } from "./wallets";
 import { t } from "../../i18n";
 
 export function ConnectModal() {
@@ -23,11 +24,14 @@ export function ConnectModal() {
   const connectors = useConnectors();
   const { connectAsync, isPending, variables } = useConnect();
   const [name, setName] = useState("");
-  const [walletError, setWalletError] = useState<string | null>(null);
+  const [walletError, setWalletError] = useState<{ readonly id: string; readonly text: string } | null>(null);
   const configured = passkeyConfig() !== null;
   const stored = storedCredential();
   const hasInjected = typeof window !== "undefined" && Boolean((window as { ethereum?: unknown }).ethereum);
   const wallets = useMemo(() => browserWallets(connectors, hasInjected), [connectors, hasInjected]);
+  const hardware = useMemo(() => hardwareWallet(connectors), [connectors]);
+  const bluetooth = hasWebBluetooth();
+  const pendingId = isPending && variables?.connector && "id" in variables.connector ? variables.connector.id : null;
   const nameProblem = name ? usernameProblem(name) : null;
 
   const connectBrowser = async (id: string) => {
@@ -40,7 +44,7 @@ export function ConnectModal() {
     } catch (e) {
       const text = e instanceof Error ? e.message.split("\n")[0]! : String(e);
       // Plain words only: raw wallet and RPC messages stay out of the interface.
-      setWalletError(/rejected|denied/i.test(text) ? t("wallet.connectModal.theWalletRequestWasRejected") : /already pending|pending request/i.test(text) ? t("wallet.connectModal.theWalletAlreadyHasARequest") : /not (found|installed)|no provider/i.test(text) ? t("wallet.connectModal.thatWalletWasNotFoundIn") : t("wallet.connectModal.theWalletCouldNotConnectTry"));
+      setWalletError({ id, text: /rejected|denied|cancel/i.test(text) ? t("wallet.connectModal.theWalletRequestWasRejected") : /already pending|pending request/i.test(text) ? t("wallet.connectModal.theWalletAlreadyHasARequest") : /not (found|installed)|no provider/i.test(text) ? t("wallet.connectModal.thatWalletWasNotFoundIn") : t("wallet.connectModal.theWalletCouldNotConnectTry") });
     }
   };
 
@@ -100,7 +104,7 @@ export function ConnectModal() {
                   <button type="button" className="m-connect__wallet" disabled={isPending} onClick={() => void connectBrowser(w.id)}>
                     {w.icon ? <img src={w.icon} alt="" width={28} height={28} /> : <span className="m-connect__icon" aria-hidden="true">◆</span>}
                     <span>{w.id === "injected" ? t("wallet.connectModal.browserWallet") : w.name}</span>
-                    {isPending && variables?.connector && "id" in variables.connector && variables.connector.id === w.id ? <Tag tone="sea">{t("wallet.connectModal.opening")}</Tag> : null}
+                    {pendingId === w.id ? <Tag tone="sea">{t("wallet.connectModal.opening")}</Tag> : null}
                   </button>
                 </li>
               ))}
@@ -108,8 +112,31 @@ export function ConnectModal() {
           ) : (
             <p className="m-note">{t("wallet.connectModal.noBrowserWalletFoundInstallOne")}</p>
           )}
-          {walletError ? <p className="m-note m-note--bad" role="alert">{walletError}</p> : null}
+          {walletError && walletError.id !== hardware?.id ? <p className="m-note m-note--bad" role="alert">{walletError.text}</p> : null}
         </section>
+
+        {hardware ? (
+          <section className="m-connect__opt" aria-labelledby="cx-hardware">
+            <div className="m-connect__head">
+              {hardware.icon ? <img src={hardware.icon} alt="" width={28} height={28} /> : <span className="m-connect__icon" aria-hidden="true">▣</span>}
+              <div>
+                <h4 id="cx-hardware">{t("wallet.connectModal.hardwareWallet")}</h4>
+                <p className="m-small m-muted">{t("wallet.connectModal.hardwareWalletHint")}</p>
+              </div>
+            </div>
+            {bluetooth ? (
+              <div className="m-connect__body">
+                <button type="button" className="m-btn m-btn--sea" disabled={isPending} onClick={() => void connectBrowser(hardware.id)}>
+                  {pendingId === hardware.id ? t("wallet.connectModal.opening") : t("wallet.connectModal.connectHardwareWallet")}
+                </button>
+                <p className="m-small m-muted">{t("wallet.connectModal.hardwarePairingHint")}</p>
+              </div>
+            ) : (
+              <p className="m-note">{t("wallet.connectModal.hardwareNeedsBluetooth")}</p>
+            )}
+            {walletError && walletError.id === hardware.id ? <p className="m-note m-note--bad" role="alert">{walletError.text}</p> : null}
+          </section>
+        ) : null}
       </div>
       <p className="m-small m-muted m-center" style={{ marginTop: 12 }}>{t("wallet.connectModal.lykiaNeverHoldsKeysEverythingYou")}</p>
     </Modal>

@@ -4,6 +4,7 @@ import React from "react";
 import { fallback, http, type Transport } from "viem";
 import { createConfig, createStorage, WagmiProvider, type Config } from "wagmi";
 import { injected } from "wagmi/connectors";
+import { lykiaWalletConnector } from "@kletia-wallet/connector";
 
 import { readStorage, removeStorage, writeStorage } from "./state/storage";
 import type { NetworkMode } from "./state/uiPrefs";
@@ -16,6 +17,9 @@ import { walletChains } from "./wallet/chains";
  * through EIP-6963 (wagmi's multi-injected discovery) with the generic
  * injected provider as a fallback; passkey smart accounts live in
  * features/wallet and load their SDK only when used. No WalletConnect.
+ * Lykia Wallet (the ESP32 hardware wallet) joins over Web Bluetooth: its
+ * connector opens the link only when the user picks it, and every signature
+ * is read and approved on the device's own screen.
  */
 
 /** One HTTP transport per public endpoint, tried in order. */
@@ -36,7 +40,7 @@ function configFor(mode: NetworkMode): Config {
   for (const chain of chains) transports[chain.id] = transportFor(chain.rpcUrls.default.http);
   const config = createConfig({
     chains,
-    connectors: [injected({ shimDisconnect: true })],
+    connectors: [injected({ shimDisconnect: true }), lykiaWalletConnector()],
     multiInjectedProviderDiscovery: true,
     transports,
     ssr: false,

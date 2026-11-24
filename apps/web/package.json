@@ -20,6 +20,7 @@
     "@fontsource-variable/space-grotesk": "5.2.10",
     "@fontsource/pixelify-sans": "5.2.5",
     "@fontsource/silkscreen": "5.2.5",
+    "@kletia-wallet/connector": "file:vendor/kletia-wallet-connector-0.2.0.tgz",
     "@lykia/core": "0.1.0",
     "@lykia/embed": "0.1.0",
     "@lykia/sdk": "0.1.0",
