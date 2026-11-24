@@ -43,6 +43,12 @@ export function ConnectModal() {
       close();
     } catch (e) {
       const text = e instanceof Error ? e.message.split("\n")[0]! : String(e);
+      // The hardware wallet's own messages are written for people ("Cihaz kilitli: önce PIN
+      // girin.", "Cihaz zamanında yanıt vermedi."): show them, they say what to do next.
+      if (id === hardware?.id && text && !/cancel|chooser/i.test(text)) {
+        setWalletError({ id, text: `${t("wallet.connectModal.theWalletCouldNotConnectTry")} (${text})` });
+        return;
+      }
       // Plain words only: raw wallet and RPC messages stay out of the interface.
       setWalletError({ id, text: /rejected|denied|cancel/i.test(text) ? t("wallet.connectModal.theWalletRequestWasRejected") : /already pending|pending request/i.test(text) ? t("wallet.connectModal.theWalletAlreadyHasARequest") : /not (found|installed)|no provider/i.test(text) ? t("wallet.connectModal.thatWalletWasNotFoundIn") : t("wallet.connectModal.theWalletCouldNotConnectTry") });
     }
